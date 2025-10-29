@@ -325,6 +325,170 @@
             height: 100%;
         }
 
+        .search-suggestions {
+            position: absolute;
+            top: calc(100% + 12px);
+            left: 0;
+            width: 100%;
+            display: none;
+            flex-direction: column;
+            gap: 0;
+            border-radius: 16px;
+            background: #FFFFFF;
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.12);
+            overflow: hidden;
+            transition: width 0.35s ease-in-out, opacity 0.2s ease-in-out;
+            z-index: 10;
+        }
+
+        .search-suggestions.is-visible {
+            display: flex;
+        }
+
+        .suggestion-heading {
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: 0;
+            text-transform: none;
+            color: #6B7280;
+            margin: 14px 18px 0;
+            padding: 0;
+        }
+
+        .search-suggestions-list {
+            list-style: none;
+            margin: 0;
+            padding: 4px 0;
+        }
+
+        .suggestion-item {
+            padding: 4px 12px;
+        }
+
+        .suggestion-item:first-child {
+            padding-top: 8px;
+        }
+
+        .suggestion-item:last-child {
+            padding-bottom: 8px;
+        }
+
+        .suggestion-primary {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1F2933;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background-color 0.15s ease-in-out;
+        }
+
+        .suggestion-item:hover .suggestion-primary,
+        .suggestion-item:focus-within .suggestion-primary {
+            background-color: rgba(15, 23, 42, 0.08);
+        }
+
+        .suggestion-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            opacity: 0.65;
+            margin-left: -8px;
+        }
+
+        .suggestion-meta {
+            font-size: 12px;
+            color: #6B7280;
+        }
+
+        .search-suggestions-products {
+            display: none;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 26px;
+            padding: 20px 18px 24px;
+            width: 70%;
+            max-width: 1200px;
+            margin: 18px auto 0;
+            height: var(--product-row-height, 295px);
+        }
+
+        .product-card {
+            background: #FFFFFF;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-start;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.15s ease-in-out;
+            text-decoration: none !important;
+            color: inherit !important;
+            flex: 1;
+            min-height: 200px;
+        }
+
+        .product-card:hover,
+        .product-card:focus {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .product-card:hover .product-title,
+        .product-card:focus .product-title {
+            color: #1E90FF;
+        }
+
+        .product-image {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+        }
+
+        .product-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            height: 100%;
+        }
+
+        .product-heading-row {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+            height: 100%;
+        }
+
+        .product-heading {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: 0;
+            text-transform: none;
+            color: #6B7280;
+        }
+
+        .product-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 500;
+            color: #1F2933;
+            flex-grow: 1;
+        }
+
+        .product-meta {
+            margin: 0;
+            font-size: 12px;
+            color: #777777;
+        }
+
+        .search-suggestions-products.is-visible {
+            display: grid;
+        }
+
         .search-dropdown-button {
             position: absolute;
             left: 8px;
@@ -343,10 +507,25 @@
             padding-top: 8px; /* Match the padding to left padding */
             padding-bottom: 8px; /* Match the padding to left padding */
         }
+
+        .viewport-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(15, 23, 42, 0.5);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 500;
+        }
+
+        .viewport-overlay.is-visible {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
         <div class="viewport">
+            <div class="viewport-overlay" aria-hidden="true"></div>
             <div class="viewport-inner">
                 <div class="search-background">
                     <button class="search-close-button" type="button" aria-label="Close search">
@@ -358,6 +537,61 @@
                             <img src="icons/chevron.svg" alt="Chevron" class="chevron">
                         </div>
                         <input type="text" class="search-box" placeholder="Search the web">
+                        <div class="search-suggestions" aria-hidden="true">
+                            <span class="suggestion-heading">Recent Searches</span>
+                            <ul class="search-suggestions-list">
+                                <li class="suggestion-item">
+                                    <span class="suggestion-primary"><img src="icons/clock.svg" alt="Recent search" class="suggestion-icon">hoka</span>
+                                </li>
+                                <li class="suggestion-item">
+                                    <span class="suggestion-primary"><img src="icons/clock.svg" alt="Recent search" class="suggestion-icon">macbook</span>
+                                </li>
+                                <li class="suggestion-item">
+                                    <span class="suggestion-primary"><img src="icons/clock.svg" alt="Recent search" class="suggestion-icon">13 in macbook air</span>
+                                </li>
+                                <li class="suggestion-item">
+                                    <span class="suggestion-primary"><img src="icons/clock.svg" alt="Recent search" class="suggestion-icon">Coffee machines for sale</span>
+                                </li>
+                                <li class="suggestion-item">
+                                    <span class="suggestion-primary"><img src="icons/clock.svg" alt="Recent search" class="suggestion-icon">coffee</span>
+                                </li>
+                                <li class="suggestion-item">
+                                    <span class="suggestion-primary"><img src="icons/clock.svg" alt="Recent search" class="suggestion-icon">coffee grinder</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="search-suggestions-products" aria-hidden="true">
+                        <div class="product-heading-row">
+                            <p class="product-heading">Jump back in</p>
+                            <a href="#" class="product-card">
+                                <img src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=600&q=80" alt="Nike Pegasus Trail" class="product-image">
+                                <div class="product-body">
+                                    <h3 class="product-title">Nike Pegasus Trail</h3>
+                                    <p class="product-meta">Trail Running Shoes</p>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="product-heading-row">
+                            <p class="product-heading">Recent sessions</p>
+                            <a href="#" class="product-card">
+                                <img src="https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80" alt="13-inch MacBook Air" class="product-image">
+                                <div class="product-body">
+                                    <h3 class="product-title">13" MacBook Air</h3>
+                                    <p class="product-meta">Midnight · Apple M3</p>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="product-heading-row">
+                            <p class="product-heading">Trending</p>
+                            <a href="#" class="product-card">
+                                <img src="https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=600&q=80" alt="Breville Barista Express" class="product-image">
+                                <div class="product-body">
+                                    <h3 class="product-title">Breville Barista Express</h3>
+                                    <p class="product-meta">Espresso Machine</p>
+                                </div>
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <h1 class="heading">Thought-provoking stories</h1>
@@ -485,8 +719,11 @@
         const viewport = document.querySelector('.viewport');
         const searchWrapper = document.querySelector('.search-wrapper');
         const searchCloseButton = document.querySelector('.search-close-button');
+        const searchSuggestions = document.querySelector('.search-suggestions');
+        const searchSuggestionsProducts = document.querySelector('.search-suggestions-products');
+        const viewportOverlay = document.querySelector('.viewport-overlay');
 
-        if (searchBox && searchBackground && viewport && searchWrapper && searchCloseButton) {
+        if (searchBox && searchBackground && viewport && searchWrapper && searchCloseButton && searchSuggestions && searchSuggestionsProducts && viewportOverlay) {
             // Search mode: active when the search overlay expands beyond its resting height.
             let collapsedSearchBackgroundHeight = searchBackground.offsetHeight;
             let isSearchMode = false;
@@ -536,6 +773,17 @@
                 searchCloseButton.style.top = `${Math.max(offsetWithinBackground, 0)}px`;
             };
 
+            const updateProductsPosition = () => {
+                if (!isSearchMode || !searchSuggestions.classList.contains('is-visible')) {
+                    searchSuggestionsProducts.style.marginTop = '';
+                    return;
+                }
+
+                const suggestionsHeight = searchSuggestions.offsetHeight;
+                const offset = suggestionsHeight + 24;
+                searchSuggestionsProducts.style.marginTop = `${offset}px`;
+            };
+
             const updateSearchBackgroundAppearance = () => {
                 const shouldShowOverlay = isSearchMode || viewport.scrollTop > 0;
 
@@ -555,7 +803,17 @@
                 }
 
                 searchCloseButton.classList.toggle('is-visible', isSearchMode);
+                searchCloseButton.setAttribute('aria-hidden', String(!isSearchMode));
+
+                searchSuggestions.classList.toggle('is-visible', isSearchMode);
+                searchSuggestions.setAttribute('aria-hidden', String(!isSearchMode));
+
+                searchSuggestionsProducts.classList.toggle('is-visible', isSearchMode);
+                searchSuggestionsProducts.setAttribute('aria-hidden', String(!isSearchMode));
+
+                viewportOverlay.classList.toggle('is-visible', isSearchMode);
                 positionCloseButton();
+                requestAnimationFrame(updateProductsPosition);
             };
 
             const refreshCollapsedHeight = () => {
@@ -589,13 +847,14 @@
                 updateSearchBackgroundAppearance();
 
                 window.requestAnimationFrame(() => {
-                    const targetHeight = Math.max(getBaseHeight() * 0.8, collapsedSearchBackgroundHeight);
+                    const targetHeight = Math.max(getBaseHeight() * 0.84, collapsedSearchBackgroundHeight);
                     const targetMarginBottom = collapsedSearchBackgroundHeight - targetHeight;
 
                     searchBackground.style.height = `${targetHeight}px`;
                     searchBackground.style.marginBottom = `${targetMarginBottom}px`;
                     updateSearchBackgroundAppearance();
                     positionCloseButton();
+                    updateProductsPosition();
                 });
             };
 
@@ -616,6 +875,7 @@
                     searchBackground.style.marginBottom = '0px';
                     updateSearchBackgroundAppearance();
                     positionCloseButton();
+                    updateProductsPosition();
                 });
 
                 const handleTransitionEnd = (event) => {
@@ -629,6 +889,7 @@
                     refreshCollapsedHeight();
                     updateSearchBackgroundAppearance();
                     positionCloseButton();
+                    updateProductsPosition();
                 };
 
                 searchBackground.addEventListener('transitionend', handleTransitionEnd, { once: true });
@@ -655,8 +916,10 @@
             viewport.addEventListener('scroll', updateSearchBackgroundAppearance);
             window.addEventListener('resize', refreshCollapsedHeight);
             window.addEventListener('resize', positionCloseButton);
+            window.addEventListener('resize', () => requestAnimationFrame(updateProductsPosition));
             updateSearchBackgroundAppearance();
             positionCloseButton();
+            updateProductsPosition();
         }
     </script>
 </body>
