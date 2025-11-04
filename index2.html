@@ -527,6 +527,15 @@
             max-width: 1200px;
             margin: 18px auto 0;
             max-height: var(--product-row-height, 295px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+            scrollbar-width: none;
+        }
+
+        .search-suggestions-products::-webkit-scrollbar {
+            width: 0;
+            height: 0;
         }
 
         .product-card {
@@ -544,6 +553,10 @@
             flex: 1;
             min-height: 0;
             height: 100%;
+        }
+
+        .product-card.is-hidden {
+            display: none;
         }
 
         .product-card:hover,
@@ -576,6 +589,39 @@
             flex-direction: column;
             gap: 12px;
             height: 100%;
+        }
+
+        .product-link-list {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .product-link-list li {
+            background: #F5F7FA;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .product-link-list.is-visible {
+            display: flex;
+        }
+
+        .product-link-list li a {
+            display: block;
+            color: #1F2933;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 10px 12px;
+            border-radius: 10px;
+        }
+
+        .product-link-list li a:hover,
+        .product-link-list li a:focus {
+            text-decoration: underline;
         }
 
         .product-heading--placeholder {
@@ -634,11 +680,61 @@
             background-color: rgba(15, 23, 42, 0.5);
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.3s ease-in-out;
+            transition: opacity 0.6s linear;
             z-index: 500;
         }
 
         .viewport-overlay.is-visible {
+            opacity: 1;
+        }
+
+        .search-background-bottom-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 12px 0;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+            border: none;
+            cursor: pointer;
+        }
+
+        .search-background-bottom-overlay.is-visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .search-background-bottom-overlay:hover {
+            background-color: rgba(255, 255, 255, 1);
+        }
+
+        .search-background-bottom-overlay svg {
+            display: block;
+        }
+
+        .search-background-bottom-overlay .chevron-shallow {
+            opacity: 1;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .search-background-bottom-overlay .chevron-steep {
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .search-background-bottom-overlay:hover .chevron-shallow {
+            opacity: 0;
+        }
+
+        .search-background-bottom-overlay:hover .chevron-steep {
             opacity: 1;
         }
     </style>
@@ -648,9 +744,10 @@
             <div class="viewport-overlay" aria-hidden="true"></div>
             <div class="viewport-inner">
                 <div class="search-background">
-                    <button class="search-close-button" type="button" aria-label="Close search">
+                    <!-- NOTE: Do not delete this X icon - it's commented out but may be needed in the future -->
+                    <!-- <button class="search-close-button" type="button" aria-label="Close search">
                         <img src="icons/close.svg" alt="">
-                    </button>
+                    </button> -->
                     <div class="search-wrapper">
                         <div class="search-dropdown-button">
                             <img src="icons/circle.svg" alt="Circle" class="circle-icon">
@@ -667,7 +764,7 @@
                                         <div class="suggestion-product-card-body">
                                             <h3 class="suggestion-product-title">HOKA Clifton 9</h3>
                                             <p class="suggestion-product-meta">Women’s road running shoe · New arrival</p>
-                                        </div>
+                    </div>
                                     </a>
                                 </div>
                             </div>
@@ -675,7 +772,7 @@
                     </div>
                     <div class="search-suggestions-products" aria-hidden="true">
                         <div class="product-column">
-                            <p class="product-heading">Jump back in</p>
+                            <p class="product-heading">From your history</p>
                             <a href="#" class="product-card">
                                 <img src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=600&q=80" alt="Nike Pegasus Trail" class="product-image">
                                 <div class="product-body">
@@ -694,15 +791,16 @@
                                 </div>
                             </a>
                         </div>
-                        <div class="product-column">
-                            <p class="product-heading product-heading--placeholder" aria-hidden="true">Placeholder</p>
-                            <a href="#" class="product-card">
-                                <img src="https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Fellow Stagg EKG Kettle" class="product-image">
+                        <div class="product-column product-column--links">
+                            <p class="product-heading product-heading--placeholder" aria-hidden="true">&nbsp;</p>
+                            <a href="#" class="product-card product-card--primary">
+                                <img src="https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=600&q=80" alt="Fellow Stagg EKG Kettle" class="product-image">
                                 <div class="product-body">
                                     <h3 class="product-title">Fellow Stagg EKG Kettle</h3>
                                     <p class="product-meta">Pour-over Electric Kettle</p>
                                 </div>
                             </a>
+                            <ul class="product-link-list" aria-hidden="true"></ul>
                         </div>
                         <div class="product-column">
                             <p class="product-heading">Trending</p>
@@ -715,6 +813,12 @@
                             </a>
                         </div>
                     </div>
+                    <button class="search-background-bottom-overlay" type="button" aria-label="Close search" aria-hidden="true">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path class="chevron-shallow" d="M4 20L16 15L28 20" stroke="#6B7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path class="chevron-steep" d="M6 20L16 12L26 20" stroke="#6B7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
+                        </svg>
+                    </button>
                 </div>
                 <h1 class="heading">Thought-provoking stories</h1>
                 <div class="articles-grid">
@@ -796,6 +900,15 @@
             </div>
         </div>
     <script>
+        // Logging helper function
+        const log = function() {
+            if (typeof window !== 'undefined' && window.console && window.console.log) {
+                window.console.log.apply(window.console, arguments);
+            }
+        };
+        
+        log('=== SCRIPT STARTED ===');
+        
         const apiKey = 'bCm88s2aE42pgTVWHJn6CRvAf916qPGquNowlZue6tSbVSImQ0hdsWSX';
         const keywords = [
             'UTI', 'trial Paris', 'ghosts',
@@ -848,17 +961,50 @@
         const searchSuggestionsProducts = document.querySelector('.search-suggestions-products');
         const viewportOverlay = document.querySelector('.viewport-overlay');
         const suggestionProductCard = document.querySelector('.suggestion-product-card');
+        const searchBackgroundBottomOverlay = document.querySelector('.search-background-bottom-overlay');
+
+        const recentSearches = [
+            'hoka',
+            'macbook',
+            '13 in macbook air',
+            'Coffee machines for sale',
+            'coffee',
+            'coffee grinder'
+        ];
+
+        const allSuggestions = [
+            'HOKA running shoes',
+            'Hydration packs for hiking',
+            'Hill repeat workouts',
+            'Healthy homemade snacks',
+            'Half marathon playlist',
+            'How to tie running shoes',
+            'Hoop skirt',
+            'House paint',
+            'Home Office Dashboard',
+            'Hot Ones show',
+            'Horizon Zero Dawn',
+            'Hong Kong travel guide',
+            'Honey recipes',
+            'Hockey equipment',
+            'Holiday destinations',
+            'Home renovation ideas',
+            'Horseback riding lessons',
+            'Horticulture tips',
+            'Hologram technology',
+            'Hospitality industry trends'
+        ];
 
         const suggestionPresets = {
-            '': [
-                'hoka',
-                'macbook',
-                '13 in macbook air',
-                'Coffee machines for sale',
-                'coffee',
-                'coffee grinder'
+            'hoka': [
+                'HOKA running shoes',
+                'Hydration packs for hiking',
+                'Hill repeat workouts',
+                'Healthy homemade snacks',
+                'Half marathon playlist',
+                'How to tie running shoes'
             ],
-            'h': [
+            'hok': [
                 'HOKA running shoes',
                 'Hydration packs for hiking',
                 'Hill repeat workouts',
@@ -867,29 +1013,272 @@
                 'How to tie running shoes'
             ],
             'ho': [
-                'HOKA Bondi vs Clifton',
-                'Home foam rolling routine',
-                'How to improve foot strike',
-                'Hot yoga near me',
-                'Household recovery tools',
-                'How to clean running shoes'
-            ],
-            'hok': [
-                'HOKA Carbon X review',
-                'HOKA Endorphin deals',
-                'HOKA store London',
-                'HOKA trail shoes women',
-                'HOKA Clifton 9 sale',
-                'HOKA Speedgoat waterproof'
-            ],
-            'hoka': [
-                'HOKA Clifton 9',
-                'HOKA Clifton 9 women’s',
-                'HOKA Rocket X2',
-                'HOKA Arahi stability shoe',
-                'HOKA running socks',
-                'HOKA clearance near me'
+                'HOKA running shoes',
+                'Hydration packs for hiking',
+                'Hill repeat workouts',
+                'Healthy homemade snacks',
+                'Half marathon playlist',
+                'How to tie running shoes'
             ]
+        };
+
+        const productOverrides = {
+            '': null,
+            'h': null,
+            'ho': {
+                first: {
+                    title: 'Hoop skirt',
+                    meta: 'Vintage-style silhouette',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=600&q=80',
+                        alt: 'Hoop skirt display'
+                    }
+                },
+                second: {
+                    title: 'House paint',
+                    meta: 'Interior matte finish · 5L',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=600&q=80',
+                        alt: 'Paint cans and brush'
+                    }
+                },
+                thirdHeading: 'Recent sessions',
+                thirdLinks: [
+                    { label: 'Home Office Dashboard – Notion', href: '#' },
+                    { label: 'Holodeck VR Labs – Booking', href: '#' },
+                    { label: 'Horizon Zero Dawn Wiki', href: '#' },
+                    { label: 'Hot Ones | Season 21 Trailer', href: '#' }
+                ]
+            },
+            'hok': {
+                first: {
+                    title: 'Hoop skirt',
+                    meta: 'Vintage-style silhouette',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=600&q=80',
+                        alt: 'Hoop skirt display'
+                    }
+                },
+                second: {
+                    title: 'House paint',
+                    meta: 'Interior matte finish · 5L',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=600&q=80',
+                        alt: 'Paint cans and brush'
+                    }
+                },
+                thirdHeading: 'Recent sessions',
+                thirdLinks: [
+                    { label: 'Home Office Dashboard – Notion', href: '#' },
+                    { label: 'Holodeck VR Labs – Booking', href: '#' },
+                    { label: 'Horizon Zero Dawn Wiki', href: '#' },
+                    { label: 'Hot Ones | Season 21 Trailer', href: '#' }
+                ]
+            },
+            'hoka': {
+                first: {
+                    title: 'Hoop skirt',
+                    meta: 'Vintage-style silhouette',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=600&q=80',
+                        alt: 'Hoop skirt display'
+                    }
+                },
+                second: {
+                    title: 'House paint',
+                    meta: 'Interior matte finish · 5L',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=600&q=80',
+                        alt: 'Paint cans and brush'
+                    }
+                },
+                thirdHeading: 'Recent sessions',
+                thirdLinks: [
+                    { label: 'Home Office Dashboard – Notion', href: '#' },
+                    { label: 'Holodeck VR Labs – Booking', href: '#' },
+                    { label: 'Horizon Zero Dawn Wiki', href: '#' },
+                    { label: 'Hot Ones | Season 21 Trailer', href: '#' }
+                ]
+            }
+        };
+
+        const applyProductOverrides = (presetKey) => {
+            const overrides = productOverrides[presetKey];
+            const columns = Array.from(document.querySelectorAll('.search-suggestions-products .product-column'));
+            
+            if (!columns || columns.length === 0) {
+                return;
+            }
+
+            const defaultProducts = [
+                {
+                    heading: 'From your history',
+                    title: 'Nike Pegasus Trail',
+                    meta: 'Trail Running Shoes',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=600&q=80',
+                        alt: 'Nike Pegasus Trail'
+                    }
+                },
+                {
+                    heading: 'Recent sessions',
+                    title: '13" MacBook Air',
+                    meta: 'Midnight · Apple M3',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80',
+                        alt: '13-inch MacBook Air'
+                    }
+                },
+                {
+                    heading: '',
+                    title: 'Fellow Stagg EKG Kettle',
+                    meta: 'Pour-over Electric Kettle',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=600&q=80',
+                        alt: 'Fellow Stagg EKG Kettle'
+                    }
+                },
+                {
+                    heading: 'Trending',
+                    title: 'Breville Barista Express',
+                    meta: 'Espresso Machine',
+                    image: {
+                        src: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=600&q=80',
+                        alt: 'Breville Barista Express'
+                    }
+                }
+            ];
+
+            columns.forEach((column, index) => {
+                const headingElement = column.querySelector('.product-heading');
+                const titleElement = column.querySelector('.product-title');
+                const metaElement = column.querySelector('.product-meta');
+                const imageElement = column.querySelector('.product-image');
+                const cardElement = column.querySelector('.product-card');
+                const linkListElement = column.querySelector('.product-link-list');
+
+                const resetHeading = (text, isPlaceholder = false) => {
+                    if (!headingElement) {
+                        return;
+                    }
+                    headingElement.textContent = text;
+                    if (isPlaceholder) {
+                        headingElement.classList.add('product-heading--placeholder');
+                        headingElement.setAttribute('aria-hidden', 'true');
+                    } else {
+                        headingElement.classList.remove('product-heading--placeholder');
+                        headingElement.removeAttribute('aria-hidden');
+                    }
+                };
+
+                const showCard = () => {
+                    if (cardElement) {
+                        cardElement.classList.remove('is-hidden');
+                    }
+                    if (linkListElement) {
+                        linkListElement.classList.remove('is-visible');
+                        linkListElement.setAttribute('aria-hidden', 'true');
+                        linkListElement.innerHTML = '';
+                    }
+                };
+
+                const showLinkList = (links = []) => {
+                    if (!linkListElement) {
+                        return;
+                    }
+                    linkListElement.innerHTML = '';
+                    links.forEach((link) => {
+                        const li = document.createElement('li');
+                        const anchor = document.createElement('a');
+                        anchor.href = link.href || '#';
+                        anchor.textContent = link.label;
+                        li.appendChild(anchor);
+                        linkListElement.appendChild(li);
+                    });
+                    linkListElement.classList.add('is-visible');
+                    linkListElement.setAttribute('aria-hidden', 'false');
+                    if (cardElement) {
+                        cardElement.classList.add('is-hidden');
+                    }
+                };
+
+                const restoreDefaults = () => {
+                    const defaults = defaultProducts[index];
+                    if (!defaults) {
+                        return;
+                    }
+                    if (headingElement) {
+                        if (defaults.heading) {
+                            resetHeading(defaults.heading, false);
+                        } else {
+                            resetHeading('\u00A0', true);
+                        }
+                    }
+                    if (titleElement) {
+                        titleElement.textContent = defaults.title;
+                    }
+                    if (metaElement) {
+                        metaElement.textContent = defaults.meta;
+                    }
+                    if (imageElement) {
+                        imageElement.src = defaults.image.src;
+                        imageElement.alt = defaults.image.alt;
+                    }
+                    showCard();
+                };
+
+                if (!overrides) {
+                    restoreDefaults();
+                    return;
+                }
+
+                if (index === 0 && overrides.first) {
+                    resetHeading('From your history', false);
+                    if (titleElement) {
+                        titleElement.textContent = overrides.first.title;
+                    }
+                    if (metaElement) {
+                        metaElement.textContent = overrides.first.meta;
+                    }
+                    if (imageElement && overrides.first.image) {
+                        imageElement.src = overrides.first.image.src;
+                        imageElement.alt = overrides.first.image.alt;
+                    }
+                    showCard();
+                } else if (index === 1) {
+                    resetHeading('\u00A0', true);
+                    if (overrides.second) {
+                        if (titleElement) {
+                            titleElement.textContent = overrides.second.title;
+                        }
+                        if (metaElement) {
+                            metaElement.textContent = overrides.second.meta;
+                        }
+                        if (imageElement && overrides.second.image) {
+                            imageElement.src = overrides.second.image.src;
+                            imageElement.alt = overrides.second.image.alt;
+                        }
+                    }
+                    showCard();
+                } else if (index === 2) {
+                    const headingText = overrides.thirdHeading || '';
+                    if (headingText) {
+                        resetHeading(headingText, false);
+                    } else {
+                        resetHeading('\u00A0', true);
+                    }
+                    if (overrides.thirdLinks && overrides.thirdLinks.length > 0) {
+                        showLinkList(overrides.thirdLinks);
+                    } else {
+                        restoreDefaults();
+                    }
+                } else if (index === 3) {
+                    resetHeading('Trending', false);
+                    showCard();
+                } else {
+                    restoreDefaults();
+                }
+            });
         };
 
         const buildSuggestionItem = (label, type = 'recent') => {
@@ -926,12 +1315,44 @@
             const lowerQuery = normalizedQuery.toLowerCase();
             suggestionsListElement.innerHTML = '';
 
-            const presetOrder = ['hoka', 'hok', 'ho', 'h', ''];
-            const presetKey = presetOrder.find((key) => lowerQuery.startsWith(key)) || '';
-            const suggestions = suggestionPresets[presetKey] || suggestionPresets[''];
-            const isRecent = presetKey === '';
+            let suggestions = [];
+            let isRecent = false;
+            let presetKey = '';
+
+            if (normalizedQuery === '') {
+                // Empty query: show recent searches with clock icons
+                isRecent = true;
+                suggestions = recentSearches;
+                presetKey = '';
+            } else {
+                // Has query: show filtered suggestions with magnifying glass icons
+                isRecent = false;
+                
+                // Check for preset matches first (hoka, hok, ho)
+                const presetOrder = ['hoka', 'hok', 'ho'];
+                presetKey = presetOrder.find((key) => lowerQuery.startsWith(key)) || '';
+                
+                if (presetKey && suggestionPresets[presetKey]) {
+                    suggestions = suggestionPresets[presetKey];
+                } else {
+                    // Filter all suggestions based on query
+                    suggestions = allSuggestions.filter(suggestion => 
+                        suggestion.toLowerCase().includes(lowerQuery)
+                    ).slice(0, 6); // Limit to 6 suggestions
+                    presetKey = normalizedQuery.toLowerCase();
+                }
+            }
 
             suggestionsHeadingElement.textContent = isRecent ? 'Recent Searches' : 'Suggestions';
+
+            log('[Suggestions Render]', {
+                query: normalizedQuery,
+                lowerQuery: lowerQuery,
+                presetKey: presetKey,
+                suggestionCount: suggestions.length,
+                isRecent: isRecent,
+                heading: isRecent ? 'Recent Searches' : 'Suggestions'
+            });
 
             suggestions.forEach((label) => {
                 const item = buildSuggestionItem(label, isRecent ? 'recent' : 'generated');
@@ -950,9 +1371,15 @@
                     suggestionsContentElement.classList.remove('has-product');
                 }
             }
+
+            try {
+                applyProductOverrides(presetKey);
+            } catch (error) {
+                console.error('Error applying product overrides:', error);
+            }
         };
 
-        if (searchBox && searchBackground && viewport && searchWrapper && searchCloseButton && searchSuggestions && suggestionsHeadingElement && searchSuggestionsProducts && viewportOverlay) {
+        if (searchBox && searchBackground && viewport && searchWrapper && searchSuggestions && suggestionsHeadingElement && searchSuggestionsProducts && viewportOverlay) {
             // Search mode: active when the search overlay expands beyond its resting height.
             let collapsedSearchBackgroundHeight = searchBackground.offsetHeight;
             let isSearchMode = false;
@@ -998,6 +1425,7 @@
             };
 
             const positionCloseButton = () => {
+                if (!searchCloseButton) return;
                 const backgroundRect = searchBackground.getBoundingClientRect();
                 const searchBoxRect = searchBox.getBoundingClientRect();
                 const buttonHeight = searchCloseButton.offsetHeight || 1;
@@ -1009,12 +1437,42 @@
             const updateProductsPosition = () => {
                 if (!isSearchMode || !searchSuggestions.classList.contains('is-visible')) {
                     searchSuggestionsProducts.style.marginTop = '';
+                    searchSuggestionsProducts.style.maxHeight = '';
+                    log('[Product Position] Hidden - marginTop and maxHeight cleared');
                     return;
                 }
 
+                // Force layout recalculation by reading layout properties
+                void searchSuggestions.offsetHeight;
+                void searchSuggestions.scrollHeight;
+                void suggestionsListElement.offsetHeight;
+                
+                // Now get the actual height after forcing recalculation
                 const suggestionsHeight = searchSuggestions.offsetHeight;
                 const offset = suggestionsHeight + 24;
+                const previousMarginTop = searchSuggestionsProducts.style.marginTop;
                 searchSuggestionsProducts.style.marginTop = `${offset}px`;
+                
+                // Calculate available height for product cards to scroll
+                const backgroundRect = searchBackground.getBoundingClientRect();
+                const backgroundHeight = backgroundRect.height || searchBackground.offsetHeight;
+                const bottomOverlayHeight = searchBackgroundBottomOverlay ? searchBackgroundBottomOverlay.offsetHeight : 50;
+                const availableHeight = Math.max(backgroundHeight - offset - bottomOverlayHeight - 20, 200);
+                searchSuggestionsProducts.style.maxHeight = `${availableHeight}px`;
+                
+                log('[Product Position]', {
+                    suggestionsHeight: suggestionsHeight,
+                    suggestionsScrollHeight: searchSuggestions.scrollHeight,
+                    suggestionsListHeight: suggestionsListElement.offsetHeight,
+                    calculatedOffset: offset,
+                    backgroundHeight: backgroundHeight,
+                    bottomOverlayHeight: bottomOverlayHeight,
+                    availableHeight: availableHeight,
+                    previousMarginTop: previousMarginTop,
+                    newMarginTop: searchSuggestionsProducts.style.marginTop,
+                    searchBoxValue: searchBox.value,
+                    queryLength: searchBox.value.length
+                });
             };
 
             const updateSearchBackgroundAppearance = () => {
@@ -1035,14 +1493,21 @@
                     searchBackground.style.backgroundColor = collapsedBackgroundColorTop;
                 }
 
+                if (searchCloseButton) {
                 searchCloseButton.classList.toggle('is-visible', isSearchMode);
-                searchCloseButton.setAttribute('aria-hidden', String(!isSearchMode));
+                    searchCloseButton.setAttribute('aria-hidden', String(!isSearchMode));
+                }
 
                 searchSuggestions.classList.toggle('is-visible', isSearchMode);
                 searchSuggestions.setAttribute('aria-hidden', String(!isSearchMode));
 
                 searchSuggestionsProducts.classList.toggle('is-visible', isSearchMode);
                 searchSuggestionsProducts.setAttribute('aria-hidden', String(!isSearchMode));
+
+                if (searchBackgroundBottomOverlay) {
+                    searchBackgroundBottomOverlay.classList.toggle('is-visible', isSearchMode);
+                    searchBackgroundBottomOverlay.setAttribute('aria-hidden', String(!isSearchMode));
+                }
 
                 if (isSearchMode && !overlayPendingShow) {
                     viewportOverlay.classList.add('is-visible');
@@ -1118,6 +1583,11 @@
                             }
                             viewportOverlay.classList.add('is-visible');
                         }
+
+                        requestAnimationFrame(() => {
+                            positionCloseButton();
+                            updateProductsPosition();
+                        });
                     };
 
                     searchBackground.addEventListener('transitionend', handleExpandTransitionEnd, { once: true });
@@ -1177,21 +1647,79 @@
             };
 
             searchBox.addEventListener('focus', enterSearchMode);
+            
+            let previousValue = '';
+            let previousLength = 0;
+            
             searchBox.addEventListener('input', (event) => {
-                renderSuggestions(event.target.value);
-                requestAnimationFrame(updateProductsPosition);
+                const currentValue = event.target.value;
+                const currentLength = currentValue.length;
+                const action = currentLength > previousLength ? 'ADDED' : currentLength < previousLength ? 'DELETED' : 'UNCHANGED';
+                
+                log('[Keystroke]', {
+                    action: action,
+                    previousValue: previousValue,
+                    previousLength: previousLength,
+                    currentValue: currentValue,
+                    currentLength: currentLength,
+                    characterChange: action === 'ADDED' ? currentValue[currentLength - 1] : action === 'DELETED' ? '←' : 'none'
+                });
+                
+                // Capture the previous value BEFORE updating it (for transition detection)
+                const savedPreviousValue = previousValue;
+                
+                previousValue = currentValue;
+                previousLength = currentLength;
+                
+                renderSuggestions(currentValue);
+                
+                // Check if we're transitioning from product preview (hoka) to no preview (hok)
+                // Use savedPreviousValue since previousValue has already been updated
+                const hadProductPreview = savedPreviousValue.toLowerCase() === 'hoka';
+                const hasProductPreview = currentValue.toLowerCase() === 'hoka';
+                const isTransitioningAwayFromPreview = hadProductPreview && !hasProductPreview;
+                
+                // Use double requestAnimationFrame plus a timeout to ensure DOM updates and layout are complete
+                // The timeout accounts for the flex-basis transition (0.3s) on the suggestions list
+                // When transitioning away from product preview, wait longer for the layout to fully collapse
+                const timeoutDelay = isTransitioningAwayFromPreview ? 350 : 10;
+                
+                log('[Position Update] Scheduling position update...', {
+                    hadProductPreview: hadProductPreview,
+                    hasProductPreview: hasProductPreview,
+                    isTransitioningAwayFromPreview: isTransitioningAwayFromPreview,
+                    timeoutDelay: timeoutDelay
+                });
+                
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        setTimeout(() => {
+                            log('[Position Update] Executing position update');
+                            updateProductsPosition();
+                        }, timeoutDelay);
+                    });
+                });
             });
+            if (searchCloseButton) {
             searchCloseButton.addEventListener('click', (event) => {
                 event.preventDefault();
                 exitSearchMode();
             });
+            }
+
+            if (searchBackgroundBottomOverlay) {
+                searchBackgroundBottomOverlay.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    exitSearchMode();
+                });
+            }
 
             document.addEventListener('mousedown', (event) => {
                 if (!isSearchMode) {
                     return;
                 }
 
-                if (searchBackground.contains(event.target) || searchCloseButton.contains(event.target)) {
+                if (searchBackground.contains(event.target) || (searchCloseButton && searchCloseButton.contains(event.target))) {
                     return;
                 }
 
@@ -1205,6 +1733,79 @@
             updateSearchBackgroundAppearance();
             positionCloseButton();
             updateProductsPosition();
+
+            // Handle scrolling of product cards when mouse is over search background
+            const handleBackgroundWheel = (event) => {
+                log('[Wheel Event]', {
+                    isSearchMode,
+                    productCardsVisible: searchSuggestionsProducts ? searchSuggestionsProducts.classList.contains('is-visible') : false,
+                    targetElement: event.target.className,
+                    isInSearchBackground: searchBackground ? searchBackground.contains(event.target) : false
+                });
+
+                if (!isSearchMode || !searchSuggestionsProducts || !searchSuggestionsProducts.classList.contains('is-visible')) {
+                    log('[Wheel Event] Early return - search mode, products, or visibility check failed');
+                    return;
+                }
+
+                // Check if we're in the search background by checking position
+                const bgRect = searchBackground.getBoundingClientRect();
+                const eventX = event.clientX;
+                const eventY = event.clientY;
+                const isMouseInBackground = eventX >= bgRect.left && eventX <= bgRect.right && eventY >= bgRect.top && eventY <= bgRect.bottom;
+
+                log('[Wheel Event] Mouse position check', {
+                    eventX,
+                    eventY,
+                    bgRect: { left: bgRect.left, right: bgRect.right, top: bgRect.top, bottom: bgRect.bottom },
+                    isMouseInBackground
+                });
+
+                if (!isMouseInBackground) {
+                    log('[Wheel Event] Mouse not in background area');
+                    return;
+                }
+
+                const maxScrollTop = searchSuggestionsProducts.scrollHeight - searchSuggestionsProducts.clientHeight;
+                log('[Wheel Event] Scroll metrics', {
+                    scrollHeight: searchSuggestionsProducts.scrollHeight,
+                    clientHeight: searchSuggestionsProducts.clientHeight,
+                    maxScrollTop
+                });
+
+                if (maxScrollTop <= 0) {
+                    log('[Wheel Event] No scrollable content');
+                    return;
+                }
+
+                const currentScrollTop = searchSuggestionsProducts.scrollTop;
+                const speedMultiplier = event.deltaMode === 1 ? 120 : 6;
+                const deltaY = event.deltaY * speedMultiplier;
+                const atTop = currentScrollTop <= 0;
+                const atBottom = currentScrollTop >= maxScrollTop;
+
+                log('[Wheel Event] Scroll attempt', {
+                    currentScrollTop,
+                    rawDelta: event.deltaY,
+                    speedMultiplier,
+                    deltaY,
+                    atTop,
+                    atBottom
+                });
+
+                // Allow scrolling through suggestions panel when at edges
+                if ((deltaY < 0 && atTop) || (deltaY > 0 && atBottom)) {
+                    log('[Wheel Event] At edge, allowing default scroll');
+                    return;
+                }
+
+                event.preventDefault();
+                const nextScrollTop = Math.min(Math.max(currentScrollTop + deltaY, 0), maxScrollTop);
+                searchSuggestionsProducts.scrollTop = nextScrollTop;
+                log('[Wheel Event] Scrolled to', nextScrollTop);
+            };
+
+            searchBackground.addEventListener('wheel', handleBackgroundWheel, { passive: false });
         }
     </script>
 </body>
