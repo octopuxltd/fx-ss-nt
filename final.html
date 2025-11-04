@@ -54,6 +54,16 @@
             border-bottom-color: rgba(0, 0, 0, 0.05);
         }
 
+        .top-overlay.no-transition {
+            transition: none !important;
+        }
+
+        .top-overlay.no-transition .search-wrapper,
+        .top-overlay.no-transition .search-description,
+        .top-overlay.no-transition .search-suggestions-preview {
+            transition: none !important;
+        }
+
         .search-wrapper {
             position: fixed;
             top: 32px;
@@ -269,6 +279,10 @@
             transition: top 0.6s ease, background-color 0.6s ease;
         }
 
+        .bottom-overlay.no-transition {
+            transition: none !important;
+        }
+
         .bottom-content {
             width: 100%;
             display: flex;
@@ -350,6 +364,10 @@
         p {
             line-height: 1.6;
             margin-bottom: 16px;
+        }
+
+        .no-transition {
+            transition: none !important;
         }
     </style>
 </head>
@@ -574,9 +592,44 @@
         };
 
         document.addEventListener('DOMContentLoaded', updateImages);
+ 
+         const topOverlay = document.querySelector('.top-overlay');
+         const bottomOverlay = document.querySelector('.bottom-overlay');
+         const searchWrapperElement = document.querySelector('.search-wrapper');
+         const searchDescriptionElement = document.querySelector('.search-description');
+         const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
+         const searchBoxElement = document.querySelector('.search-box');
+        const OVERLAY_STATE_KEY = 'overlayExpanded';
 
-        const topOverlay = document.querySelector('.top-overlay');
-        const bottomOverlay = document.querySelector('.bottom-overlay');
+        const elementsForTransitionControl = [topOverlay, bottomOverlay, searchWrapperElement, searchDescriptionElement, searchSuggestionsPreviewElement];
+
+        const setOverlayState = (expanded, { suppressTransition = false } = {}) => {
+            if (!topOverlay || !bottomOverlay || !searchWrapperElement || !searchDescriptionElement || !searchSuggestionsPreviewElement) {
+                return;
+            }
+
+            if (suppressTransition) {
+                elementsForTransitionControl.forEach((el) => el && el.classList.add('no-transition'));
+            }
+
+            if (expanded) {
+                topOverlay.classList.add('is-focused');
+                bottomOverlay.style.top = '85vh';
+                bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            } else {
+                topOverlay.classList.remove('is-focused');
+                bottomOverlay.style.top = '130px';
+                bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+            }
+
+            sessionStorage.setItem(OVERLAY_STATE_KEY, expanded ? 'true' : 'false');
+
+            if (suppressTransition) {
+                requestAnimationFrame(() => {
+                    elementsForTransitionControl.forEach((el) => el && el.classList.remove('no-transition'));
+                });
+            }
+        };
 
         if (topOverlay && bottomOverlay) {
             const handleOverlayBackground = () => {
@@ -587,18 +640,34 @@
             window.addEventListener('scroll', handleOverlayBackground, { passive: true });
         }
 
-        const searchBoxElement = document.querySelector('.search-box');
         if (topOverlay && searchBoxElement && bottomOverlay) {
             searchBoxElement.addEventListener('focus', () => {
-                topOverlay.classList.add('is-focused');
-                bottomOverlay.style.top = '85vh';
-                bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                setOverlayState(true);
             });
             searchBoxElement.addEventListener('blur', () => {
-                topOverlay.classList.remove('is-focused');
-                bottomOverlay.style.top = '130px';
-                bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+                setTimeout(() => {
+                    const shouldCollapse = document.visibilityState === 'visible' && !topOverlay.contains(document.activeElement);
+                    if (shouldCollapse) {
+                        setOverlayState(false);
+                    }
+                }, 0);
             });
+        }
+
+        if (topOverlay && bottomOverlay) {
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    sessionStorage.setItem(OVERLAY_STATE_KEY, topOverlay.classList.contains('is-focused') ? 'true' : 'false');
+                } else if (document.visibilityState === 'visible') {
+                    const shouldExpand = sessionStorage.getItem(OVERLAY_STATE_KEY) === 'true';
+                    setOverlayState(shouldExpand, { suppressTransition: true });
+                }
+            });
+
+            const previouslyExpanded = sessionStorage.getItem(OVERLAY_STATE_KEY) === 'true';
+            if (previouslyExpanded) {
+                setOverlayState(true, { suppressTransition: true });
+            }
         }
 
         if (topOverlay) {
@@ -618,6 +687,17 @@
                 event.preventDefault();
                 topOverlay.scrollTop = Math.min(Math.max(nextScroll, 0), maxScroll);
             }, { passive: false });
+        }
+
+        const bottomPane = document.querySelector('.pane--bottom');
+        if (bottomPane && topOverlay) {
+            const handleOverlayPosition = () => {
+                if (topOverlay.classList.contains('is-focused')) {
+                    return;
+                }
+                bottomOverlay.style.top = `${Math.max(130, 130 + bottomPane.scrollTop)}px`;
+            };
+            bottomPane.addEventListener('scroll', handleOverlayPosition, { passive: true });
         }
     </script>
 </body>
