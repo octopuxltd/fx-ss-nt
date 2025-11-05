@@ -193,6 +193,164 @@ const suggestionPaths = {
     ],
     
     // ========================================================================
+    // FLIGHTS PATH (AC 8170)
+    // ========================================================================
+    // Typing sequence: a -> ac -> ac  -> ac 8 -> ac 81 -> ac 817 -> ac 8170
+    // Carrot trigger: "ac 817" (flight status and itinerary)
+    // Purpose: Demonstrates flight tracking with status, schedule, and dates
+    // Note: Flight number only appears once user types almost the full number (ac 817)
+    //       Spaces are ignored for matching (ac8170 = ac 8170 = ac 81 70)
+    flights: [
+        {
+            query: 'a',
+            suggestions: [
+                'amazon',
+                'apple',
+                'amazon prime',
+                'airbnb',
+                'ancestry',
+                'american airlines',
+                'asos'
+            ]
+        },
+        {
+            query: 'ac',
+            suggestions: [
+                'accuweather',
+                'academy sports',
+                'accenture',
+                'accounting software',
+                'ac repair near me',
+                'acorns',
+                'acura'
+            ]
+        },
+        {
+            query: 'ac ',
+            suggestions: [
+                'ac milan',
+                'ac repair near me',
+                'ac units',
+                'ac valhalla',
+                'ac hotels',
+                'ac dc',
+                'ac moore'
+            ]
+        },
+        {
+            query: 'ac 8',
+            suggestions: [
+                'ac units 8000 btu',
+                'ac 800 flight',
+                'ac 850 flight',
+                'ac 888 flight',
+                'ac 802 flight',
+                'ac 857 flight',
+                'ac 8 series'
+            ]
+        },
+        {
+            query: 'ac8',
+            suggestions: [
+                'ac units 8000 btu',
+                'ac 800 flight',
+                'ac 850 flight',
+                'ac 888 flight',
+                'ac 802 flight',
+                'ac 857 flight',
+                'ac 8 series'
+            ]
+        },
+        {
+            query: 'ac 81',
+            suggestions: [
+                'ac 8150 flight',
+                'ac 8140 flight',
+                'ac 8180 flight',
+                'ac 8100 flight',
+                'ac 810 flight',
+                'ac 815 flight',
+                'ac 818 flight'
+            ]
+        },
+        {
+            query: 'ac81',
+            suggestions: [
+                'ac 8150 flight',
+                'ac 8140 flight',
+                'ac 8180 flight',
+                'ac 8100 flight',
+                'ac 810 flight',
+                'ac 815 flight',
+                'ac 818 flight'
+            ]
+        },
+        {
+            query: 'ac 817',
+            suggestions: [
+                'ac 8170',
+                'ac 8170 flight status',
+                'ac 8170 schedule',
+                'ac 8170 today',
+                'ac 8170 tomorrow',
+                'ac 8170 tracking',
+                'ac 8171'
+            ],
+            carrot: {
+                state: 2,           // Carrot state ID (see CARROT STATES at top of file)
+                content: 1,         // Content variant: 1 = Flights (AC 8170 itinerary)
+                color: null         // No special text coloring (green text inline for "In flight")
+            }
+        },
+        {
+            query: 'ac817',
+            suggestions: [
+                'ac 8170',
+                'ac 8170 flight status',
+                'ac 8170 schedule',
+                'ac 8170 today',
+                'ac 8170 tomorrow',
+                'ac 8170 tracking',
+                'ac 8171'
+            ],
+            carrot: {
+                state: 2,           // Carrot state ID (see CARROT STATES at top of file)
+                content: 1,         // Content variant: 1 = Flights (AC 8170 itinerary)
+                color: null         // No special text coloring (green text inline for "In flight")
+            }
+        },
+        {
+            query: 'ac 8170',
+            suggestions: [
+                'ac 8170',
+                'ac 8170 flight status',
+                'ac 8170 schedule',
+                'ac 8170 today',
+                'ac 8170 tomorrow',
+                'ac 8170 tracking',
+                'ac 8170 arrivals'
+            ]
+        },
+        {
+            query: 'ac8170',
+            suggestions: [
+                'ac 8170',
+                'ac 8170 flight status',
+                'ac 8170 schedule',
+                'ac 8170 today',
+                'ac 8170 tomorrow',
+                'ac 8170 tracking',
+                'ac 8170 arrivals'
+            ],
+            carrot: {
+                state: 2,           // Carrot state ID (see CARROT STATES at top of file)
+                content: 1,         // Content variant: 1 = Flights (AC 8170 itinerary)
+                color: null         // No special text coloring (green text inline for "In flight")
+            }
+        }
+    ],
+    
+    // ========================================================================
     // LAKERS / SPORTS PATH
     // ========================================================================
     // Typing sequence: l -> la -> lak -> lake -> laker -> lakers -> lakers  -> lakers g -> lakers ga -> lakers gam -> lakers game
@@ -864,7 +1022,8 @@ const iconMappings = {
         'lakers game live', 'las vegas weather', 'laptop', 'wells fargo',
         'webmd', 'uber', 'uber eats', 'uber stock', 'usps tracking',
         'united airlines', 'youtube', 'twitter', 'tiktok', 'target',
-        'tesla', 'time', 'translate'
+        'tesla', 'time', 'translate', 'amazon', 'apple', 'amazon prime',
+        'airbnb', 'accuweather', 'american airlines'
     ],
     
     // Magnifying glass icon - search queries
@@ -895,7 +1054,15 @@ const iconMappings = {
         'time table', 'time in toronto', 'time in texas', 'time today',
         'tokyo time zone', 'tokyo time now', 'tokyo time difference', 'tokyo time converter',
         'tokyo clock', 'time tokyo', 'times table', 'timetable', 'ticketmaster',
-        'tinder', 'timberland', 'tesco'
+        'tinder', 'timberland', 'tesco', 'ac 8170 flight status', 'ac 8170 schedule',
+        'ac 8170 today', 'ac 8170 tomorrow', 'ac 8170 tracking', 'ac 8170 arrivals',
+        'ac milan', 'ac repair near me', 'ac units', 'ac valhalla', 'ac hotels',
+        'academy sports', 'accenture', 'accounting software', 'ancestry', 'asos',
+        'ac 8170', 'ac units 8000 btu', 'ac 800 flight', 'ac 850 flight',
+        'ac 888 flight', 'ac 802 flight', 'ac 857 flight', 'ac 8 series',
+        'ac 8150 flight', 'ac 8140 flight', 'ac 8180 flight', 'ac 8100 flight',
+        'ac 810 flight', 'ac 815 flight', 'ac 818 flight', 'ac 8171', 'ac dc',
+        'ac moore', 'acura'
     ]
     
     // Default is clock icon (history)

@@ -164,30 +164,43 @@
         .search-input-shell {
             position: relative;
             padding: 18px 18px 5px;
-            padding-left: 74px;
+            padding-left: 84px;
         }
 
         .search-dropdown-button {
             position: absolute;
-            left: 8px;
+            left: 7px;
             top: calc(50% + 7px);
             transform: translateY(-50%);
             display: flex;
             align-items: center;
-            padding: 10px 10px;
+            padding: 9px 10px;
             border-radius: 10px;
             background-color: rgba(15, 23, 42, 0.08);
         }
 
         .circle-icon {
-            width: 18px;
-            height: 18px;
-            margin-right: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            margin-right: 6px;
+            border-radius: 50%;
+            background-color: #FFFFFF;
+        }
+
+        .circle-icon__image {
+            width: 16px;
+            height: 16px;
         }
 
         .chevron {
             width: 12px;
             height: 12px;
+            margin-left: 6px;
+            position: relative;
+            top: 1px;
         }
 
         .search-box {
@@ -1049,6 +1062,7 @@
         }
     </style>
     <script src="suggestion-paths.js"></script>
+    <script src="carrot-templates.js"></script>
 </head>
 <body>
     <section class="pane pane--bottom">
@@ -1063,7 +1077,7 @@
                     <li>• AC8170</li>
                     <li>• weather</li>
                     <li>• lakers game</li>
-                    <li class="not-implemented">• uber stock</li>
+                    <li>• uber stock</li>
                     <li>• time tokyo</li>
                 </ul>
                 </div>
@@ -1098,7 +1112,9 @@
                 <div class="search-wrapper">
                     <div class="search-input-shell">
                         <div class="search-dropdown-button">
-                            <img src="icons/circle.svg" alt="Search options" class="circle-icon">
+                            <span class="circle-icon">
+                                <img src="icons/Google.svg" alt="Search options" class="circle-icon__image">
+                            </span>
                             <img src="icons/chevron.svg" alt="Expand" class="chevron">
             </div>
                         <input type="text" class="search-box" placeholder="Search the web">
@@ -1130,6 +1146,10 @@
                             <li class="search-suggestions-preview-item">
                                 <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">coffee grinder</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">gmail</span>
                             </li>
                         </ul>
                             <ul class="search-suggestions-preview-list">
@@ -1501,16 +1521,39 @@
             suggestionsList.innerHTML = sortedSuggestions.map(text => {
                 const icon = getIconForSuggestion(text);
                 
-                // Bold matching characters
+                // Bold matching characters (ignore spaces in search value)
                 let displayText = text;
                 if (searchValue) {
+                    const searchNoSpaces = searchValue.replace(/\s/g, '');
                     const textLower = text.toLowerCase();
-                    const matchIndex = textLower.indexOf(searchValue);
+                    const textNoSpaces = textLower.replace(/\s/g, '');
+                    const matchIndex = textNoSpaces.indexOf(searchNoSpaces);
+                    
                     if (matchIndex !== -1) {
-                        const before = text.substring(0, matchIndex);
-                        const match = text.substring(matchIndex, matchIndex + searchValue.length);
-                        const after = text.substring(matchIndex + searchValue.length);
-                        displayText = `${before}<strong>${match}</strong>${after}`;
+                        // Find the actual position in the original text
+                        let charCount = 0;
+                        let startIndex = -1;
+                        let endIndex = -1;
+                        
+                        for (let i = 0; i < text.length; i++) {
+                            if (text[i] !== ' ') {
+                                if (charCount === matchIndex) {
+                                    startIndex = i;
+                                }
+                                if (charCount === matchIndex + searchNoSpaces.length - 1) {
+                                    endIndex = i + 1;
+                                    break;
+                                }
+                                charCount++;
+                            }
+                        }
+                        
+                        if (startIndex !== -1 && endIndex !== -1) {
+                            const before = text.substring(0, startIndex);
+                            const match = text.substring(startIndex, endIndex);
+                            const after = text.substring(endIndex);
+                            displayText = `${before}<strong>${match}</strong>${after}`;
+                        }
                     }
                 }
                 
@@ -1574,265 +1617,34 @@
                 return;
             }
 
-            if (state === 0) {
-                // State 0: Local recommendations
-                carrotList.innerHTML = `
-                    <li class="search-suggestions-preview-item carrot carrot--local">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="local-business">
-                            <img src="https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=200&h=200&q=80" alt="Peet's Coffee" class="local-business-image">
-                            <div class="local-business-content">
-                                <p class="local-business-name">Peet's Coffee</p>
-                                <p class="local-business-details">1574 Alfredo St, New York · $$ · <span class="local-business-status local-business-status--closed"><strong>Closed</strong> until 10am Mon</span> · <span class="local-business-rating"><span class="star">★</span> 4.3 (1.1k)</span></p>
-                            </div>
-                        </div>
-                    </li>
-                    <li class="search-suggestions-preview-item carrot carrot--local">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="local-business">
-                            <img src="https://images.unsplash.com/photo-1504753793650-d4a2b783c15e?auto=format&fit=crop&w=200&h=200&q=80" alt="Blue Bottle Coffee" class="local-business-image">
-                            <div class="local-business-content">
-                                <p class="local-business-name">Blue Bottle Coffee</p>
-                                <p class="local-business-details">450 Hayes St, New York · $$$ · <span class="local-business-status"><strong>Open</strong> until 8pm</span> · <span class="local-business-rating"><span class="star">★</span> 4.6 (2.3k)</span></p>
-                            </div>
-                        </div>
-                    </li>
-                `;
-            } else if (state === 1) {
-                // State 1: Flight itinerary (same flight on different days)
-                carrotList.innerHTML = `
-                    <li class="search-suggestions-preview-item carrot">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line"><span class="carrot-line-label">Dep</span> <strong>9:21pm</strong> Chicago (CHI)</p>
-                            <p class="carrot-line"><span class="carrot-line-label">Arr</span> <strong>11:42am</strong> Vancouver (VYR)</p>
-                            <p class="carrot-line carrot-line--meta"><span class="carrot-line green-text">In flight</span> · Today · AC 8170</p>
-                        </div>
-                    </li>
-                    <li class="search-suggestions-preview-item carrot">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line"><span class="carrot-line-label">Dep</span> <strong>9:21pm</strong> Chicago (CHI)</p>
-                            <p class="carrot-line"><span class="carrot-line-label">Arr</span> <strong>11:42am</strong> Vancouver (VYR)</p>
-                            <p class="carrot-line carrot-line--meta">Tomorrow · AC 8170</p>
-                        </div>
-                    </li>
-                    <li class="search-suggestions-preview-item carrot">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line"><span class="carrot-line-label">Dep</span> <strong>9:21pm</strong> Chicago (CHI)</p>
-                            <p class="carrot-line"><span class="carrot-line-label">Arr</span> <strong>11:42am</strong> Vancouver (VYR)</p>
-                             <p class="carrot-line carrot-line--meta">Fri, June 6 · AC 8170</p>
-                        </div>
-                    </li>
-                `;
-            } else if (state === 2) {
-                // State 2: Wikipedia article about foxes
-                carrotList.innerHTML = `
-                    <li class="search-suggestions-preview-item carrot carrot--wikipedia">
-                        <div class="carrot-image-container">
-                            <img src="https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=300&h=400&q=80" alt="Red Fox" class="carrot-portrait-image">
-                            <p class="carrot-image-caption">Red Fox (Vulpes vulpes)</p>
-                        </div>
-                        <div class="carrot-text-content">
-                            <p class="carrot-line carrot-line--title">Fox</p>
-                            <p class="carrot-line">Foxes are small-to-medium-sized omnivorous mammals belonging to several genera of the family Canidae. They have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail. Twelve species belong to the monophyletic "true fox" group of genus Vulpes.</p>
-                        </div>
-                    </li>
-                `;
-            } else if (state === 3) {
-                // State 3: Placeholder cards
-                carrotList.innerHTML = `
-                    <li class="search-suggestions-preview-item carrot">
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line">Upcoming event · Friday night</p>
-                            <p class="carrot-line">Local league finals</p>
-                            <p class="carrot-line carrot-line--meta">Tickets available · Section 112</p>
-                        </div>
-                    </li>
-                    <li class="search-suggestions-preview-item carrot">
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line">Live stats · Markets open</p>
-                            <p class="carrot-line">Tech Growth ETF · +1.8%</p>
-                            <p class="carrot-line carrot-line--meta">Updated just now</p>
-                        </div>
-                    </li>
-                    <li class="search-suggestions-preview-item carrot">
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line">World clock</p>
-                            <p class="carrot-line">Tokyo · <strong>05:17</strong></p>
-                            <p class="carrot-line carrot-line--meta">+9 GMT · Sunrise in 43 min</p>
-                        </div>
-                    </li>
-                `;
-            } else if (state === 4) {
-                // State 4: Weather forecast
-                carrotList.innerHTML = `
-                    <li class="search-suggestions-preview-item carrot carrot--weather">
-                        <div class="weather-header">
-                            <p class="weather-title">Accuweather</p>
-                            <button class="weather-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        </div>
-                        <div class="weather-days">
-                            <div class="weather-day">
-                                <p class="weather-day-name">Mon</p>
-                                <div class="weather-icon">☀️</div>
-                                <p class="weather-temp">72°</p>
-                                <p class="weather-temp-low">58°</p>
-                            </div>
-                            <div class="weather-day">
-                                <p class="weather-day-name">Tue</p>
-                                <div class="weather-icon">⛅</div>
-                                <p class="weather-temp">68°</p>
-                                <p class="weather-temp-low">55°</p>
-                            </div>
-                            <div class="weather-day">
-                                <p class="weather-day-name">Wed</p>
-                                <div class="weather-icon">🌧️</div>
-                                <p class="weather-temp">62°</p>
-                                <p class="weather-temp-low">52°</p>
-                            </div>
-                            <div class="weather-day">
-                                <p class="weather-day-name">Thu</p>
-                                <div class="weather-icon">⛈️</div>
-                                <p class="weather-temp">59°</p>
-                                <p class="weather-temp-low">50°</p>
-                            </div>
-                            <div class="weather-day">
-                                <p class="weather-day-name">Fri</p>
-                                <div class="weather-icon">🌤️</div>
-                                <p class="weather-temp">65°</p>
-                                <p class="weather-temp-low">53°</p>
-                            </div>
-                            <div class="weather-day">
-                                <p class="weather-day-name">Sat</p>
-                                <div class="weather-icon">☀️</div>
-                                <p class="weather-temp">70°</p>
-                                <p class="weather-temp-low">56°</p>
-                            </div>
-                            <div class="weather-day">
-                                <p class="weather-day-name">Sun</p>
-                                <div class="weather-icon">☀️</div>
-                                <p class="weather-temp">74°</p>
-                                <p class="weather-temp-low">60°</p>
-                            </div>
-                        </div>
-                    </li>
-                `;
-            } else if (state === 5) {
-                // State 5: Sports
-                carrotList.innerHTML = `
-                    <li class="search-suggestions-preview-item carrot">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line">Lakers vs Warriors</p>
-                            <p class="carrot-line">Live · Q3 <strong>89-92</strong></p>
-                            <p class="carrot-line carrot-line--meta">8:42 remaining · ESPN</p>
-                        </div>
-                    </li>
-                    <li class="search-suggestions-preview-item carrot">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line">Next game</p>
-                            <p class="carrot-line">Lakers vs Celtics</p>
-                            <p class="carrot-line carrot-line--meta">Tomorrow · 7:30pm ET</p>
-                        </div>
-                    </li>
-                    <li class="search-suggestions-preview-item carrot">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line">Standings</p>
-                            <p class="carrot-line">Lakers · <strong>32-18</strong></p>
-                            <p class="carrot-line carrot-line--meta">3rd in Western Conference</p>
-                        </div>
-                    </li>
-                `;
-            } else if (state === 6) {
-                // State 6: Stocks
-                carrotList.innerHTML = `
-                    <li class="search-suggestions-preview-item carrot">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line">UBER</p>
-                            <p class="carrot-line"><strong>$73.45</strong> <span class="green-text">+2.18 (3.06%)</span></p>
-                            <p class="carrot-line carrot-line--meta">NYSE · Updated 4:00pm ET</p>
-                        </div>
-                    </li>
-                    <li class="search-suggestions-preview-item carrot">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line">52-week range</p>
-                            <p class="carrot-line"><strong>$53.12</strong> - <strong>$87.00</strong></p>
-                            <p class="carrot-line carrot-line--meta">Market cap: $148.2B</p>
-                        </div>
-                    </li>
-                    <li class="search-suggestions-preview-item carrot">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="carrot-tile" aria-hidden="true"></div>
-                        <div class="carrot-lines">
-                            <p class="carrot-line">Related stocks</p>
-                            <p class="carrot-line">LYFT <strong>$15.32</strong> <span class="red-text">-0.45 (2.85%)</span></p>
-                            <p class="carrot-line carrot-line--meta">DASH <strong>$182.16</strong> <span class="green-text">+3.21 (1.79%)</span></p>
-                        </div>
-                    </li>
-                `;
-            } else if (state === 7) {
-                // State 7: World clock - Calculate Tokyo time
-                const now = new Date();
-                const tokyoTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-                
-                const hours = tokyoTime.getHours();
-                const minutes = tokyoTime.getMinutes();
-                const seconds = tokyoTime.getSeconds();
-                
-                // Format for display
-                const displayHours = hours % 12 || 12;
-                const displayMinutes = minutes.toString().padStart(2, '0');
-                const period = hours >= 12 ? 'PM' : 'AM';
-                
-                // Calculate clock hand angles
-                const hourAngle = ((hours % 12) * 30) + (minutes * 0.5); // 30° per hour + 0.5° per minute
-                const minuteAngle = (minutes * 6) + (seconds * 0.1); // 6° per minute + 0.1° per second
-                const secondAngle = seconds * 6; // 6° per second
-                
-                // Format date
-                const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const dayName = dayNames[tokyoTime.getDay()];
-                const monthName = monthNames[tokyoTime.getMonth()];
-                const date = tokyoTime.getDate();
-                
-                carrotList.innerHTML = `
-                    <li class="search-suggestions-preview-item carrot carrot--clock">
-                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-                        <div class="clock-container">
-                            <div class="analog-clock">
-                                <div class="clock-face">
-                                    <div class="clock-hand clock-hand--hour" style="transform: translateX(-50%) rotate(${hourAngle}deg)"></div>
-                                    <div class="clock-hand clock-hand--minute" style="transform: translateX(-50%) rotate(${minuteAngle}deg)"></div>
-                                    <div class="clock-hand clock-hand--second" style="transform: translateX(-50%) rotate(${secondAngle}deg)"></div>
-                                    <div class="clock-center"></div>
-                                </div>
-                            </div>
-                            <div class="clock-details">
-                                <p class="clock-location">Tokyo, Japan</p>
-                                <p class="clock-time"><strong>${displayHours}:${displayMinutes}</strong> <span class="clock-period">${period}</span></p>
-                                <p class="clock-meta">JST (UTC+9) · ${dayName}, ${monthName} ${date}</p>
-                            </div>
-                        </div>
-                    </li>
-                `;
+            // Use templates from carrot-templates.js
+            switch(state) {
+                case 0:
+                    carrotList.innerHTML = carrotTemplates.local();
+                    break;
+                case 1:
+                    carrotList.innerHTML = carrotTemplates.flights();
+                    break;
+                case 2:
+                    carrotList.innerHTML = carrotTemplates.wikipedia();
+                    break;
+                case 3:
+                    carrotList.innerHTML = carrotTemplates.placeholder();
+                    break;
+                case 4:
+                    carrotList.innerHTML = carrotTemplates.weather();
+                    break;
+                case 5:
+                    carrotList.innerHTML = carrotTemplates.sports();
+                    break;
+                case 6:
+                    carrotList.innerHTML = carrotTemplates.stocks();
+                    break;
+                case 7:
+                    carrotList.innerHTML = carrotTemplates.worldClock();
+                    break;
+                default:
+                    console.warn(`Unknown carrot state: ${state}`);
             }
 
             carrotList.dataset.carrotState = String(state);
@@ -2019,17 +1831,22 @@
                 const value = (event.target.value || '').toString();
                 const valueLower = value.toLowerCase();
                 
-                if (!value.trim()) {
-                    // Reset to default suggestions
-                    updateSuggestions([
-                        'hoka',
-                        'macbook',
-                        '13 in macbook air',
-                        'Coffee machines for sale',
-                        'taylor swift',
-                        'coffee grinder'
-                    ]);
+                // Clear carrots when field is empty or has only 1 character
+                if (!value.trim() || value.trim().length === 1) {
+                    // Reset to default suggestions if empty
+                    if (!value.trim()) {
+                        updateSuggestions([
+                            'hoka',
+                            'macbook',
+                            '13 in macbook air',
+                            'Coffee machines for sale',
+                            'taylor swift',
+                            'coffee grinder',
+                            'gmail'
+                        ]);
+                    }
                     
+                    // Hide any visible carrot
                     if (currentState !== 0 || suggestionsContainer.classList.contains('show-carrot')) {
                         if (currentState !== 0) {
                             suggestionsContainer.classList.add('expand-left');
@@ -2046,7 +1863,13 @@
                             suggestionsContainer.classList.remove('show-carrot');
                         }
                     }
-                    return;
+                    
+                    // If only 1 character, continue to process suggestions path
+                    if (value.trim().length === 1) {
+                        // Continue processing below
+                    } else {
+                        return;
+                    }
                 }
 
                 // Process suggestion paths
