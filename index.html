@@ -27,12 +27,16 @@
 
         .search-container {
             flex: 1;
-            overflow-y: auto;
+            overflow-y: hidden;
             width: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
             padding-bottom: 80px;
+        }
+
+        .top-overlay.is-focused .search-container {
+            overflow-y: auto;
         }
 
         .top-overlay {
@@ -48,12 +52,12 @@
             border-bottom: 1px solid rgba(0, 0, 0, 0);
             height: 130px;
             box-sizing: border-box;
-            overflow-y: auto;
-            transition: background-color 0.6s ease, border-bottom-color 0.6s ease, height 0.6s ease;
+            overflow: hidden;
+            transition: background-color 0.6s ease, border-bottom-color 0.6s ease, height 0.6s ease, border-bottom-left-radius 0.6s ease, border-bottom-right-radius 0.6s ease;
             display: flex;
             flex-direction: column;
-            border-bottom-left-radius: 50px;
-            border-bottom-right-radius: 50px;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
         }
 
         .top-overlay.is-scrolled {
@@ -65,6 +69,9 @@
             height: 85vh;
             background-color: rgba(255, 255, 255, 0.95);
             border-bottom-color: rgba(0, 0, 0, 0.05);
+            border-bottom-left-radius: 50px;
+            border-bottom-right-radius: 50px;
+            overflow-y: auto;
         }
 
         .top-overlay.no-transition {
@@ -75,6 +82,51 @@
         .top-overlay.no-transition .search-description,
         .top-overlay.no-transition .search-suggestions-preview {
             transition: none !important;
+        }
+
+        .firefox-logo {
+            position: fixed;
+            top: 32px;
+            left: 34px;
+            width: 48px;
+            height: 48px;
+            z-index: 11;
+        }
+
+        .demo-searches {
+            position: fixed;
+            top: 90px;
+            left: 34px;
+            font-size: 13px;
+            color: #6B7280;
+            line-height: 1.6;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 11;
+        }
+
+        .top-overlay.is-focused .demo-searches {
+            opacity: 1;
+        }
+
+        .demo-searches-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .demo-searches ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .demo-searches li {
+            margin: 2px 0;
+        }
+
+        .demo-searches .not-implemented {
+            text-decoration: line-through;
         }
 
         .search-wrapper {
@@ -297,6 +349,19 @@
         }
 
         .carrot-line.blue-text {
+            color: #2563EB;
+        }
+
+        /* Color classes for inline spans */
+        .red-text {
+            color: #DC2626;
+        }
+
+        .green-text {
+            color: #16A34A;
+        }
+
+        .blue-text {
             color: #2563EB;
         }
 
@@ -625,6 +690,120 @@
             background-color: rgba(15, 23, 42, 0.12);
         }
 
+        /* Clock carrot styles */
+        .carrot--clock {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 240px;
+        }
+
+        .clock-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .analog-clock {
+            width: 120px;
+            height: 120px;
+            position: relative;
+        }
+
+        .clock-face {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #334155;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .clock-hand {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform-origin: bottom center;
+            background: #1e293b;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .clock-hand--hour {
+            width: 4px;
+            height: 30px;
+            margin-left: -2px;
+            transform: translateX(-50%) rotate(160deg);
+            z-index: 2;
+        }
+
+        .clock-hand--minute {
+            width: 3px;
+            height: 45px;
+            margin-left: -1.5px;
+            transform: translateX(-50%) rotate(102deg);
+            z-index: 3;
+        }
+
+        .clock-hand--second {
+            width: 2px;
+            height: 48px;
+            margin-left: -1px;
+            background: #ef4444;
+            transform: translateX(-50%) rotate(102deg);
+            z-index: 4;
+        }
+
+        .clock-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            background: #1e293b;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+        }
+
+        .clock-details {
+            text-align: center;
+        }
+
+        .clock-location {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1F2933;
+            margin: 0 0 8px 0;
+        }
+
+        .clock-time {
+            font-size: 28px;
+            font-weight: 600;
+            color: #1F2933;
+            margin: 0 0 4px 0;
+        }
+
+        .clock-time strong {
+            font-weight: 600;
+        }
+
+        .clock-period {
+            font-size: 18px;
+            font-weight: 400;
+            color: #64748b;
+            margin-left: 4px;
+        }
+
+        .clock-meta {
+            font-size: 12px;
+            color: #64748b;
+            margin: 0;
+        }
+
         .search-suggestions-preview-item:hover,
         .search-suggestions-preview-item:focus-within {
             background-color: rgba(15, 23, 42, 0.08);
@@ -869,11 +1048,27 @@
             border: 0;
         }
     </style>
+    <script src="suggestion-paths.js"></script>
 </head>
 <body>
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
+            <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
+            <div class="demo-searches">
+                <div class="demo-searches-title">Type these demos:</div>
+                <ul>
+                    <li>• coffee shops</li>
+                    <li>• fox wiki</li>
+                    <li>• AC8170</li>
+                    <li>• weather</li>
+                    <li>• lakers game</li>
+                    <li class="not-implemented">• uber stock</li>
+                    <li>• time tokyo</li>
+                </ul>
+                </div>
+            <!-- DEBUG BUTTONS - DO NOT DELETE! Uncomment for testing/development -->
+            <!--
             <div class="debug-buttons">
                 <button class="debug-button" type="button">1. No enriched content</button>
                 <button class="debug-button" type="button">2. Local recommendations</button>
@@ -883,14 +1078,15 @@
                 <button class="debug-button" type="button">6. Sports</button>
                 <button class="debug-button" type="button">7. Stocks</button>
                 <button class="debug-button" type="button">8. World clock</button>
-            </div>
+                </div>
             <div class="debug-buttons-bottom">
                 <button class="debug-button" type="button">A</button>
                 <button class="debug-button" type="button">B</button>
                 <button class="debug-button" type="button">C</button>
                 <button class="debug-button" type="button">D</button>
                 <button class="debug-button" type="button">E</button>
-            </div>
+                </div>
+            -->
             <button class="search-background-bottom-overlay" type="button">
                 <span class="visually-hidden">Collapse search overlay</span>
                 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -904,9 +1100,9 @@
                         <div class="search-dropdown-button">
                             <img src="icons/circle.svg" alt="Search options" class="circle-icon">
                             <img src="icons/chevron.svg" alt="Expand" class="chevron">
-                        </div>
+            </div>
                         <input type="text" class="search-box" placeholder="Search the web">
-                    </div>
+                </div>
                     <div class="search-suggestions-preview" aria-hidden="true">
                         <div class="search-suggestions-divider"></div>
                         <div class="search-suggestions-preview-column-container expand-left">
@@ -929,7 +1125,7 @@
                             </li>
                             <li class="search-suggestions-preview-item">
                                 <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
-                                <span class="label">coffee</span>
+                                <span class="label">taylor swift</span>
                             </li>
                             <li class="search-suggestions-preview-item">
                                 <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
@@ -943,7 +1139,7 @@
                                         <p class="carrot-line">Departure <strong>9:21pm</strong> Chicago (CHI)</p>
                                         <p class="carrot-line">Arrival <strong>11:42am</strong> Vancouver (VYR)</p>
                                         <p class="carrot-line carrot-line--meta"><span class="carrot-line green-text">In flight</span> · Today · AC 8170</p>
-                                    </div>
+            </div>
                                 </li>
                                 <li class="search-suggestions-preview-item carrot">
                                     <div class="carrot-tile" aria-hidden="true"></div>
@@ -951,7 +1147,7 @@
                                         <p class="carrot-line">Departure <strong>7:05am</strong> New York (JFK)</p>
                                         <p class="carrot-line">Arrival <strong>9:18am</strong> Toronto (YYZ)</p>
                                         <p class="carrot-line carrot-line--meta">Boarding · Thu, June 5 · DL 4732</p>
-                                    </div>
+        </div>
                                 </li>
                                 <li class="search-suggestions-preview-item carrot">
                                     <div class="carrot-tile" aria-hidden="true"></div>
@@ -959,11 +1155,11 @@
                                         <p class="carrot-line">Departure <strong>2:45pm</strong> Los Angeles (LAX)</p>
                                         <p class="carrot-line">Arrival <strong>6:10pm</strong> Seattle (SEA)</p>
                                         <p class="carrot-line carrot-line--meta">Scheduled · Fri, June 6 · AS 124</p>
-                                    </div>
+                        </div>
                                 </li>
                             </ul>
-                        </div>
                     </div>
+                </div>
                 </div>
                 <div class="search-description">
                     <div class="overlay-product-grid">
@@ -1012,8 +1208,8 @@
             </div>
         </div>
         <div class="bottom-content">
-            <h1 class="heading">Thought-provoking stories</h1>
-            <div class="articles-grid">
+                <h1 class="heading">Thought-provoking stories</h1>
+                <div class="articles-grid">
                 <a href="#" class="card">
                     <div class="image-placeholder"></div>
                     <h2>The Surprising Science Behind Lightning</h2>
@@ -1108,16 +1304,16 @@
             for (const keyword of keywords) {
                 try {
                     const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(keyword)}&per_page=1`, {
-                        headers: {
-                            Authorization: apiKey
-                        }
-                    });
+                    headers: {
+                        Authorization: apiKey
+                    }
+                });
 
                     if (!response.ok) {
                         throw new Error(`Pexels request failed: ${response.status}`);
                     }
 
-                    const data = await response.json();
+                const data = await response.json();
                     const photoUrl = data.photos && data.photos[0] ? data.photos[0].src.medium : null;
                     imageUrls.push(photoUrl || 'https://via.placeholder.com/600x400?text=Image');
                 } catch (error) {
@@ -1267,19 +1463,112 @@
         const debugButtons = document.querySelectorAll('.debug-buttons .debug-button');
         const suggestionsContainer = document.querySelector('.search-suggestions-preview-column-container');
         const carrotList = document.querySelector('.search-suggestions-preview-list:last-child');
+        const suggestionsList = document.querySelector('.search-suggestions-preview-list:first-child');
         
         let currentState = 0; // Track current state
         
-        function setCarrotColor(colorClass) {
-            const carrotLines = carrotList.querySelectorAll('.carrot-line');
-            carrotLines.forEach(line => {
-                line.classList.remove('red-text', 'green-text', 'blue-text');
-                if (colorClass) {
-                    line.classList.add(colorClass);
-                }
-            });
+        function getIconForSuggestion(text) {
+            const textLower = text.toLowerCase();
+            
+            if (iconMappings.lightning.includes(textLower)) {
+                return 'icons/lightning.svg';
+            } else if (iconMappings.search.includes(textLower)) {
+                return 'icons/search.svg';
+            }
+            return 'icons/clock.svg';
         }
+        
+        function updateSuggestions(suggestions) {
+            if (!suggestionsList) return;
+            
+            // Sort suggestions by icon type: lightning first, clock second, search last
+            const sortedSuggestions = suggestions.sort((a, b) => {
+                const iconA = getIconForSuggestion(a);
+                const iconB = getIconForSuggestion(b);
+                
+                const iconOrder = {
+                    'icons/lightning.svg': 0,
+                    'icons/clock.svg': 1,
+                    'icons/search.svg': 2
+                };
+                
+                return iconOrder[iconA] - iconOrder[iconB];
+            });
+            
+            // Get current search value for highlighting
+            const searchValue = searchBoxElement ? searchBoxElement.value.toLowerCase() : '';
+            
+            suggestionsList.innerHTML = sortedSuggestions.map(text => {
+                const icon = getIconForSuggestion(text);
+                
+                // Bold matching characters
+                let displayText = text;
+                if (searchValue) {
+                    const textLower = text.toLowerCase();
+                    const matchIndex = textLower.indexOf(searchValue);
+                    if (matchIndex !== -1) {
+                        const before = text.substring(0, matchIndex);
+                        const match = text.substring(matchIndex, matchIndex + searchValue.length);
+                        const after = text.substring(matchIndex + searchValue.length);
+                        displayText = `${before}<strong>${match}</strong>${after}`;
+                    }
+                }
+                
+                return `
+                    <li class="search-suggestions-preview-item">
+                        <img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon">
+                        <span class="label">${displayText}</span>
+                    </li>
+                `;
+            }).join('');
+        }
+        
+        function processSuggestionPath(valueLower) {
+            // Build a flat lookup map from all suggestion paths
+            const pathLookup = {};
+            Object.values(suggestionPaths).forEach(pathArray => {
+                pathArray.forEach(step => {
+                    pathLookup[step.query] = step;
+                });
+            });
+            
+            const match = pathLookup[valueLower];
+            if (match) {
+                updateSuggestions(match.suggestions);
+                
+                // Show carrot if specified
+                if (match.carrot) {
+                    const currentCarrotState = carrotList.dataset.carrotState;
+                    const showingCarrot = currentState === match.carrot.state && 
+                                         currentCarrotState === String(match.carrot.content) && 
+                                         suggestionsContainer.classList.contains('show-carrot');
+                    
+                    if (!showingCarrot) {
+                        if (currentState !== 0) {
+                            suggestionsContainer.classList.add('expand-left');
+                            suggestionsContainer.classList.remove('show-carrot');
 
+                            setTimeout(() => {
+                                setCarrotContent(match.carrot.content);
+                                currentState = match.carrot.state;
+                                suggestionsContainer.classList.remove('expand-left');
+                                suggestionsContainer.classList.add('show-carrot');
+                            }, 900);
+                        } else {
+                            setCarrotContent(match.carrot.content);
+                            currentState = match.carrot.state;
+                            suggestionsContainer.classList.remove('expand-left');
+                            suggestionsContainer.classList.add('show-carrot');
+                        }
+                    }
+                }
+                // Don't hide carrot if no carrot specified - keep it showing if already visible
+                
+                return true;
+            }
+            return false;
+        }
+        
         function setCarrotContent(state) {
             if (!carrotList) {
                 return;
@@ -1436,6 +1725,114 @@
                         </div>
                     </li>
                 `;
+            } else if (state === 5) {
+                // State 5: Sports
+                carrotList.innerHTML = `
+                    <li class="search-suggestions-preview-item carrot">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line">Lakers vs Warriors</p>
+                            <p class="carrot-line">Live · Q3 <strong>89-92</strong></p>
+                            <p class="carrot-line carrot-line--meta">8:42 remaining · ESPN</p>
+                        </div>
+                    </li>
+                    <li class="search-suggestions-preview-item carrot">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line">Next game</p>
+                            <p class="carrot-line">Lakers vs Celtics</p>
+                            <p class="carrot-line carrot-line--meta">Tomorrow · 7:30pm ET</p>
+                        </div>
+                    </li>
+                    <li class="search-suggestions-preview-item carrot">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line">Standings</p>
+                            <p class="carrot-line">Lakers · <strong>32-18</strong></p>
+                            <p class="carrot-line carrot-line--meta">3rd in Western Conference</p>
+                        </div>
+                    </li>
+                `;
+            } else if (state === 6) {
+                // State 6: Stocks
+                carrotList.innerHTML = `
+                    <li class="search-suggestions-preview-item carrot">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line">UBER</p>
+                            <p class="carrot-line"><strong>$73.45</strong> <span class="green-text">+2.18 (3.06%)</span></p>
+                            <p class="carrot-line carrot-line--meta">NYSE · Updated 4:00pm ET</p>
+                        </div>
+                    </li>
+                    <li class="search-suggestions-preview-item carrot">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line">52-week range</p>
+                            <p class="carrot-line"><strong>$53.12</strong> - <strong>$87.00</strong></p>
+                            <p class="carrot-line carrot-line--meta">Market cap: $148.2B</p>
+                        </div>
+                    </li>
+                    <li class="search-suggestions-preview-item carrot">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line">Related stocks</p>
+                            <p class="carrot-line">LYFT <strong>$15.32</strong> <span class="red-text">-0.45 (2.85%)</span></p>
+                            <p class="carrot-line carrot-line--meta">DASH <strong>$182.16</strong> <span class="green-text">+3.21 (1.79%)</span></p>
+                        </div>
+                    </li>
+                `;
+            } else if (state === 7) {
+                // State 7: World clock - Calculate Tokyo time
+                const now = new Date();
+                const tokyoTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+                
+                const hours = tokyoTime.getHours();
+                const minutes = tokyoTime.getMinutes();
+                const seconds = tokyoTime.getSeconds();
+                
+                // Format for display
+                const displayHours = hours % 12 || 12;
+                const displayMinutes = minutes.toString().padStart(2, '0');
+                const period = hours >= 12 ? 'PM' : 'AM';
+                
+                // Calculate clock hand angles
+                const hourAngle = ((hours % 12) * 30) + (minutes * 0.5); // 30° per hour + 0.5° per minute
+                const minuteAngle = (minutes * 6) + (seconds * 0.1); // 6° per minute + 0.1° per second
+                const secondAngle = seconds * 6; // 6° per second
+                
+                // Format date
+                const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const dayName = dayNames[tokyoTime.getDay()];
+                const monthName = monthNames[tokyoTime.getMonth()];
+                const date = tokyoTime.getDate();
+                
+                carrotList.innerHTML = `
+                    <li class="search-suggestions-preview-item carrot carrot--clock">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="clock-container">
+                            <div class="analog-clock">
+                                <div class="clock-face">
+                                    <div class="clock-hand clock-hand--hour" style="transform: translateX(-50%) rotate(${hourAngle}deg)"></div>
+                                    <div class="clock-hand clock-hand--minute" style="transform: translateX(-50%) rotate(${minuteAngle}deg)"></div>
+                                    <div class="clock-hand clock-hand--second" style="transform: translateX(-50%) rotate(${secondAngle}deg)"></div>
+                                    <div class="clock-center"></div>
+                                </div>
+                            </div>
+                            <div class="clock-details">
+                                <p class="clock-location">Tokyo, Japan</p>
+                                <p class="clock-time"><strong>${displayHours}:${displayMinutes}</strong> <span class="clock-period">${period}</span></p>
+                                <p class="clock-meta">JST (UTC+9) · ${dayName}, ${monthName} ${date}</p>
+                            </div>
+                        </div>
+                    </li>
+                `;
             }
 
             carrotList.dataset.carrotState = String(state);
@@ -1459,14 +1856,12 @@
                     // Wait for slide out, then change content while hidden, then slide in
                     setTimeout(() => {
                         setCarrotContent(0);
-                        setCarrotColor(null);
                         currentState = 1;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
                     }, 900);
                 } else {
                     setCarrotContent(0);
-                    setCarrotColor(null);
                     currentState = 1;
                     suggestionsContainer.classList.remove('expand-left');
                     suggestionsContainer.classList.add('show-carrot');
@@ -1483,7 +1878,6 @@
                     // Wait for slide out, then change content while hidden, then slide in
                     setTimeout(() => {
                         setCarrotContent(1);
-                        setCarrotColor(null);
                         currentState = 2;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
@@ -1507,7 +1901,6 @@
                     // Wait for slide out, then change content while hidden, then slide in
                     setTimeout(() => {
                         setCarrotContent(2);
-                        setCarrotColor(null);
                         currentState = 3;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
@@ -1531,7 +1924,6 @@
                     // Wait for slide out, then change content while hidden, then slide in
                     setTimeout(() => {
                         setCarrotContent(4);
-                        setCarrotColor('green-text');
                         currentState = 4;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
@@ -1545,7 +1937,7 @@
                 }
             });
 
-            // Button 5 (index 5): Sports (placeholder - uses flight itinerary for now)
+            // Button 5 (index 5): Sports
             debugButtons[5].addEventListener('click', () => {
                 if (currentState !== 0) {
                     // Transition to 0 first
@@ -1554,36 +1946,34 @@
                     
                     // Wait for slide out, then change content while hidden, then slide in
                     setTimeout(() => {
-                        setCarrotContent(3);
-                        setCarrotColor('blue-text');
+                        setCarrotContent(5);
                         currentState = 5;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
                     }, 900);
                 } else {
-                    setCarrotContent(3);
-                    setCarrotColor('blue-text');
+                    setCarrotContent(5);
+                    setCarrotColor(null);
                     currentState = 5;
                     suggestionsContainer.classList.remove('expand-left');
                     suggestionsContainer.classList.add('show-carrot');
                 }
             });
 
-            // Button 6 (index 6): Stocks (placeholder)
+            // Button 6 (index 6): Stocks
             debugButtons[6].addEventListener('click', () => {
                 if (currentState !== 0) {
                     suggestionsContainer.classList.add('expand-left');
                     suggestionsContainer.classList.remove('show-carrot');
                     
                     setTimeout(() => {
-                        setCarrotContent(3);
-                        setCarrotColor(null);
+                        setCarrotContent(6);
                         currentState = 6;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
                     }, 900);
                 } else {
-                    setCarrotContent(3);
+                    setCarrotContent(6);
                     setCarrotColor(null);
                     currentState = 6;
                     suggestionsContainer.classList.remove('expand-left');
@@ -1591,21 +1981,20 @@
                 }
             });
 
-            // Button 7 (index 7): World clock (placeholder)
+            // Button 7 (index 7): World clock
             debugButtons[7].addEventListener('click', () => {
                 if (currentState !== 0) {
                     suggestionsContainer.classList.add('expand-left');
                     suggestionsContainer.classList.remove('show-carrot');
                     
                     setTimeout(() => {
-                        setCarrotContent(3);
-                        setCarrotColor(null);
+                        setCarrotContent(7);
                         currentState = 7;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
                     }, 900);
                 } else {
-                    setCarrotContent(3);
+                    setCarrotContent(7);
                     setCarrotColor(null);
                     currentState = 7;
                     suggestionsContainer.classList.remove('expand-left');
@@ -1620,7 +2009,6 @@
             searchBoxElement.addEventListener('focus', () => {
                 if (currentState !== 0 || suggestionsContainer.classList.contains('show-carrot')) {
                     setCarrotContent(0);
-                    setCarrotColor(null);
                     currentState = 0;
                     suggestionsContainer.classList.add('expand-left');
                     suggestionsContainer.classList.remove('show-carrot');
@@ -1629,7 +2017,19 @@
 
             searchBoxElement.addEventListener('input', (event) => {
                 const value = (event.target.value || '').toString();
+                const valueLower = value.toLowerCase();
+                
                 if (!value.trim()) {
+                    // Reset to default suggestions
+                    updateSuggestions([
+                        'hoka',
+                        'macbook',
+                        '13 in macbook air',
+                        'Coffee machines for sale',
+                        'taylor swift',
+                        'coffee grinder'
+                    ]);
+                    
                     if (currentState !== 0 || suggestionsContainer.classList.contains('show-carrot')) {
                         if (currentState !== 0) {
                             suggestionsContainer.classList.add('expand-left');
@@ -1637,12 +2037,10 @@
 
                             setTimeout(() => {
                                 setCarrotContent(0);
-                                setCarrotColor(null);
                                 currentState = 0;
                             }, 900);
                         } else {
                             setCarrotContent(0);
-                            setCarrotColor(null);
                             currentState = 0;
                             suggestionsContainer.classList.add('expand-left');
                             suggestionsContainer.classList.remove('show-carrot');
@@ -1651,6 +2049,13 @@
                     return;
                 }
 
+                // Process suggestion paths
+                if (processSuggestionPath(valueLower)) {
+                    // Path was matched and processed
+                    return;
+                }
+
+                // Keep existing flight number pattern
                 if (flightNumberPattern.test(value)) {
                     const currentCarrotState = carrotList.dataset.carrotState;
                     const showingFlights = currentState === 2 && currentCarrotState === '1' && suggestionsContainer.classList.contains('show-carrot');
