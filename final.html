@@ -13,6 +13,12 @@
             margin: 0;
             font-family: Arial, sans-serif;
             min-height: 100vh;
+            background: linear-gradient(45deg,
+                #833AB4 0%,
+                #FD1D1D 50%,
+                #FCAF45 100%
+            );
+            background-attachment: fixed;
         }
 
         .pane {
@@ -46,6 +52,8 @@
             transition: background-color 0.6s ease, border-bottom-color 0.6s ease, height 0.6s ease;
             display: flex;
             flex-direction: column;
+            border-bottom-left-radius: 50px;
+            border-bottom-right-radius: 50px;
         }
 
         .top-overlay.is-scrolled {
@@ -83,7 +91,7 @@
             flex-direction: column;
             gap: 12px;
             background-color: rgba(255, 255, 255, 0.98);
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+            box-shadow: 0 12px 12px rgba(15, 23, 42, 0.12);
         }
 
         .search-wrapper.expanded {
@@ -239,10 +247,10 @@
         }
 
         .search-suggestions-preview-column-container {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            display: flex;
             gap: 8px;
             padding: 0 8px 9px;
+            overflow: hidden;
         }
 
         .search-suggestions-preview-list {
@@ -252,6 +260,44 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            flex: 0 0 50%;
+            transition: transform 0.9s ease-in-out, flex-basis 0.9s ease-in-out;
+        }
+
+        .search-suggestions-preview-list:last-child {
+            padding-right: 8px;
+            opacity: 0;
+            transition: transform 0.9s ease-in-out, flex-basis 0.9s ease-in-out, opacity 0.6s 0.3s linear;
+        }
+
+        .search-suggestions-preview-column-container.expand-left .search-suggestions-preview-list:first-child {
+            flex: 0 0 100%;
+        }
+
+        .search-suggestions-preview-column-container.expand-left .search-suggestions-preview-list:last-child {
+            transform: translateX(0);
+            opacity: 0;
+        }
+
+        .search-suggestions-preview-column-container.show-carrot .search-suggestions-preview-list:first-child {
+            flex: 0 0 50%;
+        }
+
+        .search-suggestions-preview-column-container.show-carrot .search-suggestions-preview-list:last-child {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .carrot-line.red-text {
+            color: #DC2626;
+        }
+
+        .carrot-line.green-text {
+            color: #16A34A;
+        }
+
+        .carrot-line.blue-text {
+            color: #2563EB;
         }
 
         .search-suggestions-preview-item {
@@ -279,13 +325,14 @@
             font-size: 14px;
         }
 
-        .search-suggestions-preview-item.itinerary {
+        .search-suggestions-preview-item.carrot {
             align-items: flex-start;
             gap: 14px;
             padding: 12px 10px;
+            position: relative;
         }
 
-        .itinerary-tile {
+        .carrot-tile {
             width: 54px;
             height: 54px;
             border-radius: 8px;
@@ -294,26 +341,288 @@
             flex-shrink: 0;
         }
 
-        .itinerary-lines {
+        .carrot-lines {
             display: flex;
             flex-direction: column;
             gap: 6px;
         }
 
-        .itinerary-line {
+        .carrot-line {
             margin: 0;
             font-size: 13px;
             line-height: 1.35;
             color: #1F2933;
         }
 
-        .itinerary-line strong {
+        .carrot-line strong {
             font-weight: 600;
         }
 
-        .itinerary-line--meta {
+        .carrot-line--meta {
             font-size: 12px;
             color: #4B5563;
+        }
+
+        .carrot-line-label {
+            font-size: 12px;
+            font-weight: 400;
+            color: #6B7280;
+            margin-right: 6px;
+        }
+
+        .carrot-pin-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: none;
+            background-color: rgba(15, 23, 42, 0.08);
+            color: #1F2933;
+            font-size: 11px;
+            font-weight: 500;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .carrot-pin-button .pin-icon {
+            font-size: 12px;
+        }
+
+        .search-suggestions-preview-item.carrot:hover .carrot-pin-button,
+        .search-suggestions-preview-item.carrot:focus-within .carrot-pin-button {
+            display: inline-flex;
+        }
+
+        .carrot-pin-button:hover,
+        .carrot-pin-button:focus-visible {
+            background-color: rgba(15, 23, 42, 0.15);
+            outline: none;
+        }
+
+        .carrot--wikipedia {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            padding: 12px 10px;
+        }
+
+        .carrot-image-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .carrot-portrait-image {
+            width: 100px;
+            height: 133px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #E5E7EB;
+        }
+
+        .carrot-image-caption {
+            margin: 0;
+            font-size: 11px;
+            color: #6B7280;
+            line-height: 1.3;
+        }
+
+        .carrot-text-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .carrot-line--title {
+            font-weight: 600;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .carrot--local {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 12px 10px;
+        }
+
+        .local-business {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .local-business-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .local-business-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .local-business-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1F2933;
+            margin: 0;
+        }
+
+        .local-business-details {
+            font-size: 13px;
+            color: #6B7280;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .local-business-status {
+            font-size: 13px;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .local-business-status--closed {
+            color: #DC2626;
+        }
+
+        .local-business-rating {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            color: #1F2933;
+        }
+
+        .local-business-rating .star {
+            color: #1F2933;
+        }
+
+        .carrot--weather {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 12px 10px;
+            position: relative;
+            transition: background-color 0.2s ease;
+        }
+
+        .weather-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            position: relative;
+        }
+
+        .weather-title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1F2933;
+        }
+
+        .weather-pin-button {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: none;
+            background-color: rgba(15, 23, 42, 0.08);
+            color: #1F2933;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            position: absolute;
+            top: 0;
+            right: 0;
+        }
+
+        .weather-pin-button:hover,
+        .weather-pin-button:focus-visible {
+            background-color: rgba(15, 23, 42, 0.15);
+            outline: none;
+        }
+
+        .weather-pin-button .pin-icon {
+            font-size: 12px;
+        }
+
+        .weather-days {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .weather-day {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 6px;
+            border-radius: 6px;
+            background-color: rgba(15, 23, 42, 0.03);
+            transition: background-color 0.2s ease;
+        }
+
+        .weather-day-name {
+            font-size: 11px;
+            font-weight: 500;
+            color: #6B7280;
+            margin: 0;
+        }
+
+        .weather-icon {
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .weather-temp {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1F2933;
+            margin: 0;
+        }
+
+        .weather-temp-low {
+            font-size: 11px;
+            color: #6B7280;
+            margin: 0;
+        }
+
+        .carrot--weather:hover,
+        .carrot--weather:focus-within {
+            background-color: rgba(15, 23, 42, 0.04);
+        }
+
+        .carrot--weather:hover .weather-pin-button,
+        .carrot--weather:focus-within .weather-pin-button {
+            display: inline-flex;
+        }
+
+        .carrot--weather:hover .weather-day,
+        .carrot--weather:focus-within .weather-day {
+            background-color: rgba(15, 23, 42, 0.06);
+        }
+
+        .carrot--weather:hover .weather-day:hover,
+        .carrot--weather:hover .weather-day:focus-visible,
+        .carrot--weather:focus-within .weather-day:hover,
+        .carrot--weather:focus-within .weather-day:focus-visible {
+            background-color: rgba(15, 23, 42, 0.12);
         }
 
         .search-suggestions-preview-item:hover,
@@ -323,7 +632,11 @@
 
         .pane--bottom {
             min-height: 100vh;
-            background-color: #fef3c7;
+            background: linear-gradient(180deg,
+                rgba(253, 29, 29, 0) 0%,
+                rgba(253, 29, 29, 1) 100%
+            );
+            background-attachment: fixed;
             color: #4a3419;
             overflow-y: auto;
             padding: 0;
@@ -339,6 +652,7 @@
             background-color: rgba(0, 0, 0, 0);
             pointer-events: none;
             z-index: 5;
+            margin-top: -50px;
             transition: top 0.6s ease, background-color 0.6s ease;
         }
 
@@ -364,7 +678,7 @@
             padding-top: 16px;
             width: 70%;
             max-width: 1200px;
-            color: #4a3419;
+            color: #FFFFFF;
         }
 
         .articles-grid {
@@ -484,6 +798,66 @@
             stroke: #374151;
         }
 
+        .debug-buttons {
+            position: fixed;
+            top: 32px;
+            right: 24px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .top-overlay.is-focused .debug-buttons {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .debug-buttons-bottom {
+            position: absolute;
+            bottom: 62px;
+            right: 24px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .top-overlay.is-focused .debug-buttons-bottom {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .debug-button {
+            width: auto;
+            height: auto;
+            padding: 4px 8px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.9);
+            color: #374151;
+            font-size: 8px;
+            font-weight: 400;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+            white-space: nowrap;
+            text-align: left;
+        }
+
+        .debug-button:hover {
+            background-color: rgba(229, 231, 235, 0.95);
+            border-color: rgba(0, 0, 0, 0.2);
+        }
+
         .visually-hidden {
             position: absolute;
             width: 1px;
@@ -500,6 +874,23 @@
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
+            <div class="debug-buttons">
+                <button class="debug-button" type="button">1. No enriched content</button>
+                <button class="debug-button" type="button">2. Local recommendations</button>
+                <button class="debug-button" type="button">3. Flights (AC 8170)</button>
+                <button class="debug-button" type="button">4. Wikipedia</button>
+                <button class="debug-button" type="button">5. Weather</button>
+                <button class="debug-button" type="button">6. Sports</button>
+                <button class="debug-button" type="button">7. Stocks</button>
+                <button class="debug-button" type="button">8. World clock</button>
+            </div>
+            <div class="debug-buttons-bottom">
+                <button class="debug-button" type="button">A</button>
+                <button class="debug-button" type="button">B</button>
+                <button class="debug-button" type="button">C</button>
+                <button class="debug-button" type="button">D</button>
+                <button class="debug-button" type="button">E</button>
+            </div>
             <button class="search-background-bottom-overlay" type="button">
                 <span class="visually-hidden">Collapse search overlay</span>
                 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -518,60 +909,56 @@
                     </div>
                     <div class="search-suggestions-preview" aria-hidden="true">
                         <div class="search-suggestions-divider"></div>
-                        <div class="search-suggestions-preview-column-container">
+                        <div class="search-suggestions-preview-column-container expand-left">
+                        <ul class="search-suggestions-preview-list">
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">hoka</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">macbook</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">13 in macbook air</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">Coffee machines for sale</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">coffee</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">coffee grinder</span>
+                            </li>
+                        </ul>
                             <ul class="search-suggestions-preview-list">
-                                <li class="search-suggestions-preview-item">
-                                    <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
-                                    <span class="label">Recent searches · hoka</span>
-                                </li>
-                                <li class="search-suggestions-preview-item">
-                                    <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
-                                    <span class="label">Trending · macbook air m3 midnight</span>
-                                </li>
-                                <li class="search-suggestions-preview-item">
-                                    <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
-                                    <span class="label">Maps · coffee shops near me</span>
-                                </li>
-                                <li class="search-suggestions-preview-item">
-                                    <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
-                                    <span class="label">Shopping · kettles on sale</span>
-                                </li>
-                                <li class="search-suggestions-preview-item">
-                                    <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
-                                    <span class="label">Workspaces · notion dashboards</span>
-                                </li>
-                                <li class="search-suggestions-preview-item">
-                                    <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
-                                    <span class="label">Entertainment · live concert streams</span>
-                                </li>
-                                <li class="search-suggestions-preview-item">
-                                    <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
-                                    <span class="label">Flights · rebook upcoming travel</span>
-                                </li>
-                            </ul>
-                            <ul class="search-suggestions-preview-list">
-                                <li class="search-suggestions-preview-item itinerary">
-                                    <div class="itinerary-tile" aria-hidden="true"></div>
-                                    <div class="itinerary-lines">
-                                        <p class="itinerary-line">Departure <strong>9:21pm</strong> Chicago (CHI)</p>
-                                        <p class="itinerary-line">Arrival <strong>11:42am</strong> Vancouver (VYR)</p>
-                                        <p class="itinerary-line itinerary-line--meta">In flight · Wed, June 4 · AC 8170</p>
+                                <li class="search-suggestions-preview-item carrot">
+                                    <div class="carrot-tile" aria-hidden="true"></div>
+                                    <div class="carrot-lines">
+                                        <p class="carrot-line">Departure <strong>9:21pm</strong> Chicago (CHI)</p>
+                                        <p class="carrot-line">Arrival <strong>11:42am</strong> Vancouver (VYR)</p>
+                                        <p class="carrot-line carrot-line--meta"><span class="carrot-line green-text">In flight</span> · Today · AC 8170</p>
                                     </div>
                                 </li>
-                                <li class="search-suggestions-preview-item itinerary">
-                                    <div class="itinerary-tile" aria-hidden="true"></div>
-                                    <div class="itinerary-lines">
-                                        <p class="itinerary-line">Departure <strong>7:05am</strong> New York (JFK)</p>
-                                        <p class="itinerary-line">Arrival <strong>9:18am</strong> Toronto (YYZ)</p>
-                                        <p class="itinerary-line itinerary-line--meta">Boarding · Thu, June 5 · DL 4732</p>
+                                <li class="search-suggestions-preview-item carrot">
+                                    <div class="carrot-tile" aria-hidden="true"></div>
+                                    <div class="carrot-lines">
+                                        <p class="carrot-line">Departure <strong>7:05am</strong> New York (JFK)</p>
+                                        <p class="carrot-line">Arrival <strong>9:18am</strong> Toronto (YYZ)</p>
+                                        <p class="carrot-line carrot-line--meta">Boarding · Thu, June 5 · DL 4732</p>
                                     </div>
                                 </li>
-                                <li class="search-suggestions-preview-item itinerary">
-                                    <div class="itinerary-tile" aria-hidden="true"></div>
-                                    <div class="itinerary-lines">
-                                        <p class="itinerary-line">Departure <strong>2:45pm</strong> Los Angeles (LAX)</p>
-                                        <p class="itinerary-line">Arrival <strong>6:10pm</strong> Seattle (SEA)</p>
-                                        <p class="itinerary-line itinerary-line--meta">Scheduled · Fri, June 6 · AS 124</p>
+                                <li class="search-suggestions-preview-item carrot">
+                                    <div class="carrot-tile" aria-hidden="true"></div>
+                                    <div class="carrot-lines">
+                                        <p class="carrot-line">Departure <strong>2:45pm</strong> Los Angeles (LAX)</p>
+                                        <p class="carrot-line">Arrival <strong>6:10pm</strong> Seattle (SEA)</p>
+                                        <p class="carrot-line carrot-line--meta">Scheduled · Fri, June 6 · AS 124</p>
                                     </div>
                                 </li>
                             </ul>
@@ -762,15 +1149,28 @@
         };
 
         document.addEventListener('DOMContentLoaded', updateImages);
- 
-         const topOverlay = document.querySelector('.top-overlay');
-         const bottomOverlay = document.querySelector('.bottom-overlay');
+
+        const topOverlay = document.querySelector('.top-overlay');
+        const bottomOverlay = document.querySelector('.bottom-overlay');
          const searchWrapperElement = document.querySelector('.search-wrapper');
          const searchDescriptionElement = document.querySelector('.search-description');
          const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
          const searchBoxElement = document.querySelector('.search-box');
-        const OVERLAY_STATE_KEY = 'overlayExpanded';
-        const OVERLAY_RESTORE_KEY = 'overlayRestorePending';
+
+        if (document.readyState !== 'loading') {
+            if (searchBoxElement) {
+                searchBoxElement.value = '';
+            }
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                if (searchBoxElement) {
+                    searchBoxElement.value = '';
+                }
+            });
+        }
+ 
+         const OVERLAY_STATE_KEY = 'overlayExpanded';
+         const OVERLAY_RESTORE_KEY = 'overlayRestorePending';
  
          const elementsForTransitionControl = [topOverlay, bottomOverlay, searchWrapperElement, searchDescriptionElement, searchSuggestionsPreviewElement];
 
@@ -789,12 +1189,14 @@
                 searchDescriptionElement.classList.add('expanded');
                 bottomOverlay.style.top = '85vh';
                 bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                bottomOverlay.style.pointerEvents = 'auto';
             } else {
                 topOverlay.classList.remove('is-focused');
                 searchWrapperElement.classList.remove('expanded');
                 searchDescriptionElement.classList.remove('expanded');
                 bottomOverlay.style.top = '130px';
                 bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+                bottomOverlay.style.pointerEvents = 'none';
             }
 
             sessionStorage.setItem(OVERLAY_STATE_KEY, expanded ? 'true' : 'false');
@@ -829,6 +1231,22 @@
             });
         }
 
+        if (bottomOverlay && searchBoxElement) {
+            bottomOverlay.addEventListener('click', () => {
+                if (topOverlay && topOverlay.classList.contains('is-focused')) {
+                    setOverlayState(false);
+                    searchBoxElement.blur();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && topOverlay && topOverlay.classList.contains('is-focused') && searchBoxElement) {
+                setOverlayState(false);
+                searchBoxElement.blur();
+            }
+        });
+
         if (topOverlay && bottomOverlay) {
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'hidden') {
@@ -840,6 +1258,422 @@
                         const shouldExpand = sessionStorage.getItem(OVERLAY_STATE_KEY) === 'true';
                         setOverlayState(shouldExpand, { suppressTransition: true });
                         sessionStorage.setItem(OVERLAY_RESTORE_KEY, 'false');
+                    }
+                }
+            });
+        }
+
+        // Debug button handlers
+        const debugButtons = document.querySelectorAll('.debug-buttons .debug-button');
+        const suggestionsContainer = document.querySelector('.search-suggestions-preview-column-container');
+        const carrotList = document.querySelector('.search-suggestions-preview-list:last-child');
+        
+        let currentState = 0; // Track current state
+        
+        function setCarrotColor(colorClass) {
+            const carrotLines = carrotList.querySelectorAll('.carrot-line');
+            carrotLines.forEach(line => {
+                line.classList.remove('red-text', 'green-text', 'blue-text');
+                if (colorClass) {
+                    line.classList.add(colorClass);
+                }
+            });
+        }
+
+        function setCarrotContent(state) {
+            if (!carrotList) {
+                return;
+            }
+
+            if (state === 0) {
+                // State 0: Local recommendations
+                carrotList.innerHTML = `
+                    <li class="search-suggestions-preview-item carrot carrot--local">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="local-business">
+                            <img src="https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=200&h=200&q=80" alt="Peet's Coffee" class="local-business-image">
+                            <div class="local-business-content">
+                                <p class="local-business-name">Peet's Coffee</p>
+                                <p class="local-business-details">1574 Alfredo St, New York · $$ · <span class="local-business-status local-business-status--closed"><strong>Closed</strong> until 10am Mon</span> · <span class="local-business-rating"><span class="star">★</span> 4.3 (1.1k)</span></p>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="search-suggestions-preview-item carrot carrot--local">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="local-business">
+                            <img src="https://images.unsplash.com/photo-1504753793650-d4a2b783c15e?auto=format&fit=crop&w=200&h=200&q=80" alt="Blue Bottle Coffee" class="local-business-image">
+                            <div class="local-business-content">
+                                <p class="local-business-name">Blue Bottle Coffee</p>
+                                <p class="local-business-details">450 Hayes St, New York · $$$ · <span class="local-business-status"><strong>Open</strong> until 8pm</span> · <span class="local-business-rating"><span class="star">★</span> 4.6 (2.3k)</span></p>
+                            </div>
+                        </div>
+                    </li>
+                `;
+            } else if (state === 1) {
+                // State 1: Flight itinerary (same flight on different days)
+                carrotList.innerHTML = `
+                    <li class="search-suggestions-preview-item carrot">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line"><span class="carrot-line-label">Dep</span> <strong>9:21pm</strong> Chicago (CHI)</p>
+                            <p class="carrot-line"><span class="carrot-line-label">Arr</span> <strong>11:42am</strong> Vancouver (VYR)</p>
+                            <p class="carrot-line carrot-line--meta"><span class="carrot-line green-text">In flight</span> · Today · AC 8170</p>
+                        </div>
+                    </li>
+                    <li class="search-suggestions-preview-item carrot">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line"><span class="carrot-line-label">Dep</span> <strong>9:21pm</strong> Chicago (CHI)</p>
+                            <p class="carrot-line"><span class="carrot-line-label">Arr</span> <strong>11:42am</strong> Vancouver (VYR)</p>
+                            <p class="carrot-line carrot-line--meta">Tomorrow · AC 8170</p>
+                        </div>
+                    </li>
+                    <li class="search-suggestions-preview-item carrot">
+                        <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line"><span class="carrot-line-label">Dep</span> <strong>9:21pm</strong> Chicago (CHI)</p>
+                            <p class="carrot-line"><span class="carrot-line-label">Arr</span> <strong>11:42am</strong> Vancouver (VYR)</p>
+                             <p class="carrot-line carrot-line--meta">Fri, June 6 · AC 8170</p>
+                        </div>
+                    </li>
+                `;
+            } else if (state === 2) {
+                // State 2: Wikipedia article about foxes
+                carrotList.innerHTML = `
+                    <li class="search-suggestions-preview-item carrot carrot--wikipedia">
+                        <div class="carrot-image-container">
+                            <img src="https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=300&h=400&q=80" alt="Red Fox" class="carrot-portrait-image">
+                            <p class="carrot-image-caption">Red Fox (Vulpes vulpes)</p>
+                        </div>
+                        <div class="carrot-text-content">
+                            <p class="carrot-line carrot-line--title">Fox</p>
+                            <p class="carrot-line">Foxes are small-to-medium-sized omnivorous mammals belonging to several genera of the family Canidae. They have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail. Twelve species belong to the monophyletic "true fox" group of genus Vulpes.</p>
+                        </div>
+                    </li>
+                `;
+            } else if (state === 3) {
+                // State 3: Placeholder cards
+                carrotList.innerHTML = `
+                    <li class="search-suggestions-preview-item carrot">
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line">Upcoming event · Friday night</p>
+                            <p class="carrot-line">Local league finals</p>
+                            <p class="carrot-line carrot-line--meta">Tickets available · Section 112</p>
+                        </div>
+                    </li>
+                    <li class="search-suggestions-preview-item carrot">
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line">Live stats · Markets open</p>
+                            <p class="carrot-line">Tech Growth ETF · +1.8%</p>
+                            <p class="carrot-line carrot-line--meta">Updated just now</p>
+                        </div>
+                    </li>
+                    <li class="search-suggestions-preview-item carrot">
+                        <div class="carrot-tile" aria-hidden="true"></div>
+                        <div class="carrot-lines">
+                            <p class="carrot-line">World clock</p>
+                            <p class="carrot-line">Tokyo · <strong>05:17</strong></p>
+                            <p class="carrot-line carrot-line--meta">+9 GMT · Sunrise in 43 min</p>
+                        </div>
+                    </li>
+                `;
+            } else if (state === 4) {
+                // State 4: Weather forecast
+                carrotList.innerHTML = `
+                    <li class="search-suggestions-preview-item carrot carrot--weather">
+                        <div class="weather-header">
+                            <p class="weather-title">Accuweather</p>
+                            <button class="weather-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                        </div>
+                        <div class="weather-days">
+                            <div class="weather-day">
+                                <p class="weather-day-name">Mon</p>
+                                <div class="weather-icon">☀️</div>
+                                <p class="weather-temp">72°</p>
+                                <p class="weather-temp-low">58°</p>
+                            </div>
+                            <div class="weather-day">
+                                <p class="weather-day-name">Tue</p>
+                                <div class="weather-icon">⛅</div>
+                                <p class="weather-temp">68°</p>
+                                <p class="weather-temp-low">55°</p>
+                            </div>
+                            <div class="weather-day">
+                                <p class="weather-day-name">Wed</p>
+                                <div class="weather-icon">🌧️</div>
+                                <p class="weather-temp">62°</p>
+                                <p class="weather-temp-low">52°</p>
+                            </div>
+                            <div class="weather-day">
+                                <p class="weather-day-name">Thu</p>
+                                <div class="weather-icon">⛈️</div>
+                                <p class="weather-temp">59°</p>
+                                <p class="weather-temp-low">50°</p>
+                            </div>
+                            <div class="weather-day">
+                                <p class="weather-day-name">Fri</p>
+                                <div class="weather-icon">🌤️</div>
+                                <p class="weather-temp">65°</p>
+                                <p class="weather-temp-low">53°</p>
+                            </div>
+                            <div class="weather-day">
+                                <p class="weather-day-name">Sat</p>
+                                <div class="weather-icon">☀️</div>
+                                <p class="weather-temp">70°</p>
+                                <p class="weather-temp-low">56°</p>
+                            </div>
+                            <div class="weather-day">
+                                <p class="weather-day-name">Sun</p>
+                                <div class="weather-icon">☀️</div>
+                                <p class="weather-temp">74°</p>
+                                <p class="weather-temp-low">60°</p>
+                            </div>
+                        </div>
+                    </li>
+                `;
+            }
+
+            carrotList.dataset.carrotState = String(state);
+        }
+        
+        if (debugButtons.length > 0 && suggestionsContainer && carrotList) {
+            // Button 0 (index 0): No enriched content (suggestions only)
+            debugButtons[0].addEventListener('click', () => {
+                currentState = 0;
+                suggestionsContainer.classList.add('expand-left');
+                suggestionsContainer.classList.remove('show-carrot');
+            });
+
+            // Button 1 (index 1): Local recommendations (placeholder)
+            debugButtons[1].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(0);
+                        setCarrotColor(null);
+                        currentState = 1;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(0);
+                    setCarrotColor(null);
+                    currentState = 1;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 2 (index 2): Flights (AC 8170)
+            debugButtons[2].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(1);
+                        setCarrotColor(null);
+                        currentState = 2;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(1);
+                    setCarrotColor(null);
+                    currentState = 2;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 3 (index 3): Wikipedia
+            debugButtons[3].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(2);
+                        setCarrotColor(null);
+                        currentState = 3;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(2);
+                    setCarrotColor(null);
+                    currentState = 3;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 4 (index 4): Weather
+            debugButtons[4].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(4);
+                        setCarrotColor('green-text');
+                        currentState = 4;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(4);
+                    setCarrotColor('green-text');
+                    currentState = 4;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 5 (index 5): Sports (placeholder - uses flight itinerary for now)
+            debugButtons[5].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(3);
+                        setCarrotColor('blue-text');
+                        currentState = 5;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(3);
+                    setCarrotColor('blue-text');
+                    currentState = 5;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 6 (index 6): Stocks (placeholder)
+            debugButtons[6].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    setTimeout(() => {
+                        setCarrotContent(3);
+                        setCarrotColor(null);
+                        currentState = 6;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(3);
+                    setCarrotColor(null);
+                    currentState = 6;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 7 (index 7): World clock (placeholder)
+            debugButtons[7].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    setTimeout(() => {
+                        setCarrotContent(3);
+                        setCarrotColor(null);
+                        currentState = 7;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(3);
+                    setCarrotColor(null);
+                    currentState = 7;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+        }
+
+        const flightNumberPattern = /ac\s*8170/i;
+
+        if (searchBoxElement && suggestionsContainer && carrotList) {
+            searchBoxElement.addEventListener('focus', () => {
+                if (currentState !== 0 || suggestionsContainer.classList.contains('show-carrot')) {
+                    setCarrotContent(0);
+                    setCarrotColor(null);
+                    currentState = 0;
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                }
+            });
+
+            searchBoxElement.addEventListener('input', (event) => {
+                const value = (event.target.value || '').toString();
+                if (!value.trim()) {
+                    if (currentState !== 0 || suggestionsContainer.classList.contains('show-carrot')) {
+                        if (currentState !== 0) {
+                            suggestionsContainer.classList.add('expand-left');
+                            suggestionsContainer.classList.remove('show-carrot');
+
+                            setTimeout(() => {
+                                setCarrotContent(0);
+                                setCarrotColor(null);
+                                currentState = 0;
+                            }, 900);
+                        } else {
+                            setCarrotContent(0);
+                            setCarrotColor(null);
+                            currentState = 0;
+                            suggestionsContainer.classList.add('expand-left');
+                            suggestionsContainer.classList.remove('show-carrot');
+                        }
+                    }
+                    return;
+                }
+
+                if (flightNumberPattern.test(value)) {
+                    const currentCarrotState = carrotList.dataset.carrotState;
+                    const showingFlights = currentState === 2 && currentCarrotState === '1' && suggestionsContainer.classList.contains('show-carrot');
+
+                    if (!showingFlights) {
+                        if (currentState !== 0) {
+                            suggestionsContainer.classList.add('expand-left');
+                            suggestionsContainer.classList.remove('show-carrot');
+
+                            setTimeout(() => {
+                                setCarrotContent(1);
+                                setCarrotColor(null);
+                                currentState = 2;
+                                suggestionsContainer.classList.remove('expand-left');
+                                suggestionsContainer.classList.add('show-carrot');
+                            }, 900);
+                        } else {
+                            setCarrotContent(1);
+                            setCarrotColor(null);
+                            currentState = 2;
+                            suggestionsContainer.classList.remove('expand-left');
+                            suggestionsContainer.classList.add('show-carrot');
+                        }
                     }
                 }
             });
