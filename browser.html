@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype Desktop</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background: linear-gradient(135deg, #1E90FF, #32CD32, #FFD700);
+            font-family: 'Inter', sans-serif;
+        }
+        .browser-window {
+            width: 80%;
+            height: 90%;
+            background-color: #ffffff;
+            border: 1px solid rgba(128, 128, 128, 0.5);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            margin: auto;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-sizing: border-box;
+            z-index: 1;
+        }
+        .tab-strip {
+            height: 44px;
+            background-color: #F0F0F4;
+            border-radius: 12px 12px 0 0;
+            box-sizing: border-box;
+            z-index: 10;
+            width: 100%;
+        }
+        .toolbar {
+            height: 40px;
+            background-color: #F9F9FB;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 9px; /* Adjusted padding to fit while keeping contents aligned */
+            width: calc(100% - 0px); /* Zero to compensate for default border or margin */
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+        }
+
+        .toolbar-left {
+            display: flex;
+            gap: 8px;
+        }
+
+        .toolbar-right {
+            display: flex;
+            margin-left: auto;
+            gap: 8px;
+        }
+
+        .toolbar-icon {
+            width: 32px;
+            height: 32px;
+            background-color: transparent;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .toolbar-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .reload-icon svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .hamburger-menu svg {
+            width: 30px;
+            height: 24px;
+        }
+
+        .toolbar-icon:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .toolbar-icon img {
+            position: relative;
+            top: 0px;
+            left: 0px;
+        }
+
+        #hamburger-icon {
+            position: relative;
+            top: -1px;
+            left: -1px;
+        }
+
+        .address-bar {
+            flex: none;
+            height: 32px;
+            border-radius: 8px; /* Corrected border radius */
+            background-color: #E9E9EB;
+            border: none;
+            padding: 0 8px;
+            margin-left: 16px;
+            width: 50%;
+            font-size: 14px;
+            padding-top: 2px; /* Move placeholder to correct position */
+        }
+
+        .search-box {
+            box-sizing: border-box;
+            width: 100%;
+            max-width: none;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 16px;
+            padding-top: 12px;
+            padding-bottom: 12px;
+            padding-left: 10px;
+            padding-right: 10px;
+            border: none;
+        }
+
+        .address-bar::placeholder,
+        .search-box::placeholder {
+            color: #A9A9A9;
+        }
+
+        .address-bar:focus::placeholder,
+        .search-box:focus::placeholder {
+            color: #A9A9A9;
+        }
+
+        .search-box:focus {
+            outline: 1px solid #007BFF; /* Thinner blue highlight */
+        }
+
+        .spacer {
+            flex-grow: 1;
+        }
+        .viewport {
+            flex: 1;
+            background-color: #DCF5FA;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            border-radius: 0 0 12px 12px;
+            position: relative;
+        }
+        .viewport-inner {
+            width: 100%;
+            background-color: #92DFEC;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0;
+            padding-bottom: 32px;
+        }
+
+        .articles-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 26px;  /* Increase gap by 30% from 20px to 26px */
+            width: 70%;
+            max-width: 1200px;
+            box-sizing: border-box;
+        }
+
+        .card {
+            background-color: #FFFFFF;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-start;
+            height: 275px;
+            transition: box-shadow 0.15s ease-in-out;
+        }
+
+        .card img {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+        }
+
+        .card h2 {
+            margin: 16px;
+            font-size: 18px;
+            text-align: left;
+            color: #333;
+            font-weight: 500;
+            flex-grow: 1;
+        }
+
+        .card p {
+            margin-left: 16px;
+            font-size: 12px;
+            text-align: left;
+            color: #777;  /* Lighter grey color */
+        }
+        .image-placeholder {
+            width: 100%;
+            height: 160px;
+            background-color: #CCC;
+        }
+        a.card {
+            text-decoration: none !important;
+            color: inherit !important;
+            display: block;
+        }
+        .card:hover h2 {
+            color: #1E90FF;  /* Blue color on hover */
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        .heading {
+            font-size: 16px;  /* Reduced size */
+            font-weight: bold;
+            text-align: left;
+            margin: 0;
+            padding-top: 48px;  /* Triple the previous space */
+            padding-bottom: 24px;
+            width: 70%;  /* Align with the grid */
+            max-width: 1200px;
+        }
+        .search-background {
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0);
+            justify-content: center;
+            align-items: top;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(0, 0, 0, 0);
+            transition: height 0.35s ease-in-out,
+                        background-color 0.35s ease-in-out,
+                        margin-bottom 0.35s ease-in-out,
+                        border-bottom-color 0.35s ease-in-out;
+        }
+
+        .search-box {
+            width: calc(0.8 * 70%); /* 80% of the grid's 70% width */
+            max-width: none;
+            padding: 18px 18px 16px;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 16px;
+        }
+        .search-dropdown-button {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 8px;
+            background-color: #DADADC;
+            margin-right: 10px;
+        }
+
+        .circle-icon {
+            width: 18px;  /* Increase size by 50% */
+            height: 18px; /* Increase size by 50% */
+            margin-right: 4px;
+        }
+
+        .chevron {
+            padding-top:3px;
+            width: 12px;
+            height: 12px;
+            margin-left: 4px; 
+        }
+        .search-wrapper {
+            position: relative;
+            width: 56%;
+            margin: 34px auto 40px;
+            transition: width 0.35s ease-in-out;
+        }
+
+        .search-close-button {
+            position: absolute;
+            top: 0;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 20;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .search-close-button.is-visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .search-close-button:focus {
+            outline: none;
+        }
+
+        .search-close-button img {
+            width: 100%;
+            height: 100%;
+        }
+
+        .search-dropdown-button {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .search-box {
+            width: 100%;
+            padding-left: 74px; /* Increase padding to make room for dropdown button */
+            border-radius: 16px; /* Increase corner radius */
+        }
+
+        .search-dropdown-button {
+            height: 18px;
+            padding-top: 8px; /* Match the padding to left padding */
+            padding-bottom: 8px; /* Match the padding to left padding */
+        }
+    </style>
+</head>
+<body>
+    <div class="browser-window">
+        <div class="tab-strip"></div>
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <div class="toolbar-icon">
+                    <img src="icons/back-arrow.svg" alt="Back">
+                </div>
+                <div class="toolbar-icon">
+                    <img src="icons/forward-arrow.svg" alt="Forward">
+                </div>
+                <div class="toolbar-icon">
+                    <img src="icons/reload.svg" alt="Reload">
+                </div>
+            </div>
+            <input type="text" class="address-bar" placeholder="Search with Google or enter address">
+            <div class="toolbar-right">
+                <div class="toolbar-icon">
+                    <img src="icons/hamburger-menu.svg" alt="Menu">
+                </div>
+            </div>
+        </div>
+        <div class="viewport">
+            <div class="viewport-inner">
+                <div class="search-background">
+                    <button class="search-close-button" type="button" aria-label="Close search">
+                        <img src="icons/close.svg" alt="">
+                    </button>
+                    <div class="search-wrapper">
+                        <div class="search-dropdown-button">
+                            <img src="icons/circle.svg" alt="Circle" class="circle-icon">
+                            <img src="icons/chevron.svg" alt="Chevron" class="chevron">
+                        </div>
+                        <input type="text" class="search-box" placeholder="Search the web">
+                    </div>
+                </div>
+                <h1 class="heading">Thought-provoking stories</h1>
+                <div class="articles-grid">
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>The Surprising Cause of UTIs</h2>
+                    <p>SELF G</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Ten People Go on Trial in Paris</h2>
+                    <p>The Guardian</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Can Dogs Sense Ghosts?</h2>
+                    <p>Popular Science</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>11 One-Pot Gut-Healthy Dinners</h2>
+                    <p>Eating Well</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>The Dark Side of Mirrors in Space</h2>
+                    <p>Nautilus</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>UK Regional Airline Suspends Ops</h2>
+                    <p>Sky</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>The Internet Is Going to Break Again</h2>
+                    <p>Sky</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>The 1 Surprising Snack People Eat</h2>
+                    <p>Eating Well</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Reclaiming 72 Hours a Week</h2>
+                    <p>Sky</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Hidden Dangers in Fast Food</h2>
+                    <p>Health Digest</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Exploring Virtual Reality</h2>
+                    <p>Tech Today</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Unveiling the Quantum Age</h2>
+                    <p>Scientific Insights</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Breakthroughs in Renewable Energy</h2>
+                    <p>Eco World</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Astronomy's New Frontiers</h2>
+                    <p>Space Observer</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Innovative Designs in Architecture</h2>
+                    <p>Modern Home</p>
+                </a>
+            </div>
+        </div>
+    </div>
+    <script>
+        const apiKey = 'bCm88s2aE42pgTVWHJn6CRvAf916qPGquNowlZue6tSbVSImQ0hdsWSX';
+        const keywords = [
+            'UTI', 'trial Paris', 'ghosts',
+            'healthy dinner', 'mirrors space', 'UK airline',
+            'internet', 'snack', 'productivity',
+            'fast food', 'virtual reality', 'quantum physics',
+            'renewable energy', 'astronomy', 'architecture'
+        ];
+
+        const fetchImages = async () => {
+            const imageUrls = [];
+            for (const keyword of keywords) {
+                const response = await fetch(`https://api.pexels.com/v1/search?query=${keyword}&per_page=1`, {
+                    headers: {
+                        Authorization: apiKey
+                    }
+                });
+                const data = await response.json();
+                const photoUrl = data.photos[0] ? data.photos[0].src.medium : 'https://via.placeholder.com/300';
+                imageUrls.push(photoUrl);
+            }
+            return imageUrls;
+        };
+
+        const updateImages = async () => {
+            const images = await fetchImages();
+            const imagePlaceholders = document.querySelectorAll('.image-placeholder');
+            imagePlaceholders.forEach((placeholder, index) => {
+                const img = document.createElement('img');
+                img.src = images[index] || placeholder.dataset.placeholder;
+                img.style.width = '100%';
+                img.style.height = '160px';
+                img.style.objectFit = 'cover';
+                placeholder.replaceWith(img);
+            });
+        };
+
+        document.addEventListener('DOMContentLoaded', updateImages);
+
+        const searchBox = document.querySelector('.search-box');
+        const searchBackground = document.querySelector('.search-background');
+            const browserWindow = document.querySelector('.browser-window');
+        const viewport = document.querySelector('.viewport');
+        const searchWrapper = document.querySelector('.search-wrapper');
+        const searchCloseButton = document.querySelector('.search-close-button');
+
+        if (searchBox && searchBackground && browserWindow && viewport && searchWrapper && searchCloseButton) {
+            // Search mode: active when the search overlay expands beyond its resting height.
+            let collapsedSearchBackgroundHeight = searchBackground.offsetHeight;
+            let isSearchMode = false;
+            let borderColorTimeoutId = null;
+            let currentBorderColor = window.getComputedStyle(searchBackground).borderBottomColor;
+
+            const collapsedBackgroundColorTop = 'rgba(255, 255, 255, 0)';
+            const collapsedBackgroundColorScrolled = 'rgba(255, 255, 255, 0.7)';
+            const expandedBackgroundColor = 'rgba(255, 255, 255, 0.95)';
+            const borderColorVisible = 'rgba(0, 0, 0, 0.1)';
+            const borderColorHidden = 'rgba(0, 0, 0, 0)';
+
+            const applyBorderColor = (color) => {
+                if (borderColorTimeoutId) {
+                    clearTimeout(borderColorTimeoutId);
+                    borderColorTimeoutId = null;
+                }
+                currentBorderColor = color;
+                searchBackground.style.borderBottomColor = color;
+            };
+
+            const scheduleBorderColor = (color, delayMs) => {
+                if (color === currentBorderColor && borderColorTimeoutId === null) {
+                    return;
+                }
+
+                if (delayMs <= 0) {
+                    applyBorderColor(color);
+                    return;
+                }
+
+                if (borderColorTimeoutId) {
+                    clearTimeout(borderColorTimeoutId);
+                }
+
+                borderColorTimeoutId = window.setTimeout(() => {
+                    applyBorderColor(color);
+                }, delayMs);
+            };
+
+            const positionCloseButton = () => {
+                const backgroundRect = searchBackground.getBoundingClientRect();
+                const searchBoxRect = searchBox.getBoundingClientRect();
+                const buttonHeight = searchCloseButton.offsetHeight || 1;
+                const offsetWithinBackground = (searchBoxRect.top - backgroundRect.top) + (searchBox.offsetHeight / 2) - (buttonHeight / 2);
+
+                searchCloseButton.style.top = `${Math.max(offsetWithinBackground, 0)}px`;
+            };
+
+            const updateSearchBackgroundAppearance = () => {
+                const shouldShowOverlay = isSearchMode || viewport.scrollTop > 0;
+
+                if (shouldShowOverlay) {
+                    const delayMs = !isSearchMode && viewport.scrollTop > 0 ? 120 : 0;
+                    scheduleBorderColor(borderColorVisible, delayMs);
+                } else {
+                    scheduleBorderColor(borderColorHidden, 0);
+                }
+
+                if (isSearchMode) {
+                    searchBackground.style.backgroundColor = expandedBackgroundColor;
+                } else if (viewport.scrollTop > 0) {
+                    searchBackground.style.backgroundColor = collapsedBackgroundColorScrolled;
+                } else {
+                    searchBackground.style.backgroundColor = collapsedBackgroundColorTop;
+                }
+
+                searchCloseButton.classList.toggle('is-visible', isSearchMode);
+                positionCloseButton();
+            };
+
+            const refreshCollapsedHeight = () => {
+                if (!isSearchMode) {
+                    collapsedSearchBackgroundHeight = searchBackground.offsetHeight;
+                }
+            };
+
+            const enterSearchMode = () => {
+                if (isSearchMode) {
+                    return;
+                }
+
+                refreshCollapsedHeight();
+                isSearchMode = true;
+                searchWrapper.style.width = '70%';
+                searchBackground.style.height = `${collapsedSearchBackgroundHeight}px`;
+                searchBackground.style.marginBottom = '0px';
+                updateSearchBackgroundAppearance();
+
+                window.requestAnimationFrame(() => {
+                    const targetHeight = Math.max(browserWindow.offsetHeight * 0.8, collapsedSearchBackgroundHeight);
+                    const targetMarginBottom = collapsedSearchBackgroundHeight - targetHeight;
+
+                    searchBackground.style.height = `${targetHeight}px`;
+                    searchBackground.style.marginBottom = `${targetMarginBottom}px`;
+                    updateSearchBackgroundAppearance();
+                    positionCloseButton();
+                });
+            };
+
+            const exitSearchMode = () => {
+                if (!isSearchMode) {
+                    return;
+                }
+
+                const currentHeight = searchBackground.offsetHeight;
+                isSearchMode = false;
+                searchWrapper.style.width = '';
+                updateSearchBackgroundAppearance();
+
+                searchBackground.style.height = `${currentHeight}px`;
+
+                window.requestAnimationFrame(() => {
+                    searchBackground.style.height = `${collapsedSearchBackgroundHeight}px`;
+                    searchBackground.style.marginBottom = '0px';
+                    updateSearchBackgroundAppearance();
+                    positionCloseButton();
+                });
+
+                const handleTransitionEnd = (event) => {
+                    if (event.propertyName !== 'height') {
+                        return;
+                    }
+
+                    searchBackground.style.height = '';
+                    searchBackground.style.marginBottom = '';
+                    searchBackground.removeEventListener('transitionend', handleTransitionEnd);
+                    refreshCollapsedHeight();
+                    updateSearchBackgroundAppearance();
+                    positionCloseButton();
+                };
+
+                searchBackground.addEventListener('transitionend', handleTransitionEnd, { once: true });
+            };
+
+            searchBox.addEventListener('focus', enterSearchMode);
+            searchCloseButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                exitSearchMode();
+            });
+
+            document.addEventListener('mousedown', (event) => {
+                if (!isSearchMode) {
+                    return;
+                }
+
+                if (searchBackground.contains(event.target) || searchCloseButton.contains(event.target)) {
+                    return;
+                }
+
+                exitSearchMode();
+            });
+
+            viewport.addEventListener('scroll', updateSearchBackgroundAppearance);
+            window.addEventListener('resize', refreshCollapsedHeight);
+            window.addEventListener('resize', positionCloseButton);
+            updateSearchBackgroundAppearance();
+            positionCloseButton();
+        }
+    </script>
+</body>
+</html>
