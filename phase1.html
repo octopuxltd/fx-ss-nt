@@ -67,7 +67,7 @@
 
         .top-overlay.is-focused {
             height: 85vh;
-            background-color: rgba(255, 255, 255, 0.95);
+            background-color: transparent;
             border-bottom-color: rgba(0, 0, 0, 0.05);
             border-bottom-left-radius: 50px;
             border-bottom-right-radius: 50px;
@@ -98,7 +98,7 @@
             top: 90px;
             left: 34px;
             font-size: 13px;
-            color: #6B7280;
+            color: #FFFFFF;
             line-height: 1.6;
             opacity: 0;
             pointer-events: none;
@@ -146,10 +146,6 @@
             box-shadow: 0 12px 12px rgba(15, 23, 42, 0.12);
         }
 
-        .search-wrapper.expanded {
-            width: 70%;
-        }
-
         .search-wrapper:focus-within {
             border-color: #007BFF;
             box-shadow: 0 0 0 1px #007BFF;
@@ -158,7 +154,7 @@
 
         .top-overlay.is-scrolled .search-wrapper,
         .top-overlay.is-focused .search-wrapper {
-            border-color: rgba(0, 0, 0, 0.05);
+            border-color: rgba(15, 23, 42, 0.12);
         }
 
         .search-input-shell {
@@ -258,24 +254,25 @@
             border-radius: 12px;
             overflow: hidden;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
             text-decoration: none;
             color: inherit;
-            height: 100%;
+            height: 90px;
         }
 
         .overlay-product-card img {
-            width: 100%;
-            aspect-ratio: 16 / 9;
+            width: 90px;
+            height: 100%;
             object-fit: cover;
         }
 
         .overlay-product-card-body {
-            padding: 14px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
+            justify-content: center;
         }
 
         .overlay-product-title {
@@ -302,6 +299,24 @@
         .top-overlay.is-focused .search-suggestions-preview {
             max-height: 1000px;
             opacity: 1;
+        }
+
+        .search-wrapper-products {
+            display: none;
+            width: 100%;
+            padding: 0 18px 18px;
+        }
+
+        .top-overlay.is-focused .search-wrapper-products {
+            display: block;
+        }
+
+        .search-wrapper-products .overlay-product-grid {
+            margin-top: 8px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            width: 100%;
         }
 
         .search-suggestions-divider {
@@ -860,6 +875,27 @@
             gap: 32px;
             padding: 24px;
             padding-top: calc(130px + 24px);
+            transition: padding-top 0.6s ease;
+        }
+
+        .top-overlay.is-focused ~ .bottom-content {
+            padding-top: calc(85vh - 90px + 24px);
+        }
+
+        .quick-tiles {
+            width: 70%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .quick-tiles__tile {
+            flex: 0 0 120px;
+            height: 120px;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(6px);
         }
 
         .heading {
@@ -879,6 +915,14 @@
             gap: 26px;
             width: 70%;
             max-width: 1200px;
+            transition: transform 0.6s ease, opacity 0.6s ease;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .top-overlay.is-focused ~ .bottom-content .articles-grid {
+            opacity: 1;
+            transform: translateY(0);
         }
 
         .card {
@@ -940,54 +984,7 @@
         }
 
         .search-background-bottom-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            width: 100%;
-            height: 54px;
-            border: none;
-            background-color: rgba(255, 255, 255, 0.7);
-            cursor: pointer;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease, background-color 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .top-overlay.is-focused .search-background-bottom-overlay {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .search-background-bottom-overlay svg {
-            display: block;
-        }
-
-        .search-background-bottom-overlay .chevron-shallow {
-            opacity: 1;
-            transition: opacity 0.2s ease-in-out;
-        }
-
-        .search-background-bottom-overlay .chevron-steep {
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
-        }
-
-        .search-background-bottom-overlay:hover {
-            background-color: rgba(229, 231, 235, 0.9);
-            opacity: 1;
-        }
-
-        .search-background-bottom-overlay:hover .chevron-shallow {
-            opacity: 0;
-        }
-
-        .search-background-bottom-overlay:hover .chevron-steep {
-            opacity: 1;
-            stroke: #374151;
+            display: none;
         }
 
         .debug-buttons {
@@ -1060,7 +1057,44 @@
             clip: rect(0, 0, 0, 0);
             border: 0;
         }
+
+        .phase-toggle {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 20;
+            display: flex;
+            gap: 8px;
+        }
+
+        .phase-toggle__link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(15, 23, 42, 0.4);
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .phase-toggle__link:hover,
+        .phase-toggle__link:focus {
+            background: rgba(15, 23, 42, 0.6);
+            border-color: rgba(255, 255, 255, 0.7);
+            outline: none;
+        }
+
+        .phase-toggle__link.is-active {
+            background: rgba(15, 23, 42, 0.8);
+            border-color: rgba(255, 255, 255, 0.9);
+        }
     </style>
+    <script src="product-content.js"></script>
     <script src="suggestion-paths.js"></script>
     <script src="carrot-templates.js"></script>
 </head>
@@ -1068,6 +1102,10 @@
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
+            <div class="phase-toggle" role="group" aria-label="Phase selection">
+                <a class="phase-toggle__link is-active" href="phase1.html">Phase 1</a>
+                <a class="phase-toggle__link" href="phase2.html">Phase 2</a>
+            </div>
             <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
             <div class="demo-searches">
                 <div class="demo-searches-title">Type these demos:</div>
@@ -1101,13 +1139,6 @@
                 <button class="debug-button" type="button">E</button>
                 </div>
             -->
-            <button class="search-background-bottom-overlay" type="button">
-                <span class="visually-hidden">Collapse search overlay</span>
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path class="chevron-shallow" d="M4 20L16 15L28 20" stroke="#6B7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path class="chevron-steep" d="M6 20L16 12L26 20" stroke="#6B7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </button>
             <div class="search-container">
                 <div class="search-wrapper">
                     <div class="search-input-shell">
@@ -1180,54 +1211,21 @@
                             </ul>
                     </div>
                 </div>
+                <div class="search-wrapper-products">
+                    <div class="overlay-product-grid" data-product-grid></div>
                 </div>
-                <div class="search-description">
-                    <div class="overlay-product-grid">
-                        <div class="overlay-product-column">
-                            <p class="overlay-product-heading">From your history</p>
-                            <a href="#" class="overlay-product-card">
-                                <img src="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=600&q=80" alt="Hoop Skirt">
-                                <div class="overlay-product-card-body">
-                                    <h3 class="overlay-product-title">Hoop skirt revival</h3>
-                                    <p class="overlay-product-meta">Vintage silhouettes · Trending</p>
-                                </div>
-                            </a>
-                        </div>
-                        <div class="overlay-product-column">
-                            <p class="overlay-product-heading">Recent sessions</p>
-                            <a href="#" class="overlay-product-card">
-                                <img src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=600&q=80" alt="House Paint">
-                                <div class="overlay-product-card-body">
-                                    <h3 class="overlay-product-title">House paint palettes</h3>
-                                    <p class="overlay-product-meta">Interior refresh · Neutral tones</p>
-                                </div>
-                            </a>
-                        </div>
-                        <div class="overlay-product-column">
-                            <p class="overlay-product-heading">Recent sessions</p>
-                            <a href="#" class="overlay-product-card">
-                                <img src="https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80" alt="MacBook Air">
-                                <div class="overlay-product-card-body">
-                                    <h3 class="overlay-product-title">13" MacBook Air</h3>
-                                    <p class="overlay-product-meta">Midnight · Apple M3</p>
-                                </div>
-                            </a>
-                        </div>
-                        <div class="overlay-product-column">
-                            <p class="overlay-product-heading">Trending</p>
-                            <a href="#" class="overlay-product-card">
-                                <img src="https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=600&q=80" alt="Espresso Machine">
-                                <div class="overlay-product-card-body">
-                                    <h3 class="overlay-product-title">Breville Barista Express</h3>
-                                    <p class="overlay-product-meta">Espresso Machine · In stock</p>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
         <div class="bottom-content">
+                <div class="quick-tiles" aria-hidden="true">
+                    <span class="quick-tiles__tile"></span>
+                    <span class="quick-tiles__tile"></span>
+                    <span class="quick-tiles__tile"></span>
+                    <span class="quick-tiles__tile"></span>
+                    <span class="quick-tiles__tile"></span>
+                    <span class="quick-tiles__tile"></span>
+                </div>
                 <h1 class="heading">Thought-provoking stories</h1>
                 <div class="articles-grid">
                 <a href="#" class="card">
@@ -1318,6 +1316,15 @@
             'renewable energy', 'astronomy', 'architecture'
         ];
 
+        const renderOverlayProductGrid = () => {
+            const container = document.querySelector('[data-product-grid]');
+            if (!container || typeof productContent?.renderGrid !== 'function') {
+                return;
+            }
+
+            container.innerHTML = productContent.renderGrid();
+        };
+
         const fetchImages = async () => {
             const imageUrls = [];
 
@@ -1339,7 +1346,7 @@
                 } catch (error) {
                     console.error('Error fetching image for keyword:', keyword, error);
                     imageUrls.push('https://via.placeholder.com/600x400?text=Image');
-                }
+            }
             }
 
             return imageUrls;
@@ -1364,12 +1371,15 @@
             });
         };
 
-        document.addEventListener('DOMContentLoaded', updateImages);
+        document.addEventListener('DOMContentLoaded', () => {
+            renderOverlayProductGrid();
+            updateImages();
+        });
 
         const topOverlay = document.querySelector('.top-overlay');
         const bottomOverlay = document.querySelector('.bottom-overlay');
-         const searchWrapperElement = document.querySelector('.search-wrapper');
-         const searchDescriptionElement = document.querySelector('.search-description');
+        const searchWrapperElement = document.querySelector('.search-wrapper');
+        const searchDescriptionElement = document.querySelector('.search-description');
          const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
          const searchBoxElement = document.querySelector('.search-box');
 
@@ -1388,10 +1398,13 @@
          const OVERLAY_STATE_KEY = 'overlayExpanded';
          const OVERLAY_RESTORE_KEY = 'overlayRestorePending';
  
-         const elementsForTransitionControl = [topOverlay, bottomOverlay, searchWrapperElement, searchDescriptionElement, searchSuggestionsPreviewElement];
+        const elementsForTransitionControl = [topOverlay, bottomOverlay, searchWrapperElement, searchSuggestionsPreviewElement];
+        if (searchDescriptionElement) {
+            elementsForTransitionControl.push(searchDescriptionElement);
+        }
 
         const setOverlayState = (expanded, { suppressTransition = false } = {}) => {
-            if (!topOverlay || !bottomOverlay || !searchWrapperElement || !searchDescriptionElement || !searchSuggestionsPreviewElement) {
+            if (!topOverlay || !bottomOverlay || !searchWrapperElement || !searchSuggestionsPreviewElement) {
                 return;
             }
 
@@ -1402,14 +1415,14 @@
             if (expanded) {
                 topOverlay.classList.add('is-focused');
                 searchWrapperElement.classList.add('expanded');
-                searchDescriptionElement.classList.add('expanded');
+                searchDescriptionElement && searchDescriptionElement.classList.add('expanded');
                 bottomOverlay.style.top = '85vh';
-                bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
                 bottomOverlay.style.pointerEvents = 'auto';
             } else {
                 topOverlay.classList.remove('is-focused');
                 searchWrapperElement.classList.remove('expanded');
-                searchDescriptionElement.classList.remove('expanded');
+                searchDescriptionElement && searchDescriptionElement.classList.remove('expanded');
                 bottomOverlay.style.top = '130px';
                 bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
                 bottomOverlay.style.pointerEvents = 'none';
@@ -1440,13 +1453,6 @@
         }
 
         const overlayCloseButton = document.querySelector('.search-background-bottom-overlay');
-        if (overlayCloseButton && searchBoxElement) {
-            overlayCloseButton.addEventListener('click', () => {
-                setOverlayState(false);
-                searchBoxElement.blur();
-            });
-        }
-
         if (bottomOverlay && searchBoxElement) {
             bottomOverlay.addEventListener('click', () => {
                 if (topOverlay && topOverlay.classList.contains('is-focused')) {
