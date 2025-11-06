@@ -610,6 +610,9 @@
             border-color: rgba(255, 255, 255, 0.9);
         }
     </style>
+    <script src="product-sections/product-history.js"></script>
+    <script src="product-sections/product-bookmarks.js"></script>
+    <script src="product-sections/product-open-tabs.js"></script>
     <script src="product-content.js"></script>
     <script src="suggestion-paths.js"></script>
     <script src="carrot-templates.js"></script>
@@ -736,7 +739,7 @@
                 </div>
                 </div>
                 <div class="search-description">
-                    <div class="overlay-product-grid" data-product-grid></div>
+                    <div class="overlay-product-grid" data-product-grid data-product-sections="history,bookmarks,openTabs"></div>
                 </div>
             </div>
         </div>
@@ -841,11 +844,14 @@
 
         const renderOverlayProductGrid = () => {
             const container = document.querySelector('[data-product-grid]');
-            if (!container || typeof productContent?.renderGrid !== 'function') {
+            if (!container || typeof productContent?.renderInto !== 'function') {
                 return;
             }
 
-            container.innerHTML = productContent.renderGrid();
+            const sectionAttr = container.getAttribute('data-product-sections');
+            const sectionKeys = sectionAttr ? sectionAttr.split(',').map((section) => section.trim()).filter(Boolean) : undefined;
+
+            productContent.renderInto(container, sectionKeys);
         };
 
         const fetchImages = async () => {
