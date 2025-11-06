@@ -11,24 +11,6 @@
     opacity: 1;
 }
 
-.search-wrapper-products {
-    display: none;
-    width: 100%;
-    padding: 0 18px 18px;
-}
-
-.top-overlay.is-focused .search-wrapper-products {
-    display: block;
-}
-
-.search-wrapper-products .overlay-product-grid {
-    margin-top: 8px;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-    width: 100%;
-}
-
 .search-suggestions-divider {
     width: calc(100% - 16px);
     height: 1px;
@@ -90,6 +72,7 @@
     color: #2563EB;
 }
 
+/* Color classes for inline spans */
 .red-text {
     color: #DC2626;
 }
@@ -329,16 +312,26 @@
 }
 
 .weather-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.weather-title h3 {
     margin: 0;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 600;
-    color: #1F2933;
+}
+
+.weather-title span {
+    font-size: 13px;
+    color: #6B7280;
 }
 
 .weather-pin-button {
-    display: none;
-    align-items: center;
-    gap: 6px;
+    position: absolute;
+    top: 10px;
+    right: 10px;
     padding: 4px 10px;
     border-radius: 999px;
     border: none;
@@ -346,68 +339,10 @@
     color: #1F2933;
     font-size: 11px;
     font-weight: 500;
-    cursor: pointer;
-    position: absolute;
-    top: 0;
-    right: 0;
-}
-
-.weather-pin-button:hover,
-.weather-pin-button:focus-visible {
-    background-color: rgba(15, 23, 42, 0.15);
-    outline: none;
-}
-
-.weather-pin-button .pin-icon {
-    font-size: 12px;
-}
-
-.weather-days {
-    display: flex;
-    gap: 8px;
-    width: 100%;
-}
-
-.weather-day {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+    display: none;
     align-items: center;
-    gap: 4px;
-    padding: 10px 6px;
-    border-radius: 6px;
-    background-color: rgba(15, 23, 42, 0.03);
-    transition: background-color 0.2s ease;
-}
-
-.weather-day-name {
-    font-size: 11px;
-    font-weight: 500;
-    color: #6B7280;
-    margin: 0;
-}
-
-.weather-icon {
-    font-size: 24px;
-    line-height: 1;
-}
-
-.weather-temp {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1F2933;
-    margin: 0;
-}
-
-.weather-temp-low {
-    font-size: 11px;
-    color: #6B7280;
-    margin: 0;
-}
-
-.carrot--weather:hover,
-.carrot--weather:focus-within {
-    background-color: rgba(15, 23, 42, 0.04);
+    gap: 6px;
+    cursor: pointer;
 }
 
 .carrot--weather:hover .weather-pin-button,
@@ -415,16 +350,93 @@
     display: inline-flex;
 }
 
-.carrot--weather:hover .weather-day,
-.carrot--weather:focus-within .weather-day {
-    background-color: rgba(15, 23, 42, 0.06);
+.weather-summary {
+    display: flex;
+    align-items: center;
+    gap: 20px;
 }
 
-.carrot--weather:hover .weather-day:hover,
-.carrot--weather:hover .weather-day:focus-visible,
-.carrot--weather:focus-within .weather-day:hover,
-.carrot--weather:focus-within .weather-day:focus-visible {
-    background-color: rgba(15, 23, 42, 0.12);
+.weather-summary .temperature {
+    font-size: 40px;
+    font-weight: 600;
+}
+
+.weather-summary .details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: #4B5563;
+    font-size: 13px;
+}
+
+.weather-days {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.weather-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+    border-radius: 10px;
+    background-color: rgba(15, 23, 42, 0.05);
+    gap: 2px;
+    transition: background-color 0.2s ease;
+}
+
+.weather-day:hover,
+.weather-day:focus-within {
+    background-color: rgba(15, 23, 42, 0.1);
+}
+
+.weather-day span {
+    font-size: 12px;
+    color: #4B5563;
+}
+
+.weather-day .temp {
+    font-weight: 600;
+    color: #1F2933;
+}
+
+.carrot--sports,
+.carrot--stocks,
+.carrot--clock {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 10px;
+}
+
+.carrot-line--highlight {
+    font-weight: 600;
+    color: #1F2933;
+}
+
+.sports-item,
+.stocks-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sports-team,
+.stocks-symbol {
+    font-weight: 600;
+}
+
+.stocks-change {
+    font-weight: 600;
+}
+
+.stocks-change .down {
+    color: #DC2626;
+}
+
+.stocks-change .up {
+    color: #16A34A;
 }
 
 .carrot--clock {
@@ -450,13 +462,11 @@
 }
 
 .clock-face {
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    inset: 0;
     border-radius: 50%;
-    background: white;
-    border: 3px solid #334155;
-    position: relative;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: #FFFFFF;
+    border: 2px solid rgba(15, 23, 42, 0.15);
 }
 
 .clock-hand {
@@ -464,63 +474,51 @@
     bottom: 50%;
     left: 50%;
     transform-origin: bottom center;
-    background: #1e293b;
-    border-radius: 4px 4px 0 0;
+    width: 2px;
+    background: #1F2933;
 }
 
 .clock-hand--hour {
-    width: 4px;
-    height: 30px;
-    margin-left: -2px;
-    transform: translateX(-50%) rotate(160deg);
-    z-index: 2;
+    height: 24px;
 }
 
 .clock-hand--minute {
-    width: 3px;
-    height: 45px;
-    margin-left: -1.5px;
-    transform: translateX(-50%) rotate(102deg);
-    z-index: 3;
+    height: 36px;
 }
 
 .clock-hand--second {
-    width: 2px;
     height: 48px;
-    margin-left: -1px;
-    background: #ef4444;
-    transform: translateX(-50%) rotate(102deg);
-    z-index: 4;
+    background: #DC2626;
 }
 
 .clock-center {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 10px;
-    height: 10px;
-    background: #1e293b;
+    width: 6px;
+    height: 6px;
+    background: #1F2933;
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    z-index: 5;
 }
 
 .clock-details {
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
 }
 
 .clock-location {
-    font-size: 14px;
-    font-weight: 500;
-    color: #1F2933;
-    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
 }
 
 .clock-time {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 600;
-    color: #1F2933;
-    margin: 0 0 4px 0;
+    margin: 0;
 }
 
 .clock-time strong {

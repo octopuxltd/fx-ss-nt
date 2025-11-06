@@ -289,6 +289,35 @@
             color: rgba(15, 23, 42, 0.6);
         }
 
+        .search-wrapper-products {
+            display: none;
+            width: 100%;
+            padding: 0 18px 18px;
+        }
+
+        .top-overlay.is-focused .search-wrapper-products {
+            display: block;
+        }
+
+        .search-wrapper-products .overlay-product-grid {
+            margin-top: 8px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            width: 100%;
+        }
+
+        .search-suggestions-divider {
+            width: calc(100% - 16px);
+            height: 1px;
+            margin: 0 auto 12px;
+            background-color: rgba(15, 23, 42, 0.12);
+        }
+
+
+
+
+
         .pane--bottom {
             min-height: 100vh;
             background: linear-gradient(180deg,
