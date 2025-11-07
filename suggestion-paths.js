@@ -1261,6 +1261,109 @@ const suggestionPaths = {
                 color: null
             }
         }
+    ],
+
+    // ========================================================================
+    // SNEAKERS PATH
+    // ========================================================================
+    // Typing sequence: s -> sn -> sne -> snea -> sneak -> sneake -> sneakers
+    // Carrot trigger: "sneake" (big ad carrot shows sneakers article card)
+    // Purpose: Demonstrates large article-style ad carrot
+    sneakers: [
+        {
+            query: 's',
+            suggestions: [
+                'spotify',
+                'stack overflow',
+                'steam',
+                'soundcloud',
+                'slack',
+                'shopify',
+                'skype'
+            ]
+        },
+        {
+            query: 'sn',
+            suggestions: [
+                'snapchat',
+                'snowflake',
+                'snap',
+                'snapchat web',
+                'snapchat login',
+                'snapchat download',
+                'snapchat support'
+            ]
+        },
+        {
+            query: 'sne',
+            suggestions: [
+                'sneakers',
+                'sneaker',
+                'sneakerhead',
+                'sneaker store',
+                'sneaker brands',
+                'sneaker release dates',
+                'sneaker news'
+            ]
+        },
+        {
+            query: 'snea',
+            suggestions: [
+                'sneakers',
+                'sneaker',
+                'sneakerhead',
+                'sneaker store',
+                'sneaker brands',
+                'sneaker release dates',
+                'sneaker news'
+            ]
+        },
+        {
+            query: 'sneak',
+            suggestions: [
+                'sneakers',
+                'sneaker',
+                'sneakerhead',
+                'sneaker store',
+                'sneaker brands',
+                'sneaker release dates',
+                'sneaker news'
+            ]
+        },
+        {
+            query: 'sneake',
+            suggestions: [
+                'sneakers',
+                'sneaker',
+                'sneakerhead',
+                'sneaker store',
+                'sneaker brands',
+                'sneaker release dates',
+                'sneaker news'
+            ],
+            carrot: {
+                state: 9,
+                content: 9,
+                color: null
+            }
+        },
+        {
+            query: 'sneakers',
+            suggestions: [
+                'sneakers',
+                'sneaker',
+                'sneakerhead',
+                'sneaker store',
+                'sneaker brands',
+                'sneaker release dates',
+                'sneaker news'
+            ],
+            carrot: {
+                state: 9,
+                content: 9,
+                color: null
+            }
+        }
     ]
 };
 
@@ -1359,11 +1462,13 @@ const iconMappings = {
         'ac 888 flight', 'ac 802 flight', 'ac 857 flight', 'ac 8 series',
         'ac 8150 flight', 'ac 8140 flight', 'ac 8180 flight', 'ac 8100 flight',
         'ac 810 flight', 'ac 815 flight', 'ac 818 flight', 'ac 8171', 'ac dc',
-        'ac moore', 'acura', 'wiki leaks', 'wikihow', 'wiktionary', 'wikimedia',
+        'ac moore', 'acura',         'wiki leaks', 'wikihow', 'wiktionary', 'wikimedia',
         'wikiwand', 'wiki fox', 'wiki animal', 'wiki search', 'wiki page',
         'wiki football', 'wiki facts', 'wiki file', 'wiki format', 'wiki food',
         'wiki fiction', 'wiki folder', 'wiki font', 'wiki form', 'wix',
-        'wireless headphones', 'winter clothing', 'wish', 'wordpress', 'wayfair'
+        'wireless headphones', 'winter clothing', 'wish', 'wordpress', 'wayfair',
+        'sneakers', 'sneaker', 'sneakerhead', 'sneaker store', 'sneaker brands',
+        'sneaker release dates', 'sneaker news'
     ]
     
     // Default is clock icon (history)

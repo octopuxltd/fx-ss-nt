@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Split Scroll Sections</title>
+    <title>Search on New Tab • Phase 4</title>
     <link rel="stylesheet" href="suggestions.css">
     <style>
         * {
@@ -812,6 +812,7 @@
                 <ul>
                     <li>• fox wiki</li>
                     <li>• chair</li>
+                    <li>• sneakers</li>
                 </ul>
                 </div>
             <!-- DEBUG BUTTONS - DO NOT DELETE! Uncomment for testing/development -->
@@ -1468,6 +1469,9 @@
                     break;
                 case 8:
                     carrotList.innerHTML = carrotTemplates.adMarketplace();
+                    break;
+                case 9:
+                    carrotList.innerHTML = carrotTemplates.bigAd();
                     break;
                 default:
                     console.warn(`Unknown carrot state: ${state}`);

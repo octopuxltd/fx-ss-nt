@@ -78,6 +78,26 @@ const carrotTemplates = {
     `,
 
     /**
+     * Big ad carrot
+     * Shows a large article-style card with sneakers content
+     */
+    bigAd: () => `
+        <li class="search-suggestions-preview-item carrot carrot--big-ad">
+            <a href="#" class="carrot-big-ad-card">
+                <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&h=300&q=80" alt="Sneakers" class="carrot-big-ad-image">
+                <div class="carrot-big-ad-body">
+                    <h3 class="carrot-big-ad-title">Premium Sneakers Collection - Up to 50% Off</h3>
+                    <p class="carrot-big-ad-meta">
+                        <img src="favicons/Amazon - Light.svg" alt="" class="carrot-big-ad-favicon" role="presentation">
+                        Amazon - Official Store
+                    </p>
+                </div>
+                <span class="carrot-big-ad-sponsored">Sponsored</span>
+            </a>
+        </li>
+    `,
+
+    /**
      * Flight itinerary carrot
      * Shows departure/arrival times, dates, and flight status
      */
