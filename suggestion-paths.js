@@ -116,7 +116,12 @@ const suggestionPaths = {
                 'coffee beans',
                 'coffee shop near me',
                 'coffee pods'
-            ]
+            ],
+            carrot: {
+                state: 1,
+                content: 0,
+                color: null
+            }
         },
         {
             query: 'coffee',
@@ -128,7 +133,29 @@ const suggestionPaths = {
                 'coffee beans',
                 'coffee pods',
                 'coffee grinder'
-            ]
+            ],
+            carrot: {
+                state: 1,
+                content: 0,
+                color: null
+            }
+        },
+        {
+            query: 'coffee ',
+            suggestions: [
+                'coffee shop near me',
+                'coffee recipes',
+                'coffee subscription',
+                'coffee syrups',
+                'coffee shop london',
+                'coffee beans delivery',
+                'coffee accessories'
+            ],
+            carrot: {
+                state: 1,
+                content: 0,
+                color: null
+            }
         },
         {
             query: 'coffee s',
@@ -140,7 +167,12 @@ const suggestionPaths = {
                 'coffee shop lambeth',
                 'coffee shop covent garden',
                 'coffee shops london'
-            ]
+            ],
+            carrot: {
+                state: 1,
+                content: 0,
+                color: null
+            }
         },
         {
             query: 'coffee sh',
@@ -152,7 +184,12 @@ const suggestionPaths = {
                 'coffee shop onslow village',
                 'coffee shop game',
                 'coffee shop menu'
-            ]
+            ],
+            carrot: {
+                state: 1,
+                content: 0,
+                color: null
+            }
         },
         {
             query: 'coffee sho',
@@ -164,7 +201,12 @@ const suggestionPaths = {
                 'coffee shop marshes upper',
                 'coffee shop mullagharlin',
                 'coffee shop game'
-            ]
+            ],
+            carrot: {
+                state: 1,
+                content: 0,
+                color: null
+            }
         },
         {
             query: 'coffee shop',
@@ -176,7 +218,12 @@ const suggestionPaths = {
                 'coffee shop lambeth',
                 'coffee shop covent garden',
                 'coffee shop enton'
-            ]
+            ],
+            carrot: {
+                state: 1,
+                content: 0,
+                color: null
+            }
         },
         {
             query: 'coffee shops',
@@ -188,7 +235,12 @@ const suggestionPaths = {
                 'coffee shops with wifi',
                 'coffee shops hiring',
                 'coffee shops soho'
-            ]
+            ],
+            carrot: {
+                state: 1,
+                content: 0,
+                color: null
+            }
         }
     ],
     
@@ -329,7 +381,12 @@ const suggestionPaths = {
                 'ac 8170 tomorrow',
                 'ac 8170 tracking',
                 'ac 8170 arrivals'
-            ]
+            ],
+            carrot: {
+                state: 2,
+                content: 1,
+                color: null
+            }
         },
         {
             query: 'ac8170',
@@ -445,7 +502,12 @@ const suggestionPaths = {
                 'lakers news',
                 'lakers tickets',
                 'lakers vs warriors'
-            ]
+            ],
+            carrot: {
+                state: 5,
+                content: 5,
+                color: null
+            }
         },
         {
             query: 'lakers g',
@@ -457,7 +519,12 @@ const suggestionPaths = {
                 'lakers game schedule',
                 'lakers game today',
                 'lakers game tickets'
-            ]
+            ],
+            carrot: {
+                state: 5,
+                content: 5,
+                color: null
+            }
         },
         {
             query: 'lakers ga',
@@ -469,7 +536,12 @@ const suggestionPaths = {
                 'lakers game schedule',
                 'lakers game today',
                 'lakers game tickets'
-            ]
+            ],
+            carrot: {
+                state: 5,
+                content: 5,
+                color: null
+            }
         },
         {
             query: 'lakers gam',
@@ -481,7 +553,12 @@ const suggestionPaths = {
                 'lakers game schedule',
                 'lakers game today',
                 'lakers game tickets'
-            ]
+            ],
+            carrot: {
+                state: 5,
+                content: 5,
+                color: null
+            }
         },
         {
             query: 'lakers game',
@@ -493,7 +570,12 @@ const suggestionPaths = {
                 'lakers game schedule',
                 'lakers game today',
                 'lakers game tickets'
-            ]
+            ],
+            carrot: {
+                state: 5,
+                content: 5,
+                color: null
+            }
         }
     ],
     
@@ -615,7 +697,12 @@ const suggestionPaths = {
                 'uber stock analysis',
                 'uber stock today',
                 'uber stock chart'
-            ]
+            ],
+            carrot: {
+                state: 6,
+                content: 6,
+                color: null
+            }
         },
         {
             query: 'uber stock',
@@ -627,7 +714,12 @@ const suggestionPaths = {
                 'uber stock analysis',
                 'uber stock today',
                 'uber stock chart'
-            ]
+            ],
+            carrot: {
+                state: 6,
+                content: 6,
+                color: null
+            }
         }
     ],
     
@@ -761,7 +853,12 @@ const suggestionPaths = {
                 'tokyo time difference',
                 'tokyo time converter',
                 'tokyo clock'
-            ]
+            ],
+            carrot: {
+                state: 7,
+                content: 7,
+                color: null
+            }
         }
     ],
     
@@ -848,7 +945,12 @@ const suggestionPaths = {
                 'weather near me',
                 'weather in new york',
                 'weather alerts'
-            ]
+            ],
+            carrot: {
+                state: 4,
+                content: 4,
+                color: 'green-text'
+            }
         },
         {
             query: 'weather',
@@ -860,7 +962,12 @@ const suggestionPaths = {
                 'weather near me',
                 'weather in new york',
                 'weather radar'
-            ]
+            ],
+            carrot: {
+                state: 4,
+                content: 4,
+                color: 'green-text'
+            }
         }
     ],
     
@@ -963,7 +1070,196 @@ const suggestionPaths = {
                 'arctic fox wiki',
                 'grey fox wiki',
                 'fennec fox wiki'
+            ],
+            carrot: {
+                state: 3,
+                content: 2,
+                color: null
+            }
+        }
+    ],
+    
+    // ========================================================================
+    // WIKI FOX PATH
+    // ========================================================================
+    // Typing sequence: w -> wi -> wik -> wiki -> wiki  -> wiki f -> wiki fo -> wiki fox
+    // Carrot trigger: "wiki fox" (Wikipedia article preview for foxes)
+    // Purpose: Alternative trigger phrase for Wikipedia fox article
+    wikifox: [
+        {
+            query: 'w',
+            suggestions: [
+                'weather',
+                'wikipedia',
+                'walmart',
+                'whatsapp',
+                'wordpress',
+                'wayfair',
+                'word counter'
             ]
+        },
+        {
+            query: 'wi',
+            suggestions: [
+                'wikipedia',
+                'windows',
+                'wifi',
+                'wix',
+                'wireless headphones',
+                'winter clothing',
+                'wish'
+            ]
+        },
+        {
+            query: 'wik',
+            suggestions: [
+                'wikipedia',
+                'wiki',
+                'wiki leaks',
+                'wikihow',
+                'wiktionary',
+                'wikimedia',
+                'wikiwand'
+            ]
+        },
+        {
+            query: 'wiki',
+            suggestions: [
+                'wikipedia',
+                'wiki',
+                'wiki leaks',
+                'wikihow',
+                'wiktionary',
+                'wikimedia',
+                'wikiwand'
+            ]
+        },
+        {
+            query: 'wiki ',
+            suggestions: [
+                'wikipedia',
+                'wiki leaks',
+                'wikihow',
+                'wiki fox',
+                'wiki animal',
+                'wiki search',
+                'wiki page'
+            ]
+        },
+        {
+            query: 'wiki f',
+            suggestions: [
+                'wiki fox',
+                'wiki football',
+                'wiki facts',
+                'wiki file',
+                'wiki format',
+                'wiki food',
+                'wiki fiction'
+            ]
+        },
+        {
+            query: 'wiki fo',
+            suggestions: [
+                'wiki fox',
+                'wiki football',
+                'wiki food',
+                'wiki format',
+                'wiki folder',
+                'wiki font',
+                'wiki form'
+            ]
+        },
+        {
+            query: 'wiki fox',
+            suggestions: [
+                'wiki fox',
+                'fox wikipedia',
+                'fox wiki',
+                'red fox wikipedia',
+                'arctic fox wiki',
+                'grey fox wiki',
+                'fennec fox wiki'
+            ],
+            carrot: {
+                state: 3,
+                content: 2,
+                color: null
+            }
+        }
+    ],
+    
+    // ========================================================================
+    // CHAIR / AD MARKETPLACE PATH
+    // ========================================================================
+    // Typing sequence: c -> ch -> cha -> chai -> chair
+    // Carrot trigger: "chair" (ad marketplace carrot with sponsored chair listings)
+    // Purpose: Demonstrates ad marketplace functionality with horizontal carrot display
+    chair: [
+        {
+            query: 'c',
+            suggestions: [
+                'chatgpt',
+                'canva',
+                'chrome',
+                'concerts near me',
+                'champions league',
+                'copilot',
+                'canvas ucc'
+            ]
+        },
+        {
+            query: 'ch',
+            suggestions: [
+                'chrome',
+                'chatgpt',
+                'champions league',
+                'chase bank',
+                'cheap flights',
+                'chicago weather',
+                'chocolate cake recipe'
+            ]
+        },
+        {
+            query: 'cha',
+            suggestions: [
+                'chase bank',
+                'champions league',
+                'charlotte',
+                'charlie brown',
+                'championship',
+                'charleston',
+                'challenge'
+            ]
+        },
+        {
+            query: 'chai',
+            suggestions: [
+                'chair',
+                'chair covers',
+                'chair cushions',
+                'chair mat',
+                'chair pad',
+                'chair lift',
+                'chair yoga'
+            ]
+        },
+        {
+            query: 'chair',
+            suggestions: [
+                'chair',
+                'office chair',
+                'dining chair',
+                'gaming chair',
+                'ergonomic chair',
+                'desk chair',
+                'armchair'
+            ],
+            carrot: {
+                state: 8,
+                content: 8,
+                color: null
+            }
         }
     ]
 };
@@ -1023,7 +1319,8 @@ const iconMappings = {
         'webmd', 'uber', 'uber eats', 'uber stock', 'usps tracking',
         'united airlines', 'youtube', 'twitter', 'tiktok', 'target',
         'tesla', 'time', 'translate', 'amazon', 'apple', 'amazon prime',
-        'airbnb', 'accuweather', 'american airlines'
+        'airbnb', 'accuweather', 'american airlines', 'wiki', 'windows', 'wifi',
+        'chair', 'office chair', 'dining chair', 'gaming chair', 'ergonomic chair'
     ],
     
     // Magnifying glass icon - search queries
@@ -1062,7 +1359,11 @@ const iconMappings = {
         'ac 888 flight', 'ac 802 flight', 'ac 857 flight', 'ac 8 series',
         'ac 8150 flight', 'ac 8140 flight', 'ac 8180 flight', 'ac 8100 flight',
         'ac 810 flight', 'ac 815 flight', 'ac 818 flight', 'ac 8171', 'ac dc',
-        'ac moore', 'acura'
+        'ac moore', 'acura', 'wiki leaks', 'wikihow', 'wiktionary', 'wikimedia',
+        'wikiwand', 'wiki fox', 'wiki animal', 'wiki search', 'wiki page',
+        'wiki football', 'wiki facts', 'wiki file', 'wiki format', 'wiki food',
+        'wiki fiction', 'wiki folder', 'wiki font', 'wiki form', 'wix',
+        'wireless headphones', 'winter clothing', 'wish', 'wordpress', 'wayfair'
     ]
     
     // Default is clock icon (history)

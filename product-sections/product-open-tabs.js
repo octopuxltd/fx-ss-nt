@@ -9,20 +9,35 @@
                     image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80',
                     alt: 'Workspace dashboard',
                     title: 'Workspace dashboard',
-                    meta: 'Currently open in another window'
+                    meta: 'Notion',
+                    metaFavicon: 'favicons/Google.svg'
                 },
                 {
                     image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80',
-                    alt: 'Code review tab',
+                    alt: 'Code review',
                     title: 'Code review tab',
-                    meta: 'Review pending'
+                    meta: 'GitHub',
+                    metaFavicon: 'favicons/Google.svg'
                 },
                 {
                     image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80',
-                    alt: 'Music playlist tab',
+                    alt: 'Focus playlist',
                     title: 'Focus playlist',
-                    meta: 'Playing now'
+                    meta: 'Spotify',
+                    metaFavicon: 'favicons/Google.svg'
                 }
+            ]
+        };
+    };
+
+    window.productSections.openTabsPhase1 = function () {
+        return {
+            heading: 'From your open tabs',
+            cards: [
+                { title: 'Workspace dashboard', meta: 'Currently open in another window' },
+                { title: 'Code review tab', meta: 'Review pending' },
+                { title: 'Focus playlist', meta: 'Playing now' },
+                { title: 'Team sprint board', meta: 'Last activity 4 minutes ago' }
             ]
         };
     };

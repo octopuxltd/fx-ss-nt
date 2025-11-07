@@ -61,6 +61,23 @@ const carrotTemplates = {
     `,
 
     /**
+     * Ad marketplace carrot
+     * Shows sponsored/ad listings with images, ratings, and details
+     * Uses same structure as local recommendations for horizontal display
+     */
+    adMarketplace: () => `
+        <li class="search-suggestions-preview-item carrot carrot--local carrot--ad-marketplace">
+            <span class="ad-marketplace-sponsored">Sponsored</span>
+            <div class="local-business local-business--ad-marketplace">
+                <img src="https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&w=28&h=28&q=80" alt="Chairs" class="local-business-image" style="width: 28px; height: 28px;">
+                <div class="local-business-content">
+                    <p class="local-business-name"><strong>chair</strong> – Bed Bath & Beyond – Official Site</p>
+                </div>
+            </div>
+        </li>
+    `,
+
+    /**
      * Flight itinerary carrot
      * Shows departure/arrival times, dates, and flight status
      */
@@ -100,13 +117,14 @@ const carrotTemplates = {
      */
     wikipedia: () => `
         <li class="search-suggestions-preview-item carrot carrot--wikipedia">
-            <div class="carrot-image-container">
-                <img src="https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=300&h=400&q=80" alt="Red Fox" class="carrot-portrait-image">
-                <p class="carrot-image-caption">Red Fox (Vulpes vulpes)</p>
-            </div>
             <div class="carrot-text-content">
                 <p class="carrot-line carrot-line--title">Fox</p>
                 <p class="carrot-line">Foxes are small-to-medium-sized omnivorous mammals belonging to several genera of the family Canidae. They have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail. Twelve species belong to the monophyletic "true fox" group of genus Vulpes.</p>
+                <a href="https://en.wikipedia.org/wiki/Fox" class="carrot-link" target="_blank" rel="noopener noreferrer">https://en.wikipedia.org/wiki/Fox</a>
+            </div>
+            <div class="carrot-image-container">
+                <img src="https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=300&h=400&q=80" alt="Red Fox" class="carrot-portrait-image">
+                <p class="carrot-image-caption">Red Fox (Vulpes vulpes)</p>
             </div>
         </li>
     `,

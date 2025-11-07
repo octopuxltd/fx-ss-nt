@@ -33,6 +33,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            padding-top: var(--search-wrapper-offset, 240px);
             padding-bottom: 80px;
         }
 
@@ -96,19 +97,19 @@
 
         .demo-searches {
             position: fixed;
-            top: 90px;
+            top: 170px;
             left: 34px;
             font-size: 13px;
-            color: #6B7280;
+            color: #FFFFFF;
             line-height: 1.6;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
+            pointer-events: auto;
+            transition: color 0.3s ease;
             z-index: 11;
+            width: 150px;
         }
 
         .top-overlay.is-focused .demo-searches {
-            opacity: 1;
+            color: #6B7280;
         }
 
         .demo-searches-title {
@@ -223,8 +224,7 @@
         .search-description {
             width: 100%;
             margin: 0 auto;
-            padding-top: 110px;
-            padding-bottom: 32px;
+            padding: 0 0 32px;
         }
 
         .top-overlay.is-focused .search-description {
@@ -237,7 +237,13 @@
             gap: 16px;
             width: 70%;
             max-width: 1200px;
-            margin: 280px auto 0;
+            margin: 0 auto;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        .top-overlay.is-focused .overlay-product-grid {
+            opacity: 1;
         }
 
         .overlay-product-column {
@@ -252,6 +258,12 @@
             font-weight: 400;
             letter-spacing: normal;
             color: #6B7280;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        .top-overlay.is-focused .overlay-product-heading {
+            opacity: 1;
         }
 
         .overlay-product-card {
@@ -264,12 +276,19 @@
             text-decoration: none;
             color: inherit;
             height: 90px;
+            transition: background-color 0.2s ease, opacity 0.6s ease;
+            opacity: 0;
         }
 
-        .overlay-product-card img {
+        .top-overlay.is-focused .overlay-product-card {
+            opacity: 1;
+        }
+
+        .overlay-product-card img:not(.overlay-product-favicon):not(.overlay-product-meta-favicon) {
             width: 90px;
-            height: 100%;
+            height: 90px;
             object-fit: cover;
+            flex-shrink: 0;
         }
 
         .overlay-product-card-body {
@@ -285,12 +304,32 @@
             font-weight: 600;
             margin: 0;
             color: #1F2933;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .overlay-product-meta {
             font-size: 12px;
             margin: 0;
             color: rgba(15, 23, 42, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .overlay-product-meta-favicon {
+            width: 16px !important;
+            height: 16px !important;
+            flex-shrink: 0;
+            object-fit: contain;
+            max-width: 16px !important;
+            max-height: 16px !important;
+        }
+
+        .overlay-product-card:hover,
+        .overlay-product-card:focus {
+            background-color: #F3F4F6;
         }
 
 
@@ -367,6 +406,15 @@
             border-radius: 24px;
             background: rgba(255, 255, 255, 0.5);
             backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quick-tiles__favicon {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
         }
 
         .heading {
@@ -575,28 +623,35 @@
         }
 
         .phase-toggle {
-            position: fixed;
-            top: 24px;
-            right: 24px;
-            z-index: 20;
             display: flex;
-            flex-direction: column;
-            gap: 8px;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
         }
 
         .phase-toggle__link {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 8px 12px;
+            padding: 1px 6px;
             border-radius: 999px;
             border: 1px solid rgba(255, 255, 255, 0.4);
             background: rgba(15, 23, 42, 0.4);
             color: #FFFFFF;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             text-decoration: none;
             transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .phase-toggle-heading {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+            width: 100%;
         }
 
         .phase-toggle__link:hover,
@@ -610,6 +665,27 @@
             background: rgba(15, 23, 42, 0.8);
             border-color: rgba(255, 255, 255, 0.9);
         }
+
+        .phase-toggle__label {
+            display: none;
+        }
+
+        .phase-toggle__link.is-active .phase-toggle__label {
+            display: inline;
+        }
+
+        .phase-toggle__number {
+            margin-left: 0;
+        }
+
+        .phase-toggle__link.is-active .phase-toggle__number {
+            margin-left: 4px;
+        }
+
+        .carrot-pin-button,
+        .weather-pin-button {
+            display: none !important;
+        }
     </style>
     <script src="product-sections/product-history.js"></script>
     <script src="product-sections/product-bookmarks.js"></script>
@@ -617,22 +693,30 @@
     <script src="product-content.js"></script>
     <script src="suggestion-paths.js"></script>
     <script src="carrot-templates.js"></script>
+    <script src="image-preload.js"></script>
+    <script>
+        // Set phase number for image preloader
+        window.currentPhase = 2;
+        if (typeof preloadCarrotImages === 'function') {
+            preloadCarrotImages(2);
+        }
+    </script>
 </head>
 <body>
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
-            <div class="phase-toggle" role="group" aria-label="Phase selection">
-                <a class="phase-toggle__link" href="phase1.html">Phase 1</a>
-                <a class="phase-toggle__link is-active" href="phase2.html">Phase 2</a>
-                <a class="phase-toggle__link" href="phase3.html">Phase 3</a>
-                <a class="phase-toggle__link" href="phase4.html">Phase 4</a>
-                <a class="phase-toggle__link" href="phase5.html">Phase 5</a>
-                <a class="phase-toggle__link" href="phase6.html">Phase 6</a>
-            </div>
             <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
             <div class="demo-searches">
-                <p>Redesign the search to use an overlay, giving us more real estate to use.</p>
+                <div class="phase-toggle" role="group" aria-label="Phase selection">
+                    <div class="phase-toggle-heading">Phases</div>
+                    <a class="phase-toggle__link" href="phase1.html">1</a>
+                    <a class="phase-toggle__link is-active" href="phase2.html">2</a>
+                    <a class="phase-toggle__link" href="phase3.html">3</a>
+                    <a class="phase-toggle__link" href="phase4.html">4</a>
+                    <a class="phase-toggle__link" href="phase5.html">5</a>
+                </div>
+                <p>Clicking search now opens a search overlay, giving us greater real estate to deliver a richer search experience.</p>
             </div>
             <!-- DEBUG BUTTONS - DO NOT DELETE! Uncomment for testing/development -->
             <!--
@@ -741,12 +825,12 @@
         </div>
         <div class="bottom-content">
                 <div class="quick-tiles" aria-hidden="true">
-                    <span class="quick-tiles__tile"></span>
-                    <span class="quick-tiles__tile"></span>
-                    <span class="quick-tiles__tile"></span>
-                    <span class="quick-tiles__tile"></span>
-                    <span class="quick-tiles__tile"></span>
-                    <span class="quick-tiles__tile"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/Google.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/YouTube.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/Instagram.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/Reddit.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/Twitter.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/Wikipedia.svg" alt="" class="quick-tiles__favicon"></span>
                 </div>
                 <h1 class="heading">Thought-provoking stories</h1>
                 <div class="articles-grid">
@@ -903,10 +987,47 @@
 
         const topOverlay = document.querySelector('.top-overlay');
         const bottomOverlay = document.querySelector('.bottom-overlay');
-         const searchWrapperElement = document.querySelector('.search-wrapper');
-         const searchDescriptionElement = document.querySelector('.search-description');
-         const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
-         const searchBoxElement = document.querySelector('.search-box');
+        const searchWrapperElement = document.querySelector('.search-wrapper');
+        const searchDescriptionElement = document.querySelector('.search-description');
+        const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
+        const searchBoxElement = document.querySelector('.search-box');
+        const searchContainer = document.querySelector('.search-container');
+        const productContainers = Array.from(document.querySelectorAll('.search-wrapper-products, .search-description'));
+        const resizeObservers = [];
+        const enableCarrotsPhase2 = false;
+
+        const updateSearchContentOffset = () => {
+            if (!searchWrapperElement || !searchContainer) {
+                return;
+            }
+
+            const wrapperRect = searchWrapperElement.getBoundingClientRect();
+            const containerRect = searchContainer.getBoundingClientRect();
+            const spacing = 32;
+            const offset = Math.max(wrapperRect.bottom - containerRect.top + spacing, spacing);
+
+            searchContainer.style.setProperty('--search-wrapper-offset', `${offset}px`);
+        };
+
+        if (searchWrapperElement && searchContainer) {
+            updateSearchContentOffset();
+
+            if (typeof ResizeObserver === 'function') {
+                const wrapperObserver = new ResizeObserver(updateSearchContentOffset);
+                wrapperObserver.observe(searchWrapperElement);
+                resizeObservers.push(wrapperObserver);
+
+                productContainers.forEach((container) => {
+                    if (container) {
+                        const containerObserver = new ResizeObserver(updateSearchContentOffset);
+                        containerObserver.observe(container);
+                        resizeObservers.push(containerObserver);
+                    }
+                });
+            }
+
+            window.addEventListener('resize', updateSearchContentOffset);
+        }
 
         if (document.readyState !== 'loading') {
             if (searchBoxElement) {
@@ -951,6 +1072,12 @@
             }
 
             sessionStorage.setItem(OVERLAY_STATE_KEY, expanded ? 'true' : 'false');
+
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => updateSearchContentOffset());
+        } else {
+            updateSearchContentOffset();
+        }
 
             if (suppressTransition) {
                 requestAnimationFrame(() => {
@@ -1113,79 +1240,41 @@
             const match = pathLookup[valueLower];
             if (match) {
                 updateSuggestions(match.suggestions);
-                
-                // Show carrot if specified
-                if (match.carrot) {
-                    const currentCarrotState = carrotList.dataset.carrotState;
-                    const showingCarrot = currentState === match.carrot.state && 
-                                         currentCarrotState === String(match.carrot.content) && 
-                                         suggestionsContainer.classList.contains('show-carrot');
-                    
-                    if (!showingCarrot) {
-                        if (currentState !== 0) {
-                            suggestionsContainer.classList.add('expand-left');
-                            suggestionsContainer.classList.remove('show-carrot');
 
-                            setTimeout(() => {
-                                setCarrotContent(match.carrot.content);
-                                currentState = match.carrot.state;
-                                suggestionsContainer.classList.remove('expand-left');
-                                suggestionsContainer.classList.add('show-carrot');
-                            }, 900);
-                        } else {
-                            setCarrotContent(match.carrot.content);
-                            currentState = match.carrot.state;
-                            suggestionsContainer.classList.remove('expand-left');
-                            suggestionsContainer.classList.add('show-carrot');
-                        }
-                    }
+                if (!enableCarrotsPhase2 && suggestionsContainer) {
+                    suggestionsContainer.classList.remove('show-carrot');
+                    suggestionsContainer.classList.add('expand-left');
+                    currentState = 0;
+                    return true;
                 }
-                // Don't hide carrot if no carrot specified - keep it showing if already visible
+                
+                if (match.carrot) {
+                    return true;
+                }
+                
+                if (match.carrot === false) {
+                    return true;
+                }
                 
                 return true;
             }
             return false;
         }
-        
+
         function setCarrotContent(state) {
             if (!carrotList) {
                 return;
             }
 
-            // Use templates from carrot-templates.js
-            switch(state) {
-                case 0:
-                    carrotList.innerHTML = carrotTemplates.local();
-                    break;
-                case 1:
-                    carrotList.innerHTML = carrotTemplates.flights();
-                    break;
-                case 2:
-                    carrotList.innerHTML = carrotTemplates.wikipedia();
-                    break;
-                case 3:
-                    carrotList.innerHTML = carrotTemplates.placeholder();
-                    break;
-                case 4:
-                    carrotList.innerHTML = carrotTemplates.weather();
-                    break;
-                case 5:
-                    carrotList.innerHTML = carrotTemplates.sports();
-                    break;
-                case 6:
-                    carrotList.innerHTML = carrotTemplates.stocks();
-                    break;
-                case 7:
-                    carrotList.innerHTML = carrotTemplates.worldClock();
-                    break;
-                default:
-                    console.warn(`Unknown carrot state: ${state}`);
-            }
-
+            carrotList.innerHTML = '';
             carrotList.dataset.carrotState = String(state);
+
+            if (!enableCarrotsPhase2 && suggestionsContainer) {
+                suggestionsContainer.classList.remove('show-carrot');
+            }
         }
         
-        if (debugButtons.length > 0 && suggestionsContainer && carrotList) {
+        if (enableCarrotsPhase2 && debugButtons.length > 0 && suggestionsContainer && carrotList) {
             // Button 0 (index 0): No enriched content (suggestions only)
             debugButtons[0].addEventListener('click', () => {
                 currentState = 0;
@@ -1354,6 +1443,12 @@
 
         if (searchBoxElement && suggestionsContainer && carrotList) {
             searchBoxElement.addEventListener('focus', () => {
+                if (!enableCarrotsPhase2) {
+                    suggestionsContainer.classList.remove('show-carrot');
+                    currentState = 0;
+                    return;
+                }
+
                 if (currentState !== 0 || suggestionsContainer.classList.contains('show-carrot')) {
                     setCarrotContent(0);
                     currentState = 0;
@@ -1414,7 +1509,7 @@
                 }
 
                 // Keep existing flight number pattern
-                if (flightNumberPattern.test(value)) {
+                if (enableCarrotsPhase2 && flightNumberPattern.test(value)) {
                     const currentCarrotState = carrotList.dataset.carrotState;
                     const showingFlights = currentState === 2 && currentCarrotState === '1' && suggestionsContainer.classList.contains('show-carrot');
 

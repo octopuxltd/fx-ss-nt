@@ -7,22 +7,40 @@
             cards: [
                 {
                     image: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=600&q=80',
-                    alt: 'Design inspiration set',
-                    title: 'Design inspiration set',
-                    meta: 'Pinned to bookmarks'
+                    alt: 'Design inspiration',
+                    title: 'Design inspiration set with curated color palettes and typography examples',
+                    meta: 'Instagram',
+                    metaFavicon: 'favicons/Instagram.svg'
                 },
                 {
                     image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80',
                     alt: 'Travel itinerary',
-                    title: 'Weekend travel itinerary',
-                    meta: 'Shared with friends'
+                    title: 'Weekend travel itinerary with restaurant recommendations and local attractions',
+                    meta: 'Google',
+                    metaFavicon: 'favicons/Google.svg'
                 },
                 {
                     image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=600&q=80',
                     alt: 'Recipe collection',
-                    title: 'Recipe collection',
-                    meta: 'Favorite meals list'
+                    title: 'Recipe collection featuring favorite meals and cooking techniques from around the world',
+                    meta: 'YouTube',
+                    metaFavicon: 'favicons/YouTube.svg'
                 }
+            ]
+        };
+    };
+
+    window.productSections.bookmarksPhase1 = function () {
+        return {
+            heading: 'From your bookmarks',
+            cards: [
+                { title: 'Design inspiration set with curated color palettes and typography examples', favicon: 'favicons/Instagram.svg', showActions: true },
+                { title: 'Weekend travel itinerary with restaurant recommendations and local attractions', favicon: 'favicons/Google.svg', showActions: true },
+                { title: 'Recipe collection featuring favorite meals and cooking techniques from around the world', favicon: 'favicons/YouTube.svg', showActions: true },
+                { title: 'UI patterns board showcasing modern interface designs and interaction patterns', favicon: 'favicons/Figma.svg', showActions: true },
+                { title: 'JavaScript best practices guide covering ES6 features and performance optimization', favicon: 'favicons/Mozilla.svg', showActions: true },
+                { title: 'Productivity tools comparison with detailed feature breakdowns and pricing information', favicon: 'favicons/Google Docs.svg', showActions: true },
+                { title: 'Color palette references organized by mood and industry with hex codes and usage examples', favicon: 'favicons/Reddit.svg', showActions: true }
             ]
         };
     };
