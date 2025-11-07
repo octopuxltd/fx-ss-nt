@@ -1,8 +1,8 @@
 const productContent = (() => {
-    const registry = window.productSections || {};
     const DEFAULT_SECTIONS = ['history', 'bookmarks', 'openTabs'];
 
     const resolveSection = (key) => {
+        const registry = window.productSections || {};
         const entry = registry[key];
         if (!entry) {
             return null;
