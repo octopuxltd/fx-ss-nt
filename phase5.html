@@ -131,6 +131,38 @@
             text-decoration: line-through;
         }
 
+        .demo-searches-earlier {
+            position: fixed;
+            bottom: 24px;
+            left: 34px;
+            font-size: 13px;
+            color: #FFFFFF;
+            line-height: 1.6;
+            pointer-events: auto;
+            transition: color 0.3s ease;
+            z-index: 11;
+            width: 150px;
+        }
+
+        .top-overlay.is-focused .demo-searches-earlier {
+            color: #6B7280;
+        }
+
+        .demo-searches-earlier .demo-searches-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .demo-searches-earlier ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .demo-searches-earlier li {
+            margin: 2px 0;
+        }
+
         .search-wrapper {
             position: fixed;
             top: 32px;
@@ -593,7 +625,7 @@
         }
 
         .search-background-bottom-overlay:hover {
-            background-color: rgba(255, 255, 255, 0.8);
+            background-color: rgba(255, 255, 255, 1);
             opacity: 1;
         }
 
@@ -799,25 +831,30 @@
                     <a class="phase-toggle__link" href="phase4.html">4</a>
                     <a class="phase-toggle__link is-active" href="phase5.html">5</a>
                 </div>
-                <div class="demo-searches-title">Added in Phase 5:</div>
+                <div class="demo-searches-title">New in Phase 5:</div>
                 <ul>
                     <li>• MDN</li>
                     <li>• youtube</li>
                     <li>• time tokyo</li>
                     <li>• happy emoji</li>
                 </ul>
-                <div class="demo-searches-title" style="margin-top: 16px;">From earlier phases:</div>
+                </div>
+            <div class="demo-searches-earlier">
+                <div class="demo-searches-title">Added in Phase 3:</div>
                 <ul>
                     <li>• fox wiki</li>
                     <li>• chair</li>
                     <li>• sneakers</li>
+                </ul>
+                <div class="demo-searches-title" style="margin-top: 12px;">Added in Phase 4:</div>
+                <ul>
                     <li>• uber stock</li>
                     <li>• AC8170</li>
                     <li>• lakers game</li>
                     <li>• coffee shops</li>
                     <li>• weather</li>
                 </ul>
-                </div>
+            </div>
             <!-- DEBUG BUTTONS - DO NOT DELETE! Uncomment for testing/development -->
             <!--
             <div class="debug-buttons">
@@ -1475,6 +1512,28 @@
                     break;
                 case 9:
                     carrotList.innerHTML = carrotTemplates.bigAd();
+                    break;
+                case 10:
+                    carrotList.innerHTML = carrotTemplates.mdn();
+                    break;
+                case 11:
+                    carrotList.innerHTML = carrotTemplates.happyEmoji();
+                    // Add click handlers for emoji copying
+                    setTimeout(() => {
+                        const emojiItems = carrotList.querySelectorAll('.emoji-item');
+                        emojiItems.forEach(item => {
+                            item.addEventListener('click', () => {
+                                const emoji = item.getAttribute('data-emoji');
+                                if (emoji && navigator.clipboard) {
+                                    navigator.clipboard.writeText(emoji).then(() => {
+                                        // Visual feedback could be added here
+                                    }).catch(err => {
+                                        console.error('Failed to copy emoji:', err);
+                                    });
+                                }
+                            });
+                        });
+                    }, 0);
                     break;
                 default:
                     console.warn(`Unknown carrot state: ${state}`);

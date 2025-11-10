@@ -127,6 +127,38 @@
             text-decoration: line-through;
         }
 
+        .demo-searches-earlier {
+            position: fixed;
+            bottom: 24px;
+            left: 34px;
+            font-size: 13px;
+            color: #FFFFFF;
+            line-height: 1.6;
+            pointer-events: auto;
+            transition: color 0.3s ease;
+            z-index: 11;
+            width: 150px;
+        }
+
+        .top-overlay.is-focused .demo-searches-earlier {
+            color: #6B7280;
+        }
+
+        .demo-searches-earlier .demo-searches-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .demo-searches-earlier ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .demo-searches-earlier li {
+            margin: 2px 0;
+        }
+
         .search-wrapper {
             position: fixed;
             top: 32px;
@@ -524,7 +556,7 @@
         .search-suggestions-divider {
             width: calc(100% - 16px);
             height: 1px;
-            margin: 0 auto 12px;
+            margin: 4px auto 12px;
             background-color: rgba(15, 23, 42, 0.12);
         }
 

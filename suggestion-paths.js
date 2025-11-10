@@ -1364,6 +1364,198 @@ const suggestionPaths = {
                 color: null
             }
         }
+    ],
+
+    // ========================================================================
+    // MDN PATH
+    // ========================================================================
+    mdn: [
+        {
+            query: 'm',
+            suggestions: [
+                'mdn',
+                'microsoft',
+                'mail',
+                'maps',
+                'messenger',
+                'music',
+                'mcdonalds'
+            ]
+        },
+        {
+            query: 'md',
+            suggestions: [
+                'mdn',
+                'mdn web docs',
+                'mdn javascript',
+                'mdn css',
+                'mdn html',
+                'mdn mozilla'
+            ]
+        },
+        {
+            query: 'mdn',
+            suggestions: [
+                'mdn',
+                'mdn web docs',
+                'mdn javascript',
+                'mdn css',
+                'mdn html',
+                'mdn mozilla',
+                'mdn documentation'
+            ],
+            carrot: {
+                state: 10,
+                content: 10,
+                color: null
+            }
+        }
+    ],
+
+    // ========================================================================
+    // HAPPY EMOJI PATH
+    // ========================================================================
+    happyEmoji: [
+        {
+            query: 'h',
+            suggestions: [
+                'happy',
+                'happy emoji',
+                'hotmail',
+                'hulu',
+                'home depot',
+                'hbo',
+                'hulu login'
+            ]
+        },
+        {
+            query: 'ha',
+            suggestions: [
+                'happy',
+                'happy emoji',
+                'harry potter',
+                'harvard',
+                'harbor freight',
+                'harry styles',
+                'hack'
+            ]
+        },
+        {
+            query: 'hap',
+            suggestions: [
+                'happy',
+                'happy emoji',
+                'happy birthday',
+                'happy new year',
+                'happy hour',
+                'happy meal',
+                'happy face'
+            ]
+        },
+        {
+            query: 'happ',
+            suggestions: [
+                'happy',
+                'happy emoji',
+                'happy birthday',
+                'happy new year',
+                'happy hour',
+                'happy meal',
+                'happy face'
+            ]
+        },
+        {
+            query: 'happy',
+            suggestions: [
+                'happy',
+                'happy emoji',
+                'happy birthday',
+                'happy new year',
+                'happy hour',
+                'happy meal',
+                'happy face'
+            ],
+            carrot: {
+                state: 11,
+                content: 11,
+                color: null
+            }
+        },
+        {
+            query: 'happy e',
+            suggestions: [
+                'happy emoji',
+                'happy emoji copy',
+                'happy emoji text',
+                'happy emoji meaning',
+                'happy emoji list'
+            ],
+            carrot: {
+                state: 11,
+                content: 11,
+                color: null
+            }
+        },
+        {
+            query: 'happy em',
+            suggestions: [
+                'happy emoji',
+                'happy emoji copy',
+                'happy emoji text',
+                'happy emoji meaning',
+                'happy emoji list'
+            ],
+            carrot: {
+                state: 11,
+                content: 11,
+                color: null
+            }
+        },
+        {
+            query: 'happy emo',
+            suggestions: [
+                'happy emoji',
+                'happy emoji copy',
+                'happy emoji text',
+                'happy emoji meaning',
+                'happy emoji list'
+            ],
+            carrot: {
+                state: 11,
+                content: 11,
+                color: null
+            }
+        },
+        {
+            query: 'happy emoj',
+            suggestions: [
+                'happy emoji',
+                'happy emoji copy',
+                'happy emoji text',
+                'happy emoji meaning',
+                'happy emoji list'
+            ],
+            carrot: {
+                state: 11,
+                content: 11,
+                color: null
+            }
+        },
+        {
+            query: 'happy emoji',
+            suggestions: [
+                'happy emoji',
+                'happy emoji copy',
+                'happy emoji text',
+                'happy emoji meaning',
+                'happy emoji list'
+            ],
+            carrot: {
+                state: 11,
+                content: 11,
+                color: null
+            }
+        }
     ]
 };
 
@@ -1423,7 +1615,9 @@ const iconMappings = {
         'united airlines', 'youtube', 'twitter', 'tiktok', 'target',
         'tesla', 'time', 'translate', 'amazon', 'apple', 'amazon prime',
         'airbnb', 'accuweather', 'american airlines', 'wiki', 'windows', 'wifi',
-        'chair', 'office chair', 'dining chair', 'gaming chair', 'ergonomic chair'
+        'chair', 'office chair', 'dining chair', 'gaming chair', 'ergonomic chair',
+        'mdn', 'mdn web docs', 'mdn javascript', 'mdn css', 'mdn html', 'mdn mozilla',
+        'happy', 'happy emoji', 'happy emoji copy', 'happy emoji text'
     ],
     
     // Magnifying glass icon - search queries

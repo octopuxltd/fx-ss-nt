@@ -104,7 +104,11 @@ const carrotTemplates = {
     flights: () => `
         <li class="search-suggestions-preview-item carrot">
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile" aria-hidden="true"></div>
+            <div class="carrot-tile carrot-tile--flights" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="airplane-icon">
+                    <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="currentColor"/>
+                </svg>
+            </div>
             <div class="carrot-lines">
                 <p class="carrot-line"><span class="carrot-line-label">Dep</span> <strong>9:21pm</strong> Chicago (CHI)</p>
                 <p class="carrot-line"><span class="carrot-line-label">Arr</span> <strong>11:42am</strong> Vancouver (VYR)</p>
@@ -113,7 +117,11 @@ const carrotTemplates = {
         </li>
         <li class="search-suggestions-preview-item carrot">
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile" aria-hidden="true"></div>
+            <div class="carrot-tile carrot-tile--flights" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="airplane-icon">
+                    <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="currentColor"/>
+                </svg>
+            </div>
             <div class="carrot-lines">
                 <p class="carrot-line"><span class="carrot-line-label">Dep</span> <strong>9:21pm</strong> Chicago (CHI)</p>
                 <p class="carrot-line"><span class="carrot-line-label">Arr</span> <strong>11:42am</strong> Vancouver (VYR)</p>
@@ -122,7 +130,11 @@ const carrotTemplates = {
         </li>
         <li class="search-suggestions-preview-item carrot">
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile" aria-hidden="true"></div>
+            <div class="carrot-tile carrot-tile--flights" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="airplane-icon">
+                    <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="currentColor"/>
+                </svg>
+            </div>
             <div class="carrot-lines">
                 <p class="carrot-line"><span class="carrot-line-label">Dep</span> <strong>9:21pm</strong> Chicago (CHI)</p>
                 <p class="carrot-line"><span class="carrot-line-label">Arr</span> <strong>11:42am</strong> Vancouver (VYR)</p>
@@ -244,7 +256,9 @@ const carrotTemplates = {
     sports: () => `
         <li class="search-suggestions-preview-item carrot">
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile" aria-hidden="true"></div>
+            <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
+                <img src="icons/basketball.svg" alt="" class="basketball-icon" aria-hidden="true">
+            </div>
             <div class="carrot-lines">
                 <p class="carrot-line">Lakers vs Warriors</p>
                 <p class="carrot-line">Live · Q3 <strong>89-92</strong></p>
@@ -253,7 +267,9 @@ const carrotTemplates = {
         </li>
         <li class="search-suggestions-preview-item carrot">
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile" aria-hidden="true"></div>
+            <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
+                <img src="icons/basketball.svg" alt="" class="basketball-icon" aria-hidden="true">
+            </div>
             <div class="carrot-lines">
                 <p class="carrot-line">Next game</p>
                 <p class="carrot-line">Lakers vs Celtics</p>
@@ -262,7 +278,9 @@ const carrotTemplates = {
         </li>
         <li class="search-suggestions-preview-item carrot">
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile" aria-hidden="true"></div>
+            <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
+                <img src="icons/basketball.svg" alt="" class="basketball-icon" aria-hidden="true">
+            </div>
             <div class="carrot-lines">
                 <p class="carrot-line">Standings</p>
                 <p class="carrot-line">Lakers · <strong>32-18</strong></p>
@@ -279,7 +297,11 @@ const carrotTemplates = {
     stocks: () => `
         <li class="search-suggestions-preview-item carrot">
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile" aria-hidden="true"></div>
+            <div class="carrot-tile carrot-tile--stocks" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="dollar-icon">
+                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" fill="currentColor"/>
+                </svg>
+            </div>
             <div class="carrot-lines">
                 <p class="carrot-line">UBER</p>
                 <p class="carrot-line"><strong>$73.45</strong> <span class="green-text">+2.18 (3.06%)</span></p>
@@ -288,7 +310,11 @@ const carrotTemplates = {
         </li>
         <li class="search-suggestions-preview-item carrot">
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile" aria-hidden="true"></div>
+            <div class="carrot-tile carrot-tile--stocks" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="dollar-icon">
+                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" fill="currentColor"/>
+                </svg>
+            </div>
             <div class="carrot-lines">
                 <p class="carrot-line">52-week range</p>
                 <p class="carrot-line"><strong>$53.12</strong> - <strong>$87.00</strong></p>
@@ -297,7 +323,11 @@ const carrotTemplates = {
         </li>
         <li class="search-suggestions-preview-item carrot">
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile" aria-hidden="true"></div>
+            <div class="carrot-tile carrot-tile--stocks" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="dollar-icon">
+                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" fill="currentColor"/>
+                </svg>
+            </div>
             <div class="carrot-lines">
                 <p class="carrot-line">Related stocks</p>
                 <p class="carrot-line">LYFT <strong>$15.32</strong> <span class="red-text">-0.45 (2.85%)</span></p>
@@ -359,6 +389,70 @@ const carrotTemplates = {
                 </div>
             </li>
         `;
-    }
+    },
+
+    /**
+     * MDN carrot
+     * Similar to ad marketplace but with larger image and 2 lines of text
+     */
+    mdn: () => `
+        <li class="search-suggestions-preview-item carrot carrot--local carrot--mdn">
+            <span class="ad-marketplace-sponsored">Sponsored</span>
+            <div class="local-business local-business--mdn">
+                <img src="https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&w=56&h=56&q=80" alt="MDN" class="local-business-image" style="width: 56px; height: 56px;">
+                <div class="local-business-content">
+                    <p class="local-business-name"><strong>MDN</strong> – Mozilla Developer Network</p>
+                    <p class="local-business-details">Web documentation and resources</p>
+                </div>
+            </div>
+        </li>
+    `,
+
+    /**
+     * Happy emoji carrot
+     * Vertical list with emoji on left and text on right, clickable to copy
+     */
+    happyEmoji: () => `
+        <li class="search-suggestions-preview-item carrot carrot--emoji">
+            <div class="emoji-list">
+                <div class="emoji-item" data-emoji="😊">
+                    <span class="emoji-icon">😊</span>
+                    <span class="emoji-label">Happy</span>
+                </div>
+                <div class="emoji-item" data-emoji="😄">
+                    <span class="emoji-icon">😄</span>
+                    <span class="emoji-label">Grin</span>
+                </div>
+                <div class="emoji-item" data-emoji="😁">
+                    <span class="emoji-icon">😁</span>
+                    <span class="emoji-label">Beam</span>
+                </div>
+                <div class="emoji-item" data-emoji="😃">
+                    <span class="emoji-icon">😃</span>
+                    <span class="emoji-label">Smile</span>
+                </div>
+                <div class="emoji-item" data-emoji="😆">
+                    <span class="emoji-icon">😆</span>
+                    <span class="emoji-label">Laugh</span>
+                </div>
+                <div class="emoji-item" data-emoji="😋">
+                    <span class="emoji-icon">😋</span>
+                    <span class="emoji-label">Yum</span>
+                </div>
+                <div class="emoji-item" data-emoji="😍">
+                    <span class="emoji-icon">😍</span>
+                    <span class="emoji-label">Heart</span>
+                </div>
+                <div class="emoji-item" data-emoji="🤗">
+                    <span class="emoji-icon">🤗</span>
+                    <span class="emoji-label">Hug</span>
+                </div>
+                <div class="emoji-item" data-emoji="😎">
+                    <span class="emoji-icon">😎</span>
+                    <span class="emoji-label">Cool</span>
+                </div>
+            </div>
+        </li>
+    `,
 };
 
