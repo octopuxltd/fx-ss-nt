@@ -1556,6 +1556,157 @@ const suggestionPaths = {
                 color: null
             }
         }
+    ],
+
+    // ========================================================================
+    // YOUTUBE PATH
+    // ========================================================================
+    // Typing sequence: y -> yo -> you -> yout -> youtu -> youtub -> youtube
+    // Carrot trigger: "youtube" (YouTube extension advert carrot)
+    youtube: [
+        {
+            query: 'y',
+            suggestions: [
+                'youtube',
+                'yahoo',
+                'yelp',
+                'ycombinator',
+                'youtube music',
+                'youtube tv',
+                'youtube premium'
+            ]
+        },
+        {
+            query: 'yo',
+            suggestions: [
+                'youtube',
+                'youtube music',
+                'youtube tv',
+                'youtube premium',
+                'youtube downloader',
+                'youtube to mp3',
+                'youtube shorts'
+            ]
+        },
+        {
+            query: 'you',
+            suggestions: [
+                'youtube',
+                'youtube music',
+                'youtube tv',
+                'youtube premium',
+                'youtube downloader',
+                'youtube to mp3',
+                'youtube shorts'
+            ]
+        },
+        {
+            query: 'yout',
+            suggestions: [
+                'youtube',
+                'youtube music',
+                'youtube tv',
+                'youtube premium',
+                'youtube downloader',
+                'youtube to mp3',
+                'youtube shorts'
+            ],
+            carrot: {
+                state: 12,
+                content: 12,
+                color: null
+            }
+        },
+        {
+            query: 'youtu',
+            suggestions: [
+                'youtube',
+                'youtube music',
+                'youtube tv',
+                'youtube premium',
+                'youtube downloader',
+                'youtube to mp3',
+                'youtube shorts'
+            ]
+        },
+        {
+            query: 'youtub',
+            suggestions: [
+                'youtube',
+                'youtube music',
+                'youtube tv',
+                'youtube premium',
+                'youtube downloader',
+                'youtube to mp3',
+                'youtube shorts'
+            ]
+        },
+        {
+            query: 'youtube',
+            suggestions: [
+                'youtube',
+                'youtube music',
+                'youtube tv',
+                'youtube premium',
+                'youtube downloader',
+                'youtube to mp3',
+                'youtube shorts'
+            ],
+            carrot: {
+                state: 12,
+                content: 12,
+                color: null
+            }
+        }
+    ],
+
+    // ========================================================================
+    // VPN PATH
+    // ========================================================================
+    // Typing sequence: v -> vp -> vpn
+    // Carrot trigger: "vpn" (VPN controls carrot)
+    vpn: [
+        {
+            query: 'v',
+            suggestions: [
+                'vpn',
+                'vpn free',
+                'vpn download',
+                'vpn chrome',
+                'vpn firefox',
+                'vpn extension',
+                'vpn service'
+            ]
+        },
+        {
+            query: 'vp',
+            suggestions: [
+                'vpn',
+                'vpn free',
+                'vpn download',
+                'vpn chrome',
+                'vpn firefox',
+                'vpn extension',
+                'vpn service'
+            ]
+        },
+        {
+            query: 'vpn',
+            suggestions: [
+                'vpn',
+                'vpn free',
+                'vpn download',
+                'vpn chrome',
+                'vpn firefox',
+                'vpn extension',
+                'vpn service'
+            ],
+            carrot: {
+                state: 13,
+                content: 13,
+                color: null
+            }
+        }
     ]
 };
 
@@ -1617,7 +1768,8 @@ const iconMappings = {
         'airbnb', 'accuweather', 'american airlines', 'wiki', 'windows', 'wifi',
         'chair', 'office chair', 'dining chair', 'gaming chair', 'ergonomic chair',
         'mdn', 'mdn web docs', 'mdn javascript', 'mdn css', 'mdn html', 'mdn mozilla',
-        'happy', 'happy emoji', 'happy emoji copy', 'happy emoji text'
+        'happy', 'happy emoji', 'happy emoji copy', 'happy emoji text',
+        'vpn', 'vpn free', 'vpn download', 'vpn chrome', 'vpn firefox', 'vpn extension', 'vpn service'
     ],
     
     // Magnifying glass icon - search queries

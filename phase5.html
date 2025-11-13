@@ -95,6 +95,35 @@
             z-index: 11;
         }
 
+        .vpn-indicator {
+            position: fixed;
+            top: 32px;
+            right: 34px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            z-index: 11;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1F2933;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .vpn-indicator.is-active {
+            display: flex;
+        }
+
+        .vpn-indicator-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #10b981;
+            flex-shrink: 0;
+        }
+
         .demo-searches {
             position: fixed;
             top: 170px;
@@ -822,6 +851,10 @@
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
             <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
+            <div class="vpn-indicator" id="vpn-indicator">
+                <span class="vpn-indicator-dot"></span>
+                <span>VPN</span>
+            </div>
             <div class="demo-searches">
                 <div class="phase-toggle" role="group" aria-label="Phase selection">
                     <div class="phase-toggle-heading">Phases</div>
@@ -833,6 +866,7 @@
                 </div>
                 <div class="demo-searches-title">New in Phase 5:</div>
                 <ul>
+                    <li>• vpn</li>
                     <li>• MDN</li>
                     <li>• youtube</li>
                     <li>• time tokyo</li>
@@ -1533,6 +1567,39 @@
                                 }
                             });
                         });
+                    }, 0);
+                    break;
+                case 12:
+                    carrotList.innerHTML = carrotTemplates.youtube();
+                    break;
+                case 13:
+                    carrotList.innerHTML = carrotTemplates.vpn();
+                    // Add toggle functionality
+                    setTimeout(() => {
+                        const toggleInput = carrotList.querySelector('.vpn-toggle-input');
+                        const statusIndicator = carrotList.querySelector('.vpn-status-indicator');
+                        const statusText = carrotList.querySelector('.vpn-status-text');
+                        const vpnIndicator = document.getElementById('vpn-indicator');
+                        
+                        if (toggleInput) {
+                            toggleInput.addEventListener('change', (e) => {
+                                if (e.target.checked) {
+                                    statusIndicator.classList.remove('vpn-status-indicator--off');
+                                    statusIndicator.classList.add('vpn-status-indicator--on');
+                                    statusText.textContent = 'VPN is on';
+                                    if (vpnIndicator) {
+                                        vpnIndicator.classList.add('is-active');
+                                    }
+                                } else {
+                                    statusIndicator.classList.remove('vpn-status-indicator--on');
+                                    statusIndicator.classList.add('vpn-status-indicator--off');
+                                    statusText.textContent = 'VPN is off';
+                                    if (vpnIndicator) {
+                                        vpnIndicator.classList.remove('is-active');
+                                    }
+                                }
+                            });
+                        }
                     }, 0);
                     break;
                 default:

@@ -399,7 +399,7 @@ const carrotTemplates = {
         <li class="search-suggestions-preview-item carrot carrot--local carrot--mdn">
             <span class="ad-marketplace-sponsored">Sponsored</span>
             <div class="local-business local-business--mdn">
-                <img src="https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&w=56&h=56&q=80" alt="MDN" class="local-business-image" style="width: 56px; height: 56px;">
+                <div class="local-business-image local-business-image--mdn-text">MDN</div>
                 <div class="local-business-content">
                     <p class="local-business-name"><strong>MDN</strong> – Mozilla Developer Network</p>
                     <p class="local-business-details">Web documentation and resources</p>
@@ -450,6 +450,62 @@ const carrotTemplates = {
                 <div class="emoji-item" data-emoji="😎">
                     <span class="emoji-icon">😎</span>
                     <span class="emoji-label">Cool</span>
+                </div>
+            </div>
+        </li>
+    `,
+
+    /**
+     * YouTube extension carrot
+     * Shows YouTube logo and advert for browser extension from addons.mozilla.org
+     */
+    youtube: () => `
+        <li class="search-suggestions-preview-item carrot carrot--youtube">
+            <div class="youtube-container">
+                <div class="youtube-logo-container">
+                    <img src="favicons/YouTube.svg" alt="YouTube" class="youtube-logo">
+                </div>
+                <div class="youtube-details">
+                    <p class="youtube-title">YouTube Browser Extension</p>
+                    <p class="youtube-description">Enhance your YouTube experience with our official browser extension</p>
+                    <a href="https://addons.mozilla.org" class="youtube-link" target="_blank" rel="noopener noreferrer">Get it from addons.mozilla.org</a>
+                </div>
+            </div>
+        </li>
+    `,
+
+    /**
+     * VPN carrot
+     * Shows controls for turning VPN on/off and selecting tunnel location
+     */
+    vpn: () => `
+        <li class="search-suggestions-preview-item carrot carrot--vpn">
+            <div class="vpn-container">
+                <div class="vpn-header">
+                    <p class="vpn-title">VPN</p>
+                    <label class="vpn-toggle">
+                        <input type="checkbox" class="vpn-toggle-input" aria-label="Toggle VPN">
+                        <span class="vpn-toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="vpn-status">
+                    <span class="vpn-status-indicator vpn-status-indicator--off"></span>
+                    <span class="vpn-status-text">VPN is off</span>
+                </div>
+                <div class="vpn-location">
+                    <label class="vpn-location-label">Tunnel to:</label>
+                    <select class="vpn-location-select" aria-label="Select VPN location">
+                        <option value="auto">Auto (fastest)</option>
+                        <option value="us">United States</option>
+                        <option value="uk">United Kingdom</option>
+                        <option value="de">Germany</option>
+                        <option value="fr">France</option>
+                        <option value="jp">Japan</option>
+                        <option value="ca">Canada</option>
+                        <option value="au">Australia</option>
+                        <option value="nl">Netherlands</option>
+                        <option value="se">Sweden</option>
+                    </select>
                 </div>
             </div>
         </li>
