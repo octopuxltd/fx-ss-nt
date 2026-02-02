@@ -749,7 +749,7 @@
                     <a class="phase-toggle__link" href="phase5.html">5</a>
                 </div>
                 <p>Clicking search now opens a search overlay, giving us greater real estate to deliver a richer search experience.</p>
-            </div>
+                </div>
             <!-- DEBUG BUTTONS - DO NOT DELETE! Uncomment for testing/development -->
             <!--
             <div class="debug-buttons">
@@ -852,7 +852,7 @@
                 </div>
                 <div class="search-description">
                     <div class="overlay-product-grid" data-product-grid data-product-sections="history,openTabs,bookmarks"></div>
-                </div>
+                                </div>
             </div>
         </div>
         <div class="bottom-content">
@@ -1019,10 +1019,10 @@
 
         const topOverlay = document.querySelector('.top-overlay');
         const bottomOverlay = document.querySelector('.bottom-overlay');
-        const searchWrapperElement = document.querySelector('.search-wrapper');
-        const searchDescriptionElement = document.querySelector('.search-description');
-        const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
-        const searchBoxElement = document.querySelector('.search-box');
+         const searchWrapperElement = document.querySelector('.search-wrapper');
+         const searchDescriptionElement = document.querySelector('.search-description');
+         const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
+         const searchBoxElement = document.querySelector('.search-box');
         const searchContainer = document.querySelector('.search-container');
         const productContainers = Array.from(document.querySelectorAll('.search-wrapper-products, .search-description'));
         const resizeObservers = [];
@@ -1272,9 +1272,9 @@
             const match = pathLookup[valueLower];
             if (match) {
                 updateSuggestions(match.suggestions);
-
+                
                 if (!enableCarrotsPhase2 && suggestionsContainer) {
-                    suggestionsContainer.classList.remove('show-carrot');
+                            suggestionsContainer.classList.remove('show-carrot');
                     suggestionsContainer.classList.add('expand-left');
                     currentState = 0;
                     return true;
@@ -1282,7 +1282,7 @@
                 
                 if (match.carrot) {
                     return true;
-                }
+                        }
                 
                 if (match.carrot === false) {
                     return true;
@@ -1292,7 +1292,7 @@
             }
             return false;
         }
-
+        
         function setCarrotContent(state) {
             if (!carrotList) {
                 return;

@@ -14,11 +14,10 @@
             margin: 0;
             font-family: Arial, sans-serif;
             min-height: 100vh;
-            background: linear-gradient(45deg,
-                #833AB4 0%,
-                #FD1D1D 50%,
-                #FCAF45 100%
-            );
+            background-image: url('bg.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
             background-attachment: fixed;
         }
 
@@ -95,6 +94,47 @@
             z-index: 11;
         }
 
+        .close-button {
+            position: fixed;
+            top: 32px;
+            right: 34px;
+            width: 48px;
+            height: 48px;
+            z-index: 11;
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .top-overlay.is-focused .close-button {
+            opacity: 0.5;
+            pointer-events: auto;
+        }
+
+        .close-button:hover {
+            opacity: 1 !important;
+        }
+
+        .close-button svg {
+            width: 48px;
+            height: 48px;
+            stroke: #1F2933;
+            stroke-width: 1.5;
+            transition: stroke 0.2s ease, stroke-width 0.2s ease;
+        }
+
+        .close-button:hover svg {
+            stroke: #000000;
+            stroke-width: 2;
+        }
+
         .vpn-indicator {
             position: fixed;
             top: 32px;
@@ -114,6 +154,10 @@
 
         .vpn-indicator.is-active {
             display: flex;
+        }
+
+        .top-overlay.is-focused .vpn-indicator {
+            top: 88px;
         }
 
         .vpn-indicator-dot {
@@ -160,21 +204,69 @@
             text-decoration: line-through;
         }
 
-        .demo-searches-earlier {
+        .info-icon-wrapper {
             position: fixed;
             bottom: 24px;
             left: 34px;
-            font-size: 13px;
-            color: #FFFFFF;
-            line-height: 1.6;
-            pointer-events: auto;
-            transition: color 0.3s ease;
             z-index: 11;
-            width: 150px;
+        }
+
+        .info-icon-button {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-icon-button:hover {
+            background-color: rgba(255, 255, 255, 1);
+            transform: scale(1.05);
+        }
+
+        .info-icon-button svg {
+            width: 18px;
+            height: 18px;
+            stroke: #374151;
+        }
+
+        .demo-searches-card {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            background-color: rgba(255, 255, 255, 0.98);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+            max-width: 300px;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 12;
+        }
+
+        .info-icon-wrapper:hover .demo-searches-card {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .demo-searches-earlier {
+            font-size: 13px;
+            color: #1F2933;
+            line-height: 1.6;
         }
 
         .top-overlay.is-focused .demo-searches-earlier {
-            color: #6B7280;
+            color: #1F2933;
         }
 
         .demo-searches-earlier .demo-searches-title {
@@ -201,12 +293,33 @@
             margin: 0;
             transition: width 0.35s ease-in-out;
             border: 1px solid transparent;
-            border-radius: 16px;
+            border-radius: 28px;
             display: flex;
             flex-direction: column;
             gap: 12px;
-            background-color: rgba(255, 255, 255, 0.98);
+            background-color: rgba(255, 255, 255, 0.7);
             box-shadow: 0 12px 12px rgba(15, 23, 42, 0.12);
+        }
+
+        .search-wrapper::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 28px;
+            padding: 2px;
+            background: conic-gradient(from 0deg, #945AF2 0%, #F37E49 71%, #945AF2 100%);
+            -webkit-mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.35s ease-in-out;
+        }
+
+        .search-wrapper:focus-within::before {
+            opacity: 1;
         }
 
         .search-wrapper.expanded {
@@ -214,8 +327,7 @@
         }
 
         .search-wrapper:focus-within {
-            border-color: #007BFF;
-            box-shadow: 0 0 0 1px #007BFF;
+            border: 1px solid transparent;
             background-color: rgba(255, 255, 255, 0.99);
         }
 
@@ -238,8 +350,8 @@
             display: flex;
             align-items: center;
             padding: 9px 10px;
-            border-radius: 10px;
-            background-color: rgba(15, 23, 42, 0.08);
+            border-radius: 999px;
+            background-color: #FFFFFF;
         }
 
         .circle-icon {
@@ -272,10 +384,15 @@
             border: none;
             background: transparent;
             font-size: 16px;
+            color: #000000;
         }
 
         .search-box::placeholder {
-            color: #A9A9A9;
+            color: #000000;
+        }
+
+        .top-overlay.is-focused .search-box::placeholder {
+            color: rgba(0, 0, 0, 0.5);
         }
 
         .search-box:focus {
@@ -452,29 +569,9 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         .pane--bottom {
             min-height: 100vh;
-            background: linear-gradient(180deg,
-                rgba(253, 29, 29, 0) 0%,
-                rgba(253, 29, 29, 1) 100%
-            );
-            background-attachment: fixed;
+            background: transparent;
             color: #4a3419;
             overflow-y: auto;
             padding: 0;
@@ -851,44 +948,43 @@
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
             <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
+            <button class="close-button" type="button" aria-label="Close search panel">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
             <div class="vpn-indicator" id="vpn-indicator">
                 <span class="vpn-indicator-dot"></span>
                 <span>VPN</span>
             </div>
-            <div class="demo-searches">
-                <div class="phase-toggle" role="group" aria-label="Phase selection">
-                    <div class="phase-toggle-heading">Phases</div>
-                    <a class="phase-toggle__link" href="phase1.html">1</a>
-                    <a class="phase-toggle__link" href="phase2.html">2</a>
-                    <a class="phase-toggle__link" href="phase3.html">3</a>
-                    <a class="phase-toggle__link" href="phase4.html">4</a>
-                    <a class="phase-toggle__link is-active" href="phase5.html">5</a>
+            <div class="info-icon-wrapper">
+                <button class="info-icon-button" type="button" aria-label="Show demo searches">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                        <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="12" cy="8" r="1" fill="currentColor"/>
+                    </svg>
+                </button>
+                <div class="demo-searches-card">
+                    <div class="demo-searches-earlier">
+                        <ul>
+                            <li>• fox wiki</li>
+                            <li>• chair</li>
+                            <li>• sneakers</li>
+                            <li>• uber stock</li>
+                            <li>• AC8170</li>
+                            <li>• lakers game</li>
+                            <li>• coffee shops</li>
+                            <li>• weather</li>
+                            <li>• vpn</li>
+                            <li>• MDN</li>
+                            <li>• youtube</li>
+                            <li>• time tokyo</li>
+                            <li>• happy emoji</li>
+                        </ul>
+                    </div>
                 </div>
-                <div class="demo-searches-title">New in Phase 5:</div>
-                <ul>
-                    <li>• vpn</li>
-                    <li>• MDN</li>
-                    <li>• youtube</li>
-                    <li>• time tokyo</li>
-                    <li>• happy emoji</li>
-                </ul>
-                </div>
-            <div class="demo-searches-earlier">
-                <div class="demo-searches-title">Added in Phase 3:</div>
-                <ul>
-                    <li>• fox wiki</li>
-                    <li>• chair</li>
-                    <li>• sneakers</li>
-                </ul>
-                <div class="demo-searches-title" style="margin-top: 12px;">Added in Phase 4:</div>
-                <ul>
-                    <li>• uber stock</li>
-                    <li>• AC8170</li>
-                    <li>• lakers game</li>
-                    <li>• coffee shops</li>
-                    <li>• weather</li>
-                </ul>
-                </div>
+            </div>
             <!-- DEBUG BUTTONS - DO NOT DELETE! Uncomment for testing/development -->
             <!--
             <div class="debug-buttons">
@@ -925,7 +1021,7 @@
                             </span>
                             <img src="icons/chevron.svg" alt="Expand" class="chevron">
             </div>
-                        <input type="text" class="search-box" placeholder="Search the web">
+                        <input type="text" class="search-box" placeholder="Search or start browsing">
                 </div>
                     <div class="search-suggestions-preview" aria-hidden="true">
                         <div class="search-suggestions-divider"></div>
@@ -1155,14 +1251,16 @@
         document.addEventListener('DOMContentLoaded', () => {
             renderOverlayProductGrid();
             updateImages();
+            // Attach hover listeners to initial suggestions
+            attachHoverListeners();
         });
 
         const topOverlay = document.querySelector('.top-overlay');
         const bottomOverlay = document.querySelector('.bottom-overlay');
-         const searchWrapperElement = document.querySelector('.search-wrapper');
-         const searchDescriptionElement = document.querySelector('.search-description');
-         const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
-         const searchBoxElement = document.querySelector('.search-box');
+        const searchWrapperElement = document.querySelector('.search-wrapper');
+        const searchDescriptionElement = document.querySelector('.search-description');
+        const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
+        const searchBoxElement = document.querySelector('.search-box');
         const searchContainer = document.querySelector('.search-container');
         const productContainers = Array.from(document.querySelectorAll('.search-wrapper-products, .search-description'));
         const resizeObservers = [];
@@ -1305,15 +1403,79 @@
             window.addEventListener('scroll', handleOverlayBackground, { passive: true });
         }
 
+        // Animate gradient border
+        const searchWrapper = document.querySelector('.search-wrapper');
+        let gradientAnimationId = null;
+        let gradientAngle = 0;
+
+        const animateGradient = () => {
+            if (searchWrapper && searchBoxElement && document.activeElement === searchBoxElement) {
+                gradientAngle = (gradientAngle + 1.2) % 360;
+                const beforeElement = window.getComputedStyle(searchWrapper, '::before');
+                searchWrapper.style.setProperty('--gradient-angle', `${gradientAngle}deg`);
+                // Directly update the background of the pseudo-element
+                const style = document.createElement('style');
+                style.id = 'gradient-animation-style';
+                const existingStyle = document.getElementById('gradient-animation-style');
+                if (existingStyle) {
+                    existingStyle.remove();
+                }
+                style.textContent = `.search-wrapper:focus-within::before { background: conic-gradient(from ${gradientAngle}deg, #945AF2 0%, #F37E49 71%, #945AF2 100%); }`;
+                document.head.appendChild(style);
+                gradientAnimationId = requestAnimationFrame(animateGradient);
+            } else {
+                const existingStyle = document.getElementById('gradient-animation-style');
+                if (existingStyle) {
+                    existingStyle.remove();
+                }
+                if (gradientAnimationId) {
+                    cancelAnimationFrame(gradientAnimationId);
+                    gradientAnimationId = null;
+                }
+            }
+        };
+
         if (topOverlay && searchBoxElement && bottomOverlay) {
             searchBoxElement.addEventListener('focus', () => {
                 setOverlayState(true);
+                setTimeout(() => {
+                    if (!gradientAnimationId) {
+                        animateGradient();
+                    }
+                }, 50);
+            });
+
+            searchBoxElement.addEventListener('blur', () => {
+                const existingStyle = document.getElementById('gradient-animation-style');
+                if (existingStyle) {
+                    existingStyle.remove();
+                }
+                if (gradientAnimationId) {
+                    cancelAnimationFrame(gradientAnimationId);
+                    gradientAnimationId = null;
+                }
             });
         }
 
         const overlayCloseButton = document.querySelector('.search-background-bottom-overlay');
         if (overlayCloseButton && searchBoxElement) {
             overlayCloseButton.addEventListener('click', () => {
+                setOverlayState(false);
+                searchBoxElement.blur();
+            });
+        }
+
+        const closeButton = document.querySelector('.close-button');
+        if (closeButton && searchBoxElement) {
+            closeButton.addEventListener('click', () => {
+                const existingStyle = document.getElementById('gradient-animation-style');
+                if (existingStyle) {
+                    existingStyle.remove();
+                }
+                if (gradientAnimationId) {
+                    cancelAnimationFrame(gradientAnimationId);
+                    gradientAnimationId = null;
+                }
                 setOverlayState(false);
                 searchBoxElement.blur();
             });
@@ -1358,6 +1520,7 @@
         const suggestionsList = document.querySelector('.search-suggestions-preview-list:first-child');
         
         let currentState = 0; // Track current state
+        let selectedSuggestionIndex = -1; // Track selected suggestion index (only one at a time)
         
         function getIconForSuggestion(text) {
             const textLower = text.toLowerCase();
@@ -1390,7 +1553,7 @@
             // Get current search value for highlighting
             const searchValue = searchBoxElement ? searchBoxElement.value.toLowerCase() : '';
             
-            suggestionsList.innerHTML = sortedSuggestions.map(text => {
+            suggestionsList.innerHTML = sortedSuggestions.map((text, index) => {
                 const icon = getIconForSuggestion(text);
                 
                 // Bold matching characters (ignore spaces in search value)
@@ -1430,12 +1593,55 @@
                 }
                 
                 return `
-                    <li class="search-suggestions-preview-item">
+                    <li class="search-suggestions-preview-item" data-index="${index}">
                         <img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon">
                         <span class="label">${displayText}</span>
                     </li>
                 `;
             }).join('');
+            
+            // Reset selection when suggestions update
+            selectedSuggestionIndex = -1;
+            updateSelectedSuggestion();
+            
+            // Attach hover listeners to the new suggestions
+            attachHoverListeners();
+        }
+        
+        function attachHoverListeners() {
+            if (!suggestionsList) return;
+            
+            const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
+            suggestionItems.forEach((item) => {
+                item.addEventListener('mouseenter', handleSuggestionHover);
+            });
+        }
+        
+        function handleSuggestionHover(event) {
+            if (!suggestionsList) return;
+            const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
+            const index = Array.from(suggestionItems).indexOf(event.currentTarget);
+            if (index >= 0) {
+                // Hovering steals selection from keyboard-selected item
+                selectedSuggestionIndex = index;
+                updateSelectedSuggestion();
+            }
+        }
+        
+        function updateSelectedSuggestion() {
+            if (!suggestionsList) return;
+            
+            const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
+            
+            // Remove selection from ALL items first
+            suggestionItems.forEach((item) => {
+                item.classList.remove('is-selected');
+            });
+            
+            // Then add selection to ONLY the selected item (if one is selected)
+            if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
+                suggestionItems[selectedSuggestionIndex].classList.add('is-selected');
+            }
         }
         
         function processSuggestionPath(valueLower) {
@@ -1783,6 +1989,57 @@
                     currentState = 0;
                     suggestionsContainer.classList.add('expand-left');
                     suggestionsContainer.classList.remove('show-carrot');
+                }
+            });
+
+            searchBoxElement.addEventListener('keydown', (event) => {
+                if (!suggestionsList) return;
+                
+                const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
+                if (suggestionItems.length === 0) return;
+                
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    // Keyboard navigation steals selection from hovered item
+                    // If nothing is selected, select the first item (index 0)
+                    // Otherwise, move down one
+                    if (selectedSuggestionIndex < 0) {
+                        selectedSuggestionIndex = 0;
+                    } else {
+                        selectedSuggestionIndex = (selectedSuggestionIndex + 1) % suggestionItems.length;
+                    }
+                    updateSelectedSuggestion();
+                    // Scroll into view if needed
+                    if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
+                        suggestionItems[selectedSuggestionIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                } else if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    // Keyboard navigation steals selection from hovered item
+                    // If nothing is selected, select the last item
+                    // Otherwise, move up one
+                    if (selectedSuggestionIndex < 0) {
+                        selectedSuggestionIndex = suggestionItems.length - 1;
+                    } else if (selectedSuggestionIndex <= 0) {
+                        selectedSuggestionIndex = suggestionItems.length - 1;
+                    } else {
+                        selectedSuggestionIndex--;
+                    }
+                    updateSelectedSuggestion();
+                    // Scroll into view if needed
+                    if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
+                        suggestionItems[selectedSuggestionIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    }
+                } else if (event.key === 'Enter' && selectedSuggestionIndex >= 0) {
+                    event.preventDefault();
+                    const selectedItem = suggestionItems[selectedSuggestionIndex];
+                    const label = selectedItem.querySelector('.label');
+                    if (label) {
+                        // Extract text without HTML tags
+                        const text = label.textContent || label.innerText;
+                        searchBoxElement.value = text;
+                        searchBoxElement.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
                 }
             });
 
