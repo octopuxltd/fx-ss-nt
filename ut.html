@@ -6,6 +6,11 @@
     <title>Search on New Tab • Phase 5</title>
     <link rel="stylesheet" href="suggestions.css">
     <style>
+        /* Override hover for ut.html - only show selection state, not hover */
+        .ut-page .search-suggestions-preview-item:hover:not(.is-selected),
+        .ut-page .search-suggestions-preview-item:focus-within:not(.is-selected) {
+            background-color: transparent;
+        }
         * {
             box-sizing: border-box;
         }
@@ -943,7 +948,7 @@
         }
     </script>
 </head>
-<body>
+<body class="ut-page">
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
