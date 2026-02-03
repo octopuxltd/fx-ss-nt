@@ -391,20 +391,21 @@
 
         .search-dropdown-button {
             position: absolute;
-            left: 7px;
+            left: 10px;
             top: calc(50% + 7px);
             transform: translateY(-50%);
             display: flex;
             align-items: center;
-            padding: 9px 10px;
+            padding: 6px 8px;
             border-radius: 999px;
             background-color: #FFFFFF;
             transition: background-color 0.2s ease;
+            z-index: 0;
         }
         
-        /* When panel is open (has suggestions visible), make the button grey */
-        .search-suggestions-preview-column-container:has(.search-suggestions-preview-list:not(:empty)) .search-dropdown-button {
-            background-color: rgba(15, 23, 42, 0.08);
+        /* When panel is open (is-focused), make the button grey */
+        .top-overlay.is-focused .search-dropdown-button {
+            background-color: #F3F4F6;
         }
 
         .circle-icon {
@@ -413,9 +414,15 @@
             justify-content: center;
             width: 24px;
             height: 24px;
-            margin-right: 6px;
+            margin-right: 2px;
             border-radius: 50%;
             background-color: #FFFFFF;
+            transition: background-color 0.2s ease;
+        }
+        
+        /* When panel is open (is-focused), make the circle icon grey */
+        .top-overlay.is-focused .circle-icon {
+            background-color: #F3F4F6;
         }
 
         .circle-icon__image {
@@ -426,7 +433,7 @@
         .chevron {
             width: 12px;
             height: 12px;
-            margin-left: 6px;
+            margin-left: 2px;
             position: relative;
             top: 1px;
         }
@@ -438,6 +445,8 @@
             background: transparent;
             font-size: 16px;
             color: #000000;
+            position: relative;
+            z-index: 1;
         }
 
         .search-box::placeholder {
@@ -1183,140 +1192,183 @@
             }
         }
         
-        async function fetchAISuggestions(query) {
-            console.log('[API] Starting fetchAISuggestions for query:', query);
-            
-            // Check cache first
-            const cached = getCachedSuggestions(query);
-            if (cached && cached.length > 0) {
-                console.log('[API] Returning cached suggestions');
-                return cached;
+        // Helper function to make a single request attempt
+        async function makeRequestAttempt(query, attemptNumber, delayMs = 0) {
+            if (delayMs > 0) {
+                await new Promise(resolve => setTimeout(resolve, delayMs));
             }
+
+            const startTime = Date.now();
+            console.log(`[API] Making request attempt ${attemptNumber}...`);
             
             if (!OPENROUTER_API_KEY) {
                 console.warn('[API] OpenRouter API key not set');
-                return [];
+                throw new Error('API key not set');
             }
             
             const requestBody = {
-                // Common OpenRouter models: 'anthropic/claude-3-haiku', 'google/gemini-pro', 'meta-llama/llama-3.1-8b-instruct'
-                model: 'anthropic/claude-3-haiku', // Fast, lightweight model
+                model: 'anthropic/claude-3-haiku',
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a search suggestion generator. Generate 10 popular search queries where at least one word starts with the user\'s query characters. For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of strings, sorted by popularity (most popular first). No explanations, just the array.'
+                        content: 'You are a search suggestion generator. Generate 10 popular search queries where at least one word starts with the user\'s query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of strings, sorted by popularity (most popular first). No explanations, just the array.'
                     },
                     {
                         role: 'user',
-                        content: `Generate 10 popular search suggestions where at least one word starts with: "${query}"`
+                        content: `Generate 10 popular search suggestions where at least one word starts with: "${query}". Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why).`
                     }
                 ],
                 temperature: 0.7,
                 max_tokens: 200
             };
             
-            console.log('[API] Request URL:', OPENROUTER_API_URL);
-            console.log('[API] Request body:', JSON.stringify(requestBody, null, 2));
+            const response = await fetch(OPENROUTER_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'Search Suggestions'
+                },
+                body: JSON.stringify(requestBody)
+            });
             
-            try {
-                const startTime = Date.now();
-                console.log('[API] Making fetch request...');
-                
-                const response = await fetch(OPENROUTER_API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                        'HTTP-Referer': window.location.origin,
-                        'X-Title': 'Search Suggestions'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-                
-                const requestDuration = Date.now() - startTime;
-                console.log('[API] Response received:', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    duration: `${requestDuration}ms`,
-                    headers: Object.fromEntries(response.headers.entries())
-                });
-                
-                if (!response.ok) {
-                    let errorText;
-                    try {
-                        errorText = await response.text();
-                        console.error('[API] Response not OK:', {
-                            status: response.status,
-                            statusText: response.statusText,
-                            body: errorText
-                        });
-                        // Try to parse as JSON for better error message
-                        try {
-                            const errorJson = JSON.parse(errorText);
-                            console.error('[API] Error JSON:', errorJson);
-                        } catch (e) {
-                            // Not JSON, that's fine
-                        }
-                    } catch (e) {
-                        errorText = 'Could not read error response';
-                        console.error('[API] Could not read error response:', e);
-                    }
-                    throw new Error(`API error: ${response.status} - ${errorText}`);
-                }
-                
-                const data = await response.json();
-                console.log('[API] Response data:', JSON.stringify(data, null, 2));
-                
-                const content = data.choices[0]?.message?.content?.trim();
-                console.log('[API] Extracted content:', content);
-                
-                if (!content) {
-                    console.warn('[API] No content in response');
-                    return [];
-                }
-                
-                // Parse JSON array from response
-                let suggestions = [];
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API] Attempt ${attemptNumber} response received:`, {
+                status: response.status,
+                duration: `${requestDuration}ms`
+            });
+            
+            if (!response.ok) {
+                let errorText;
                 try {
-                    // Try to parse as JSON array
-                    const jsonMatch = content.match(/\[.*\]/s);
-                    if (jsonMatch) {
-                        console.log('[API] Found JSON array match:', jsonMatch[0]);
-                        suggestions = JSON.parse(jsonMatch[0]);
-                        console.log('[API] Parsed suggestions:', suggestions);
-                    } else {
-                        console.log('[API] No JSON array found, trying line-by-line parsing');
-                        // Fallback: split by lines and clean up
-                        suggestions = content.split('\n')
-                            .map(line => line.trim().replace(/^[-•\d.\s"']+|[-•\d.\s"']+$/g, ''))
-                            .filter(line => line.length > 0)
-                            .slice(0, 10);
-                        console.log('[API] Line-parsed suggestions:', suggestions);
-                    }
-                } catch (parseError) {
-                    console.error('[API] Error parsing AI response:', parseError);
-                    console.error('[API] Content that failed to parse:', content);
-                    // Fallback: extract quoted strings
-                    const quotedMatches = content.match(/"([^"]+)"/g);
-                    if (quotedMatches) {
-                        suggestions = quotedMatches.map(m => m.replace(/"/g, '')).slice(0, 10);
-                        console.log('[API] Fallback quoted-string suggestions:', suggestions);
-                    }
+                    errorText = await response.text();
+                } catch (e) {
+                    errorText = 'Could not read error response';
                 }
                 
-                const finalSuggestions = suggestions.filter(s => s && s.length > 0).slice(0, 10);
-                console.log('[API] Final suggestions to return:', finalSuggestions);
-                console.log('[API] Total duration:', `${Date.now() - startTime}ms`);
-                
-                // Cache the suggestions for future use
-                if (finalSuggestions.length > 0) {
-                    cacheSuggestions(query, finalSuggestions);
+                const error = new Error(`API error: ${response.status} - ${errorText}`);
+                error.hasResponse = true;
+                throw error;
+            }
+            
+            const data = await response.json();
+            const content = data.choices[0]?.message?.content?.trim();
+            
+            if (!content) {
+                const error = new Error('Empty content in response');
+                error.hasResponse = true;
+                throw error;
+            }
+            
+            // Parse JSON array from response
+            let suggestions = [];
+            try {
+                const jsonMatch = content.match(/\[.*\]/s);
+                if (jsonMatch) {
+                    suggestions = JSON.parse(jsonMatch[0]);
+                } else {
+                    suggestions = content.split('\n')
+                        .map(line => line.trim().replace(/^[-•\d.\s"']+|[-•\d.\s"']+$/g, ''))
+                        .filter(line => line.length > 0)
+                        .slice(0, 10);
                 }
-                
-                return finalSuggestions;
+            } catch (parseError) {
+                const quotedMatches = content.match(/"([^"]+)"/g);
+                if (quotedMatches) {
+                    suggestions = quotedMatches.map(m => m.replace(/"/g, '')).slice(0, 10);
+                }
+            }
+            
+            const finalSuggestions = suggestions.filter(s => s && s.length > 0).slice(0, 10);
+            console.log(`[API] Attempt ${attemptNumber} succeeded with ${finalSuggestions.length} suggestions`);
+            
+            if (finalSuggestions.length === 0) {
+                const error = new Error('No suggestions parsed');
+                error.hasResponse = true;
+                throw error;
+            }
+            
+            return finalSuggestions;
+        }
+
+        async function fetchAISuggestions(query, retryCount = 0) {
+            const maxRetries = 2; // Retry up to 2 times (3 total attempts)
+            console.log('[API] Starting fetchAISuggestions for query:', query, retryCount > 0 ? `(retry ${retryCount}/${maxRetries})` : '');
+            
+            // Check cache first (only on first attempt, not retries)
+            if (retryCount === 0) {
+                const cached = getCachedSuggestions(query);
+                if (cached && cached.length > 0) {
+                    console.log('[API] Returning cached suggestions');
+                    return cached;
+                }
+            }
+            
+            let resolveFirst = null;
+            let rejectFirst = null;
+            const firstResponsePromise = new Promise((resolve, reject) => {
+                resolveFirst = resolve;
+                rejectFirst = reject;
+            });
+
+            const errors = [];
+            const totalAttempts = maxRetries + 1;
+            let completed = false;
+            let finishedAttempts = 0;
+
+            function handleAttemptResult(attemptNumber, result, error) {
+                if (completed) {
+                    return;
+                }
+
+                if (error) {
+                    finishedAttempts++;
+                    console.log(`[API] Attempt ${attemptNumber} failed:`, error.message);
+                    errors.push({ attempt: attemptNumber, error });
+
+                    if (finishedAttempts === totalAttempts) {
+                        completed = true;
+                        rejectFirst(new Error('All attempts failed'));
+                    }
+                    return;
+                }
+
+                completed = true;
+                resolveFirst({ result, attempt: attemptNumber });
+            }
+
+            // Attempt 1 immediately, then additional attempts after 2s and 4s
+            makeRequestAttempt(query, 1, 0)
+                .then(result => handleAttemptResult(1, result, null))
+                .catch(error => handleAttemptResult(1, null, error));
+
+            setTimeout(() => {
+                if (completed) {
+                    return;
+                }
+                makeRequestAttempt(query, 2, 0)
+                    .then(result => handleAttemptResult(2, result, null))
+                    .catch(error => handleAttemptResult(2, null, error));
+            }, 2000);
+
+            setTimeout(() => {
+                if (completed) {
+                    return;
+                }
+                makeRequestAttempt(query, 3, 0)
+                    .then(result => handleAttemptResult(3, result, null))
+                    .catch(error => handleAttemptResult(3, null, error));
+            }, 4000);
+
+            try {
+                const { result } = await firstResponsePromise;
+                if (result.length > 0) {
+                    cacheSuggestions(query, result);
+                }
+                return result;
             } catch (error) {
-                console.error('[API] Error fetching AI suggestions:', error);
-                console.error('[API] Error stack:', error.stack);
+                console.error('[API] All attempts failed. Errors:', errors);
                 return [];
             }
         }
@@ -1374,6 +1426,7 @@
                             <li>• youtube</li>
                             <li>• happy emoji</li>
                         </ul>
+                        <button type="button" class="clear-history-button" style="margin-top: 12px; padding: 6px 12px; background-color: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 6px; cursor: pointer; font-size: 12px; color: #374151; transition: background-color 0.2s ease;">Clear search history</button>
                     </div>
                 </div>
             </div>
@@ -1426,31 +1479,31 @@
                         <div class="search-suggestions-preview-column-container expand-left">
                         <ul class="search-suggestions-preview-list">
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">hoka</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">macbook</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">13 in macbook air</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">Coffee machines for sale</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">taylor swift</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">coffee grinder</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">gmail</span>
                             </li>
                         </ul>
@@ -2005,6 +2058,31 @@
             });
         }
 
+        // Clear search history button
+        const clearHistoryButton = document.querySelector('.clear-history-button');
+        if (clearHistoryButton) {
+            clearHistoryButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                try {
+                    localStorage.removeItem('search_history');
+                    clearHistoryButton.textContent = 'History cleared';
+                    clearHistoryButton.style.backgroundColor = '#D1FAE5';
+                    clearHistoryButton.style.color = '#065F46';
+                    setTimeout(() => {
+                        clearHistoryButton.textContent = 'Clear search history';
+                        clearHistoryButton.style.backgroundColor = '#F3F4F6';
+                        clearHistoryButton.style.color = '#374151';
+                    }, 2000);
+                } catch (error) {
+                    console.error('Error clearing search history:', error);
+                    clearHistoryButton.textContent = 'Error clearing history';
+                    setTimeout(() => {
+                        clearHistoryButton.textContent = 'Clear search history';
+                    }, 2000);
+                }
+            });
+        }
+
         if (bottomOverlay && searchBoxElement) {
             bottomOverlay.addEventListener('click', () => {
                 if (topOverlay && topOverlay.classList.contains('is-focused')) {
@@ -2542,14 +2620,15 @@
             }
             
             if (carrotState !== undefined && carrotList && suggestionsContainer) {
-                // Special handling for ad marketplace carrots (chair, ramen, sushi), local carrots (coffee shops), and stocks (uber stock, stocks) - show as regular suggestion, not as carrot
+                // Special handling for ad marketplace carrots (chair, ramen, sushi), local carrots (coffee shops), stocks (uber stock, stocks), and sports (lakers game) - show as regular suggestion, not as carrot
                 // Check both queryLower and matchedTerm to catch exact and partial matches
                 if ((carrotState === 8 && (queryLower === 'chair' || matchedTerm === 'chair')) || 
                     (carrotState === 18 && (queryLower === 'ramen' || matchedTerm === 'ramen')) || 
                     (carrotState === 19 && (queryLower === 'sushi' || matchedTerm === 'sushi')) ||
                     (carrotState === 0 && (queryLower === 'coffee shops' || matchedTerm === 'coffee shops')) ||
                     (carrotState === 6 && (queryLower === 'uber stock' || matchedTerm === 'uber stock')) ||
-                    (carrotState === 20 && (queryLower === 'stocks' || matchedTerm === 'stocks'))) {
+                    (carrotState === 20 && (queryLower === 'stocks' || matchedTerm === 'stocks')) ||
+                    (carrotState === 5 && ((queryLower === 'lakers game' || matchedTerm === 'lakers game') || (queryLower.startsWith('lakers') && queryLower.length >= 7)))) {
                     // Don't show these carrots as right panel carrots - they're handled in updateSuggestions
                     return false;
                 }
@@ -2594,9 +2673,78 @@
             search: []
         };
         
-        function getIconForSuggestion(text) {
+        // Search history management
+        function getSearchHistory() {
+            try {
+                const history = localStorage.getItem('search_history');
+                return history ? JSON.parse(history) : [];
+            } catch (error) {
+                console.error('Error reading search history:', error);
+                return [];
+            }
+        }
+
+        function saveToSearchHistory(text) {
+            try {
+                const history = getSearchHistory();
+                const textLower = text.toLowerCase();
+                
+                // Remove if already exists (case-insensitive)
+                const filteredHistory = history.filter(item => item.toLowerCase() !== textLower);
+                
+                // Add to top of list
+                filteredHistory.unshift(text);
+                
+                // Limit to 100 items
+                const limitedHistory = filteredHistory.slice(0, 100);
+                
+                localStorage.setItem('search_history', JSON.stringify(limitedHistory));
+            } catch (error) {
+                console.error('Error saving to search history:', error);
+            }
+        }
+
+        function isInSearchHistory(text) {
+            try {
+                const history = getSearchHistory();
+                const textLower = text.toLowerCase();
+                return history.some(item => item.toLowerCase() === textLower);
+            } catch (error) {
+                console.error('Error checking search history:', error);
+                return false;
+            }
+        }
+
+        function moveToTopOfHistory(text) {
+            try {
+                const history = getSearchHistory();
+                const textLower = text.toLowerCase();
+                const index = history.findIndex(item => item.toLowerCase() === textLower);
+                
+                if (index !== -1) {
+                    // Remove from current position and add to top
+                    history.splice(index, 1);
+                    history.unshift(text);
+                    localStorage.setItem('search_history', JSON.stringify(history));
+                }
+            } catch (error) {
+                console.error('Error moving to top of history:', error);
+            }
+        }
+
+        function getIconForSuggestion(text, forceClock = false) {
             try {
                 const textLower = text.toLowerCase();
+                
+                // Force clock icon if specified (for random assignment)
+                if (forceClock) {
+                    return 'icons/clock.svg';
+                }
+                
+                // Check if in search history
+                if (isInSearchHistory(text)) {
+                    return 'icons/clock.svg';
+                }
                 
                 // AI suggestions always get search icon
                 if (aiSuggestionsSet.has(textLower)) {
@@ -2610,10 +2758,10 @@
                         return 'icons/search.svg';
                     }
                 }
-                return 'icons/clock.svg';
+                return 'icons/search.svg';
             } catch (error) {
                 console.error('Error in getIconForSuggestion:', error);
-                return 'icons/clock.svg';
+                return 'icons/search.svg';
             }
         }
         
@@ -2670,35 +2818,84 @@
             
             console.log('Sorting suggestions...');
             try {
-                // Sort suggestions by icon type: lightning first, clock second, search last
-                console.log('About to sort, suggestions count:', suggestions.length);
-                const sortedSuggestions = [...suggestions].sort((a, b) => {
+                // Get current search value for highlighting
+                const searchValue = searchBoxElement ? searchBoxElement.value.toLowerCase() : '';
+                const searchValueTrimmed = searchBoxElement ? searchBoxElement.value.trim() : '';
+                console.log('Search value for highlighting:', searchValue);
+                
+                // Separate suggestions into history and non-history
+                const historySuggestions = [];
+                const nonHistorySuggestions = [];
+                
+                suggestions.forEach(suggestion => {
+                    // Skip typed text - it will be added separately
+                    if (searchValueTrimmed && suggestion.toLowerCase() === searchValueTrimmed.toLowerCase()) {
+                        return;
+                    }
+                    
+                    if (isInSearchHistory(suggestion)) {
+                        historySuggestions.push(suggestion);
+                        // Move to top of history when shown
+                        moveToTopOfHistory(suggestion);
+                    } else {
+                        nonHistorySuggestions.push(suggestion);
+                    }
+                });
+                
+                // Only randomly assign clock icons if there are NO history items in the current list
+                const suggestionsToMarkWithClock = [];
+                if (historySuggestions.length === 0) {
+                    // Randomly assign clock icons to 1-3 suggestions from non-history
+                    const clockCount = Math.floor(Math.random() * 3) + 1; // 1-3
+                    const availableSuggestions = [...nonHistorySuggestions];
+                    
+                    for (let i = 0; i < clockCount && availableSuggestions.length > 0; i++) {
+                        const randomIndex = Math.floor(Math.random() * availableSuggestions.length);
+                        const selected = availableSuggestions.splice(randomIndex, 1)[0];
+                        suggestionsToMarkWithClock.push(selected);
+                        // Save to history
+                        saveToSearchHistory(selected);
+                    }
+                }
+                
+                // Sort history suggestions by icon type (lightning first, then clock)
+                const sortedHistory = historySuggestions.sort((a, b) => {
                     try {
                         const iconA = getIconForSuggestion(a);
                         const iconB = getIconForSuggestion(b);
-                        
                         const iconOrder = {
                             'icons/lightning.svg': 0,
                             'icons/clock.svg': 1,
                             'icons/search.svg': 2
                         };
-                        
-                        const orderA = iconOrder[iconA] !== undefined ? iconOrder[iconA] : 2;
-                        const orderB = iconOrder[iconB] !== undefined ? iconOrder[iconB] : 2;
-                        
-                        return orderA - orderB;
-                    } catch (sortError) {
-                        console.error('Error in sort comparison:', sortError, { a, b });
+                        return (iconOrder[iconA] || 2) - (iconOrder[iconB] || 2);
+                    } catch (e) {
                         return 0;
                     }
                 });
                 
-                console.log('Sorted suggestions:', sortedSuggestions.length);
+                // Sort non-history suggestions by icon type
+                const sortedNonHistory = nonHistorySuggestions.sort((a, b) => {
+                    try {
+                        const aIsForcedClock = suggestionsToMarkWithClock.some(s => s.toLowerCase() === a.toLowerCase());
+                        const bIsForcedClock = suggestionsToMarkWithClock.some(s => s.toLowerCase() === b.toLowerCase());
+                        const iconA = getIconForSuggestion(a, aIsForcedClock);
+                        const iconB = getIconForSuggestion(b, bIsForcedClock);
+                        const iconOrder = {
+                            'icons/lightning.svg': 0,
+                            'icons/clock.svg': 1,
+                            'icons/search.svg': 2
+                        };
+                        return (iconOrder[iconA] || 2) - (iconOrder[iconB] || 2);
+                    } catch (e) {
+                        return 0;
+                    }
+                });
                 
-                // Get current search value for highlighting
-                const searchValue = searchBoxElement ? searchBoxElement.value.toLowerCase() : '';
-                const searchValueTrimmed = searchBoxElement ? searchBoxElement.value.trim() : '';
-                console.log('Search value for highlighting:', searchValue);
+                // Combine: history first, then non-history
+                const sortedSuggestions = [...sortedHistory, ...sortedNonHistory];
+                
+                console.log('Sorted suggestions:', sortedSuggestions.length);
                 
                 // Prepend the typed text as the first suggestion if there's text
                 // Check case-insensitively to avoid duplicates
@@ -2709,9 +2906,18 @@
                 
                 console.log('Mapping suggestions to HTML...');
                 const htmlString = suggestionsToShow.map((text, index) => {
-                // First suggestion (typed text) always uses search icon and isn't bolded
+                // First suggestion (typed text) - check if it's in history
                 const isTypedText = index === 0 && searchValueTrimmed && text === searchValueTrimmed;
-                const icon = isTypedText ? 'icons/search.svg' : getIconForSuggestion(text);
+                
+                // Check if this suggestion was randomly assigned clock icon (for new additions)
+                const isForcedClock = suggestionsToMarkWithClock.some(s => s.toLowerCase() === text.toLowerCase());
+                // Check if it's in history (will also get clock icon)
+                const isInHistory = isInSearchHistory(text);
+                
+                // For typed text, show clock if in history, otherwise search icon
+                const icon = isTypedText 
+                    ? (isInSearchHistory(text) ? 'icons/clock.svg' : 'icons/search.svg')
+                    : getIconForSuggestion(text, isForcedClock);
                 
                 // Bold matching characters (ignore spaces in search value)
                 // Skip bolding for the typed text itself (first item)
@@ -2764,6 +2970,8 @@
                 const isAdMarketplaceQuery = queryLower === 'chair' || queryLower === 'ramen' || queryLower === 'sushi';
                 // Check if query matches "coffee shops" (exact or partial match that would trigger the carrot)
                 const isCoffeeShopsQuery = queryLower === 'coffee shops' || (queryLower.startsWith('coffee sh') && queryLower.length >= 10);
+                // Check if query matches "lakers game" (exact or partial match that would trigger the carrot)
+                const isLakersGameQuery = queryLower === 'lakers game' || (queryLower.startsWith('lakers') && queryLower.length >= 7);
                 let finalHtml = htmlString;
                 if (isAdMarketplaceQuery) {
                     let adMarketplaceCarrotHtml;
@@ -2811,6 +3019,26 @@
                     } else {
                         finalHtml = htmlString + stocksETFsCarrotHtml;
                     }
+                } else if (isLakersGameQuery) {
+                    // Insert sports carrot after first item (typed text)
+                    // Insert all three sports items directly - CSS will display them side by side
+                    const sportsCarrotHtml = carrotTemplates.sports();
+                    const firstItemEnd = htmlString.indexOf('</li>');
+                    if (firstItemEnd !== -1) {
+                        finalHtml = htmlString.substring(0, firstItemEnd + 5) + sportsCarrotHtml + htmlString.substring(firstItemEnd + 5);
+                    } else {
+                        finalHtml = htmlString + sportsCarrotHtml;
+                    }
+                } else if (isLakersGameQuery) {
+                    // Insert sports carrot after first item (typed text)
+                    // Insert all three sports items directly - CSS will display them side by side
+                    const sportsCarrotHtml = carrotTemplates.sports();
+                    const firstItemEnd = htmlString.indexOf('</li>');
+                    if (firstItemEnd !== -1) {
+                        finalHtml = htmlString.substring(0, firstItemEnd + 5) + sportsCarrotHtml + htmlString.substring(firstItemEnd + 5);
+                    } else {
+                        finalHtml = htmlString + sportsCarrotHtml;
+                    }
                 }
                 
                 console.log('Generated HTML length:', finalHtml.length);
@@ -2829,8 +3057,11 @@
             const hasTypedText = searchBoxElement && searchBoxElement.value.trim().length > 0;
             if (suggestionItems.length > 0 && hasTypedText) {
                 selectedSuggestionIndex = 0;
+                // Enable keyboard navigation mode to prevent hover from interfering
+                suggestionsList.classList.add('keyboard-navigating');
             } else {
                 selectedSuggestionIndex = -1;
+                suggestionsList.classList.remove('keyboard-navigating');
             }
             updateSelectedSuggestion();
             
@@ -2896,6 +3127,10 @@
                     businessDivs.forEach((businessDiv, divIndex) => {
                         businessDiv.addEventListener('mouseenter', (e) => {
                             e.stopPropagation();
+                            // Ignore hover if suggestions were just updated or keyboard navigating
+                            if (suggestionsJustUpdated || suggestionsList.classList.contains('keyboard-navigating')) {
+                                return;
+                            }
                             // Set the selected index based on which business div is hovered
                             // We need to find the index of this list item, then add the divIndex
                             const allItems = Array.from(suggestionsList.querySelectorAll('.search-suggestions-preview-item'));
@@ -2920,12 +3155,39 @@
                     stockDivs.forEach((stockDiv, divIndex) => {
                         stockDiv.addEventListener('mouseenter', (e) => {
                             e.stopPropagation();
+                            // Ignore hover if suggestions were just updated or keyboard navigating
+                            if (suggestionsJustUpdated || suggestionsList.classList.contains('keyboard-navigating')) {
+                                return;
+                            }
                             // Set the selected index based on which stock div is hovered
                             const allItems = Array.from(suggestionsList.querySelectorAll('.search-suggestions-preview-item'));
                             const itemIndex = allItems.indexOf(item);
                             // For stocks, first stock = itemIndex, second = itemIndex + 1, third = itemIndex + 2
                             const stockIndex = parseInt(stockDiv.dataset.stockIndex || '0');
                             const actualIndex = itemIndex + stockIndex;
+                            selectedSuggestionIndex = actualIndex;
+                            updateSelectedSuggestion();
+                        });
+                    });
+                }
+                
+                // For sports items, attach hover to the sports divs
+                // All three sports items are now in a single <li>, so we need to handle them separately
+                if (item.classList.contains('sports-wrapper')) {
+                    const sportsDivs = item.querySelectorAll('.sports-item');
+                    sportsDivs.forEach((sportsDiv, divIndex) => {
+                        sportsDiv.addEventListener('mouseenter', (e) => {
+                            e.stopPropagation();
+                            // Ignore hover if suggestions were just updated or keyboard navigating
+                            if (suggestionsJustUpdated || suggestionsList.classList.contains('keyboard-navigating')) {
+                                return;
+                            }
+                            // Set the selected index based on which sports div is hovered
+                            const allItems = Array.from(suggestionsList.querySelectorAll('.search-suggestions-preview-item'));
+                            const itemIndex = allItems.indexOf(item);
+                            // For sports, first item = itemIndex, second = itemIndex + 1, third = itemIndex + 2
+                            const sportsIndex = parseInt(sportsDiv.dataset.sportsIndex || '0');
+                            const actualIndex = itemIndex + sportsIndex;
                             selectedSuggestionIndex = actualIndex;
                             updateSelectedSuggestion();
                         });
@@ -2952,8 +3214,8 @@
         function handleSuggestionHover(event) {
             if (!suggestionsList) return;
             
-            // Ignore hover if suggestions were just updated (prevents stale hover from mouse already being over an item)
-            if (suggestionsJustUpdated) {
+            // Ignore hover if suggestions were just updated or keyboard navigating (prevents stale hover from mouse already being over an item)
+            if (suggestionsJustUpdated || suggestionsList.classList.contains('keyboard-navigating')) {
                 return;
             }
             
@@ -2986,6 +3248,10 @@
                         const stockDivs = currentItem.querySelectorAll('.stock-item');
                         // Stocks item - count each stock div as a virtual item
                         virtualIndex += stockDivs.length > 0 ? stockDivs.length : 1;
+                    } else if (currentItem.classList.contains('sports-wrapper')) {
+                        const sportsDivs = currentItem.querySelectorAll('.sports-item');
+                        // Sports item - count each sports div as a virtual item
+                        virtualIndex += sportsDivs.length > 0 ? sportsDivs.length : 1;
                     } else {
                         // Regular suggestion - counts as 1
                         virtualIndex += 1;
@@ -3005,6 +3271,11 @@
                     const stockDivs = item.querySelectorAll('.stock-item');
                     // This is stocks - default to first stock (index 0)
                     // The stock div hover handler will override this
+                    selectedSuggestionIndex = virtualIndex;
+                } else if (item.classList.contains('sports-wrapper')) {
+                    const sportsDivs = item.querySelectorAll('.sports-item');
+                    // This is sports - default to first sports item (index 0)
+                    // The sports div hover handler will override this
                     selectedSuggestionIndex = virtualIndex;
                 } else {
                     selectedSuggestionIndex = virtualIndex;
@@ -3037,6 +3308,11 @@
                 const stockItems = item.querySelectorAll('.stock-item');
                 stockItems.forEach((stock) => {
                     stock.classList.remove('stock-item--selected');
+                });
+                // Also remove selected state from sports-item divs (for side-by-side sports)
+                const sportsItems = item.querySelectorAll('.sports-item');
+                sportsItems.forEach((sports) => {
+                    sports.classList.remove('sports-item--selected');
                 });
                 // Hide "Search with Google" hint
                 const hintElement = item.querySelector('.search-hint');
@@ -3073,6 +3349,18 @@
                         virtualItemMap.push([itemIndex, -1]);
                         virtualItemCount += 1;
                     }
+                } else if (item.classList.contains('sports-wrapper')) {
+                    const sportsDivs = item.querySelectorAll('.sports-item');
+                    // Sports item - each sports div counts as a virtual item
+                    sportsDivs.forEach((sportsDiv, sportsIndex) => {
+                        virtualItemMap.push([itemIndex, sportsIndex]);
+                        virtualItemCount += 1;
+                    });
+                    // If no sports divs found, treat as single item
+                    if (sportsDivs.length === 0) {
+                        virtualItemMap.push([itemIndex, -1]);
+                        virtualItemCount += 1;
+                    }
                 } else {
                     // Regular suggestion - counts as 1
                     virtualItemMap.push([itemIndex, -1]); // -1 means no sub-item div
@@ -3098,6 +3386,13 @@
                     const stockDivs = selectedItem.querySelectorAll('.stock-item');
                     if (stockDivs[businessIndex]) {
                         stockDivs[businessIndex].classList.add('stock-item--selected');
+                    }
+                }
+                
+                if (selectedItem.classList.contains('sports-wrapper') && businessIndex >= 0) {
+                    const sportsDivs = selectedItem.querySelectorAll('.sports-item');
+                    if (sportsDivs[businessIndex]) {
+                        sportsDivs[businessIndex].classList.add('sports-item--selected');
                     }
                 }
                 
@@ -3661,6 +3956,9 @@
                             } else if (item.classList.contains('stocks-wrapper')) {
                                 const stockDivs = item.querySelectorAll('.stock-item');
                                 itemVirtualCount = stockDivs.length > 0 ? stockDivs.length : 1;
+                            } else if (item.classList.contains('sports-wrapper')) {
+                                const sportsDivs = item.querySelectorAll('.sports-item');
+                                itemVirtualCount = sportsDivs.length > 0 ? sportsDivs.length : 1;
                             }
                             if (selectedSuggestionIndex >= currentVirtualIndex && selectedSuggestionIndex < currentVirtualIndex + itemVirtualCount) {
                                 item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -3695,6 +3993,9 @@
                             } else if (item.classList.contains('stocks-wrapper')) {
                                 const stockDivs = item.querySelectorAll('.stock-item');
                                 itemVirtualCount = stockDivs.length > 0 ? stockDivs.length : 1;
+                            } else if (item.classList.contains('sports-wrapper')) {
+                                const sportsDivs = item.querySelectorAll('.sports-item');
+                                itemVirtualCount = sportsDivs.length > 0 ? sportsDivs.length : 1;
                             }
                             if (selectedSuggestionIndex >= currentVirtualIndex && selectedSuggestionIndex < currentVirtualIndex + itemVirtualCount) {
                                 item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });

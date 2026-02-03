@@ -274,39 +274,36 @@ const carrotTemplates = {
     /**
      * Sports carrot
      * Shows live scores, upcoming games, and standings
+     * Displayed horizontally as second suggestion item
      */
     sports: () => `
-        <li class="search-suggestions-preview-item carrot">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
-                <img src="icons/basketball.svg" alt="" class="basketball-icon" aria-hidden="true">
+        <li class="search-suggestions-preview-item carrot carrot--sports sports-wrapper" data-index="sports-1">
+            <div class="sports-item" data-sports-index="0">
+                <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
+                    <img src="icons/orlando.png" alt="" class="sports-icon" aria-hidden="true">
+                </div>
+                <div class="carrot-lines">
+                    <p class="carrot-line"><strong>LA Lakers</strong> at <strong>Orlando Panthers</strong></p>
+                    <p class="carrot-line carrot-line--meta">NHL · Tomorrow at 6pm</p>
+                </div>
             </div>
-            <div class="carrot-lines">
-                <p class="carrot-line">Lakers vs Warriors</p>
-                <p class="carrot-line">Live · Q3 <strong>89-92</strong></p>
-                <p class="carrot-line carrot-line--meta">8:42 remaining · ESPN</p>
+            <div class="sports-item" data-sports-index="1">
+                <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
+                    <img src="icons/detroit.png" alt="" class="sports-icon" aria-hidden="true">
+                </div>
+                <div class="carrot-lines">
+                    <p class="carrot-line"><strong>Detroit Stars</strong> at <strong>LA Lakers</strong></p>
+                    <p class="carrot-line carrot-line--meta">NHL · Sat, Jun 23 at 7pm</p>
+                </div>
             </div>
-        </li>
-        <li class="search-suggestions-preview-item carrot">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
-                <img src="icons/basketball.svg" alt="" class="basketball-icon" aria-hidden="true">
-            </div>
-            <div class="carrot-lines">
-                <p class="carrot-line">Next game</p>
-                <p class="carrot-line">Lakers vs Celtics</p>
-                <p class="carrot-line carrot-line--meta">Tomorrow · 7:30pm ET</p>
-            </div>
-        </li>
-        <li class="search-suggestions-preview-item carrot">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
-                <img src="icons/basketball.svg" alt="" class="basketball-icon" aria-hidden="true">
-            </div>
-            <div class="carrot-lines">
-                <p class="carrot-line">Standings</p>
-                <p class="carrot-line">Lakers · <strong>32-18</strong></p>
-                <p class="carrot-line carrot-line--meta">3rd in Western Conference</p>
+            <div class="sports-item" data-sports-index="2">
+                <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
+                    <img src="icons/chicago.png" alt="" class="sports-icon" aria-hidden="true">
+                </div>
+                <div class="carrot-lines">
+                    <p class="carrot-line"><strong>LA Lakers</strong> at <strong>Chicago Bulls</strong></p>
+                    <p class="carrot-line carrot-line--meta">NHL · Sat Jun 30 at 7pm</p>
+                </div>
             </div>
         </li>
     `,
