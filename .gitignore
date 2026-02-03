@@ -1,0 +1,12 @@
+# API Configuration - contains sensitive keys
+config.js
+
+# macOS
+.DS_Store
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

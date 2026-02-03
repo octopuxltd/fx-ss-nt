@@ -357,15 +357,71 @@
     padding: 12px 10px;
 }
 
+/* Display both businesses side by side in a single list item */
+.search-suggestions-preview-item.local-business-wrapper {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    width: 100%;
+    padding: 12px 10px;
+    flex-wrap: nowrap !important;
+    box-sizing: border-box;
+}
+
+.search-suggestions-preview-item.local-business-wrapper > .local-business {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-shrink: 1;
+    flex-basis: 0;
+    box-sizing: border-box;
+}
+
+/* Handle selected state for both items */
+/* Remove background from the wrapper container */
+.search-suggestions-preview-item.local-business-wrapper.is-selected {
+    background-color: transparent !important;
+}
+
+/* When a business div is selected, highlight it */
+.local-business.local-business--selected {
+    background-color: #EBE7FF !important;
+    border-radius: 10px !important;
+    padding: 8px;
+    margin: -8px;
+    box-sizing: border-box;
+}
+
+/* Handle hover state for both items */
+/* When hovering over a business div, highlight it */
+.search-suggestions-preview-item.local-business-wrapper:not(.is-selected) > .local-business:hover:not(.local-business--selected) {
+    background-color: #EBE7FF !important;
+    border-radius: 10px !important;
+    padding: 8px;
+    margin: -8px;
+    box-sizing: border-box;
+}
+
+/* Alternative: Use a wrapper approach - keep both as list items but display them side by side */
+.search-suggestions-preview-list:has(.local-business-wrapper:first-of-type + .local-business-wrapper) {
+    position: relative;
+}
+
+/* Ensure wrapper doesn't have background when selected - only the business divs should */
+.search-suggestions-preview-item.local-business-wrapper.is-selected {
+    background-color: transparent !important;
+}
+
 .local-business {
     display: flex;
     gap: 12px;
     align-items: flex-start;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .local-business-image {
-    width: 80px;
-    height: 80px;
+    width: 64px;
+    height: 64px;
     border-radius: 8px;
     object-fit: cover;
     flex-shrink: 0;
@@ -375,18 +431,25 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
+}
+
+.local-business--ad-marketplace .local-business-content {
+    gap: 0;
 }
 
 .local-business-name {
     font-size: 16px;
     font-weight: 600;
     color: #1F2933;
-    margin: 0;
+    margin: 0 0 2px 0;
+    line-height: 1.3;
 }
 
 .local-business--ad-marketplace .local-business-name {
     font-weight: 400;
+    margin-bottom: 0;
+    line-height: 1.2;
 }
 
 .local-business--ad-marketplace .local-business-name strong {
@@ -398,19 +461,21 @@
 }
 
 .ad-marketplace-sponsored {
-    position: absolute;
-    top: 20px;
-    right: 10px;
-    font-size: 11px;
-    color: #6B7280;
-    font-weight: 400;
+    display: block;
+    margin-top: 0;
+    font-size: 9px;
+    color: #64748B;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-align: left;
+    line-height: 1.2;
 }
 
 .local-business-details {
     font-size: 13px;
     color: #6B7280;
     margin: 0;
-    line-height: 1.4;
+    line-height: 1.2;
 }
 
 .local-business-status {
@@ -421,6 +486,22 @@
 
 .local-business-status--closed {
     color: #DC2626;
+}
+
+.local-business-status--open {
+    color: #059669;
+}
+
+.local-business-sponsored {
+    font-size: 12px;
+    color: #6B7280;
+    margin: 2px 0 0 0;
+    line-height: 1.2;
+}
+
+.local-business-location-change {
+    text-decoration: underline;
+    cursor: pointer;
 }
 
 .local-business-rating {
@@ -605,7 +686,6 @@
     font-size: 9px;
     color: #64748B;
     font-weight: 500;
-    text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
@@ -1073,9 +1153,23 @@
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.search-suggestions-preview-item:hover,
-.search-suggestions-preview-item:focus-within {
-    background-color: rgba(15, 23, 42, 0.08);
+/* General hover for regular suggestions (not carrots, not local-business-wrapper) */
+/* Disable hover styles when keyboard navigating */
+.search-suggestions-preview-list:not(.keyboard-navigating) .search-suggestions-preview-item:hover:not(.local-business-wrapper):not(.carrot):not(.is-selected),
+.search-suggestions-preview-list:not(.keyboard-navigating) .search-suggestions-preview-item:focus-within:not(.local-business-wrapper):not(.carrot):not(.is-selected) {
+    background-color: #EBE7FF;
+}
+
+/* Ensure chair carrot (ad marketplace) gets hover style like regular suggestions */
+.search-suggestions-preview-item.carrot--ad-marketplace:hover,
+.search-suggestions-preview-item.carrot--ad-marketplace:focus-within {
+    background-color: #EBE7FF;
+}
+
+/* General carrot--local hover - but local-business-wrapper has more specific rules */
+.search-suggestions-preview-item.carrot--local:hover:not(.is-selected):not(.local-business-wrapper),
+.search-suggestions-preview-item.carrot--local:focus-within:not(.is-selected):not(.local-business-wrapper) {
+    background-color: #EBE7FF;
 }
 
 .search-suggestions-preview-item.is-selected {
@@ -1319,7 +1413,6 @@
     font-size: 9px;
     color: #64748B;
     font-weight: 500;
-    text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 0;
 }

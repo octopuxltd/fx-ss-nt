@@ -11,6 +11,17 @@
         .ut-page .search-suggestions-preview-item:focus-within:not(.is-selected) {
             background-color: transparent;
         }
+
+        /* Chair carrot should have hover style like regular suggestions */
+        .ut-page .search-suggestions-preview-item.carrot--ad-marketplace:hover:not(.is-selected),
+        .ut-page .search-suggestions-preview-item.carrot--ad-marketplace:focus-within:not(.is-selected) {
+            background-color: #EBE7FF;
+        }
+
+        /* Chair carrot should have 4 rounded corners, not pill-shaped */
+        .ut-page .search-suggestions-preview-item.carrot--ad-marketplace {
+            border-radius: 10px;
+        }
         * {
             box-sizing: border-box;
         }
@@ -388,6 +399,12 @@
             padding: 9px 10px;
             border-radius: 999px;
             background-color: #FFFFFF;
+            transition: background-color 0.2s ease;
+        }
+        
+        /* When panel is open (has suggestions visible), make the button grey */
+        .search-suggestions-preview-column-container:has(.search-suggestions-preview-list:not(:empty)) .search-dropdown-button {
+            background-color: rgba(15, 23, 42, 0.08);
         }
 
         .circle-icon {
@@ -778,7 +795,6 @@
             font-size: 9px;
             color: #64748B;
             font-weight: 500;
-            text-transform: uppercase;
             letter-spacing: 0.5px;
             margin: 0;
         }
@@ -1081,9 +1097,11 @@
     <script src="carrot-templates.js"></script>
     <script src="suggestion-words.js"></script>
     <script src="image-preload.js"></script>
+    <!-- Load API configuration (config.js is gitignored) -->
+    <script src="config.js" onerror="console.warn('config.js not found. Using example config. Please create config.js from config.example.js'); window.API_CONFIG = window.API_CONFIG || { OPENROUTER_API_KEY: '', PEXELS_API_KEY: '' };"></script>
     <script>
         // OpenRouter API Configuration
-        const OPENROUTER_API_KEY = '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'; // Set your API key here
+        const OPENROUTER_API_KEY = window.API_CONFIG?.OPENROUTER_API_KEY || '';
         const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
         
         // Debounce timer for API calls
@@ -1337,21 +1355,24 @@
                     <div class="demo-searches-earlier">
                         <ul>
                             <li>• fox wiki</li>
-                            <li>• chair</li>
                             <li>• sneakers</li>
+                            <li>• chair</li>
+                            <li>• ramen</li>
+                            <li>• sushi</li>
                             <li>• uber stock</li>
-                            <li>• AC8170</li>
                             <li>• lakers game</li>
+                            <li>• AC8170</li>
                             <li>• coffee shops</li>
                             <li>• weather</li>
-                            <li>• vpn</li>
-                            <li>• MDN</li>
-                            <li>• youtube</li>
                             <li>• time rome</li>
-                            <li>• happy emoji</li>
                             <li>• $100 in euros</li>
                             <li>• hello in italian</li>
                             <li>• renewable energy</li>
+                            <li>• winter olympics</li>
+                            <li>• vpn</li>
+                            <li>• MDN</li>
+                            <li>• youtube</li>
+                            <li>• happy emoji</li>
                         </ul>
                     </div>
                 </div>
@@ -1584,7 +1605,7 @@
         </div>
     </section>
     <script>
-        const apiKey = 'bCm88s2aE42pgTVWHJn6CRvAf916qPGquNowlZue6tSbVSImQ0hdsWSX';
+        const apiKey = window.API_CONFIG?.PEXELS_API_KEY || '';
         const keywords = [
             'UTI', 'trial Paris', 'ghosts',
             'healthy dinner', 'mirrors space', 'UK airline',
@@ -2025,6 +2046,7 @@
         let currentState = 0; // Track current state
         let selectedSuggestionIndex = -1; // Track selected suggestion index (only one at a time)
         let suggestionsJustUpdated = false; // Track if suggestions were just updated to prevent stale hover
+        let isKeyboardNavigating = false; // Track if user is using keyboard navigation
         
         // Fixed skeleton widths for each row position (1-10)
         const skeletonWidths = [
@@ -2044,6 +2066,8 @@
         const demoSearchCarrots = {
             'fox wiki': 2,        // wikipedia
             'chair': 8,          // adMarketplace
+            'ramen': 18,         // adMarketplaceRamen
+            'sushi': 19,         // adMarketplaceSushi
             'sneakers': 9,       // bigAd
             'uber stock': 6,     // stocks
             'ac8170': 1,         // flights
@@ -2083,11 +2107,12 @@
                 'australia': 'AUD'
             };
             
-            // Pattern 1: $XX in euros / $XX in euro / $XX EUR
-            let match = queryLower.match(/^\$(\d{1,4})\s+(?:in\s+)?(euros?|eur|euro|€)/);
+            // Pattern 1: $XX in euros / $XX in italy / $XX EUR / $XX in [country]
+            let match = queryLower.match(/^\$(\d{1,4})\s+(?:in\s+)?(italy|france|germany|spain|portugal|netherlands|belgium|austria|greece|uk|united kingdom|britain|england|japan|canada|australia|euros?|eur|euro|€)/);
             if (match) {
                 const amount = match[1];
-                const toCurrency = currencyCodes[match[2]] || 'EUR';
+                const target = match[2];
+                const toCurrency = countryToCurrency[target] || currencyCodes[target] || 'EUR';
                 return { amount, fromCurrency: 'USD', toCurrency, state: 14 };
             }
             
@@ -2266,13 +2291,29 @@
         const findUniqueCarrotMatch = (query) => {
             const queryLower = query.toLowerCase().trim();
             
-            // First check for translation patterns
+            // If query starts with $, a number, or "dollars", prioritize currency over translation
+            // This prevents translation from matching partial patterns
+            const queryTrimmed = query.trim();
+            const startsWithCurrency = /^[\$0-9]/.test(queryTrimmed) || /^\d+\s*(?:usd|dollars?|dollar)/i.test(queryTrimmed);
+            
+            if (startsWithCurrency) {
+                // Check for currency conversion patterns first
+                const currencyMatch = detectCurrencyMatch(query);
+                if (currencyMatch) {
+                    return currencyMatch;
+                }
+                // If starts with currency indicator but pattern doesn't match yet,
+                // don't check translation - return null to wait for complete pattern
+                return null;
+            }
+            
+            // Check for translation patterns (only if not a currency query)
             const translationMatch = detectTranslationMatch(query);
             if (translationMatch) {
                 return translationMatch;
             }
             
-            // Then check for currency conversion patterns
+            // Then check for currency conversion patterns (if not already checked)
             const currencyMatch = detectCurrencyMatch(query);
             if (currencyMatch) {
                 return currencyMatch;
@@ -2331,6 +2372,8 @@
                     // 'chair': "chair" alone could be buying a chair (our carrot) or "chair design", "chair covers", "chair exercises"
                     //          But "chair" (5 chars) is the full word, so it's acceptable
                     'chair': 5,            // "chair" (5 chars) - full word, acceptable
+                    'ramen': 5,            // "ramen" (5 chars) - full word, acceptable
+                    'sushi': 5,            // "sushi" (5 chars) - full word, acceptable
                     
                     // 'sneakers': "sneaker" (singular) is fine - clear intent for sneakers
                     'sneakers': 7,        // "sneaker" (7 chars) - clear intent
@@ -2378,8 +2421,42 @@
         // Function to show carrot for demo searches
         const showCarrotForDemoSearch = (query) => {
             const queryLower = query.toLowerCase().trim();
+            const queryTrimmed = query.trim();
             
-            // Check for translation first
+            // If query starts with $, a number, or "dollars", prioritize currency over translation
+            // This prevents translation from matching partial patterns like "ital" in "$100 in ital"
+            const startsWithCurrency = /^[\$0-9]/.test(queryTrimmed) || /^\d+\s*(?:usd|dollars?|dollar)/i.test(queryTrimmed);
+            
+            if (startsWithCurrency) {
+                // Check for currency conversion first - don't check translation at all
+                const currencyMatch = detectCurrencyMatch(query);
+                if (currencyMatch && carrotList && suggestionsContainer) {
+                    const needsSlide = currentState !== 0 && currentState !== currencyMatch.state;
+                    
+                    if (needsSlide) {
+                        suggestionsContainer.classList.add('expand-left');
+                        suggestionsContainer.classList.remove('show-carrot');
+                        
+                        setTimeout(() => {
+                            setCarrotContent(currencyMatch.state, currencyMatch.amount, currencyMatch.fromCurrency, currencyMatch.toCurrency);
+                            currentState = currencyMatch.state;
+                            suggestionsContainer.classList.remove('expand-left');
+                            suggestionsContainer.classList.add('show-carrot');
+                        }, 400);
+                    } else {
+                        setCarrotContent(currencyMatch.state, currencyMatch.amount, currencyMatch.fromCurrency, currencyMatch.toCurrency);
+                        currentState = currencyMatch.state;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }
+                    return true;
+                }
+                // If currency pattern doesn't match yet but starts with $/number/dollars, 
+                // don't show translation - wait for complete currency pattern
+                return false;
+            }
+            
+            // Check for translation (only if not a currency query)
             const translationMatch = detectTranslationMatch(query);
             if (translationMatch && carrotList && suggestionsContainer) {
                 const needsSlide = currentState !== 0 && currentState !== translationMatch.state;
@@ -2420,28 +2497,30 @@
                 return true;
             }
             
-            // Check for currency conversion
-            const currencyMatch = detectCurrencyMatch(query);
-            if (currencyMatch && carrotList && suggestionsContainer) {
-                const needsSlide = currentState !== 0 && currentState !== currencyMatch.state;
-                
-                if (needsSlide) {
-                    suggestionsContainer.classList.add('expand-left');
-                    suggestionsContainer.classList.remove('show-carrot');
+            // Check for currency conversion (only if not already checked above)
+            if (!startsWithCurrency) {
+                const currencyMatch = detectCurrencyMatch(query);
+                if (currencyMatch && carrotList && suggestionsContainer) {
+                    const needsSlide = currentState !== 0 && currentState !== currencyMatch.state;
                     
-                    setTimeout(() => {
+                    if (needsSlide) {
+                        suggestionsContainer.classList.add('expand-left');
+                        suggestionsContainer.classList.remove('show-carrot');
+                        
+                        setTimeout(() => {
+                            setCarrotContent(currencyMatch.state, currencyMatch.amount, currencyMatch.fromCurrency, currencyMatch.toCurrency);
+                            currentState = currencyMatch.state;
+                            suggestionsContainer.classList.remove('expand-left');
+                            suggestionsContainer.classList.add('show-carrot');
+                        }, 400);
+                    } else {
                         setCarrotContent(currencyMatch.state, currencyMatch.amount, currencyMatch.fromCurrency, currencyMatch.toCurrency);
                         currentState = currencyMatch.state;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
-                    }, 400);
-                } else {
-                    setCarrotContent(currencyMatch.state, currencyMatch.amount, currencyMatch.fromCurrency, currencyMatch.toCurrency);
-                    currentState = currencyMatch.state;
-                    suggestionsContainer.classList.remove('expand-left');
-                    suggestionsContainer.classList.add('show-carrot');
+                    }
+                    return true;
                 }
-                return true;
             }
             
             // Check for exact match first
@@ -2458,6 +2537,16 @@
             }
             
             if (carrotState !== undefined && carrotList && suggestionsContainer) {
+                // Special handling for ad marketplace carrots (chair, ramen, sushi) and local carrots (coffee shops) - show as regular suggestion, not as carrot
+                // Check both queryLower and matchedTerm to catch exact and partial matches
+                if ((carrotState === 8 && (queryLower === 'chair' || matchedTerm === 'chair')) || 
+                    (carrotState === 18 && (queryLower === 'ramen' || matchedTerm === 'ramen')) || 
+                    (carrotState === 19 && (queryLower === 'sushi' || matchedTerm === 'sushi')) ||
+                    (carrotState === 0 && (queryLower === 'coffee shops' || matchedTerm === 'coffee shops'))) {
+                    // Don't show these carrots as right panel carrots - they're handled in updateSuggestions
+                    return false;
+                }
+                
                 // Check if we need to slide in from the right
                 const needsSlide = currentState !== 0 && currentState !== carrotState;
                 
@@ -2663,10 +2752,44 @@
                 `;
                 }).join('');
                 
-                console.log('Generated HTML length:', htmlString.length);
-                console.log('Generated HTML preview:', htmlString.substring(0, 200));
+                // If query is "chair", "ramen", "sushi", or "coffee shops", insert carrot as second item (after typed text)
+                const queryLower = searchValueTrimmed.toLowerCase();
+                const isAdMarketplaceQuery = queryLower === 'chair' || queryLower === 'ramen' || queryLower === 'sushi';
+                // Check if query matches "coffee shops" (exact or partial match that would trigger the carrot)
+                const isCoffeeShopsQuery = queryLower === 'coffee shops' || (queryLower.startsWith('coffee sh') && queryLower.length >= 10);
+                let finalHtml = htmlString;
+                if (isAdMarketplaceQuery) {
+                    let adMarketplaceCarrotHtml;
+                    if (queryLower === 'chair') {
+                        adMarketplaceCarrotHtml = carrotTemplates.adMarketplace();
+                    } else if (queryLower === 'ramen') {
+                        adMarketplaceCarrotHtml = carrotTemplates.adMarketplaceRamen();
+                    } else if (queryLower === 'sushi') {
+                        adMarketplaceCarrotHtml = carrotTemplates.adMarketplaceSushi();
+                    }
+                    // Insert ad marketplace carrot after first item (typed text)
+                    const firstItemEnd = htmlString.indexOf('</li>');
+                    if (firstItemEnd !== -1 && adMarketplaceCarrotHtml) {
+                        finalHtml = htmlString.substring(0, firstItemEnd + 5) + adMarketplaceCarrotHtml + htmlString.substring(firstItemEnd + 5);
+                    } else if (adMarketplaceCarrotHtml) {
+                        finalHtml = htmlString + adMarketplaceCarrotHtml;
+                    }
+                } else if (isCoffeeShopsQuery) {
+                    // Insert coffee shops carrot after first item (typed text)
+                    // Insert both coffee shop items directly - CSS will display them side by side
+                    const coffeeShopsCarrotHtml = carrotTemplates.local();
+                    const firstItemEnd = htmlString.indexOf('</li>');
+                    if (firstItemEnd !== -1) {
+                        finalHtml = htmlString.substring(0, firstItemEnd + 5) + coffeeShopsCarrotHtml + htmlString.substring(firstItemEnd + 5);
+                    } else {
+                        finalHtml = htmlString + coffeeShopsCarrotHtml;
+                    }
+                }
+                
+                console.log('Generated HTML length:', finalHtml.length);
+                console.log('Generated HTML preview:', finalHtml.substring(0, 200));
                 console.log('About to set innerHTML...');
-                suggestionsList.innerHTML = htmlString;
+                suggestionsList.innerHTML = finalHtml;
                 console.log('innerHTML set, new innerHTML length:', suggestionsList.innerHTML.length);
                 console.log('Number of child elements:', suggestionsList.children.length);
             } catch (error) {
@@ -2734,8 +2857,32 @@
             if (!suggestionsList) return;
             
             const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
-            suggestionItems.forEach((item) => {
+            suggestionItems.forEach((item, index) => {
                 item.addEventListener('mouseenter', handleSuggestionHover);
+                
+                // For local business items, attach hover to the business divs
+                // Both businesses are now in a single <li>, so we need to handle them separately
+                if (item.classList.contains('local-business-wrapper')) {
+                    const businessDivs = item.querySelectorAll('.local-business');
+                    businessDivs.forEach((businessDiv, divIndex) => {
+                        businessDiv.addEventListener('mouseenter', (e) => {
+                            e.stopPropagation();
+                            // Set the selected index based on which business div is hovered
+                            // We need to find the index of this list item, then add the divIndex
+                            const allItems = Array.from(suggestionsList.querySelectorAll('.search-suggestions-preview-item'));
+                            const itemIndex = allItems.indexOf(item);
+                            // For coffee shops, the first business is at itemIndex, second is at itemIndex + 1
+                            // But since they're in the same <li>, we need to track them separately
+                            // Use a custom approach: store the business index on the div
+                            const businessIndex = parseInt(businessDiv.dataset.businessIndex || '0');
+                            // Calculate the actual suggestion index
+                            // If this is the coffee shops item, first business = itemIndex, second = itemIndex + 1
+                            const actualIndex = itemIndex + businessIndex;
+                            selectedSuggestionIndex = actualIndex;
+                            updateSelectedSuggestion();
+                        });
+                    });
+                }
             });
             
             // Clear selection when mouse leaves the suggestions list
@@ -2743,9 +2890,15 @@
             if (suggestionsContainer) {
                 suggestionsContainer.addEventListener('mouseleave', () => {
                     selectedSuggestionIndex = -1;
+                    suggestionsList.classList.remove('keyboard-navigating');
                     updateSelectedSuggestion();
                 });
             }
+            
+            // Reset keyboard navigation flag when mouse moves (allows hover to work again)
+            suggestionsList.addEventListener('mousemove', () => {
+                suggestionsList.classList.remove('keyboard-navigating');
+            });
         }
         
         function handleSuggestionHover(event) {
@@ -2766,10 +2919,39 @@
                 return;
             }
             
-            const index = Array.from(suggestionItems).indexOf(item);
-            if (index >= 0) {
-                // Hovering steals selection from keyboard-selected item
-                selectedSuggestionIndex = index;
+            // Calculate virtual index (accounting for coffee shops counting as 2 items)
+            const itemIndex = Array.from(suggestionItems).indexOf(item);
+            if (itemIndex >= 0) {
+                let virtualIndex = 0;
+                for (let i = 0; i < itemIndex; i++) {
+                    const currentItem = suggestionItems[i];
+                    if (currentItem.classList.contains('local-business-wrapper')) {
+                        const businessDivs = currentItem.querySelectorAll('.local-business');
+                        if (businessDivs.length === 2) {
+                            // Coffee shops item - counts as 2 virtual items
+                            virtualIndex += 2;
+                        } else {
+                            // Regular local business - counts as 1
+                            virtualIndex += 1;
+                        }
+                    } else {
+                        // Regular suggestion - counts as 1
+                        virtualIndex += 1;
+                    }
+                }
+                // For the hovered item itself, if it's coffee shops, determine which business
+                if (item.classList.contains('local-business-wrapper')) {
+                    const businessDivs = item.querySelectorAll('.local-business');
+                    if (businessDivs.length === 2) {
+                        // This is coffee shops - default to first business (index 0)
+                        // The business div hover handler will override this
+                        selectedSuggestionIndex = virtualIndex;
+                    } else {
+                        selectedSuggestionIndex = virtualIndex;
+                    }
+                } else {
+                    selectedSuggestionIndex = virtualIndex;
+                }
                 updateSelectedSuggestion();
             }
         }
@@ -2777,11 +2959,23 @@
         function updateSelectedSuggestion(isKeyboardNavigation = false) {
             if (!suggestionsList) return;
             
+            // Add/remove class to disable hover styles during keyboard navigation
+            if (isKeyboardNavigation) {
+                suggestionsList.classList.add('keyboard-navigating');
+            } else {
+                suggestionsList.classList.remove('keyboard-navigating');
+            }
+            
             const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
             
             // Remove selection from ALL items first
             suggestionItems.forEach((item) => {
                 item.classList.remove('is-selected');
+                // Also remove selected state from local-business divs (for side-by-side coffee shops)
+                const localBusinesses = item.querySelectorAll('.local-business');
+                localBusinesses.forEach((business) => {
+                    business.classList.remove('local-business--selected');
+                });
                 // Hide "Search with Google" hint
                 const hintElement = item.querySelector('.search-hint');
                 if (hintElement) {
@@ -2789,10 +2983,43 @@
                 }
             });
             
+            // Calculate total virtual items (accounting for coffee shops having 2 businesses)
+            let virtualItemCount = 0;
+            const virtualItemMap = []; // Maps virtual index to [itemIndex, businessIndex]
+            suggestionItems.forEach((item, itemIndex) => {
+                if (item.classList.contains('local-business-wrapper')) {
+                    const businessDivs = item.querySelectorAll('.local-business');
+                    if (businessDivs.length === 2) {
+                        // Coffee shops item - counts as 2 virtual items
+                        virtualItemMap.push([itemIndex, 0]); // First business
+                        virtualItemMap.push([itemIndex, 1]); // Second business
+                        virtualItemCount += 2;
+                    } else {
+                        // Regular local business - counts as 1
+                        virtualItemMap.push([itemIndex, 0]);
+                        virtualItemCount += 1;
+                    }
+                } else {
+                    // Regular suggestion - counts as 1
+                    virtualItemMap.push([itemIndex, -1]); // -1 means no business div
+                    virtualItemCount += 1;
+                }
+            });
+            
             // Then add selection to ONLY the selected item (if one is selected)
-            if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
-                const selectedItem = suggestionItems[selectedSuggestionIndex];
+            if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < virtualItemCount) {
+                const [itemIndex, businessIndex] = virtualItemMap[selectedSuggestionIndex];
+                const selectedItem = suggestionItems[itemIndex];
                 selectedItem.classList.add('is-selected');
+                
+                // For coffee shops item, highlight the specific business div
+                if (selectedItem.classList.contains('local-business-wrapper') && businessIndex >= 0) {
+                    const businessDivs = selectedItem.querySelectorAll('.local-business');
+                    if (businessDivs[businessIndex]) {
+                        businessDivs[businessIndex].classList.add('local-business--selected');
+                    }
+                }
+                
                 // Show "Search with Google" hint
                 const hintElement = selectedItem.querySelector('.search-hint');
                 if (hintElement) {
@@ -2849,6 +3076,12 @@
                     break;
                 case 8:
                     carrotList.innerHTML = carrotTemplates.adMarketplace();
+                    break;
+                case 18:
+                    carrotList.innerHTML = carrotTemplates.adMarketplaceRamen();
+                    break;
+                case 19:
+                    carrotList.innerHTML = carrotTemplates.adMarketplaceSushi();
                     break;
                 case 9:
                     carrotList.innerHTML = carrotTemplates.bigAd();

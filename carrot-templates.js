@@ -38,23 +38,21 @@ const carrotTemplates = {
      * Shows business listings with images, ratings, and hours
      */
     local: () => `
-        <li class="search-suggestions-preview-item carrot carrot--local">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="local-business">
+        <li class="search-suggestions-preview-item carrot carrot--local local-business-wrapper" data-index="coffee-1">
+            <div class="local-business" data-business-index="0">
                 <img src="https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=200&h=200&q=80" alt="Peet's Coffee" class="local-business-image">
                 <div class="local-business-content">
                     <p class="local-business-name">Peet's Coffee</p>
-                    <p class="local-business-details">1574 Alfredo St, New York · $$ · <span class="local-business-status local-business-status--closed"><strong>Closed</strong> until 10am Mon</span> · <span class="local-business-rating"><span class="star">★</span> 4.3 (1.1k)</span></p>
+                    <p class="local-business-details">1574 Alfredo St, New York · $$ · <span class="local-business-status local-business-status--open"><strong>Open</strong> until 7pm</span> · <span class="local-business-rating"><span class="star">★</span> 4.3 (1.1k)</span></p>
+                    <p class="local-business-sponsored">Sponsored · Your location: New York (<span class="local-business-location-change">change</span>)</p>
                 </div>
             </div>
-        </li>
-        <li class="search-suggestions-preview-item carrot carrot--local">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="local-business">
+            <div class="local-business" data-business-index="1">
                 <img src="https://images.unsplash.com/photo-1504753793650-d4a2b783c15e?auto=format&fit=crop&w=200&h=200&q=80" alt="Blue Bottle Coffee" class="local-business-image">
                 <div class="local-business-content">
                     <p class="local-business-name">Blue Bottle Coffee</p>
-                    <p class="local-business-details">450 Hayes St, New York · $$$ · <span class="local-business-status"><strong>Open</strong> until 8pm</span> · <span class="local-business-rating"><span class="star">★</span> 4.6 (2.3k)</span></p>
+                    <p class="local-business-details">450 Hayes St, New York · $$$ · <span class="local-business-status local-business-status--open"><strong>Open</strong> until 8pm</span> · <span class="local-business-rating"><span class="star">★</span> 4.6 (2.3k)</span></p>
+                    <p class="local-business-sponsored">Sponsored · Your location: New York (<span class="local-business-location-change">change</span>)</p>
                 </div>
             </div>
         </li>
@@ -67,11 +65,35 @@ const carrotTemplates = {
      */
     adMarketplace: () => `
         <li class="search-suggestions-preview-item carrot carrot--local carrot--ad-marketplace">
-            <span class="ad-marketplace-sponsored">Sponsored</span>
             <div class="local-business local-business--ad-marketplace">
                 <img src="https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&w=28&h=28&q=80" alt="Chairs" class="local-business-image" style="width: 28px; height: 28px;">
                 <div class="local-business-content">
                     <p class="local-business-name"><strong>chair</strong> – Bed Bath & Beyond – Official Site</p>
+                    <span class="ad-marketplace-sponsored">Sponsored</span>
+                </div>
+            </div>
+        </li>
+    `,
+
+    adMarketplaceRamen: () => `
+        <li class="search-suggestions-preview-item carrot carrot--local carrot--ad-marketplace">
+            <div class="local-business local-business--ad-marketplace">
+                <img src="https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=28&h=28&q=80" alt="Ramen" class="local-business-image" style="width: 28px; height: 28px;">
+                <div class="local-business-content">
+                    <p class="local-business-name"><strong>ramen</strong> – Ichiran Ramen – Official Site</p>
+                    <span class="ad-marketplace-sponsored">Sponsored</span>
+                </div>
+            </div>
+        </li>
+    `,
+
+    adMarketplaceSushi: () => `
+        <li class="search-suggestions-preview-item carrot carrot--local carrot--ad-marketplace">
+            <div class="local-business local-business--ad-marketplace">
+                <img src="https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?auto=format&fit=crop&w=28&h=28&q=80" alt="Sushi" class="local-business-image" style="width: 28px; height: 28px;">
+                <div class="local-business-content">
+                    <p class="local-business-name"><strong>sushi</strong> – Nobu Restaurant – Official Site</p>
+                    <span class="ad-marketplace-sponsored">Sponsored</span>
                 </div>
             </div>
         </li>
