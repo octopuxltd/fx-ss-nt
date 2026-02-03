@@ -91,6 +91,10 @@
             overflow-y: auto;
         }
 
+        .top-overlay.is-focused.winter-olympics {
+            background-color: #E0F2FE; /* Pale blue */
+        }
+
         .top-overlay.no-transition {
             transition: none !important;
         }
@@ -824,17 +828,24 @@
             position: relative;
         }
 
-        .card--world-clock .card-controls {
+        .card--world-clock .card-controls,
+        .card--stock .card-controls,
+        .card--sports .card-controls,
+        .card--weather .card-controls {
             position: absolute;
             top: 8px;
             right: 8px;
             display: none;
+            flex-direction: row;
             align-items: center;
-            gap: 8px;
+            gap: 4px;
             z-index: 10;
         }
 
-        .card--world-clock:hover .card-controls {
+        .card--world-clock:hover .card-controls,
+        .card--stock:hover .card-controls,
+        .card--sports:hover .card-controls,
+        .card--weather:hover .card-controls {
             display: flex;
         }
 
@@ -1408,9 +1419,7 @@
                         <ul>
                             <li>• fox wiki</li>
                             <li>• sneakers</li>
-                            <li>• chair</li>
-                            <li>• ramen</li>
-                            <li>• sushi</li>
+                            <li>• chair / ramen / sushi</li>
                             <li>• uber stock</li>
                             <li>• lakers game</li>
                             <li>• AC8170</li>
@@ -1479,31 +1488,31 @@
                         <div class="search-suggestions-preview-column-container expand-left">
                         <ul class="search-suggestions-preview-list">
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">hoka</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">macbook</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">13 in macbook air</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">Coffee machines for sale</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">taylor swift</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">coffee grinder</span>
                             </li>
                             <li class="search-suggestions-preview-item">
-                                <img src="icons/search.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
                                 <span class="label">gmail</span>
                             </li>
                         </ul>
@@ -1939,6 +1948,7 @@
                 bottomOverlay.style.pointerEvents = 'auto';
             } else {
                 topOverlay.classList.remove('is-focused');
+                topOverlay.classList.remove('winter-olympics');
                 searchWrapperElement.classList.remove('expanded');
                 searchDescriptionElement.classList.remove('expanded');
                 bottomOverlay.style.top = '130px';
@@ -2816,6 +2826,20 @@
             // Remove any existing skeletons when updating with real suggestions
             removeSkeletons();
             
+            // Check if these are the default suggestions - if so, ensure they're all in history
+            const defaultSuggestions = ['hoka', 'macbook', '13 in macbook air', 'Coffee machines for sale', 'taylor swift', 'coffee grinder', 'gmail'];
+            const isDefaultSuggestions = suggestions.length === defaultSuggestions.length && 
+                suggestions.every(s => defaultSuggestions.some(ds => ds.toLowerCase() === s.toLowerCase()));
+            
+            if (isDefaultSuggestions) {
+                // Add all default suggestions to history if not already there
+                defaultSuggestions.forEach(suggestion => {
+                    if (!isInSearchHistory(suggestion)) {
+                        saveToSearchHistory(suggestion);
+                    }
+                });
+            }
+            
             console.log('Sorting suggestions...');
             try {
                 // Get current search value for highlighting
@@ -3078,6 +3102,39 @@
             // Attach hover listeners to the new suggestions (after click listeners)
             attachHoverListeners();
             
+            // Attach pin button handlers for stocks and sports items
+            attachPinButtonHandlersForSuggestions();
+            
+        }
+        
+        function attachPinButtonHandlersForSuggestions() {
+            if (!suggestionsList) return;
+            
+            const pinButtons = suggestionsList.querySelectorAll('.carrot-pin-button');
+            pinButtons.forEach(button => {
+                // Remove any existing listeners by cloning the button
+                const newButton = button.cloneNode(true);
+                button.replaceWith(newButton);
+                
+                newButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Find the parent stock-item or sports-item
+                    const stockItem = newButton.closest('.stock-item');
+                    const sportsItem = newButton.closest('.sports-item');
+                    
+                    if (stockItem) {
+                        console.log('[PIN] Pin button clicked for stock item');
+                        const pinnedCard = replaceThirdCardWithStock(stockItem);
+                        handlePinSuccess(pinnedCard);
+                    } else if (sportsItem) {
+                        console.log('[PIN] Pin button clicked for sports item');
+                        const pinnedCard = replaceThirdCardWithSports(sportsItem);
+                        handlePinSuccess(pinnedCard);
+                    }
+                });
+            });
         }
         
         // COMMENTED OUT: Google search functionality disabled
@@ -3436,6 +3493,10 @@
                     break;
                 case 4:
                     carrotList.innerHTML = carrotTemplates.weather();
+                    // Attach pin button handler for weather
+                    setTimeout(() => {
+                        attachPinButtonHandler(4);
+                    }, 0);
                     break;
                 case 5:
                     carrotList.innerHTML = carrotTemplates.sports();
@@ -3573,41 +3634,75 @@
                     e.preventDefault();
                     e.stopPropagation();
                     
-                    // Only handle world clock carrot (state 7)
+                    // Handle world clock carrot (state 7)
                     if (carrotState === 7) {
                         console.log('[PIN] Pin button clicked for world clock carrot');
                         const pinnedCard = replaceThirdCardWithWorldClock();
-                        console.log('[PIN] replaceThirdCardWithWorldClock returned:', pinnedCard);
+                        handlePinSuccess(pinnedCard);
+                    }
+                    // Handle stocks carrot
+                    else {
+                        // Find the parent stock-item or sports-item
+                        const stockItem = button.closest('.stock-item');
+                        const sportsItem = button.closest('.sports-item');
                         
-                        if (pinnedCard) {
-                            console.log('[PIN] Pinned card element:', pinnedCard);
-                            console.log('[PIN] Pinned card classes before:', pinnedCard.className);
-                            console.log('[PIN] Pinned card inline styles before:', pinnedCard.style.cssText);
-                            
-                            // Close the overlay the same way as cross button or Esc
-                            const existingStyle = document.getElementById('gradient-animation-style');
-                            if (existingStyle) {
-                                existingStyle.remove();
-                            }
-                            if (gradientAnimationId) {
-                                cancelAnimationFrame(gradientAnimationId);
-                                gradientAnimationId = null;
-                            }
-                            setOverlayState(false);
-                            if (searchBoxElement) {
-                                searchBoxElement.blur();
-                                // Clear the search term
-                                searchBoxElement.value = '';
-                            }
-                            
-                            // Add border color
-                            pinnedCard.classList.add('card--pinned-flash');
-                        } else {
-                            console.log('[PIN] ERROR: pinnedCard is null or undefined');
+                        if (stockItem) {
+                            console.log('[PIN] Pin button clicked for stock item');
+                            const pinnedCard = replaceThirdCardWithStock(stockItem);
+                            handlePinSuccess(pinnedCard);
+                        } else if (sportsItem) {
+                            console.log('[PIN] Pin button clicked for sports item');
+                            const pinnedCard = replaceThirdCardWithSports(sportsItem);
+                            handlePinSuccess(pinnedCard);
                         }
                     }
                 });
             });
+            
+            // Handle weather pin button (state 4)
+            if (carrotState === 4) {
+                const weatherPinButton = carrotList.querySelector('.weather-pin-button');
+                if (weatherPinButton) {
+                    // Remove any existing listeners by cloning the button
+                    const newButton = weatherPinButton.cloneNode(true);
+                    weatherPinButton.replaceWith(newButton);
+                    
+                    newButton.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('[PIN] Pin button clicked for weather carrot');
+                        const pinnedCard = replaceThirdCardWithWeather();
+                        handlePinSuccess(pinnedCard);
+                    });
+                }
+            }
+        }
+        
+        function handlePinSuccess(pinnedCard) {
+            if (pinnedCard) {
+                console.log('[PIN] Pinned card element:', pinnedCard);
+                
+                // Close the overlay the same way as cross button or Esc
+                const existingStyle = document.getElementById('gradient-animation-style');
+                if (existingStyle) {
+                    existingStyle.remove();
+                }
+                if (gradientAnimationId) {
+                    cancelAnimationFrame(gradientAnimationId);
+                    gradientAnimationId = null;
+                }
+                setOverlayState(false);
+                if (searchBoxElement) {
+                    searchBoxElement.blur();
+                    // Clear the search term
+                    searchBoxElement.value = '';
+                }
+                
+                // Add border color
+                pinnedCard.classList.add('card--pinned-flash');
+            } else {
+                console.log('[PIN] ERROR: pinnedCard is null or undefined');
+            }
         }
         
         function replaceThirdCardWithWorldClock() {
@@ -3644,6 +3739,180 @@
             clockWrapper.dataset.originalCard = originalCardHTML;
             
             // Add control buttons (grab icon and cross)
+            const controlsDiv = createCardControls(clockWrapper);
+            clockWrapper.appendChild(controlsDiv);
+            
+            // Extract just the clock content from the world clock template (remove the <li> wrapper)
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = worldClockHTML;
+            const clockContent = tempDiv.querySelector('.carrot--clock');
+            
+            if (clockContent) {
+                // Clone the clock content and remove the pin button
+                const clonedContent = clockContent.cloneNode(true);
+                const pinButton = clonedContent.querySelector('.carrot-pin-button');
+                if (pinButton) {
+                    pinButton.remove();
+                }
+                
+                // Remove the carrot class styling that might conflict
+                clonedContent.classList.remove('carrot');
+                clonedContent.style.cssText = 'width: 100%;';
+                
+                clockWrapper.appendChild(clonedContent);
+                console.log('[REPLACE] Replacing third card with clockWrapper');
+                thirdCard.replaceWith(clockWrapper);
+                console.log('[REPLACE] Replacement complete, returning clockWrapper:', clockWrapper);
+                console.log('[REPLACE] clockWrapper classes:', clockWrapper.className);
+                console.log('[REPLACE] clockWrapper styles:', clockWrapper.style.cssText);
+                
+                return clockWrapper;
+            }
+            console.log('[REPLACE] ERROR: clockContent not found');
+            return null;
+        }
+        
+        function replaceThirdCardWithStock(stockItem) {
+            console.log('[REPLACE] replaceThirdCardWithStock called');
+            const articlesGrid = document.querySelector('.articles-grid');
+            if (!articlesGrid) {
+                console.log('[REPLACE] ERROR: articlesGrid not found');
+                return null;
+            }
+            
+            const cards = articlesGrid.querySelectorAll('.card');
+            if (cards.length < 3) {
+                console.log('[REPLACE] ERROR: Not enough cards');
+                return null;
+            }
+            
+            const thirdCard = cards[2];
+            const originalCardHTML = thirdCard.outerHTML;
+            
+            // Clone the stock item content
+            const clonedStockItem = stockItem.cloneNode(true);
+            const pinButton = clonedStockItem.querySelector('.carrot-pin-button');
+            if (pinButton) {
+                pinButton.remove();
+            }
+            
+            // Create wrapper
+            const stockWrapper = document.createElement('div');
+            stockWrapper.className = 'card card--stock';
+            stockWrapper.style.cssText = 'padding: 24px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); border: 5px solid transparent; position: relative;';
+            stockWrapper.dataset.originalCard = originalCardHTML;
+            
+            // Add controls
+            const controlsDiv = createCardControls(stockWrapper);
+            stockWrapper.appendChild(controlsDiv);
+            
+            // Add stock content - ensure it maintains flex layout
+            clonedStockItem.style.cssText = '';
+            stockWrapper.appendChild(clonedStockItem);
+            
+            thirdCard.replaceWith(stockWrapper);
+            return stockWrapper;
+        }
+        
+        function replaceThirdCardWithSports(sportsItem) {
+            console.log('[REPLACE] replaceThirdCardWithSports called');
+            const articlesGrid = document.querySelector('.articles-grid');
+            if (!articlesGrid) {
+                console.log('[REPLACE] ERROR: articlesGrid not found');
+                return null;
+            }
+            
+            const cards = articlesGrid.querySelectorAll('.card');
+            if (cards.length < 3) {
+                console.log('[REPLACE] ERROR: Not enough cards');
+                return null;
+            }
+            
+            const thirdCard = cards[2];
+            const originalCardHTML = thirdCard.outerHTML;
+            
+            // Clone the sports item content
+            const clonedSportsItem = sportsItem.cloneNode(true);
+            const pinButton = clonedSportsItem.querySelector('.carrot-pin-button');
+            if (pinButton) {
+                pinButton.remove();
+            }
+            
+            // Create wrapper
+            const sportsWrapper = document.createElement('div');
+            sportsWrapper.className = 'card card--sports';
+            sportsWrapper.style.cssText = 'padding: 24px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); border: 5px solid transparent; position: relative;';
+            sportsWrapper.dataset.originalCard = originalCardHTML;
+            
+            // Add controls
+            const controlsDiv = createCardControls(sportsWrapper);
+            sportsWrapper.appendChild(controlsDiv);
+            
+            // Add sports content - ensure it maintains flex layout
+            clonedSportsItem.style.cssText = '';
+            sportsWrapper.appendChild(clonedSportsItem);
+            
+            thirdCard.replaceWith(sportsWrapper);
+            return sportsWrapper;
+        }
+        
+        function replaceThirdCardWithWeather() {
+            console.log('[REPLACE] replaceThirdCardWithWeather called');
+            const articlesGrid = document.querySelector('.articles-grid');
+            if (!articlesGrid) {
+                console.log('[REPLACE] ERROR: articlesGrid not found');
+                return null;
+            }
+            
+            const cards = articlesGrid.querySelectorAll('.card');
+            if (cards.length < 3) {
+                console.log('[REPLACE] ERROR: Not enough cards');
+                return null;
+            }
+            
+            const thirdCard = cards[2];
+            const originalCardHTML = thirdCard.outerHTML;
+            
+            // Get the weather HTML (fresh calculation)
+            const weatherHTML = carrotTemplates.weather();
+            
+            // Create a wrapper div for the weather content
+            const weatherWrapper = document.createElement('div');
+            weatherWrapper.className = 'card card--weather';
+            weatherWrapper.style.cssText = 'min-height: 200px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); border: 5px solid transparent; position: relative;';
+            weatherWrapper.dataset.originalCard = originalCardHTML;
+            
+            // Add control buttons (grab icon and cross)
+            const controlsDiv = createCardControls(weatherWrapper);
+            weatherWrapper.appendChild(controlsDiv);
+            
+            // Extract just the weather content from the weather template (remove the <li> wrapper)
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = weatherHTML;
+            const weatherContent = tempDiv.querySelector('.carrot--weather');
+            
+            if (weatherContent) {
+                // Clone the weather content and remove the pin button
+                const clonedContent = weatherContent.cloneNode(true);
+                const pinButton = clonedContent.querySelector('.weather-pin-button');
+                if (pinButton) {
+                    pinButton.remove();
+                }
+                
+                // Remove the carrot class styling that might conflict
+                clonedContent.classList.remove('carrot');
+                clonedContent.style.cssText = 'width: 100%;';
+                
+                weatherWrapper.appendChild(clonedContent);
+                console.log('[REPLACE] Replacing third card with weatherWrapper');
+                thirdCard.replaceWith(weatherWrapper);
+                return weatherWrapper;
+            }
+            console.log('[REPLACE] ERROR: weatherContent not found');
+            return null;
+        }
+        
+        function createCardControls(wrapper) {
             const controlsDiv = document.createElement('div');
             controlsDiv.className = 'card-controls';
             
@@ -3675,45 +3944,15 @@
                 </svg>
             `;
             
-            // Add click handler to restore original card
             closeButton.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                restoreOriginalCard(clockWrapper);
+                restoreOriginalCard(wrapper);
             });
             
             controlsDiv.appendChild(grabButton);
             controlsDiv.appendChild(closeButton);
-            clockWrapper.appendChild(controlsDiv);
-            
-            // Extract just the clock content from the world clock template (remove the <li> wrapper)
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = worldClockHTML;
-            const clockContent = tempDiv.querySelector('.carrot--clock');
-            
-            if (clockContent) {
-                // Clone the clock content and remove the pin button
-                const clonedContent = clockContent.cloneNode(true);
-                const pinButton = clonedContent.querySelector('.carrot-pin-button');
-                if (pinButton) {
-                    pinButton.remove();
-                }
-                
-                // Remove the carrot class styling that might conflict
-                clonedContent.classList.remove('carrot');
-                clonedContent.style.cssText = 'width: 100%;';
-                
-                clockWrapper.appendChild(clonedContent);
-                console.log('[REPLACE] Replacing third card with clockWrapper');
-                thirdCard.replaceWith(clockWrapper);
-                console.log('[REPLACE] Replacement complete, returning clockWrapper:', clockWrapper);
-                console.log('[REPLACE] clockWrapper classes:', clockWrapper.className);
-                console.log('[REPLACE] clockWrapper styles:', clockWrapper.style.cssText);
-                
-                return clockWrapper;
-            }
-            console.log('[REPLACE] ERROR: clockContent not found');
-            return null;
+            return controlsDiv;
         }
         
         function restoreOriginalCard(pinnedCard) {
@@ -3905,6 +4144,21 @@
                     suggestionsContainer.classList.add('expand-left');
                     suggestionsContainer.classList.remove('show-carrot');
                 }
+                
+                // Reset to default suggestions if search box is empty
+                if (!searchBoxElement.value.trim()) {
+                    // Clear AI suggestions tracking
+                    aiSuggestionsSet.clear();
+                    updateSuggestions([
+                        'hoka',
+                        'macbook',
+                        '13 in macbook air',
+                        'Coffee machines for sale',
+                        'taylor swift',
+                        'coffee grinder',
+                        'gmail'
+                    ]);
+                }
             });
 
             searchBoxElement.addEventListener('keydown', (event) => {
@@ -4078,6 +4332,17 @@
                 updateClearButton();
                 const value = (event.target.value || '').toString();
                 const valueLower = value.toLowerCase().trim();
+                
+                // Check for "winter olympics" to change background color
+                if (valueLower === 'winter olympics' || valueLower.includes('winter olympics')) {
+                    if (topOverlay) {
+                        topOverlay.classList.add('winter-olympics');
+                    }
+                } else {
+                    if (topOverlay) {
+                        topOverlay.classList.remove('winter-olympics');
+                    }
+                }
                 
                 // Check for "winter ol" to trigger Winter Olympics schedule
                 if (valueLower === 'winter ol' || valueLower.startsWith('winter ol')) {

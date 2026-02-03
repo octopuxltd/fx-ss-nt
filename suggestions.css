@@ -324,6 +324,20 @@
     display: inline-flex;
 }
 
+/* Pin buttons for stock and sports items - only show on individual item hover, not wrapper hover */
+.stock-item:hover .carrot-pin-button,
+.stock-item:focus-within .carrot-pin-button,
+.sports-item:hover .carrot-pin-button,
+.sports-item:focus-within .carrot-pin-button {
+    display: inline-flex;
+}
+
+/* Hide pin buttons when hovering wrapper but not the specific item */
+.stocks-wrapper:hover .stock-item:not(:hover) .carrot-pin-button,
+.sports-wrapper:hover .sports-item:not(:hover) .carrot-pin-button {
+    display: none;
+}
+
 .carrot-pin-button:hover,
 .carrot-pin-button:focus-visible {
     background-color: rgba(15, 23, 42, 0.15);
@@ -472,6 +486,7 @@
     display: flex;
     gap: 12px;
     align-items: center;
+    position: relative;
 }
 
 .search-suggestions-preview-item.sports-wrapper {
@@ -493,6 +508,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
+    position: relative;
 }
 
 .search-suggestions-preview-item.sports-wrapper > .sports-item > .carrot-tile {
@@ -854,19 +870,25 @@
     position: relative;
 }
 
-.weather-title {
+.weather-title-section {
     display: flex;
     flex-direction: column;
-    gap: 4px;
 }
 
-.weather-title h3 {
+.weather-title {
     margin: 0;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
 }
 
-.weather-title span {
+.weather-subtitle {
+    margin: 4px 0 0 0;
+    font-size: 13px;
+    color: #6B7280;
+}
+
+.weather-location {
+    margin: 4px 0 0 0;
     font-size: 13px;
     color: #6B7280;
 }
@@ -1081,6 +1103,78 @@
     font-weight: 400;
     color: #64748b;
     margin-left: 4px;
+}
+
+/* Larger time numbers when pinned in card */
+.card--world-clock .clock-time {
+    font-size: 36px;
+}
+
+.card--world-clock .clock-time strong {
+    font-size: 36px;
+}
+
+.card--world-clock .clock-period {
+    font-size: 18px;
+}
+
+/* Ensure stock and sports items maintain horizontal layout when pinned */
+.card--stock {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    min-height: 275px;
+}
+
+.card--stock .stock-item {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+}
+
+.card--stock .stock-item .carrot-tile {
+    flex-shrink: 0;
+}
+
+.card--stock .stock-item .carrot-lines {
+    flex: 1;
+    min-width: 0;
+}
+
+.card--sports {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    min-height: 275px;
+}
+
+.card--sports .sports-item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+}
+
+.card--sports .sports-item .carrot-tile {
+    flex-shrink: 0;
+}
+
+.card--sports .sports-item .carrot-lines {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Weather card when pinned */
+.card--weather {
+    display: flex;
+    flex-direction: column;
 }
 
 .clock-meta {

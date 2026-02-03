@@ -221,7 +221,10 @@ const carrotTemplates = {
     weather: () => `
         <li class="search-suggestions-preview-item carrot carrot--weather">
             <div class="weather-header">
-                <p class="weather-title">Accuweather</p>
+                <div class="weather-title-section">
+                    <p class="weather-title">Weather</p>
+                    <p class="weather-subtitle">Accuweather • Your location: New York (<span class="weather-location-change" style="text-decoration: underline; cursor: pointer;">change</span>)</p>
+                </div>
                 <button class="weather-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
             </div>
             <div class="weather-days">
@@ -279,6 +282,7 @@ const carrotTemplates = {
     sports: () => `
         <li class="search-suggestions-preview-item carrot carrot--sports sports-wrapper" data-index="sports-1">
             <div class="sports-item" data-sports-index="0">
+                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin</button>
                 <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
                     <img src="icons/orlando.png" alt="" class="sports-icon" aria-hidden="true">
                 </div>
@@ -288,6 +292,7 @@ const carrotTemplates = {
                 </div>
             </div>
             <div class="sports-item" data-sports-index="1">
+                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin</button>
                 <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
                     <img src="icons/detroit.png" alt="" class="sports-icon" aria-hidden="true">
                 </div>
@@ -297,6 +302,7 @@ const carrotTemplates = {
                 </div>
             </div>
             <div class="sports-item" data-sports-index="2">
+                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin</button>
                 <div class="carrot-tile carrot-tile--sports" aria-hidden="true">
                     <img src="icons/chicago.png" alt="" class="sports-icon" aria-hidden="true">
                 </div>
@@ -317,6 +323,7 @@ const carrotTemplates = {
     stocks: () => `
         <li class="search-suggestions-preview-item carrot carrot--stocks stocks-wrapper" data-index="stocks-1">
             <div class="stock-item" data-stock-index="0">
+                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
                 <div class="carrot-tile carrot-tile--stocks carrot-tile--stocks-up" aria-hidden="true">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stock-arrow-icon">
                         <path d="M12 5v14M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -339,6 +346,7 @@ const carrotTemplates = {
     stocksETFs: () => `
         <li class="search-suggestions-preview-item carrot carrot--stocks stocks-wrapper" data-index="stocks-etfs-1">
             <div class="stock-item" data-stock-index="0">
+                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin</button>
                 <div class="carrot-tile carrot-tile--stocks carrot-tile--stocks-down" aria-hidden="true">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stock-arrow-icon">
                         <path d="M12 19V5M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -350,6 +358,7 @@ const carrotTemplates = {
                 </div>
             </div>
             <div class="stock-item" data-stock-index="1">
+                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin</button>
                 <div class="carrot-tile carrot-tile--stocks carrot-tile--stocks-up" aria-hidden="true">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stock-arrow-icon">
                         <path d="M12 5v14M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -361,6 +370,7 @@ const carrotTemplates = {
                 </div>
             </div>
             <div class="stock-item" data-stock-index="2">
+                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin</button>
                 <div class="carrot-tile carrot-tile--stocks carrot-tile--stocks-neutral" aria-hidden="true">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stock-arrow-icon">
                         <path d="M7 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
