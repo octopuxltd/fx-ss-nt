@@ -2822,11 +2822,12 @@
             
         }
         
-        function performGoogleSearch(suggestionText) {
-            if (!suggestionText || !suggestionText.trim()) return;
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(suggestionText.trim())}`;
-            window.open(searchUrl, '_blank');
-        }
+        // COMMENTED OUT: Google search functionality disabled
+        // function performGoogleSearch(suggestionText) {
+        //     if (!suggestionText || !suggestionText.trim()) return;
+        //     const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(suggestionText.trim())}`;
+        //     window.open(searchUrl, '_blank');
+        // }
         
         function attachClickListeners() {
             if (!suggestionsList) return;
@@ -2842,13 +2843,14 @@
                     e.preventDefault();
                     e.stopPropagation();
                     
+                    // COMMENTED OUT: Google search on click disabled
                     // Get the suggestion text from the label
-                    const labelElement = newItem.querySelector('.label');
-                    if (labelElement) {
-                        // Get text content, removing any HTML tags (like <strong>)
-                        const suggestionText = labelElement.textContent.trim();
-                        performGoogleSearch(suggestionText);
-                    }
+                    // const labelElement = newItem.querySelector('.label');
+                    // if (labelElement) {
+                    //     // Get text content, removing any HTML tags (like <strong>)
+                    //     const suggestionText = labelElement.textContent.trim();
+                    //     performGoogleSearch(suggestionText);
+                    // }
                 });
             });
         }
@@ -3566,14 +3568,16 @@
                     if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
                         suggestionItems[selectedSuggestionIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                     }
-                } else if (event.key === 'Enter' && selectedSuggestionIndex >= 0) {
-                    event.preventDefault();
-                    // Use the search box value (which should be updated by keyboard navigation)
-                    const searchText = searchBoxElement.value.trim();
-                    if (searchText) {
-                        performGoogleSearch(searchText);
-                    }
                 }
+                // COMMENTED OUT: Google search on Enter disabled
+                // else if (event.key === 'Enter' && selectedSuggestionIndex >= 0) {
+                //     event.preventDefault();
+                //     // Use the search box value (which should be updated by keyboard navigation)
+                //     const searchText = searchBoxElement.value.trim();
+                //     if (searchText) {
+                //         performGoogleSearch(searchText);
+                //     }
+                // }
             });
 
 
