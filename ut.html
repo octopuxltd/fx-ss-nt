@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Search on New Tab • Phase 5</title>
+    <title>New Tab</title>
     <link rel="stylesheet" href="suggestions.css">
     <style>
         /* Override hover for ut.html - only show selection state, not hover */
@@ -131,13 +131,13 @@
             width: 48px;
             height: 48px;
             stroke: #1F2933;
-            stroke-width: 1.5;
+            stroke-width: 1;
             transition: stroke 0.2s ease, stroke-width 0.2s ease;
         }
 
         .close-button:hover svg {
             stroke: #000000;
-            stroke-width: 2;
+            stroke-width: 1.5;
         }
 
         .vpn-indicator {
@@ -258,7 +258,7 @@
             z-index: 12;
         }
 
-        .info-icon-wrapper:hover .demo-searches-card {
+        .info-icon-wrapper.is-open .demo-searches-card {
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
@@ -343,8 +343,39 @@
 
         .search-input-shell {
             position: relative;
-            padding: 18px 18px 5px;
+            padding: 18px 18px 5px; padding-right: 50px;
             padding-left: 84px;
+        }
+
+        .search-input-shell {
+            padding-right: 50px;
+        }
+
+        .search-clear-button {
+            position: absolute;
+            right: 18px;
+            top: calc(50% + 7px);
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            z-index: 1;
+        }
+
+        .search-clear-button:hover {
+            opacity: 1;
+        }
+
+        .search-clear-button svg {
+            width: 16px;
+            height: 16px;
+            stroke: #1F2933;
         }
 
         .search-dropdown-button {
@@ -937,9 +968,231 @@
     <script src="product-sections/product-open-tabs.js"></script>
     <script src="product-sections/product-articles.js"></script>
     <script src="product-content.js"></script>
-    <script src="suggestion-paths.js"></script>
     <script src="carrot-templates.js"></script>
+    <script src="suggestion-words.js"></script>
     <script src="image-preload.js"></script>
+    <script>
+        // OpenRouter API Configuration
+        const OPENROUTER_API_KEY = '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'; // Set your API key here
+        const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+        
+        // Debounce timer for API calls
+        let apiCallTimer = null;
+        let lastApiQuery = '';
+        
+        // Track which suggestions are from AI (for icon assignment)
+        let aiSuggestionsSet = new Set();
+        
+        // LocalStorage cache functions
+        function getCacheKey(query) {
+            return `ai_suggestions_${query.toLowerCase().trim()}`;
+        }
+        
+        function getCachedSuggestions(query) {
+            try {
+                const cacheKey = getCacheKey(query);
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    // Check if cache is still valid (24 hours)
+                    const cacheAge = Date.now() - parsed.timestamp;
+                    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+                    if (cacheAge < maxAge) {
+                        console.log('[API] Found cached suggestions:', parsed.suggestions);
+                        // Filter cached suggestions to only include word-start matches
+                        const queryLower = query.toLowerCase();
+                        const filtered = parsed.suggestions.filter(suggestion => {
+                            const suggestionLower = suggestion.toLowerCase();
+                            // Check if suggestion starts with query
+                            if (suggestionLower.startsWith(queryLower)) {
+                                return true;
+                            }
+                            // Check if any word in the suggestion starts with the query
+                            const words = suggestionLower.split(/\s+/);
+                            return words.some(word => word.startsWith(queryLower));
+                        });
+                        return filtered.length > 0 ? filtered : null;
+                    } else {
+                        console.log('[API] Cache expired, removing old cache');
+                        localStorage.removeItem(cacheKey);
+                    }
+                }
+            } catch (error) {
+                console.error('[API] Error reading from cache:', error);
+            }
+            return null;
+        }
+        
+        function cacheSuggestions(query, suggestions) {
+            try {
+                const cacheKey = getCacheKey(query);
+                const cacheData = {
+                    suggestions: suggestions,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+                console.log('[API] Cached suggestions for:', query);
+            } catch (error) {
+                console.error('[API] Error caching suggestions:', error);
+                // localStorage might be full, try to clear old entries
+                try {
+                    const keysToRemove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith('ai_suggestions_')) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                    // Remove oldest 10 entries if cache is full
+                    if (keysToRemove.length > 50) {
+                        keysToRemove.slice(0, 10).forEach(key => localStorage.removeItem(key));
+                        // Retry caching
+                        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+                    }
+                } catch (e) {
+                    console.error('[API] Could not clear cache:', e);
+                }
+            }
+        }
+        
+        async function fetchAISuggestions(query) {
+            console.log('[API] Starting fetchAISuggestions for query:', query);
+            
+            // Check cache first
+            const cached = getCachedSuggestions(query);
+            if (cached && cached.length > 0) {
+                console.log('[API] Returning cached suggestions');
+                return cached;
+            }
+            
+            if (!OPENROUTER_API_KEY) {
+                console.warn('[API] OpenRouter API key not set');
+                return [];
+            }
+            
+            const requestBody = {
+                // Common OpenRouter models: 'anthropic/claude-3-haiku', 'google/gemini-pro', 'meta-llama/llama-3.1-8b-instruct'
+                model: 'anthropic/claude-3-haiku', // Fast, lightweight model
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a search suggestion generator. Generate 10 popular search queries where at least one word starts with the user\'s query characters. For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of strings, sorted by popularity (most popular first). No explanations, just the array.'
+                    },
+                    {
+                        role: 'user',
+                        content: `Generate 10 popular search suggestions where at least one word starts with: "${query}"`
+                    }
+                ],
+                temperature: 0.7,
+                max_tokens: 200
+            };
+            
+            console.log('[API] Request URL:', OPENROUTER_API_URL);
+            console.log('[API] Request body:', JSON.stringify(requestBody, null, 2));
+            
+            try {
+                const startTime = Date.now();
+                console.log('[API] Making fetch request...');
+                
+                const response = await fetch(OPENROUTER_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'HTTP-Referer': window.location.origin,
+                        'X-Title': 'Search Suggestions'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const requestDuration = Date.now() - startTime;
+                console.log('[API] Response received:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    duration: `${requestDuration}ms`,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+                
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        errorText = await response.text();
+                        console.error('[API] Response not OK:', {
+                            status: response.status,
+                            statusText: response.statusText,
+                            body: errorText
+                        });
+                        // Try to parse as JSON for better error message
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            console.error('[API] Error JSON:', errorJson);
+                        } catch (e) {
+                            // Not JSON, that's fine
+                        }
+                    } catch (e) {
+                        errorText = 'Could not read error response';
+                        console.error('[API] Could not read error response:', e);
+                    }
+                    throw new Error(`API error: ${response.status} - ${errorText}`);
+                }
+                
+                const data = await response.json();
+                console.log('[API] Response data:', JSON.stringify(data, null, 2));
+                
+                const content = data.choices[0]?.message?.content?.trim();
+                console.log('[API] Extracted content:', content);
+                
+                if (!content) {
+                    console.warn('[API] No content in response');
+                    return [];
+                }
+                
+                // Parse JSON array from response
+                let suggestions = [];
+                try {
+                    // Try to parse as JSON array
+                    const jsonMatch = content.match(/\[.*\]/s);
+                    if (jsonMatch) {
+                        console.log('[API] Found JSON array match:', jsonMatch[0]);
+                        suggestions = JSON.parse(jsonMatch[0]);
+                        console.log('[API] Parsed suggestions:', suggestions);
+                    } else {
+                        console.log('[API] No JSON array found, trying line-by-line parsing');
+                        // Fallback: split by lines and clean up
+                        suggestions = content.split('\n')
+                            .map(line => line.trim().replace(/^[-•\d.\s"']+|[-•\d.\s"']+$/g, ''))
+                            .filter(line => line.length > 0)
+                            .slice(0, 10);
+                        console.log('[API] Line-parsed suggestions:', suggestions);
+                    }
+                } catch (parseError) {
+                    console.error('[API] Error parsing AI response:', parseError);
+                    console.error('[API] Content that failed to parse:', content);
+                    // Fallback: extract quoted strings
+                    const quotedMatches = content.match(/"([^"]+)"/g);
+                    if (quotedMatches) {
+                        suggestions = quotedMatches.map(m => m.replace(/"/g, '')).slice(0, 10);
+                        console.log('[API] Fallback quoted-string suggestions:', suggestions);
+                    }
+                }
+                
+                const finalSuggestions = suggestions.filter(s => s && s.length > 0).slice(0, 10);
+                console.log('[API] Final suggestions to return:', finalSuggestions);
+                console.log('[API] Total duration:', `${Date.now() - startTime}ms`);
+                
+                // Cache the suggestions for future use
+                if (finalSuggestions.length > 0) {
+                    cacheSuggestions(query, finalSuggestions);
+                }
+                
+                return finalSuggestions;
+            } catch (error) {
+                console.error('[API] Error fetching AI suggestions:', error);
+                console.error('[API] Error stack:', error.stack);
+                return [];
+            }
+        }
+    </script>
     <script>
         // Set phase number for image preloader
         window.currentPhase = 5;
@@ -955,7 +1208,7 @@
             <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
             <button class="close-button" type="button" aria-label="Close search panel">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>
             <div class="vpn-indicator" id="vpn-indicator">
@@ -1027,6 +1280,11 @@
                             <img src="icons/chevron.svg" alt="Expand" class="chevron">
             </div>
                         <input type="text" class="search-box" placeholder="Search or start browsing">
+                        <button type="button" class="search-clear-button" aria-label="Clear search" style="display: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
                 </div>
                     <div class="search-suggestions-preview" aria-hidden="true">
                         <div class="search-suggestions-divider"></div>
@@ -1266,6 +1524,7 @@
         const searchDescriptionElement = document.querySelector('.search-description');
         const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
         const searchBoxElement = document.querySelector('.search-box');
+        const searchClearButton = document.querySelector('.search-clear-button');
         const searchContainer = document.querySelector('.search-container');
         const productContainers = Array.from(document.querySelectorAll('.search-wrapper-products, .search-description'));
         const resizeObservers = [];
@@ -1486,6 +1745,16 @@
             });
         }
 
+        // Toggle demo searches card on info icon click
+        const infoIconButton = document.querySelector('.info-icon-button');
+        const infoIconWrapper = document.querySelector('.info-icon-wrapper');
+        if (infoIconButton && infoIconWrapper) {
+            infoIconButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                infoIconWrapper.classList.toggle('is-open');
+            });
+        }
+
         if (bottomOverlay && searchBoxElement) {
             bottomOverlay.addEventListener('click', () => {
                 if (topOverlay && topOverlay.classList.contains('is-focused')) {
@@ -1527,38 +1796,191 @@
         let currentState = 0; // Track current state
         let selectedSuggestionIndex = -1; // Track selected suggestion index (only one at a time)
         
-        function getIconForSuggestion(text) {
-            const textLower = text.toLowerCase();
+        // Fixed skeleton widths for each row position (1-10)
+        const skeletonWidths = [
+            Math.floor(Math.random() * 130) + 30, // Row 1
+            Math.floor(Math.random() * 130) + 30, // Row 2
+            Math.floor(Math.random() * 130) + 30, // Row 3
+            Math.floor(Math.random() * 130) + 30, // Row 4
+            Math.floor(Math.random() * 130) + 30, // Row 5
+            Math.floor(Math.random() * 130) + 30, // Row 6
+            Math.floor(Math.random() * 130) + 30, // Row 7
+            Math.floor(Math.random() * 130) + 30, // Row 8
+            Math.floor(Math.random() * 130) + 30, // Row 9
+            Math.floor(Math.random() * 130) + 30  // Row 10
+        ];
+        
+        // Mapping of demo search terms to carrot states
+        const demoSearchCarrots = {
+            'fox wiki': 2,        // wikipedia
+            'chair': 8,          // adMarketplace
+            'sneakers': 9,       // bigAd
+            'uber stock': 6,     // stocks
+            'ac8170': 1,         // flights
+            'lakers game': 5,    // sports
+            'coffee shops': 0,   // local
+            'weather': 4,         // weather
+            'vpn': 13,           // vpn
+            'mdn': 10,           // mdn
+            'array': 10,         // mdn
+            'youtube': 12,       // youtube
+            'time tokyo': 7,     // worldClock
+            'happy emoji': 11    // happyEmoji
+        };
+        
+        // Function to show carrot for demo searches
+        const showCarrotForDemoSearch = (query) => {
+            const queryLower = query.toLowerCase().trim();
+            const carrotState = demoSearchCarrots[queryLower];
             
-            if (iconMappings.lightning.includes(textLower)) {
-                return 'icons/lightning.svg';
-            } else if (iconMappings.search.includes(textLower)) {
-                return 'icons/search.svg';
+            if (carrotState !== undefined && carrotList && suggestionsContainer) {
+                // Check if we need to slide in from the right
+                const needsSlide = currentState !== 0 && currentState !== carrotState;
+                
+                if (needsSlide) {
+                    // Slide out current carrot, then slide in new one
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    setTimeout(() => {
+                        setCarrotContent(carrotState);
+                        currentState = carrotState;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 400);
+                } else {
+                    // Just show the carrot directly
+                    setCarrotContent(carrotState);
+                    currentState = carrotState;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+                return true;
             }
-            return 'icons/clock.svg';
+            
+            // Check if query is a prefix of any demo search (don't hide carrot while typing)
+            const isPrefix = Object.keys(demoSearchCarrots).some(term => term.startsWith(queryLower));
+            if (isPrefix) {
+                // User is typing a demo search, don't hide carrot yet
+                return false;
+            }
+            
+            return false;
+        };
+        
+        // Minimal iconMappings for ut.html (since suggestion-paths.js was removed)
+        const iconMappings = {
+            lightning: [],
+            search: []
+        };
+        
+        function getIconForSuggestion(text) {
+            try {
+                const textLower = text.toLowerCase();
+                
+                // AI suggestions always get search icon
+                if (aiSuggestionsSet.has(textLower)) {
+                    return 'icons/search.svg';
+                }
+                
+                if (typeof iconMappings !== 'undefined' && iconMappings) {
+                    if (iconMappings.lightning && iconMappings.lightning.includes(textLower)) {
+                        return 'icons/lightning.svg';
+                    } else if (iconMappings.search && iconMappings.search.includes(textLower)) {
+                        return 'icons/search.svg';
+                    }
+                }
+                return 'icons/clock.svg';
+            } catch (error) {
+                console.error('Error in getIconForSuggestion:', error);
+                return 'icons/clock.svg';
+            }
+        }
+        
+        function showSkeletonLoaders(count = 3) {
+            console.log('[Skeleton] showSkeletonLoaders called, count:', count);
+            if (!suggestionsList) {
+                console.log('[Skeleton] suggestionsList is null/undefined');
+                return;
+            }
+            
+            // Get current number of real suggestions (non-skeleton items)
+            const existingItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item:not(.skeleton)');
+            const startRowIndex = existingItems.length; // Row position where skeletons will start (0-indexed)
+            
+            // Generate skeletons with fixed widths based on their row positions
+            const skeletonHTML = Array.from({ length: count }, (_, i) => {
+                const rowPosition = startRowIndex + i; // Actual row position (0-9 for rows 1-10)
+                const width = skeletonWidths[rowPosition]; // Use fixed width for this row position
+                return `
+                    <li class="search-suggestions-preview-item skeleton" data-index="-1">
+                        <div class="suggestion-icon" style="background-color: #E5E7EB; width: 16px; height: 16px; border-radius: 2px; opacity: 0.6; display: block; flex-shrink: 0;"></div>
+                        <span class="skeleton-text" style="width: ${width}px; height: 14px; background-color: #E5E7EB; border-radius: 4px; opacity: 0.6; display: block;"></span>
+                    </li>
+                `;
+            }).join('');
+            
+            console.log('[Skeleton] Generated HTML:', skeletonHTML);
+            console.log('[Skeleton] Current innerHTML length:', suggestionsList.innerHTML.length);
+            console.log('[Skeleton] Start row index:', startRowIndex, 'Skeleton count:', count);
+            
+            // Append skeletons to existing suggestions
+            suggestionsList.innerHTML += skeletonHTML;
+            
+            console.log('[Skeleton] New innerHTML length:', suggestionsList.innerHTML.length);
+            console.log('[Skeleton] Number of skeleton elements:', suggestionsList.querySelectorAll('.skeleton').length);
+        }
+        
+        function removeSkeletons() {
+            if (!suggestionsList) return;
+            const skeletons = suggestionsList.querySelectorAll('.skeleton');
+            skeletons.forEach(skeleton => skeleton.remove());
         }
         
         function updateSuggestions(suggestions) {
-            if (!suggestionsList) return;
+            console.log('updateSuggestions called with:', suggestions);
+            console.log('suggestionsList:', suggestionsList);
+            if (!suggestionsList) {
+                console.log('suggestionsList is null/undefined, returning early');
+                return;
+            }
             
-            // Sort suggestions by icon type: lightning first, clock second, search last
-            const sortedSuggestions = suggestions.sort((a, b) => {
-                const iconA = getIconForSuggestion(a);
-                const iconB = getIconForSuggestion(b);
+            // Remove any existing skeletons when updating with real suggestions
+            removeSkeletons();
+            
+            console.log('Sorting suggestions...');
+            try {
+                // Sort suggestions by icon type: lightning first, clock second, search last
+                console.log('About to sort, suggestions count:', suggestions.length);
+                const sortedSuggestions = [...suggestions].sort((a, b) => {
+                    try {
+                        const iconA = getIconForSuggestion(a);
+                        const iconB = getIconForSuggestion(b);
+                        
+                        const iconOrder = {
+                            'icons/lightning.svg': 0,
+                            'icons/clock.svg': 1,
+                            'icons/search.svg': 2
+                        };
+                        
+                        const orderA = iconOrder[iconA] !== undefined ? iconOrder[iconA] : 2;
+                        const orderB = iconOrder[iconB] !== undefined ? iconOrder[iconB] : 2;
+                        
+                        return orderA - orderB;
+                    } catch (sortError) {
+                        console.error('Error in sort comparison:', sortError, { a, b });
+                        return 0;
+                    }
+                });
                 
-                const iconOrder = {
-                    'icons/lightning.svg': 0,
-                    'icons/clock.svg': 1,
-                    'icons/search.svg': 2
-                };
+                console.log('Sorted suggestions:', sortedSuggestions.length);
                 
-                return iconOrder[iconA] - iconOrder[iconB];
-            });
-            
-            // Get current search value for highlighting
-            const searchValue = searchBoxElement ? searchBoxElement.value.toLowerCase() : '';
-            
-            suggestionsList.innerHTML = sortedSuggestions.map((text, index) => {
+                // Get current search value for highlighting
+                const searchValue = searchBoxElement ? searchBoxElement.value.toLowerCase() : '';
+                console.log('Search value for highlighting:', searchValue);
+                
+                console.log('Mapping suggestions to HTML...');
+                const htmlString = sortedSuggestions.map((text, index) => {
                 const icon = getIconForSuggestion(text);
                 
                 // Bold matching characters (ignore spaces in search value)
@@ -1601,16 +2023,63 @@
                     <li class="search-suggestions-preview-item" data-index="${index}">
                         <img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon">
                         <span class="label">${displayText}</span>
+                        <span class="search-hint" style="display: none;">&nbsp;•&nbsp;&nbsp;Search with Google</span>
                     </li>
                 `;
-            }).join('');
+                }).join('');
+                
+                console.log('Generated HTML length:', htmlString.length);
+                console.log('Generated HTML preview:', htmlString.substring(0, 200));
+                console.log('About to set innerHTML...');
+                suggestionsList.innerHTML = htmlString;
+                console.log('innerHTML set, new innerHTML length:', suggestionsList.innerHTML.length);
+                console.log('Number of child elements:', suggestionsList.children.length);
+            } catch (error) {
+                console.error('Error in updateSuggestions:', error);
+                console.error('Error stack:', error.stack);
+            }
             
             // Reset selection when suggestions update
             selectedSuggestionIndex = -1;
             updateSelectedSuggestion();
             
-            // Attach hover listeners to the new suggestions
+            // Attach click handlers to suggestions (this clones nodes, so do it first)
+            attachClickListeners();
+            
+            // Attach hover listeners to the new suggestions (after click listeners)
             attachHoverListeners();
+            
+        }
+        
+        function performGoogleSearch(suggestionText) {
+            if (!suggestionText || !suggestionText.trim()) return;
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(suggestionText.trim())}`;
+            window.open(searchUrl, '_blank');
+        }
+        
+        function attachClickListeners() {
+            if (!suggestionsList) return;
+            
+            const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item:not(.skeleton)');
+            suggestionItems.forEach((item) => {
+                // Remove existing click listener if any
+                const newItem = item.cloneNode(true);
+                item.parentNode.replaceChild(newItem, item);
+                
+                // Add click handler
+                newItem.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Get the suggestion text from the label
+                    const labelElement = newItem.querySelector('.label');
+                    if (labelElement) {
+                        // Get text content, removing any HTML tags (like <strong>)
+                        const suggestionText = labelElement.textContent.trim();
+                        performGoogleSearch(suggestionText);
+                    }
+                });
+            });
         }
         
         function attachHoverListeners() {
@@ -1620,6 +2089,15 @@
             suggestionItems.forEach((item) => {
                 item.addEventListener('mouseenter', handleSuggestionHover);
             });
+            
+            // Clear selection when mouse leaves the suggestions list
+            const suggestionsContainer = suggestionsList.closest('.search-suggestions-preview-column-container');
+            if (suggestionsContainer) {
+                suggestionsContainer.addEventListener('mouseleave', () => {
+                    selectedSuggestionIndex = -1;
+                    updateSelectedSuggestion();
+                });
+            }
         }
         
         function handleSuggestionHover(event) {
@@ -1633,7 +2111,7 @@
             }
         }
         
-        function updateSelectedSuggestion() {
+        function updateSelectedSuggestion(isKeyboardNavigation = false) {
             if (!suggestionsList) return;
             
             const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
@@ -1641,85 +2119,35 @@
             // Remove selection from ALL items first
             suggestionItems.forEach((item) => {
                 item.classList.remove('is-selected');
+                // Hide "Search with Google" hint
+                const hintElement = item.querySelector('.search-hint');
+                if (hintElement) {
+                    hintElement.style.display = 'none';
+                }
             });
             
             // Then add selection to ONLY the selected item (if one is selected)
             if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
-                suggestionItems[selectedSuggestionIndex].classList.add('is-selected');
+                const selectedItem = suggestionItems[selectedSuggestionIndex];
+                selectedItem.classList.add('is-selected');
+                // Show "Search with Google" hint
+                const hintElement = selectedItem.querySelector('.search-hint');
+                if (hintElement) {
+                    hintElement.style.display = 'inline';
+                }
+                
+                // If this is keyboard navigation, update the search box text
+                if (isKeyboardNavigation && searchBoxElement) {
+                    const label = selectedItem.querySelector('.label');
+                    if (label) {
+                        // Extract text without HTML tags (removes <strong> tags but keeps text)
+                        const suggestionText = label.textContent || label.innerText;
+                        searchBoxElement.value = suggestionText.trim();
+                    }
+                }
             }
         }
         
-        function processSuggestionPath(valueLower) {
-            // Build a flat lookup map from all suggestion paths
-            const pathLookup = {};
-            Object.values(suggestionPaths).forEach(pathArray => {
-                pathArray.forEach(step => {
-                    pathLookup[step.query] = step;
-                });
-            });
-            
-            const match = pathLookup[valueLower];
-            if (match) {
-                updateSuggestions(match.suggestions);
-                
-                // Show carrot if specified
-                if (match.carrot) {
-                    if (match.carrot.state === 8 && match.carrot.content === 8) {
-                        const alreadyAdMarketplace = localCarrotRow && localCarrotRow.classList.contains('is-visible');
-
-                        const showAdMarketplace = () => {
-                            showAdMarketplaceCarrots();
-                            currentState = match.carrot.state;
-                        };
-
-                        if (!alreadyAdMarketplace && currentState !== 0) {
-                            suggestionsContainer.classList.add('expand-left');
-                            suggestionsContainer.classList.remove('show-carrot');
-
-                            setTimeout(() => {
-                                showAdMarketplace();
-                                suggestionsContainer.classList.remove('expand-left');
-                            }, 900);
-                        } else {
-                            showAdMarketplace();
-                        }
-
-                        return true;
-                    }
-
-                    hideLocalCarrots();
-                    suggestionsContainer.classList.remove('local-horizontal');
-                    
-                    const currentCarrotState = carrotList.dataset.carrotState;
-                    const showingCarrot = currentState === match.carrot.state && 
-                                         currentCarrotState === String(match.carrot.content) && 
-                                         suggestionsContainer.classList.contains('show-carrot');
-                    
-                    if (!showingCarrot) {
-                        if (currentState !== 0) {
-                            suggestionsContainer.classList.add('expand-left');
-                            suggestionsContainer.classList.remove('show-carrot');
-
-                            setTimeout(() => {
-                                setCarrotContent(match.carrot.content);
-                                currentState = match.carrot.state;
-                                suggestionsContainer.classList.remove('expand-left');
-                                suggestionsContainer.classList.add('show-carrot');
-                            }, 900);
-                        } else {
-                            setCarrotContent(match.carrot.content);
-                            currentState = match.carrot.state;
-                            suggestionsContainer.classList.remove('expand-left');
-                            suggestionsContainer.classList.add('show-carrot');
-                        }
-                    }
-                }
-                // Don't hide carrot if no carrot specified - keep it showing if already visible
-                
-                return true;
-            }
-            return false;
-        }
         
         function setCarrotContent(state) {
             if (!carrotList) {
@@ -1841,7 +2269,7 @@
                         currentState = 1;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
-                    }, 900);
+                    }, 400);
                 } else {
                     setCarrotContent(0);
                     currentState = 1;
@@ -1863,7 +2291,7 @@
                         currentState = 2;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
-                    }, 900);
+                    }, 400);
                 } else {
                     setCarrotContent(1);
                     setCarrotColor(null);
@@ -1886,7 +2314,7 @@
                         currentState = 3;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
-                    }, 900);
+                    }, 400);
                 } else {
                     setCarrotContent(2);
                     setCarrotColor(null);
@@ -1909,7 +2337,7 @@
                         currentState = 4;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
-                    }, 900);
+                    }, 400);
                 } else {
                     setCarrotContent(4);
                     setCarrotColor('green-text');
@@ -1932,7 +2360,7 @@
                         currentState = 5;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
-                    }, 900);
+                    }, 400);
                 } else {
                     setCarrotContent(5);
                     setCarrotColor(null);
@@ -1953,7 +2381,7 @@
                         currentState = 6;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
-                    }, 900);
+                    }, 400);
                 } else {
                     setCarrotContent(6);
                     setCarrotColor(null);
@@ -1974,7 +2402,7 @@
                         currentState = 7;
                         suggestionsContainer.classList.remove('expand-left');
                         suggestionsContainer.classList.add('show-carrot');
-                    }, 900);
+                    }, 400);
                 } else {
                     setCarrotContent(7);
                     setCarrotColor(null);
@@ -2013,7 +2441,7 @@
                     } else {
                         selectedSuggestionIndex = (selectedSuggestionIndex + 1) % suggestionItems.length;
                     }
-                    updateSelectedSuggestion();
+                    updateSelectedSuggestion(true); // true = keyboard navigation
                     // Scroll into view if needed
                     if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
                         suggestionItems[selectedSuggestionIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -2030,32 +2458,42 @@
                     } else {
                         selectedSuggestionIndex--;
                     }
-                    updateSelectedSuggestion();
+                    updateSelectedSuggestion(true); // true = keyboard navigation
                     // Scroll into view if needed
                     if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
                         suggestionItems[selectedSuggestionIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                     }
                 } else if (event.key === 'Enter' && selectedSuggestionIndex >= 0) {
                     event.preventDefault();
-                    const selectedItem = suggestionItems[selectedSuggestionIndex];
-                    const label = selectedItem.querySelector('.label');
-                    if (label) {
-                        // Extract text without HTML tags
-                        const text = label.textContent || label.innerText;
-                        searchBoxElement.value = text;
-                        searchBoxElement.dispatchEvent(new Event('input', { bubbles: true }));
+                    // Use the search box value (which should be updated by keyboard navigation)
+                    const searchText = searchBoxElement.value.trim();
+                    if (searchText) {
+                        performGoogleSearch(searchText);
                     }
                 }
             });
 
-            searchBoxElement.addEventListener('input', (event) => {
-                const value = (event.target.value || '').toString();
-                const valueLower = value.toLowerCase();
-                
-                // Clear carrots when field is empty or has only 1 character
-                if (!value.trim() || value.trim().length === 1) {
-                    // Reset to default suggestions if empty
-                    if (!value.trim()) {
+
+            // Show/hide clear button based on input value
+            const updateClearButton = () => {
+                if (searchClearButton && searchBoxElement) {
+                    if (searchBoxElement.value.trim().length > 0) {
+                        searchClearButton.style.display = 'flex';
+                    } else {
+                        searchClearButton.style.display = 'none';
+                    }
+                }
+            };
+
+            // Clear button click handler
+            if (searchClearButton) {
+                searchClearButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (searchBoxElement) {
+                        searchBoxElement.value = '';
+                        searchBoxElement.focus();
+                        // Reset to default suggestions
                         updateSuggestions([
                             'hoka',
                             'macbook',
@@ -2065,66 +2503,218 @@
                             'coffee grinder',
                             'gmail'
                         ]);
+                        // Clear AI suggestions tracking
+                        aiSuggestionsSet.clear();
+                        // Remove skeletons
+                        removeSkeletons();
+                        // Clear any pending API calls
+                        if (apiCallTimer) {
+                            clearTimeout(apiCallTimer);
+                            apiCallTimer = null;
+                        }
+                        lastApiQuery = '';
+                        // Clear carrot state
+                        if (suggestionsContainer) {
+                            suggestionsContainer.classList.remove('show-carrot');
+                            suggestionsContainer.classList.add('expand-left');
+                        }
+                        currentState = 0;
+                        if (carrotList) {
+                            carrotList.innerHTML = '';
+                            carrotList.dataset.carrotState = '0';
+                        }
+                        updateClearButton();
                     }
-                    
-                    // Hide any visible carrot
-                    if (currentState !== 0 || suggestionsContainer.classList.contains('show-carrot')) {
-                        if (currentState !== 0) {
-                            suggestionsContainer.classList.add('expand-left');
-                            suggestionsContainer.classList.remove('show-carrot');
+                });
+            }
 
-                            setTimeout(() => {
-                                setCarrotContent(0);
-                                currentState = 0;
-                            }, 900);
-                        } else {
-                            setCarrotContent(0);
-                            currentState = 0;
-                            suggestionsContainer.classList.add('expand-left');
-                            suggestionsContainer.classList.remove('show-carrot');
+            // Update clear button on input
+            searchBoxElement.addEventListener('input', (event) => {
+                updateClearButton();
+                const value = (event.target.value || '').toString();
+                const valueLower = value.toLowerCase();
+                
+                // Check if this matches a demo search that should show a carrot
+                const matchedCarrot = showCarrotForDemoSearch(valueLower);
+                
+                if (!matchedCarrot && valueLower.trim().length === 0) {
+                    // Clear carrot when field is empty
+                    if (suggestionsContainer) {
+                        suggestionsContainer.classList.remove('show-carrot');
+                        suggestionsContainer.classList.add('expand-left');
+                    }
+                    currentState = 0;
+                    if (carrotList) {
+                        carrotList.innerHTML = '';
+                        carrotList.dataset.carrotState = '0';
+                    }
+                } else if (!matchedCarrot && valueLower.trim().length > 0) {
+                    // Check if this could be a prefix of a demo search
+                    const couldBeDemoSearch = Object.keys(demoSearchCarrots).some(term => term.startsWith(valueLower));
+                    
+                    if (!couldBeDemoSearch && suggestionsContainer && suggestionsContainer.classList.contains('show-carrot')) {
+                        // User is typing something that's not a demo search, hide carrot
+                        suggestionsContainer.classList.remove('show-carrot');
+                        suggestionsContainer.classList.add('expand-left');
+                        currentState = 0;
+                        if (carrotList) {
+                            carrotList.innerHTML = '';
+                            carrotList.dataset.carrotState = '0';
                         }
                     }
-                    
-                    // If only 1 character, continue to process suggestions path
-                    if (value.trim().length === 1) {
-                        // Continue processing below
+                }
+                
+                console.log('Input event:', { value, valueLower, length: valueLower.length });
+                console.log('suggestionWords defined?', typeof suggestionWords !== 'undefined');
+                console.log('suggestionWords value:', typeof suggestionWords !== 'undefined' ? suggestionWords : 'undefined');
+                
+                // Check for 1-2 character suggestions from suggestionWords
+                if (valueLower.length === 1) {
+                    console.log('Processing 1 character:', valueLower);
+                    // For single character, look for all two-character keys starting with that character
+                    const matchingSuggestions = [];
+                    if (typeof suggestionWords !== 'undefined' && suggestionWords) {
+                        console.log('suggestionWords is available, searching keys...');
+                        Object.keys(suggestionWords).forEach(key => {
+                            if (key.startsWith(valueLower)) {
+                                matchingSuggestions.push(...suggestionWords[key]);
+                            }
+                        });
+                        console.log('Found matching suggestions:', matchingSuggestions.length);
+                        // Limit to first 10 suggestions
+                        if (matchingSuggestions.length > 0) {
+                            const suggestionsToShow = matchingSuggestions.slice(0, 10);
+                            console.log('Updating suggestions with:', suggestionsToShow);
+                            updateSuggestions(suggestionsToShow);
+                            return;
+                        } else {
+                            console.log('No matching suggestions found');
+                        }
                     } else {
-                        return;
+                        console.log('suggestionWords is not available');
                     }
+                } else if (valueLower.length === 2) {
+                    console.log('Processing 2 characters:', valueLower);
+                    // For two characters, use exact match
+                    if (typeof suggestionWords !== 'undefined' && suggestionWords && suggestionWords[valueLower]) {
+                        console.log('Found exact match:', suggestionWords[valueLower]);
+                        updateSuggestions(suggestionWords[valueLower]);
+                        return;
+                    } else {
+                        console.log('No exact match found for:', valueLower);
+                    }
+                } else if (valueLower.length >= 3) {
+                    console.log('Processing 3+ characters:', valueLower);
+                    
+                    // Clear any pending API call
+                    if (apiCallTimer) {
+                        clearTimeout(apiCallTimer);
+                    }
+                    
+                    // Clear AI suggestions tracking and skeletons when query changes
+                    if (lastApiQuery && lastApiQuery !== valueLower) {
+                        aiSuggestionsSet.clear();
+                    }
+                    
+                    // Always remove skeletons before updating suggestions
+                    removeSkeletons();
+                    
+                    // Show immediate local results while waiting for AI
+                    let localSuggestions = [];
+                    if (typeof suggestionWords !== 'undefined' && suggestionWords) {
+                        const allSuggestions = [];
+                        Object.values(suggestionWords).forEach(suggestions => {
+                            allSuggestions.push(...suggestions);
+                        });
+                        
+                        // Filter to only suggestions that start with the query (word-start matching)
+                        const filtered = allSuggestions.filter(suggestion => {
+                            const suggestionLower = suggestion.toLowerCase();
+                            // Check if suggestion starts with query
+                            if (suggestionLower.startsWith(valueLower)) {
+                                return true;
+                            }
+                            // Check if any word in the suggestion starts with the query
+                            const words = suggestionLower.split(/\s+/);
+                            return words.some(word => word.startsWith(valueLower));
+                        });
+                        
+                        localSuggestions = [...new Set(filtered)];
+                        if (localSuggestions.length > 0) {
+                            const localCount = Math.min(localSuggestions.length, 10);
+                            // Update suggestions with filtered list (this will clear old suggestions)
+                            updateSuggestions(localSuggestions.slice(0, localCount));
+                            // Show skeleton loaders to fill up to 10 total
+                            const skeletonCount = 10 - localCount;
+                            if (skeletonCount > 0) {
+                                showSkeletonLoaders(skeletonCount);
+                            }
+                        } else {
+                            // If no local suggestions, clear list and show 10 skeletons
+                            updateSuggestions([]);
+                            showSkeletonLoaders(10);
+                        }
+                    } else {
+                        // If no suggestionWords available, clear list and show 10 skeletons
+                        updateSuggestions([]);
+                        showSkeletonLoaders(10);
+                    }
+                    
+                    // Debounce API call (wait 300ms after user stops typing)
+                    apiCallTimer = setTimeout(async () => {
+                        // Only make API call if query hasn't changed
+                        if (searchBoxElement.value.toLowerCase() === valueLower) {
+                            lastApiQuery = valueLower;
+                            console.log('Fetching AI suggestions for:', valueLower);
+                            
+                            const aiSuggestions = await fetchAISuggestions(valueLower);
+                            
+                            // Only update if query hasn't changed during API call
+                            if (searchBoxElement.value.toLowerCase() === valueLower && aiSuggestions.length > 0) {
+                                console.log('AI suggestions received:', aiSuggestions);
+                                
+                                // Track AI suggestions for icon assignment
+                                aiSuggestions.forEach(aiSuggestion => {
+                                    aiSuggestionsSet.add(aiSuggestion.toLowerCase());
+                                });
+                                
+                                // Merge local and AI suggestions, removing duplicates
+                                const allSuggestions = [...localSuggestions];
+                                aiSuggestions.forEach(aiSuggestion => {
+                                    const aiLower = aiSuggestion.toLowerCase();
+                                    // Only add if not already in local suggestions
+                                    if (!allSuggestions.some(s => s.toLowerCase() === aiLower)) {
+                                        allSuggestions.push(aiSuggestion);
+                                    }
+                                });
+                                
+                                // Limit to 10 total suggestions
+                                const mergedSuggestions = allSuggestions.slice(0, 10);
+                                console.log('Merged suggestions (local + AI):', mergedSuggestions);
+                                updateSuggestions(mergedSuggestions);
+                            }
+                        }
+                    }, 300);
                 }
 
-                // Process suggestion paths
-                if (processSuggestionPath(valueLower)) {
-                    // Path was matched and processed
+                // Reset to default suggestions when field is empty
+                if (!value.trim()) {
+                    console.log('Field is empty, resetting to default suggestions');
+                    // Clear AI suggestions tracking when field is empty
+                    aiSuggestionsSet.clear();
+                    updateSuggestions([
+                        'hoka',
+                        'macbook',
+                        '13 in macbook air',
+                        'Coffee machines for sale',
+                        'taylor swift',
+                        'coffee grinder',
+                        'gmail'
+                    ]);
                     return;
                 }
-
-                // Keep existing flight number pattern
-                if (flightNumberPattern.test(value)) {
-                    const currentCarrotState = carrotList.dataset.carrotState;
-                    const showingFlights = currentState === 2 && currentCarrotState === '1' && suggestionsContainer.classList.contains('show-carrot');
-
-                    if (!showingFlights) {
-                        if (currentState !== 0) {
-                            suggestionsContainer.classList.add('expand-left');
-                            suggestionsContainer.classList.remove('show-carrot');
-
-                            setTimeout(() => {
-                                setCarrotContent(1);
-                                setCarrotColor(null);
-                                currentState = 2;
-                                suggestionsContainer.classList.remove('expand-left');
-                                suggestionsContainer.classList.add('show-carrot');
-                            }, 900);
-                        } else {
-                            setCarrotContent(1);
-                            setCarrotColor(null);
-                            currentState = 2;
-                            suggestionsContainer.classList.remove('expand-left');
-                            suggestionsContainer.classList.add('show-carrot');
-                        }
-                    }
-                }
+                
+                console.log('No suggestions updated, continuing...');
             });
         }
 

@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search on New Tab • Phase 2</title>
+    <link rel="stylesheet" href="suggestions.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(45deg,
+                #833AB4 0%,
+                #FD1D1D 50%,
+                #FCAF45 100%
+            );
+            background-attachment: fixed;
+        }
+
+        .pane {
+            padding: 24px;
+        }
+
+        .search-container {
+            flex: 1;
+            overflow-y: hidden;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: var(--search-wrapper-offset, 240px);
+            padding-bottom: 80px;
+        }
+
+        .top-overlay.is-focused .search-container {
+            overflow-y: auto;
+        }
+
+        .top-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            background-color: rgba(255, 255, 255, 0);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0);
+            height: 130px;
+            box-sizing: border-box;
+            overflow: hidden;
+            transition: background-color 0.6s ease, border-bottom-color 0.6s ease, height 0.6s ease, border-bottom-left-radius 0.6s ease, border-bottom-right-radius 0.6s ease;
+            display: flex;
+            flex-direction: column;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .top-overlay.is-scrolled {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-bottom-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .top-overlay.is-focused {
+            height: 85vh;
+            background-color: rgba(255, 255, 255, 0.85);
+            border-bottom-color: rgba(0, 0, 0, 0.05);
+            border-bottom-left-radius: 50px;
+            border-bottom-right-radius: 50px;
+            overflow-y: auto;
+        }
+
+        .top-overlay.no-transition {
+            transition: none !important;
+        }
+
+        .top-overlay.no-transition .search-wrapper,
+        .top-overlay.no-transition .search-description,
+        .top-overlay.no-transition .search-suggestions-preview,
+        .top-overlay.no-transition .firefox-logo {
+            transition: none !important;
+        }
+
+        .firefox-logo {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 80px;
+            z-index: 11;
+            transition: top 0.3s ease, opacity 0.3s ease;
+            opacity: 1;
+        }
+
+        .top-overlay.is-focused .firefox-logo {
+            top: 20px;
+            opacity: 0;
+        }
+
+        .demo-searches {
+            position: fixed;
+            top: 170px;
+            left: 34px;
+            font-size: 13px;
+            color: #FFFFFF;
+            line-height: 1.6;
+            pointer-events: auto;
+            transition: color 0.3s ease;
+            z-index: 11;
+            width: 150px;
+        }
+
+        .top-overlay.is-focused .demo-searches {
+            color: #6B7280;
+        }
+
+        .demo-searches-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .demo-searches ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .demo-searches li {
+            margin: 2px 0;
+        }
+
+        .demo-searches .not-implemented {
+            text-decoration: line-through;
+        }
+
+        .demo-searches-earlier {
+            position: fixed;
+            bottom: 24px;
+            left: 34px;
+            font-size: 13px;
+            color: #FFFFFF;
+            line-height: 1.6;
+            pointer-events: auto;
+            transition: color 0.3s ease;
+            z-index: 11;
+            width: 150px;
+        }
+
+        .top-overlay.is-focused .demo-searches-earlier {
+            color: #6B7280;
+        }
+
+        .demo-searches-earlier .demo-searches-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .demo-searches-earlier ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .demo-searches-earlier li {
+            margin: 2px 0;
+        }
+
+        .search-wrapper {
+            position: fixed;
+            top: 180px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 56%;
+            margin: 0;
+            transition: width 0.35s ease-in-out, top 0.35s ease-in-out;
+            border: 1px solid transparent;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background-color: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 12px 12px rgba(15, 23, 42, 0.12);
+        }
+
+        .search-wrapper.expanded {
+            width: 70%;
+        }
+
+        .top-overlay.is-focused .search-wrapper {
+            top: 32px;
+        }
+
+        .search-wrapper:focus-within {
+            border-color: #007BFF;
+            box-shadow: 0 0 0 1px #007BFF;
+            background-color: rgba(255, 255, 255, 0.99);
+        }
+
+        .top-overlay.is-scrolled .search-wrapper,
+        .top-overlay.is-focused .search-wrapper {
+            border-color: rgba(15, 23, 42, 0.12);
+        }
+
+        .search-input-shell {
+            position: relative;
+            padding: 18px 18px 5px;
+            padding-left: 84px;
+        }
+
+        .search-dropdown-button {
+            position: absolute;
+            left: 7px;
+            top: calc(50% + 7px);
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            padding: 9px 10px;
+            border-radius: 10px;
+            background-color: rgba(15, 23, 42, 0.08);
+        }
+
+        .circle-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            margin-right: 6px;
+            border-radius: 50%;
+            background-color: #FFFFFF;
+        }
+
+        .circle-icon__image {
+            width: 16px;
+            height: 16px;
+        }
+
+        .chevron {
+            width: 12px;
+            height: 12px;
+            margin-left: 6px;
+            position: relative;
+            top: 1px;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 0;
+            border: none;
+            background: transparent;
+            font-size: 16px;
+        }
+
+        .search-box::placeholder {
+            color: #A9A9A9;
+        }
+
+        .search-box:focus {
+            outline: none;
+        }
+
+        .search-description {
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 0 32px;
+        }
+
+        .top-overlay.is-focused .search-description {
+            width: 100%;
+        }
+
+        .overlay-product-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            width: 70%;
+            max-width: 1200px;
+            margin: 0 auto;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        .top-overlay.is-focused .overlay-product-grid {
+            opacity: 1;
+        }
+
+        .overlay-product-column {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .overlay-product-heading {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: normal;
+            color: #6B7280;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        .top-overlay.is-focused .overlay-product-heading {
+            opacity: 1;
+        }
+
+        .overlay-product-card {
+            background: #FFFFFF;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: row;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+            text-decoration: none;
+            color: inherit;
+            height: 90px;
+            transition: background-color 0.2s ease, opacity 0.6s ease;
+            opacity: 0;
+        }
+
+        .top-overlay.is-focused .overlay-product-card {
+            opacity: 1;
+        }
+
+        .overlay-product-card img:not(.overlay-product-favicon):not(.overlay-product-meta-favicon) {
+            width: 90px;
+            height: 90px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .overlay-product-card-body {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            justify-content: center;
+        }
+
+        .overlay-product-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+            color: #1F2933;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .overlay-product-meta {
+            font-size: 12px;
+            margin: 0;
+            color: rgba(15, 23, 42, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .overlay-product-meta-favicon {
+            width: 16px !important;
+            height: 16px !important;
+            flex-shrink: 0;
+            object-fit: contain;
+            max-width: 16px !important;
+            max-height: 16px !important;
+        }
+
+        .overlay-product-card:hover,
+        .overlay-product-card:focus {
+            background-color: #F3F4F6;
+        }
+
+
+
+
+
+
+
+
+        .pane--bottom {
+            min-height: 100vh;
+            background: linear-gradient(180deg,
+                rgba(253, 29, 29, 0) 0%,
+                rgba(253, 29, 29, 1) 100%
+            );
+            background-attachment: fixed;
+            color: #4a3419;
+            overflow-y: auto;
+            padding: 0;
+            position: relative;
+        }
+
+        .bottom-overlay {
+            position: fixed;
+            top: 130px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0);
+            pointer-events: none;
+            z-index: 5;
+            margin-top: -50px;
+            transition: top 0.6s ease, background-color 0.6s ease;
+        }
+
+        .bottom-overlay.no-transition {
+            transition: none !important;
+        }
+
+        .bottom-content {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+            padding: 24px;
+            padding-top: calc(130px + 24px + 175px);
+        }
+
+        .quick-tiles {
+            width: 70%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .quick-tiles__tile {
+            flex: 0 0 120px;
+            height: 120px;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quick-tiles__favicon {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
+
+        .heading {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: left;
+            margin: 0;
+            padding-top: 16px;
+            width: 70%;
+            max-width: 1200px;
+            color: #FFFFFF;
+        }
+
+        .articles-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 26px;
+            width: 70%;
+            max-width: 1200px;
+            transition: opacity 0.6s ease;
+            opacity: 1;
+        }
+
+        .top-overlay.is-focused ~ .bottom-content .articles-grid {
+            opacity: 0.5;
+        }
+
+        .card {
+            background-color: #FFFFFF;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 275px;
+            transition: box-shadow 0.15s ease-in-out;
+        }
+
+        .card h2 {
+            margin: 16px;
+            font-size: 18px;
+            text-align: left;
+            color: #333;
+            font-weight: 500;
+            flex-grow: 1;
+        }
+
+        .card p {
+            margin-left: 16px;
+            margin-bottom: 16px;
+            font-size: 12px;
+            text-align: left;
+            color: #777;
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .card:hover h2 {
+            color: #1E90FF;
+        }
+
+        a.card {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            height: 100%;
+        }
+
+        .image-placeholder {
+            width: 100%;
+            height: 160px;
+            background-color: #CCC;
+        }
+
+        p {
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .no-transition {
+            transition: none !important;
+        }
+
+        .search-background-bottom-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            height: 54px;
+            border: none;
+            background-color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .top-overlay.is-focused .search-background-bottom-overlay {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .search-background-bottom-overlay svg {
+            display: block;
+        }
+
+        .search-background-bottom-overlay .chevron-shallow {
+            opacity: 1;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .search-background-bottom-overlay .chevron-steep {
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        .search-background-bottom-overlay:hover {
+            background-color: rgba(255, 255, 255, 1);
+            opacity: 1;
+        }
+
+        .search-background-bottom-overlay:hover .chevron-shallow {
+            opacity: 0;
+        }
+
+        .search-background-bottom-overlay:hover .chevron-steep {
+            opacity: 1;
+            stroke: #374151;
+        }
+
+        .debug-buttons {
+            position: fixed;
+            top: 32px;
+            right: 24px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .top-overlay.is-focused .debug-buttons {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .debug-buttons-bottom {
+            position: absolute;
+            bottom: 62px;
+            right: 24px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .top-overlay.is-focused .debug-buttons-bottom {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .debug-button {
+            width: auto;
+            height: auto;
+            padding: 4px 8px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.9);
+            color: #374151;
+            font-size: 8px;
+            font-weight: 400;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+            white-space: nowrap;
+            text-align: left;
+        }
+
+        .debug-button:hover {
+            background-color: rgba(229, 231, 235, 0.95);
+            border-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+
+        .phase-toggle {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .phase-toggle__link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1px 6px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(15, 23, 42, 0.4);
+            color: #FFFFFF;
+            font-size: 11px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .phase-toggle-heading {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+            width: 100%;
+        }
+
+        .phase-toggle__link:hover,
+        .phase-toggle__link:focus {
+            background: rgba(15, 23, 42, 0.6);
+            border-color: rgba(255, 255, 255, 0.7);
+            outline: none;
+        }
+
+        .phase-toggle__link.is-active {
+            background: rgba(15, 23, 42, 0.8);
+            border-color: rgba(255, 255, 255, 0.9);
+        }
+
+        .phase-toggle__label {
+            display: none;
+        }
+
+        .phase-toggle__link.is-active .phase-toggle__label {
+            display: inline;
+        }
+
+        .phase-toggle__number {
+            margin-left: 0;
+        }
+
+        .phase-toggle__link.is-active .phase-toggle__number {
+            margin-left: 4px;
+        }
+
+        .carrot-pin-button,
+        .weather-pin-button {
+            display: none !important;
+        }
+    </style>
+    <script src="product-sections/product-history.js"></script>
+    <script src="product-sections/product-bookmarks.js"></script>
+    <script src="product-sections/product-open-tabs.js"></script>
+    <script src="product-content.js"></script>
+    <script src="suggestion-paths.js"></script>
+    <script src="carrot-templates.js"></script>
+    <script src="image-preload.js"></script>
+    <script>
+        // Set phase number for image preloader
+        window.currentPhase = 2;
+        if (typeof preloadCarrotImages === 'function') {
+            preloadCarrotImages(2);
+        }
+    </script>
+</head>
+<body>
+    <section class="pane pane--bottom">
+        <div class="bottom-overlay" aria-hidden="true"></div>
+        <div class="top-overlay">
+            <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
+            <div class="demo-searches">
+                <div class="phase-toggle" role="group" aria-label="Phase selection">
+                    <div class="phase-toggle-heading">Phases</div>
+                    <a class="phase-toggle__link" href="phase1.html">1</a>
+                    <a class="phase-toggle__link" href="phase2.html">2</a>
+                    <a class="phase-toggle__link" href="phase3.html">3</a>
+                    <a class="phase-toggle__link" href="phase4.html">4</a>
+                    <a class="phase-toggle__link" href="phase5.html">5</a>
+                </div>
+                <p>Clicking search now opens a search overlay, giving us greater real estate to deliver a richer search experience.</p>
+            </div>
+            <!-- DEBUG BUTTONS - DO NOT DELETE! Uncomment for testing/development -->
+            <!--
+            <div class="debug-buttons">
+                <button class="debug-button" type="button">1. No enriched content</button>
+                <button class="debug-button" type="button">2. Local recommendations</button>
+                <button class="debug-button" type="button">3. Flights (AC 8170)</button>
+                <button class="debug-button" type="button">4. Wikipedia</button>
+                <button class="debug-button" type="button">5. Weather</button>
+                <button class="debug-button" type="button">6. Sports</button>
+                <button class="debug-button" type="button">7. Stocks</button>
+                <button class="debug-button" type="button">8. World clock</button>
+                </div>
+            <div class="debug-buttons-bottom">
+                <button class="debug-button" type="button">A</button>
+                <button class="debug-button" type="button">B</button>
+                <button class="debug-button" type="button">C</button>
+                <button class="debug-button" type="button">D</button>
+                <button class="debug-button" type="button">E</button>
+                </div>
+            -->
+            <button class="search-background-bottom-overlay" type="button">
+                <span class="visually-hidden">Collapse search overlay</span>
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path class="chevron-shallow" d="M4 20L16 15L28 20" stroke="#6B7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="chevron-steep" d="M6 20L16 12L26 20" stroke="#6B7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <div class="search-input-shell">
+                        <div class="search-dropdown-button">
+                            <span class="circle-icon">
+                                <img src="icons/Google.svg" alt="Search options" class="circle-icon__image">
+                            </span>
+                            <img src="icons/chevron.svg" alt="Expand" class="chevron">
+            </div>
+                        <input type="text" class="search-box" placeholder="Search the web">
+                </div>
+                    <div class="search-suggestions-preview" aria-hidden="true">
+                        <div class="search-suggestions-divider"></div>
+                        <div class="search-suggestions-preview-column-container expand-left">
+                        <ul class="search-suggestions-preview-list">
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">hoka</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">macbook</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">13 in macbook air</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">Coffee machines for sale</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">taylor swift</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">coffee grinder</span>
+                            </li>
+                            <li class="search-suggestions-preview-item">
+                                <img src="icons/clock.svg" alt="" aria-hidden="true" class="suggestion-icon">
+                                <span class="label">gmail</span>
+                            </li>
+                        </ul>
+                            <ul class="search-suggestions-preview-list">
+                                <li class="search-suggestions-preview-item carrot">
+                                    <div class="carrot-tile" aria-hidden="true"></div>
+                                    <div class="carrot-lines">
+                                        <p class="carrot-line">Departure <strong>9:21pm</strong> Chicago (CHI)</p>
+                                        <p class="carrot-line">Arrival <strong>11:42am</strong> Vancouver (VYR)</p>
+                                        <p class="carrot-line carrot-line--meta"><span class="carrot-line green-text">In flight</span> · Today · AC 8170</p>
+            </div>
+                                </li>
+                                <li class="search-suggestions-preview-item carrot">
+                                    <div class="carrot-tile" aria-hidden="true"></div>
+                                    <div class="carrot-lines">
+                                        <p class="carrot-line">Departure <strong>7:05am</strong> New York (JFK)</p>
+                                        <p class="carrot-line">Arrival <strong>9:18am</strong> Toronto (YYZ)</p>
+                                        <p class="carrot-line carrot-line--meta">Boarding · Thu, June 5 · DL 4732</p>
+        </div>
+                                </li>
+                                <li class="search-suggestions-preview-item carrot">
+                                    <div class="carrot-tile" aria-hidden="true"></div>
+                                    <div class="carrot-lines">
+                                        <p class="carrot-line">Departure <strong>2:45pm</strong> Los Angeles (LAX)</p>
+                                        <p class="carrot-line">Arrival <strong>6:10pm</strong> Seattle (SEA)</p>
+                                        <p class="carrot-line carrot-line--meta">Scheduled · Fri, June 6 · AS 124</p>
+                        </div>
+                                </li>
+                            </ul>
+                    </div>
+                </div>
+                </div>
+                <div class="search-description">
+                    <div class="overlay-product-grid" data-product-grid data-product-sections="history,openTabs,bookmarks"></div>
+                </div>
+            </div>
+        </div>
+        <div class="bottom-content">
+                <div class="quick-tiles" aria-hidden="true">
+                    <span class="quick-tiles__tile"><img src="favicons/Google.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/YouTube.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/Instagram.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/Reddit.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/Twitter.svg" alt="" class="quick-tiles__favicon"></span>
+                    <span class="quick-tiles__tile"><img src="favicons/Wikipedia.svg" alt="" class="quick-tiles__favicon"></span>
+                </div>
+                <h1 class="heading">Thought-provoking stories</h1>
+                <div class="articles-grid">
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>The Surprising Science Behind Lightning</h2>
+                    <p>SELF G</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Ten People Go on Trial in Paris</h2>
+                    <p>The Guardian</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Can Dogs Sense Ghosts?</h2>
+                    <p>Popular Science</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>11 One-Pot Gut-Healthy Dinners</h2>
+                    <p>Eating Well</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>The Dark Side of Mirrors in Space</h2>
+                    <p>Nautilus</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>UK Regional Airline Suspends Ops</h2>
+                    <p>Sky</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>The Internet Is Going to Break Again</h2>
+                    <p>Sky</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>The 1 Surprising Snack People Eat</h2>
+                    <p>Eating Well</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Reclaiming 72 Hours a Week</h2>
+                    <p>Sky</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Hidden Dangers in Fast Food</h2>
+                    <p>Health Digest</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Exploring Virtual Reality</h2>
+                    <p>Tech Today</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Unveiling the Quantum Age</h2>
+                    <p>Scientific Insights</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Breakthroughs in Renewable Energy</h2>
+                    <p>Eco World</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Astronomy's New Frontiers</h2>
+                    <p>Space Observer</p>
+                </a>
+                <a href="#" class="card">
+                    <div class="image-placeholder"></div>
+                    <h2>Innovative Designs in Architecture</h2>
+                    <p>Modern Home</p>
+                </a>
+            </div>
+        </div>
+    </section>
+    <script>
+        const apiKey = 'bCm88s2aE42pgTVWHJn6CRvAf916qPGquNowlZue6tSbVSImQ0hdsWSX';
+        const keywords = [
+            'UTI', 'trial Paris', 'ghosts',
+            'healthy dinner', 'mirrors space', 'UK airline',
+            'internet', 'snack', 'productivity',
+            'fast food', 'virtual reality', 'quantum physics',
+            'renewable energy', 'astronomy', 'architecture'
+        ];
+
+        const renderOverlayProductGrid = () => {
+            const container = document.querySelector('[data-product-grid]');
+            if (!container || typeof productContent?.renderInto !== 'function') {
+                return;
+            }
+
+            const sectionAttr = container.getAttribute('data-product-sections');
+            const sectionKeys = sectionAttr ? sectionAttr.split(',').map((section) => section.trim()).filter(Boolean) : undefined;
+
+            productContent.renderInto(container, sectionKeys);
+        };
+
+        const fetchImages = async () => {
+            const imageUrls = [];
+
+            for (const keyword of keywords) {
+                try {
+                    const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(keyword)}&per_page=1`, {
+                    headers: {
+                        Authorization: apiKey
+                    }
+                });
+
+                    if (!response.ok) {
+                        throw new Error(`Pexels request failed: ${response.status}`);
+                    }
+
+                const data = await response.json();
+                    const photoUrl = data.photos && data.photos[0] ? data.photos[0].src.medium : null;
+                    imageUrls.push(photoUrl || 'https://via.placeholder.com/600x400?text=Image');
+                } catch (error) {
+                    console.error('Error fetching image for keyword:', keyword, error);
+                    imageUrls.push('https://via.placeholder.com/600x400?text=Image');
+            }
+            }
+
+            return imageUrls;
+        };
+
+        const updateImages = async () => {
+            const imagePlaceholders = document.querySelectorAll('.image-placeholder');
+            if (!imagePlaceholders.length) {
+                return;
+            }
+
+            const images = await fetchImages();
+
+            imagePlaceholders.forEach((placeholder, index) => {
+                const img = document.createElement('img');
+                img.src = images[index] || 'https://via.placeholder.com/600x400?text=Image';
+                img.alt = placeholder.nextElementSibling ? placeholder.nextElementSibling.textContent : 'Article image';
+                img.style.width = '100%';
+                img.style.height = '160px';
+                img.style.objectFit = 'cover';
+                placeholder.replaceWith(img);
+            });
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderOverlayProductGrid();
+            updateImages();
+        });
+
+        const topOverlay = document.querySelector('.top-overlay');
+        const bottomOverlay = document.querySelector('.bottom-overlay');
+        const searchWrapperElement = document.querySelector('.search-wrapper');
+        const searchDescriptionElement = document.querySelector('.search-description');
+        const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
+        const searchBoxElement = document.querySelector('.search-box');
+        const searchContainer = document.querySelector('.search-container');
+        const productContainers = Array.from(document.querySelectorAll('.search-wrapper-products, .search-description'));
+        const resizeObservers = [];
+        const enableCarrotsPhase2 = false;
+
+        const updateSearchContentOffset = () => {
+            if (!searchWrapperElement || !searchContainer) {
+                return;
+            }
+
+            const wrapperRect = searchWrapperElement.getBoundingClientRect();
+            const containerRect = searchContainer.getBoundingClientRect();
+            const spacing = 32;
+            const offset = Math.max(wrapperRect.bottom - containerRect.top + spacing, spacing);
+
+            searchContainer.style.setProperty('--search-wrapper-offset', `${offset}px`);
+        };
+
+        if (searchWrapperElement && searchContainer) {
+            updateSearchContentOffset();
+
+            if (typeof ResizeObserver === 'function') {
+                const wrapperObserver = new ResizeObserver(updateSearchContentOffset);
+                wrapperObserver.observe(searchWrapperElement);
+                resizeObservers.push(wrapperObserver);
+
+                productContainers.forEach((container) => {
+                    if (container) {
+                        const containerObserver = new ResizeObserver(updateSearchContentOffset);
+                        containerObserver.observe(container);
+                        resizeObservers.push(containerObserver);
+                    }
+                });
+            }
+
+            window.addEventListener('resize', updateSearchContentOffset);
+        }
+
+        if (document.readyState !== 'loading') {
+            if (searchBoxElement) {
+                searchBoxElement.value = '';
+            }
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                if (searchBoxElement) {
+                    searchBoxElement.value = '';
+                }
+            });
+        }
+ 
+         const OVERLAY_STATE_KEY = 'overlayExpanded';
+         const OVERLAY_RESTORE_KEY = 'overlayRestorePending';
+ 
+         const elementsForTransitionControl = [topOverlay, bottomOverlay, searchWrapperElement, searchDescriptionElement, searchSuggestionsPreviewElement];
+
+        const setOverlayState = (expanded, { suppressTransition = false } = {}) => {
+            if (!topOverlay || !bottomOverlay || !searchWrapperElement || !searchDescriptionElement || !searchSuggestionsPreviewElement) {
+                return;
+            }
+
+            if (suppressTransition) {
+                elementsForTransitionControl.forEach((el) => el && el.classList.add('no-transition'));
+            }
+
+            if (expanded) {
+                topOverlay.classList.add('is-focused');
+                searchWrapperElement.classList.add('expanded');
+                searchDescriptionElement.classList.add('expanded');
+                bottomOverlay.style.top = '85vh';
+                bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                bottomOverlay.style.pointerEvents = 'auto';
+            } else {
+                topOverlay.classList.remove('is-focused');
+                searchWrapperElement.classList.remove('expanded');
+                searchDescriptionElement.classList.remove('expanded');
+                bottomOverlay.style.top = '130px';
+                bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+                bottomOverlay.style.pointerEvents = 'none';
+            }
+
+            sessionStorage.setItem(OVERLAY_STATE_KEY, expanded ? 'true' : 'false');
+
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => updateSearchContentOffset());
+        } else {
+            updateSearchContentOffset();
+        }
+
+            if (suppressTransition) {
+                requestAnimationFrame(() => {
+                    elementsForTransitionControl.forEach((el) => el && el.classList.remove('no-transition'));
+                });
+            }
+        };
+
+        if (topOverlay && bottomOverlay) {
+            const handleOverlayBackground = () => {
+                const scrolled = window.scrollY > 0;
+                topOverlay.classList.toggle('is-scrolled', scrolled);
+            };
+            handleOverlayBackground();
+            window.addEventListener('scroll', handleOverlayBackground, { passive: true });
+        }
+
+        if (topOverlay && searchBoxElement && bottomOverlay) {
+            searchBoxElement.addEventListener('focus', () => {
+                setOverlayState(true);
+            });
+        }
+
+        const overlayCloseButton = document.querySelector('.search-background-bottom-overlay');
+        if (overlayCloseButton && searchBoxElement) {
+            overlayCloseButton.addEventListener('click', () => {
+                setOverlayState(false);
+                searchBoxElement.blur();
+            });
+        }
+
+        if (bottomOverlay && searchBoxElement) {
+            bottomOverlay.addEventListener('click', () => {
+                if (topOverlay && topOverlay.classList.contains('is-focused')) {
+                    setOverlayState(false);
+                    searchBoxElement.blur();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && topOverlay && topOverlay.classList.contains('is-focused') && searchBoxElement) {
+                setOverlayState(false);
+                searchBoxElement.blur();
+            }
+        });
+
+        if (topOverlay && bottomOverlay) {
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    sessionStorage.setItem(OVERLAY_STATE_KEY, topOverlay.classList.contains('is-focused') ? 'true' : 'false');
+                    sessionStorage.setItem(OVERLAY_RESTORE_KEY, 'true');
+                } else if (document.visibilityState === 'visible') {
+                    const shouldRestore = sessionStorage.getItem(OVERLAY_RESTORE_KEY) === 'true';
+                    if (shouldRestore) {
+                        const shouldExpand = sessionStorage.getItem(OVERLAY_STATE_KEY) === 'true';
+                        setOverlayState(shouldExpand, { suppressTransition: true });
+                        sessionStorage.setItem(OVERLAY_RESTORE_KEY, 'false');
+                    }
+                }
+            });
+        }
+
+        // Debug button handlers
+        const debugButtons = document.querySelectorAll('.debug-buttons .debug-button');
+        const suggestionsContainer = document.querySelector('.search-suggestions-preview-column-container');
+        const carrotList = document.querySelector('.search-suggestions-preview-list:last-child');
+        const suggestionsList = document.querySelector('.search-suggestions-preview-list:first-child');
+        
+        let currentState = 0; // Track current state
+        
+        function getIconForSuggestion(text) {
+            const textLower = text.toLowerCase();
+            
+            if (iconMappings.lightning.includes(textLower)) {
+                return 'icons/lightning.svg';
+            } else if (iconMappings.search.includes(textLower)) {
+                return 'icons/search.svg';
+            }
+            return 'icons/clock.svg';
+        }
+        
+        function updateSuggestions(suggestions) {
+            if (!suggestionsList) return;
+            
+            // Sort suggestions by icon type: lightning first, clock second, search last
+            const sortedSuggestions = suggestions.sort((a, b) => {
+                const iconA = getIconForSuggestion(a);
+                const iconB = getIconForSuggestion(b);
+                
+                const iconOrder = {
+                    'icons/lightning.svg': 0,
+                    'icons/clock.svg': 1,
+                    'icons/search.svg': 2
+                };
+                
+                return iconOrder[iconA] - iconOrder[iconB];
+            });
+            
+            // Get current search value for highlighting
+            const searchValue = searchBoxElement ? searchBoxElement.value.toLowerCase() : '';
+            
+            suggestionsList.innerHTML = sortedSuggestions.map(text => {
+                const icon = getIconForSuggestion(text);
+                
+                // Bold matching characters (ignore spaces in search value)
+                let displayText = text;
+                if (searchValue) {
+                    const searchNoSpaces = searchValue.replace(/\s/g, '');
+                    const textLower = text.toLowerCase();
+                    const textNoSpaces = textLower.replace(/\s/g, '');
+                    const matchIndex = textNoSpaces.indexOf(searchNoSpaces);
+                    
+                    if (matchIndex !== -1) {
+                        // Find the actual position in the original text
+                        let charCount = 0;
+                        let startIndex = -1;
+                        let endIndex = -1;
+                        
+                        for (let i = 0; i < text.length; i++) {
+                            if (text[i] !== ' ') {
+                                if (charCount === matchIndex) {
+                                    startIndex = i;
+                                }
+                                if (charCount === matchIndex + searchNoSpaces.length - 1) {
+                                    endIndex = i + 1;
+                                    break;
+                                }
+                                charCount++;
+                            }
+                        }
+                        
+                        if (startIndex !== -1 && endIndex !== -1) {
+                            const before = text.substring(0, startIndex);
+                            const match = text.substring(startIndex, endIndex);
+                            const after = text.substring(endIndex);
+                            displayText = `${before}<strong>${match}</strong>${after}`;
+                        }
+                    }
+                }
+                
+                return `
+                    <li class="search-suggestions-preview-item">
+                        <img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon">
+                        <span class="label">${displayText}</span>
+                    </li>
+                `;
+            }).join('');
+        }
+        
+        function processSuggestionPath(valueLower) {
+            // Build a flat lookup map from all suggestion paths
+            const pathLookup = {};
+            Object.values(suggestionPaths).forEach(pathArray => {
+                pathArray.forEach(step => {
+                    pathLookup[step.query] = step;
+                });
+            });
+            
+            const match = pathLookup[valueLower];
+            if (match) {
+                updateSuggestions(match.suggestions);
+
+                if (!enableCarrotsPhase2 && suggestionsContainer) {
+                    suggestionsContainer.classList.remove('show-carrot');
+                    suggestionsContainer.classList.add('expand-left');
+                    currentState = 0;
+                    return true;
+                }
+                
+                if (match.carrot) {
+                    return true;
+                }
+                
+                if (match.carrot === false) {
+                    return true;
+                }
+                
+                return true;
+            }
+            return false;
+        }
+
+        function setCarrotContent(state) {
+            if (!carrotList) {
+                return;
+            }
+
+            carrotList.innerHTML = '';
+            carrotList.dataset.carrotState = String(state);
+
+            if (!enableCarrotsPhase2 && suggestionsContainer) {
+                suggestionsContainer.classList.remove('show-carrot');
+            }
+        }
+        
+        if (enableCarrotsPhase2 && debugButtons.length > 0 && suggestionsContainer && carrotList) {
+            // Button 0 (index 0): No enriched content (suggestions only)
+            debugButtons[0].addEventListener('click', () => {
+                currentState = 0;
+                suggestionsContainer.classList.add('expand-left');
+                suggestionsContainer.classList.remove('show-carrot');
+            });
+
+            // Button 1 (index 1): Local recommendations (placeholder)
+            debugButtons[1].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(0);
+                        currentState = 1;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(0);
+                    currentState = 1;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 2 (index 2): Flights (AC 8170)
+            debugButtons[2].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(1);
+                        currentState = 2;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(1);
+                    setCarrotColor(null);
+                    currentState = 2;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 3 (index 3): Wikipedia
+            debugButtons[3].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(2);
+                        currentState = 3;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(2);
+                    setCarrotColor(null);
+                    currentState = 3;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 4 (index 4): Weather
+            debugButtons[4].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(4);
+                        currentState = 4;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(4);
+                    setCarrotColor('green-text');
+                    currentState = 4;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 5 (index 5): Sports
+            debugButtons[5].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    // Transition to 0 first
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    // Wait for slide out, then change content while hidden, then slide in
+                    setTimeout(() => {
+                        setCarrotContent(5);
+                        currentState = 5;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(5);
+                    setCarrotColor(null);
+                    currentState = 5;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 6 (index 6): Stocks
+            debugButtons[6].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    setTimeout(() => {
+                        setCarrotContent(6);
+                        currentState = 6;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(6);
+                    setCarrotColor(null);
+                    currentState = 6;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+
+            // Button 7 (index 7): World clock
+            debugButtons[7].addEventListener('click', () => {
+                if (currentState !== 0) {
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    setTimeout(() => {
+                        setCarrotContent(7);
+                        currentState = 7;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 900);
+                } else {
+                    setCarrotContent(7);
+                    setCarrotColor(null);
+                    currentState = 7;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+            });
+        }
+
+        const flightNumberPattern = /ac\s*8170/i;
+
+        if (searchBoxElement && suggestionsContainer && carrotList) {
+            searchBoxElement.addEventListener('focus', () => {
+                if (!enableCarrotsPhase2) {
+                    suggestionsContainer.classList.remove('show-carrot');
+                    currentState = 0;
+                    return;
+                }
+
+                if (currentState !== 0 || suggestionsContainer.classList.contains('show-carrot')) {
+                    setCarrotContent(0);
+                    currentState = 0;
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                }
+            });
+
+            searchBoxElement.addEventListener('input', (event) => {
+                const value = (event.target.value || '').toString();
+                const valueLower = value.toLowerCase();
+                
+                // Clear carrots when field is empty or has only 1 character
+                if (!value.trim() || value.trim().length === 1) {
+                    // Reset to default suggestions if empty
+                    if (!value.trim()) {
+                        updateSuggestions([
+                            'hoka',
+                            'macbook',
+                            '13 in macbook air',
+                            'Coffee machines for sale',
+                            'taylor swift',
+                            'coffee grinder',
+                            'gmail'
+                        ]);
+                    }
+                    
+                    // Hide any visible carrot
+                    if (currentState !== 0 || suggestionsContainer.classList.contains('show-carrot')) {
+                        if (currentState !== 0) {
+                            suggestionsContainer.classList.add('expand-left');
+                            suggestionsContainer.classList.remove('show-carrot');
+
+                            setTimeout(() => {
+                                setCarrotContent(0);
+                                currentState = 0;
+                            }, 900);
+                        } else {
+                            setCarrotContent(0);
+                            currentState = 0;
+                            suggestionsContainer.classList.add('expand-left');
+                            suggestionsContainer.classList.remove('show-carrot');
+                        }
+                    }
+                    
+                    // If only 1 character, continue to process suggestions path
+                    if (value.trim().length === 1) {
+                        // Continue processing below
+                    } else {
+                        return;
+                    }
+                }
+
+                // Process suggestion paths
+                if (processSuggestionPath(valueLower)) {
+                    // Path was matched and processed
+                    return;
+                }
+
+                // Keep existing flight number pattern
+                if (enableCarrotsPhase2 && flightNumberPattern.test(value)) {
+                    const currentCarrotState = carrotList.dataset.carrotState;
+                    const showingFlights = currentState === 2 && currentCarrotState === '1' && suggestionsContainer.classList.contains('show-carrot');
+
+                    if (!showingFlights) {
+                        if (currentState !== 0) {
+                            suggestionsContainer.classList.add('expand-left');
+                            suggestionsContainer.classList.remove('show-carrot');
+
+                            setTimeout(() => {
+                                setCarrotContent(1);
+                                setCarrotColor(null);
+                                currentState = 2;
+                                suggestionsContainer.classList.remove('expand-left');
+                                suggestionsContainer.classList.add('show-carrot');
+                            }, 900);
+                        } else {
+                            setCarrotContent(1);
+                            setCarrotColor(null);
+                            currentState = 2;
+                            suggestionsContainer.classList.remove('expand-left');
+                            suggestionsContainer.classList.add('show-carrot');
+                        }
+                    }
+                }
+            });
+        }
+
+        const overlayScrollTarget = searchContainer;
+        if (overlayScrollTarget) {
+            const handleOverlayScrollWheel = (event) => {
+                const maxScroll = overlayScrollTarget.scrollHeight - overlayScrollTarget.clientHeight;
+                if (maxScroll <= 0) {
+                    return;
+                }
+
+                const currentScroll = overlayScrollTarget.scrollTop;
+                const nextScroll = currentScroll + event.deltaY;
+
+                if ((event.deltaY < 0 && currentScroll <= 0) || (event.deltaY > 0 && currentScroll >= maxScroll)) {
+                    return;
+                }
+
+                event.preventDefault();
+                overlayScrollTarget.scrollTop = Math.min(Math.max(nextScroll, 0), maxScroll);
+            };
+
+            const previewArea = document.querySelector('.search-suggestions-preview');
+            if (previewArea) {
+                previewArea.addEventListener('wheel', handleOverlayScrollWheel, { passive: false });
+            }
+
+            overlayScrollTarget.addEventListener('wheel', handleOverlayScrollWheel, { passive: false });
+        }
+
+        const bottomPane = document.querySelector('.pane--bottom');
+        if (bottomPane && topOverlay) {
+            const handleOverlayPosition = () => {
+                if (topOverlay.classList.contains('is-focused')) {
+                    return;
+                }
+                bottomOverlay.style.top = `${Math.max(130, 130 + bottomPane.scrollTop)}px`;
+            };
+            bottomPane.addEventListener('scroll', handleOverlayPosition, { passive: true });
+        }
+    </script>
+</body>
+</html>
+
