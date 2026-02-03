@@ -552,6 +552,43 @@
             background-color: #F3F4F6;
         }
 
+        /* Winter Olympics card hover colors */
+        .olympics-card-blue:hover {
+            background-color: #0085C7 !important;
+        }
+
+        .olympics-card-blue:hover .overlay-product-title,
+        .olympics-card-blue:hover div {
+            color: #FFFFFF !important;
+        }
+
+        .olympics-card-black:hover {
+            background-color: #000000 !important;
+        }
+
+        .olympics-card-black:hover .overlay-product-title,
+        .olympics-card-black:hover div {
+            color: #FFFFFF !important;
+        }
+
+        .olympics-card-red:hover {
+            background-color: #DF0024 !important;
+        }
+
+        .olympics-card-red:hover .overlay-product-title,
+        .olympics-card-red:hover div {
+            color: #FFFFFF !important;
+        }
+
+        .olympics-card-yellow:hover {
+            background-color: #F4C300 !important;
+        }
+
+        .olympics-card-yellow:hover .overlay-product-title,
+        .olympics-card-yellow:hover div {
+            color: #000000 !important;
+        }
+
         .overlay-product-card--article {
             flex-direction: column;
             height: 290px;
@@ -650,20 +687,36 @@
         }
 
         .quick-tiles__tile {
-            flex: 0 0 120px;
-            height: 120px;
-            border-radius: 24px;
-            background: rgba(255, 255, 255, 0.5);
-            backdrop-filter: blur(6px);
+            flex: 0 0 80px;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 6px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(6px);
+            padding: 12px 8px;
+            text-decoration: none;
+            color: inherit;
+            transition: background-color 0.2s ease;
+        }
+
+        .quick-tiles__tile:hover {
+            background: rgba(255, 255, 255, 0.7);
         }
 
         .quick-tiles__favicon {
-            width: 50px;
-            height: 50px;
+            width: 36px;
+            height: 36px;
             object-fit: contain;
+        }
+
+        .quick-tiles__label {
+            font-size: 11px;
+            color: rgba(31, 41, 51, 0.7);
+            text-align: center;
+            font-weight: 500;
         }
 
         .heading {
@@ -700,6 +753,7 @@
             flex-direction: column;
             height: 275px;
             transition: box-shadow 0.15s ease-in-out;
+            position: relative;
         }
 
         .card h2 {
@@ -715,8 +769,18 @@
             margin-left: 16px;
             margin-bottom: 16px;
             font-size: 12px;
-            text-align: left;
-            color: #777;
+        }
+
+        .card .sponsored-label {
+            position: absolute;
+            bottom: 12px;
+            right: 16px;
+            font-size: 9px;
+            color: #64748B;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0;
         }
 
         .card:hover {
@@ -725,6 +789,52 @@
 
         .card:hover h2 {
             color: #1E90FF;
+        }
+
+        .card--pinned-flash {
+            border: 5px solid #D41CC1 !important;
+        }
+
+        .card--world-clock {
+            position: relative;
+        }
+
+        .card--world-clock .card-controls {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .card--world-clock:hover .card-controls {
+            display: flex;
+        }
+
+        .card-control-button {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.2s ease;
+        }
+
+        .card-control-button:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .card-control-button svg {
+            width: 16px;
+            height: 16px;
         }
 
         a.card {
@@ -757,11 +867,11 @@
             width: 100%;
             height: 54px;
             border: none;
-            background-color: rgba(255, 255, 255, 0.6);
+            background-color: #EBE7FF;
             cursor: pointer;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s ease, background-color 0.2s ease;
+            transition: opacity 0.5s ease-in-out, background-color 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1237,8 +1347,11 @@
                             <li>• vpn</li>
                             <li>• MDN</li>
                             <li>• youtube</li>
-                            <li>• time tokyo</li>
+                            <li>• time rome</li>
                             <li>• happy emoji</li>
+                            <li>• $100 in euros</li>
+                            <li>• hello in italian</li>
+                            <li>• renewable energy</li>
                         </ul>
                     </div>
                 </div>
@@ -1356,12 +1469,38 @@
         </div>
         <div class="bottom-content">
                 <div class="quick-tiles" aria-hidden="true">
-                    <span class="quick-tiles__tile"><img src="favicons/Google.svg" alt="" class="quick-tiles__favicon"></span>
-                    <span class="quick-tiles__tile"><img src="favicons/YouTube.svg" alt="" class="quick-tiles__favicon"></span>
-                    <span class="quick-tiles__tile"><img src="favicons/Instagram.svg" alt="" class="quick-tiles__favicon"></span>
-                    <span class="quick-tiles__tile"><img src="favicons/Reddit.svg" alt="" class="quick-tiles__favicon"></span>
-                    <span class="quick-tiles__tile"><img src="favicons/Twitter.svg" alt="" class="quick-tiles__favicon"></span>
-                    <span class="quick-tiles__tile"><img src="favicons/Wikipedia.svg" alt="" class="quick-tiles__favicon"></span>
+                    <a href="https://www.google.com" target="_blank" class="quick-tiles__tile">
+                        <img src="favicons/Google.svg" alt="" class="quick-tiles__favicon">
+                        <span class="quick-tiles__label">Google</span>
+                    </a>
+                    <a href="https://www.youtube.com" target="_blank" class="quick-tiles__tile">
+                        <img src="favicons/YouTube.svg" alt="" class="quick-tiles__favicon">
+                        <span class="quick-tiles__label">YouTube</span>
+                    </a>
+                    <a href="https://www.instagram.com" target="_blank" class="quick-tiles__tile">
+                        <img src="favicons/Instagram.svg" alt="" class="quick-tiles__favicon">
+                        <span class="quick-tiles__label">Instagram</span>
+                    </a>
+                    <a href="https://www.reddit.com" target="_blank" class="quick-tiles__tile">
+                        <img src="favicons/Reddit.svg" alt="" class="quick-tiles__favicon">
+                        <span class="quick-tiles__label">Reddit</span>
+                    </a>
+                    <a href="https://twitter.com" target="_blank" class="quick-tiles__tile">
+                        <img src="favicons/Twitter.svg" alt="" class="quick-tiles__favicon">
+                        <span class="quick-tiles__label">Twitter</span>
+                    </a>
+                    <a href="https://www.wikipedia.org" target="_blank" class="quick-tiles__tile">
+                        <img src="favicons/Wikipedia.svg" alt="" class="quick-tiles__favicon">
+                        <span class="quick-tiles__label">Wikipedia</span>
+                    </a>
+                    <a href="https://www.facebook.com" target="_blank" class="quick-tiles__tile">
+                        <img src="favicons/Facebook.svg" alt="" class="quick-tiles__favicon">
+                        <span class="quick-tiles__label">Facebook</span>
+                    </a>
+                    <a href="https://slack.com" target="_blank" class="quick-tiles__tile">
+                        <img src="favicons/Slack.svg" alt="" class="quick-tiles__favicon">
+                        <span class="quick-tiles__label">Slack</span>
+                    </a>
                 </div>
                 <h1 class="heading">Thought-provoking stories</h1>
                 <div class="articles-grid">
@@ -1429,6 +1568,7 @@
                     <div class="image-placeholder"></div>
                     <h2>Breakthroughs in Renewable Energy</h2>
                     <p>Eco World</p>
+                    <p class="sponsored-label">Sponsored</p>
                 </a>
                 <a href="#" class="card">
                     <div class="image-placeholder"></div>
@@ -1453,6 +1593,10 @@
             'renewable energy', 'astronomy', 'architecture'
         ];
 
+        // Store original product grid content for restoration
+        let originalProductGridContent = null;
+        let originalProductGridSections = null;
+
         const renderOverlayProductGrid = () => {
             const container = document.querySelector('[data-product-grid]');
             if (!container || typeof productContent?.renderInto !== 'function') {
@@ -1462,7 +1606,92 @@
             const sectionAttr = container.getAttribute('data-product-sections');
             const sectionKeys = sectionAttr ? sectionAttr.split(',').map((section) => section.trim()).filter(Boolean) : undefined;
 
+            // Store original content if not already stored
+            if (!originalProductGridSections) {
+                originalProductGridSections = sectionKeys;
+            }
+
             productContent.renderInto(container, sectionKeys);
+        };
+
+        // Function to render Winter Olympics schedule
+        const renderWinterOlympicsSchedule = () => {
+            const container = document.querySelector('[data-product-grid]');
+            if (!container) return;
+
+            // Store original content if not already stored
+            if (!originalProductGridContent && container.innerHTML.trim()) {
+                originalProductGridContent = container.innerHTML;
+            }
+
+            // Add class to suggestions container to make it half height
+            const suggestionsPreview = document.querySelector('.search-suggestions-preview');
+            if (suggestionsPreview) {
+                suggestionsPreview.classList.add('winter-olympics-active');
+            }
+
+            container.innerHTML = `
+                <div class="winter-olympics-schedule" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px;">
+                    <div class="overlay-product-column" style="grid-column: 1 / -1;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                            <div>
+                                <p style="margin: 0 0 4px 0; font-size: 32px; font-weight: 500; color: #1F2933;">Winter Olympics 2026</p>
+                                <p style="margin: 0; font-size: 12px; color: #6B7280;">Milan-Cortina, Italy</p>
+                            </div>
+                            <svg width="320" height="160" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+                                <!-- Olympic Rings - Interlocking circles -->
+                                <!-- Top row: Blue, Black, Red -->
+                                <circle cx="25" cy="20" r="9" fill="none" stroke="#0085C7" stroke-width="2.5"/>
+                                <circle cx="50" cy="20" r="9" fill="none" stroke="#000000" stroke-width="2.5"/>
+                                <circle cx="75" cy="20" r="9" fill="none" stroke="#DF0024" stroke-width="2.5"/>
+                                <!-- Bottom row: Yellow, Green -->
+                                <circle cx="37.5" cy="35" r="9" fill="none" stroke="#F4C300" stroke-width="2.5"/>
+                                <circle cx="62.5" cy="35" r="9" fill="none" stroke="#009F3D" stroke-width="2.5"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                        <div class="overlay-product-card olympics-card-blue" style="flex-direction: column; height: auto; padding: 16px;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Today</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Alpine Skiing</div>
+                            <div style="font-size: 13px; color: #6B7280;">Men's Downhill • 10:00 AM</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-black" style="flex-direction: column; height: auto; padding: 16px;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Today</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Figure Skating</div>
+                            <div style="font-size: 13px; color: #6B7280;">Pairs Short Program • 2:30 PM</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-red" style="flex-direction: column; height: auto; padding: 16px;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Tomorrow</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Ice Hockey</div>
+                            <div style="font-size: 13px; color: #6B7280;">USA vs Canada • 8:00 PM</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-yellow" style="flex-direction: column; height: auto; padding: 16px;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Feb 8</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Snowboarding</div>
+                            <div style="font-size: 13px; color: #6B7280;">Men's Halfpipe Final • 11:00 AM</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Function to restore original product grid
+        const restoreProductGrid = () => {
+            const container = document.querySelector('[data-product-grid]');
+            if (!container) return;
+
+            // Remove winter olympics class from suggestions container
+            const suggestionsPreview = document.querySelector('.search-suggestions-preview');
+            if (suggestionsPreview) {
+                suggestionsPreview.classList.remove('winter-olympics-active');
+            }
+
+            if (originalProductGridContent) {
+                container.innerHTML = originalProductGridContent;
+            } else if (originalProductGridSections) {
+                renderOverlayProductGrid();
+            }
         };
 
         const fetchImages = async () => {
@@ -1795,6 +2024,7 @@
         
         let currentState = 0; // Track current state
         let selectedSuggestionIndex = -1; // Track selected suggestion index (only one at a time)
+        let suggestionsJustUpdated = false; // Track if suggestions were just updated to prevent stale hover
         
         // Fixed skeleton widths for each row position (1-10)
         const skeletonWidths = [
@@ -1824,14 +2054,408 @@
             'mdn': 10,           // mdn
             'array': 10,         // mdn
             'youtube': 12,       // youtube
-            'time tokyo': 7,     // worldClock
-            'happy emoji': 11    // happyEmoji
+            'time rome': 7,     // worldClock
+            'happy emoji': 11,   // happyEmoji
+            'renewable energy': 16  // renewableEnergy
+        };
+        
+        // Function to detect currency conversion patterns
+        const detectCurrencyMatch = (query) => {
+            const queryLower = query.toLowerCase().trim();
+            
+            // Currency codes mapping
+            const currencyCodes = {
+                'usd': 'USD', 'dollar': 'USD', 'dollars': 'USD', 'us': 'USD',
+                'eur': 'EUR', 'euro': 'EUR', 'euros': 'EUR', '€': 'EUR',
+                'gbp': 'GBP', 'pound': 'GBP', 'pounds': 'GBP', 'sterling': 'GBP', 'uk': 'GBP',
+                'jpy': 'JPY', 'yen': 'JPY', 'japan': 'JPY',
+                'cad': 'CAD', 'canadian': 'CAD', 'canada': 'CAD',
+                'aud': 'AUD', 'australian': 'AUD', 'australia': 'AUD'
+            };
+            
+            // Country to currency mapping
+            const countryToCurrency = {
+                'italy': 'EUR', 'france': 'EUR', 'germany': 'EUR', 'spain': 'EUR', 'portugal': 'EUR',
+                'netherlands': 'EUR', 'belgium': 'EUR', 'austria': 'EUR', 'greece': 'EUR',
+                'uk': 'GBP', 'united kingdom': 'GBP', 'britain': 'GBP', 'england': 'GBP',
+                'japan': 'JPY',
+                'canada': 'CAD',
+                'australia': 'AUD'
+            };
+            
+            // Pattern 1: $XX in euros / $XX in euro / $XX EUR
+            let match = queryLower.match(/^\$(\d{1,4})\s+(?:in\s+)?(euros?|eur|euro|€)/);
+            if (match) {
+                const amount = match[1];
+                const toCurrency = currencyCodes[match[2]] || 'EUR';
+                return { amount, fromCurrency: 'USD', toCurrency, state: 14 };
+            }
+            
+            // Pattern 2: XXUSD in italy / XX USD in italy / XXUSD EUR
+            match = queryLower.match(/^(\d{1,4})\s*(?:usd|dollars?|dollar)\s+(?:in\s+)?(italy|france|germany|spain|portugal|netherlands|belgium|austria|greece|eur|euros?|euro|€)/);
+            if (match) {
+                const amount = match[1];
+                const target = match[2];
+                const toCurrency = countryToCurrency[target] || currencyCodes[target] || 'EUR';
+                return { amount, fromCurrency: 'USD', toCurrency, state: 14 };
+            }
+            
+            // Pattern 3: XX USD to EUR / XX USD EUR / convert XX USD to EUR
+            match = queryLower.match(/(?:convert\s+)?(\d{1,4})\s*(?:usd|dollars?|dollar)\s+(?:to\s+)?(eur|euros?|euro|gbp|pounds?|pound|jpy|yen|cad|aud|€)/);
+            if (match) {
+                const amount = match[1];
+                const toCurrency = currencyCodes[match[2]] || match[2].toUpperCase();
+                return { amount, fromCurrency: 'USD', toCurrency, state: 14 };
+            }
+            
+            // Pattern 4: XX EUR to USD / XX euros to dollars
+            match = queryLower.match(/(?:convert\s+)?(\d{1,4})\s*(eur|euros?|euro|gbp|pounds?|pound|jpy|yen|cad|aud|€)\s+(?:to\s+)?(usd|dollars?|dollar|eur|euros?|euro|gbp|pounds?|pound|jpy|yen|cad|aud|€)/);
+            if (match) {
+                const amount = match[1];
+                const fromCurrency = currencyCodes[match[2]] || match[2].toUpperCase();
+                const toCurrency = currencyCodes[match[3]] || match[3].toUpperCase();
+                return { amount, fromCurrency, toCurrency, state: 14 };
+            }
+            
+            return null;
+        };
+        
+        // Function to detect translation patterns
+        const detectTranslationMatch = (query) => {
+            const queryLower = query.toLowerCase().trim();
+            
+            // Language mapping for display (normalize common variations)
+            const languageMap = {
+                'italian': 'italian', 'italy': 'italian', 'it': 'italian',
+                'spanish': 'spanish', 'spain': 'spanish', 'es': 'spanish',
+                'french': 'french', 'france': 'french', 'fr': 'french',
+                'german': 'german', 'germany': 'german', 'de': 'german',
+                'portuguese': 'portuguese', 'portugal': 'portuguese', 'pt': 'portuguese',
+                'japanese': 'japanese', 'japan': 'japanese', 'jp': 'japanese',
+                'chinese': 'chinese', 'china': 'chinese', 'zh': 'chinese',
+                'korean': 'korean', 'korea': 'korean', 'ko': 'korean',
+                'russian': 'russian', 'russia': 'russian', 'ru': 'russian'
+            };
+            
+            // Pattern 1: "how do i say {term} in {language}" (check first to avoid matching generic pattern)
+            let match = queryLower.match(/^how\s+do\s+i\s+say\s+(.+?)\s+in\s+(\w+)$/);
+            if (match) {
+                const term = match[1].trim();
+                const languageKey = match[2].toLowerCase();
+                const targetLanguage = languageMap[languageKey] || languageKey;
+                if (term.length > 0 && languageKey.length > 0) {
+                    return { term, targetLanguage, state: 15 };
+                }
+            }
+            
+            // Pattern 2: "how to say {term} in {language}" (check second to avoid matching generic pattern)
+            match = queryLower.match(/^how\s+to\s+say\s+(.+?)\s+in\s+(\w+)$/);
+            if (match) {
+                const term = match[1].trim();
+                const languageKey = match[2].toLowerCase();
+                const targetLanguage = languageMap[languageKey] || languageKey;
+                if (term.length > 0 && languageKey.length > 0) {
+                    return { term, targetLanguage, state: 15 };
+                }
+            }
+            
+            // Pattern 3: "translate {term} to {language}"
+            match = queryLower.match(/^translate\s+(.+?)\s+to\s+(\w+)$/);
+            if (match) {
+                const term = match[1].trim();
+                const languageKey = match[2].toLowerCase();
+                const targetLanguage = languageMap[languageKey] || languageKey;
+                if (term.length > 0 && languageKey.length > 0) {
+                    return { term, targetLanguage, state: 15 };
+                }
+            }
+            
+            // Pattern 4: "{term} in {language}" (check last as it's the most generic)
+            match = queryLower.match(/^(.+?)\s+in\s+(\w+)$/);
+            if (match) {
+                const term = match[1].trim();
+                const languageKey = match[2].toLowerCase();
+                const targetLanguage = languageMap[languageKey] || languageKey;
+                if (term.length > 0 && languageKey.length > 0) {
+                    return { term, targetLanguage, state: 15 };
+                }
+            }
+            
+            return null;
+        };
+        
+        // Function to fetch translation from AI
+        async function fetchTranslation(query, term) {
+            console.log('[TRANSLATION] Fetching translation for query:', query);
+            
+            if (!OPENROUTER_API_KEY) {
+                console.warn('[TRANSLATION] OpenRouter API key not set');
+                return { translation: 'Translation unavailable', language: null };
+            }
+            
+            const requestBody = {
+                model: 'anthropic/claude-3-haiku',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a translation assistant. Translate the user\'s query. Return a JSON object with "translation" (the translated text) and "language" (the target language name, capitalized, e.g. "Italian", "Spanish"). Example: {"translation": "Ciao", "language": "Italian"}'
+                    },
+                    {
+                        role: 'user',
+                        content: query
+                    }
+                ],
+                temperature: 0.3,
+                max_tokens: 150
+            };
+            
+            try {
+                const response = await fetch(OPENROUTER_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    console.error('[TRANSLATION] API error:', response.status, response.statusText);
+                    return { translation: 'Translation unavailable', language: null };
+                }
+                
+                const data = await response.json();
+                const content = data.choices?.[0]?.message?.content?.trim() || '';
+                console.log('[TRANSLATION] Received response:', content);
+                
+                // Try to parse as JSON first
+                let translationResult = { translation: 'Translation unavailable', language: null };
+                try {
+                    // Look for JSON object in the response
+                    const jsonMatch = content.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        const parsed = JSON.parse(jsonMatch[0]);
+                        translationResult = {
+                            translation: parsed.translation || content,
+                            language: parsed.language || null
+                        };
+                    } else {
+                        // Fallback: use the content as translation
+                        translationResult = {
+                            translation: content,
+                            language: null
+                        };
+                    }
+                } catch (parseError) {
+                    console.warn('[TRANSLATION] Failed to parse JSON, using raw content');
+                    translationResult = {
+                        translation: content,
+                        language: null
+                    };
+                }
+                
+                console.log('[TRANSLATION] Parsed result:', translationResult);
+                return translationResult;
+            } catch (error) {
+                console.error('[TRANSLATION] Error fetching translation:', error);
+                return { translation: 'Translation unavailable', language: null };
+            }
+        }
+        
+        // Function to check if a query uniquely matches a carrot (disambiguates it)
+        const findUniqueCarrotMatch = (query) => {
+            const queryLower = query.toLowerCase().trim();
+            
+            // First check for translation patterns
+            const translationMatch = detectTranslationMatch(query);
+            if (translationMatch) {
+                return translationMatch;
+            }
+            
+            // Then check for currency conversion patterns
+            const currencyMatch = detectCurrencyMatch(query);
+            if (currencyMatch) {
+                return currencyMatch;
+            }
+            
+            // Then check for exact match
+            if (demoSearchCarrots[queryLower] !== undefined) {
+                return { term: queryLower, state: demoSearchCarrots[queryLower] };
+            }
+            
+            // Check for partial matches that uniquely identify a carrot
+            const matchingTerms = Object.keys(demoSearchCarrots).filter(term => 
+                term.startsWith(queryLower)
+            );
+            
+            // If exactly one match, check if it's long enough to disambiguate
+            if (matchingTerms.length === 1) {
+                const matchedTerm = matchingTerms[0];
+                
+                // Minimum length requirements to show user intent
+                // Analysis of each trigger in real-world search context:
+                const minLengths = {
+                    // 'time rome': "time" alone could be "time management", "time travel", "time zones", "time converter"
+                    //            "time r" could be "time rome", "time right now", "time remaining", "time range"
+                    //            "time ro" (7 chars) is clearer - likely "time rome" or "time round"
+                    //            "time rom" (8 chars) is even clearer
+                    'time rome': 8,        // Require "time rom" (8 chars) - clear intent for Rome time
+                    
+                    // 'uber stock': "uber" alone could be "uber eats", "uber driver", "uber app", "uber login"
+                    //              "uber s" could be "uber stock", "uber support", "uber sign up", "uber store"
+                    //              "uber st" (7 chars) is better - likely "uber stock" or "uber store"
+                    //              "uber sto" (8 chars) is clearer
+                    'uber stock': 8,        // Require "uber sto" (8 chars) - clear intent for stock info
+                    
+                    // 'lakers game': "lakers" alone could be "lakers game", "lakers schedule", "lakers tickets", "lakers roster"
+                    //               All are Lakers-related, so showing game info is useful regardless
+                    'lakers game': 7,      // "lakers" (7 chars) is enough - clear Lakers intent
+                    
+                    // 'coffee shops': "coffee" alone could be "coffee shops", "coffee cake", "coffee beans", "coffee maker", "coffee recipe"
+                    //                "coffee s" could be "coffee shops", "coffee store", "coffee shop near me", "coffee subscription"
+                    //                "coffee sh" (10 chars) is better - likely "coffee shop" or "coffee shops"
+                    'coffee shops': 10,    // Require "coffee sh" (10 chars) - clear intent for shops
+                    
+                    // 'happy emoji': "happy" alone could be "happy emoji", "happy birthday", "happy new year", "happy quotes", "happy song"
+                    //               "happy e" could be "happy emoji", "happy ending", "happy easter", "happy expression"
+                    //               "happy em" (8 chars) is better - likely "happy emoji" or "happy emotion"
+                    //               "happy emo" (9 chars) is even clearer
+                    'happy emoji': 9,      // Require "happy emo" (9 chars) - clear intent for emoji
+                    
+                    // 'fox wiki': "fox" alone could be "fox wiki", "fox news", "fox sports", "fox weather", "fox channel"
+                    //            "fox w" could be "fox wiki", "fox weather", "fox website", "fox watch"
+                    //            "fox wi" (6 chars) is better - likely "fox wiki" or "fox weather"
+                    //            "fox wik" (7 chars) is even clearer
+                    'fox wiki': 7,         // Require "fox wik" (7 chars) - clear intent for wiki
+                    
+                    // 'chair': "chair" alone could be buying a chair (our carrot) or "chair design", "chair covers", "chair exercises"
+                    //          But "chair" (5 chars) is the full word, so it's acceptable
+                    'chair': 5,            // "chair" (5 chars) - full word, acceptable
+                    
+                    // 'sneakers': "sneaker" (singular) is fine - clear intent for sneakers
+                    'sneakers': 7,        // "sneaker" (7 chars) - clear intent
+                    
+                    // 'weather': "weather" alone could be "weather", "weather forecast", "weather today", "weather app"
+                    //            But "weather" (7 chars) is the full word, so it's acceptable
+                    'weather': 7,          // "weather" (7 chars) - full word, acceptable
+                    
+                    // 'array': "array" alone could be MDN docs (our carrot) or "array javascript", "array python", "array methods"
+                    //          But "array" (5 chars) is the full word, so it's acceptable
+                    'array': 5,            // "array" (5 chars) - full word, acceptable
+                    
+                    // 'youtube': "youtube" alone could be "youtube", "youtube music", "youtube tv", "youtube downloader"
+                    //            But "youtube" (7 chars) is the full word, so it's acceptable
+                    'youtube': 7,          // "youtube" (7 chars) - full word, acceptable
+                    
+                    // 'ac8170': Flight numbers are specific - partial matches could match other flights
+                    'ac8170': 6,           // Require full flight number "ac8170" (6 chars)
+                    
+                    // 'vpn': Exact match, specific term
+                    'vpn': 3,              // Exact match, 3 chars is fine
+                    
+                    // 'mdn': Exact match, specific term
+                    'mdn': 3,              // Exact match, 3 chars is fine
+                    
+                    // 'renewable energy': "renewable" alone could be "renewable resources", "renewable energy", "renewable power"
+                    //                      "renewable e" could be "renewable energy", "renewable electricity", "renewable energy sources"
+                    //                      "renewable en" (12 chars) is clearer - likely "renewable energy"
+                    'renewable energy': 12  // Require "renewable en" (12 chars) - clear intent for renewable energy
+                };
+                
+                const minLength = minLengths[matchedTerm] || 3;
+                
+                if (queryLower.length < minLength) {
+                    return null;
+                }
+                
+                return { term: matchedTerm, state: demoSearchCarrots[matchedTerm] };
+            }
+            
+            // If multiple matches or no matches, return null
+            return null;
         };
         
         // Function to show carrot for demo searches
         const showCarrotForDemoSearch = (query) => {
             const queryLower = query.toLowerCase().trim();
-            const carrotState = demoSearchCarrots[queryLower];
+            
+            // Check for translation first
+            const translationMatch = detectTranslationMatch(query);
+            if (translationMatch && carrotList && suggestionsContainer) {
+                const needsSlide = currentState !== 0 && currentState !== translationMatch.state;
+                
+                // Show carrot immediately with loading state
+                const showTranslationCarrot = (translationResult, language) => {
+                    // Use AI-returned language if available, otherwise use detected language
+                    const displayLanguage = language || translationMatch.targetLanguage;
+                    
+                    if (needsSlide) {
+                        suggestionsContainer.classList.add('expand-left');
+                        suggestionsContainer.classList.remove('show-carrot');
+                        
+                        setTimeout(() => {
+                            setCarrotContent(translationMatch.state, translationMatch.term, displayLanguage, translationResult);
+                            currentState = translationMatch.state;
+                            suggestionsContainer.classList.remove('expand-left');
+                            suggestionsContainer.classList.add('show-carrot');
+                        }, 400);
+                    } else {
+                        setCarrotContent(translationMatch.state, translationMatch.term, displayLanguage, translationResult);
+                        currentState = translationMatch.state;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }
+                };
+                
+                // Show loading state first
+                showTranslationCarrot('Loading translation...', null);
+                
+                // Fetch translation from AI - send the full original query, let AI figure out the language
+                fetchTranslation(query, translationMatch.term).then(result => {
+                    const translation = typeof result === 'string' ? result : result.translation;
+                    const language = typeof result === 'string' ? null : result.language;
+                    showTranslationCarrot(translation, language);
+                });
+                
+                return true;
+            }
+            
+            // Check for currency conversion
+            const currencyMatch = detectCurrencyMatch(query);
+            if (currencyMatch && carrotList && suggestionsContainer) {
+                const needsSlide = currentState !== 0 && currentState !== currencyMatch.state;
+                
+                if (needsSlide) {
+                    suggestionsContainer.classList.add('expand-left');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    
+                    setTimeout(() => {
+                        setCarrotContent(currencyMatch.state, currencyMatch.amount, currencyMatch.fromCurrency, currencyMatch.toCurrency);
+                        currentState = currencyMatch.state;
+                        suggestionsContainer.classList.remove('expand-left');
+                        suggestionsContainer.classList.add('show-carrot');
+                    }, 400);
+                } else {
+                    setCarrotContent(currencyMatch.state, currencyMatch.amount, currencyMatch.fromCurrency, currencyMatch.toCurrency);
+                    currentState = currencyMatch.state;
+                    suggestionsContainer.classList.remove('expand-left');
+                    suggestionsContainer.classList.add('show-carrot');
+                }
+                return true;
+            }
+            
+            // Check for exact match first
+            let carrotState = demoSearchCarrots[queryLower];
+            let matchedTerm = queryLower;
+            
+            // If no exact match, check for unique partial match
+            if (carrotState === undefined) {
+                const uniqueMatch = findUniqueCarrotMatch(queryLower);
+                if (uniqueMatch) {
+                    carrotState = uniqueMatch.state;
+                    matchedTerm = uniqueMatch.term;
+                }
+            }
             
             if (carrotState !== undefined && carrotList && suggestionsContainer) {
                 // Check if we need to slide in from the right
@@ -1977,15 +2601,26 @@
                 
                 // Get current search value for highlighting
                 const searchValue = searchBoxElement ? searchBoxElement.value.toLowerCase() : '';
+                const searchValueTrimmed = searchBoxElement ? searchBoxElement.value.trim() : '';
                 console.log('Search value for highlighting:', searchValue);
                 
+                // Prepend the typed text as the first suggestion if there's text
+                // Check case-insensitively to avoid duplicates
+                const typedTextInSuggestions = sortedSuggestions.some(s => s.toLowerCase() === searchValueTrimmed.toLowerCase());
+                const suggestionsToShow = searchValueTrimmed && !typedTextInSuggestions
+                    ? [searchValueTrimmed, ...sortedSuggestions]
+                    : sortedSuggestions;
+                
                 console.log('Mapping suggestions to HTML...');
-                const htmlString = sortedSuggestions.map((text, index) => {
-                const icon = getIconForSuggestion(text);
+                const htmlString = suggestionsToShow.map((text, index) => {
+                // First suggestion (typed text) always uses search icon and isn't bolded
+                const isTypedText = index === 0 && searchValueTrimmed && text === searchValueTrimmed;
+                const icon = isTypedText ? 'icons/search.svg' : getIconForSuggestion(text);
                 
                 // Bold matching characters (ignore spaces in search value)
+                // Skip bolding for the typed text itself (first item)
                 let displayText = text;
-                if (searchValue) {
+                if (searchValue && !isTypedText) {
                     const searchNoSpaces = searchValue.replace(/\s/g, '');
                     const textLower = text.toLowerCase();
                     const textNoSpaces = textLower.replace(/\s/g, '');
@@ -2039,9 +2674,22 @@
                 console.error('Error stack:', error.stack);
             }
             
-            // Reset selection when suggestions update
-            selectedSuggestionIndex = -1;
+            // Set first suggestion as selected by default only if there's text typed
+            const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
+            const hasTypedText = searchBoxElement && searchBoxElement.value.trim().length > 0;
+            if (suggestionItems.length > 0 && hasTypedText) {
+                selectedSuggestionIndex = 0;
+            } else {
+                selectedSuggestionIndex = -1;
+            }
             updateSelectedSuggestion();
+            
+            // Mark that suggestions were just updated to prevent stale hover
+            suggestionsJustUpdated = true;
+            // Clear the flag after a short delay to allow mouse movement to be detected
+            setTimeout(() => {
+                suggestionsJustUpdated = false;
+            }, 100);
             
             // Attach click handlers to suggestions (this clones nodes, so do it first)
             attachClickListeners();
@@ -2102,8 +2750,23 @@
         
         function handleSuggestionHover(event) {
             if (!suggestionsList) return;
+            
+            // Ignore hover if suggestions were just updated (prevents stale hover from mouse already being over an item)
+            if (suggestionsJustUpdated) {
+                return;
+            }
+            
             const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
-            const index = Array.from(suggestionItems).indexOf(event.currentTarget);
+            const item = event.currentTarget;
+            
+            // If hovering over a carrot, clear the selection
+            if (item.classList.contains('carrot')) {
+                selectedSuggestionIndex = -1;
+                updateSelectedSuggestion();
+                return;
+            }
+            
+            const index = Array.from(suggestionItems).indexOf(item);
             if (index >= 0) {
                 // Hovering steals selection from keyboard-selected item
                 selectedSuggestionIndex = index;
@@ -2149,7 +2812,7 @@
         }
         
         
-        function setCarrotContent(state) {
+        function setCarrotContent(state, amountOrTerm, fromCurrencyOrTargetLanguage, toCurrencyOrTranslation) {
             if (!carrotList) {
                 return;
             }
@@ -2179,6 +2842,10 @@
                     break;
                 case 7:
                     carrotList.innerHTML = carrotTemplates.worldClock();
+                    // Attach pin button handler for world clock
+                    setTimeout(() => {
+                        attachPinButtonHandler(7);
+                    }, 0);
                     break;
                 case 8:
                     carrotList.innerHTML = carrotTemplates.adMarketplace();
@@ -2241,11 +2908,214 @@
                         }
                     }, 0);
                     break;
+                case 14:
+                    carrotList.innerHTML = carrotTemplates.currency(amountOrTerm, fromCurrencyOrTargetLanguage, toCurrencyOrTranslation);
+                    break;
+                case 15:
+                    carrotList.innerHTML = carrotTemplates.translation(amountOrTerm, fromCurrencyOrTargetLanguage, toCurrencyOrTranslation);
+                    break;
+                case 16:
+                    carrotList.innerHTML = carrotTemplates.renewableEnergy();
+                    // Load the image for the renewable energy card
+                    setTimeout(async () => {
+                        const placeholder = carrotList.querySelector('.carrot--story-card .image-placeholder');
+                        if (placeholder) {
+                            try {
+                                const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent('renewable energy')}&per_page=1`, {
+                                    headers: {
+                                        Authorization: 'bCm88s2aE42pgTVWHJn6CRvAf916qPGquNowlZue6tSbVSImQ0hdsWSX'
+                                    }
+                                });
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    const photoUrl = data.photos && data.photos[0] ? data.photos[0].src.medium : null;
+                                    if (photoUrl) {
+                                        const img = document.createElement('img');
+                                        img.src = photoUrl;
+                                        img.alt = 'Breakthroughs in Renewable Energy';
+                                        img.style.width = '100%';
+                                        img.style.height = '120px';
+                                        img.style.objectFit = 'cover';
+                                        placeholder.replaceWith(img);
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Error loading renewable energy image:', error);
+                            }
+                        }
+                    }, 0);
+                    break;
                 default:
                     console.warn(`Unknown carrot state: ${state}`);
             }
 
             carrotList.dataset.carrotState = String(state);
+        }
+        
+        function attachPinButtonHandler(carrotState) {
+            if (!carrotList) return;
+            
+            const pinButtons = carrotList.querySelectorAll('.carrot-pin-button');
+            pinButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Only handle world clock carrot (state 7)
+                    if (carrotState === 7) {
+                        console.log('[PIN] Pin button clicked for world clock carrot');
+                        const pinnedCard = replaceThirdCardWithWorldClock();
+                        console.log('[PIN] replaceThirdCardWithWorldClock returned:', pinnedCard);
+                        
+                        if (pinnedCard) {
+                            console.log('[PIN] Pinned card element:', pinnedCard);
+                            console.log('[PIN] Pinned card classes before:', pinnedCard.className);
+                            console.log('[PIN] Pinned card inline styles before:', pinnedCard.style.cssText);
+                            
+                            // Close the overlay the same way as cross button or Esc
+                            const existingStyle = document.getElementById('gradient-animation-style');
+                            if (existingStyle) {
+                                existingStyle.remove();
+                            }
+                            if (gradientAnimationId) {
+                                cancelAnimationFrame(gradientAnimationId);
+                                gradientAnimationId = null;
+                            }
+                            setOverlayState(false);
+                            if (searchBoxElement) {
+                                searchBoxElement.blur();
+                                // Clear the search term
+                                searchBoxElement.value = '';
+                            }
+                            
+                            // Add border color
+                            pinnedCard.classList.add('card--pinned-flash');
+                        } else {
+                            console.log('[PIN] ERROR: pinnedCard is null or undefined');
+                        }
+                    }
+                });
+            });
+        }
+        
+        function replaceThirdCardWithWorldClock() {
+            console.log('[REPLACE] replaceThirdCardWithWorldClock called');
+            const articlesGrid = document.querySelector('.articles-grid');
+            console.log('[REPLACE] articlesGrid:', articlesGrid);
+            if (!articlesGrid) {
+                console.log('[REPLACE] ERROR: articlesGrid not found');
+                return;
+            }
+            
+            const cards = articlesGrid.querySelectorAll('.card');
+            console.log('[REPLACE] Found cards:', cards.length);
+            if (cards.length < 3) {
+                console.log('[REPLACE] ERROR: Not enough cards, found:', cards.length);
+                return;
+            }
+            
+            const thirdCard = cards[2]; // Third card (0-indexed)
+            console.log('[REPLACE] Third card:', thirdCard);
+            
+            // Store the original card HTML for restoration
+            const originalCardHTML = thirdCard.outerHTML;
+            
+            // Get the world clock HTML (fresh calculation)
+            const worldClockHTML = carrotTemplates.worldClock();
+            
+            // Create a wrapper div for the clock content
+            const clockWrapper = document.createElement('div');
+            clockWrapper.className = 'card card--world-clock';
+            clockWrapper.style.cssText = 'display: flex; align-items: center; justify-content: center; min-height: 200px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); border: 5px solid transparent; position: relative;';
+            
+            // Store the original card HTML for restoration
+            clockWrapper.dataset.originalCard = originalCardHTML;
+            
+            // Add control buttons (grab icon and cross)
+            const controlsDiv = document.createElement('div');
+            controlsDiv.className = 'card-controls';
+            
+            // Grab/move icon button
+            const grabButton = document.createElement('button');
+            grabButton.className = 'card-control-button';
+            grabButton.type = 'button';
+            grabButton.setAttribute('aria-label', 'Move card');
+            grabButton.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 5C9 6.10457 8.10457 7 7 7C5.89543 7 5 6.10457 5 5C5 3.89543 5.89543 3 7 3C8.10457 3 9 3.89543 9 5Z" fill="#1F2933"/>
+                    <path d="M19 5C19 6.10457 18.1046 7 17 7C15.8954 7 15 6.10457 15 5C15 3.89543 15.8954 3 17 3C18.1046 3 19 3.89543 19 5Z" fill="#1F2933"/>
+                    <path d="M9 12C9 13.1046 8.10457 14 7 14C5.89543 14 5 13.1046 5 12C5 10.8954 5.89543 10 7 10C8.10457 10 9 10.8954 9 12Z" fill="#1F2933"/>
+                    <path d="M19 12C19 13.1046 18.1046 14 17 14C15.8954 14 15 13.1046 15 12C15 10.8954 15.8954 10 17 10C18.1046 10 19 10.8954 19 12Z" fill="#1F2933"/>
+                    <path d="M9 19C9 20.1046 8.10457 21 7 21C5.89543 21 5 20.1046 5 19C5 17.8954 5.89543 17 7 17C8.10457 17 9 17.8954 9 19Z" fill="#1F2933"/>
+                    <path d="M19 19C19 20.1046 18.1046 21 17 21C15.8954 21 15 20.1046 15 19C15 17.8954 15.8954 17 17 17C18.1046 17 19 17.8954 19 19Z" fill="#1F2933"/>
+                </svg>
+            `;
+            grabButton.style.cursor = 'grab';
+            
+            // Close/cross button
+            const closeButton = document.createElement('button');
+            closeButton.className = 'card-control-button';
+            closeButton.type = 'button';
+            closeButton.setAttribute('aria-label', 'Remove pinned card');
+            closeButton.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="#1F2933" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            `;
+            
+            // Add click handler to restore original card
+            closeButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                restoreOriginalCard(clockWrapper);
+            });
+            
+            controlsDiv.appendChild(grabButton);
+            controlsDiv.appendChild(closeButton);
+            clockWrapper.appendChild(controlsDiv);
+            
+            // Extract just the clock content from the world clock template (remove the <li> wrapper)
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = worldClockHTML;
+            const clockContent = tempDiv.querySelector('.carrot--clock');
+            
+            if (clockContent) {
+                // Clone the clock content and remove the pin button
+                const clonedContent = clockContent.cloneNode(true);
+                const pinButton = clonedContent.querySelector('.carrot-pin-button');
+                if (pinButton) {
+                    pinButton.remove();
+                }
+                
+                // Remove the carrot class styling that might conflict
+                clonedContent.classList.remove('carrot');
+                clonedContent.style.cssText = 'width: 100%;';
+                
+                clockWrapper.appendChild(clonedContent);
+                console.log('[REPLACE] Replacing third card with clockWrapper');
+                thirdCard.replaceWith(clockWrapper);
+                console.log('[REPLACE] Replacement complete, returning clockWrapper:', clockWrapper);
+                console.log('[REPLACE] clockWrapper classes:', clockWrapper.className);
+                console.log('[REPLACE] clockWrapper styles:', clockWrapper.style.cssText);
+                
+                return clockWrapper;
+            }
+            console.log('[REPLACE] ERROR: clockContent not found');
+            return null;
+        }
+        
+        function restoreOriginalCard(pinnedCard) {
+            const originalCardHTML = pinnedCard.dataset.originalCard;
+            if (!originalCardHTML) return;
+            
+            // Create a temporary container to parse the HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = originalCardHTML;
+            const originalCard = tempDiv.firstElementChild;
+            
+            if (originalCard) {
+                pinnedCard.replaceWith(originalCard);
+            }
         }
         
         if (debugButtons.length > 0 && suggestionsContainer && carrotList) {
@@ -2523,6 +3393,8 @@
                             carrotList.innerHTML = '';
                             carrotList.dataset.carrotState = '0';
                         }
+                        // Restore product grid when cleared
+                        restoreProductGrid();
                         updateClearButton();
                     }
                 });
@@ -2532,12 +3404,20 @@
             searchBoxElement.addEventListener('input', (event) => {
                 updateClearButton();
                 const value = (event.target.value || '').toString();
-                const valueLower = value.toLowerCase();
+                const valueLower = value.toLowerCase().trim();
+                
+                // Check for "winter ol" to trigger Winter Olympics schedule
+                if (valueLower === 'winter ol' || valueLower.startsWith('winter ol')) {
+                    renderWinterOlympicsSchedule();
+                } else {
+                    // Restore product grid if it was replaced
+                    restoreProductGrid();
+                }
                 
                 // Check if this matches a demo search that should show a carrot
                 const matchedCarrot = showCarrotForDemoSearch(valueLower);
                 
-                if (!matchedCarrot && valueLower.trim().length === 0) {
+                if (!matchedCarrot && valueLower.length === 0) {
                     // Clear carrot when field is empty
                     if (suggestionsContainer) {
                         suggestionsContainer.classList.remove('show-carrot');
@@ -2548,6 +3428,8 @@
                         carrotList.innerHTML = '';
                         carrotList.dataset.carrotState = '0';
                     }
+                    // Restore product grid when search is cleared
+                    restoreProductGrid();
                 } else if (!matchedCarrot && valueLower.trim().length > 0) {
                     // Check if this could be a prefix of a demo search
                     const couldBeDemoSearch = Object.keys(demoSearchCarrots).some(term => term.startsWith(valueLower));
@@ -2563,6 +3445,9 @@
                         }
                     }
                 }
+                
+                // Continue to update suggestions even if a carrot is showing
+                // The suggestions will appear in the left column while carrot stays in right column
                 
                 console.log('Input event:', { value, valueLower, length: valueLower.length });
                 console.log('suggestionWords defined?', typeof suggestionWords !== 'undefined');
@@ -2660,6 +3545,9 @@
                         showSkeletonLoaders(10);
                     }
                     
+                    // Capture localSuggestions for use in async callback
+                    const currentLocalSuggestions = [...localSuggestions];
+                    
                     // Debounce API call (wait 300ms after user stops typing)
                     apiCallTimer = setTimeout(async () => {
                         // Only make API call if query hasn't changed
@@ -2670,28 +3558,43 @@
                             const aiSuggestions = await fetchAISuggestions(valueLower);
                             
                             // Only update if query hasn't changed during API call
-                            if (searchBoxElement.value.toLowerCase() === valueLower && aiSuggestions.length > 0) {
-                                console.log('AI suggestions received:', aiSuggestions);
-                                
-                                // Track AI suggestions for icon assignment
-                                aiSuggestions.forEach(aiSuggestion => {
-                                    aiSuggestionsSet.add(aiSuggestion.toLowerCase());
-                                });
-                                
-                                // Merge local and AI suggestions, removing duplicates
-                                const allSuggestions = [...localSuggestions];
-                                aiSuggestions.forEach(aiSuggestion => {
-                                    const aiLower = aiSuggestion.toLowerCase();
-                                    // Only add if not already in local suggestions
-                                    if (!allSuggestions.some(s => s.toLowerCase() === aiLower)) {
-                                        allSuggestions.push(aiSuggestion);
+                            if (searchBoxElement.value.toLowerCase() === valueLower) {
+                                if (aiSuggestions.length > 0) {
+                                    console.log('AI suggestions received:', aiSuggestions);
+                                    
+                                    // Track AI suggestions for icon assignment
+                                    aiSuggestions.forEach(aiSuggestion => {
+                                        aiSuggestionsSet.add(aiSuggestion.toLowerCase());
+                                    });
+                                    
+                                    // Merge local and AI suggestions, removing duplicates
+                                    const allSuggestions = [...currentLocalSuggestions];
+                                    aiSuggestions.forEach(aiSuggestion => {
+                                        const aiLower = aiSuggestion.toLowerCase();
+                                        // Only add if not already in local suggestions
+                                        if (!allSuggestions.some(s => s.toLowerCase() === aiLower)) {
+                                            allSuggestions.push(aiSuggestion);
+                                        }
+                                    });
+                                    
+                                    // Limit to 10 total suggestions
+                                    const mergedSuggestions = allSuggestions.slice(0, 10);
+                                    console.log('Merged suggestions (local + AI):', mergedSuggestions);
+                                    // updateSuggestions will remove skeletons and replace with new suggestions
+                                    updateSuggestions(mergedSuggestions);
+                                } else {
+                                    // No AI suggestions - update with just local suggestions
+                                    // This will remove skeletons and show local suggestions
+                                    console.log('No AI suggestions, using local:', currentLocalSuggestions);
+                                    if (currentLocalSuggestions.length > 0) {
+                                        const localCount = Math.min(currentLocalSuggestions.length, 10);
+                                        updateSuggestions(currentLocalSuggestions.slice(0, localCount));
+                                    } else {
+                                        // No suggestions at all - remove skeletons and clear list
+                                        removeSkeletons();
+                                        updateSuggestions([]);
                                     }
-                                });
-                                
-                                // Limit to 10 total suggestions
-                                const mergedSuggestions = allSuggestions.slice(0, 10);
-                                console.log('Merged suggestions (local + AI):', mergedSuggestions);
-                                updateSuggestions(mergedSuggestions);
+                                }
                             }
                         }
                     }, 300);

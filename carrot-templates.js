@@ -338,19 +338,19 @@ const carrotTemplates = {
 
     /**
      * World clock carrot
-     * Shows current time in Tokyo with analog clock display
+     * Shows current time in Rome with analog clock display
      * Dynamically calculates real-time based on user's device clock
      * 
-     * @returns {string} HTML template with current Tokyo time
+     * @returns {string} HTML template with current Rome time
      */
     worldClock: () => {
-        // Calculate current Tokyo time
+        // Calculate current Rome time
         const now = new Date();
-        const tokyoTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+        const romeTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
         
-        const hours = tokyoTime.getHours();
-        const minutes = tokyoTime.getMinutes();
-        const seconds = tokyoTime.getSeconds();
+        const hours = romeTime.getHours();
+        const minutes = romeTime.getMinutes();
+        const seconds = romeTime.getSeconds();
         
         // Format for display
         const displayHours = hours % 12 || 12;
@@ -365,9 +365,17 @@ const carrotTemplates = {
         // Format date
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const dayName = dayNames[tokyoTime.getDay()];
-        const monthName = monthNames[tokyoTime.getMonth()];
-        const date = tokyoTime.getDate();
+        const dayName = dayNames[romeTime.getDay()];
+        const monthName = monthNames[romeTime.getMonth()];
+        const date = romeTime.getDate();
+        
+        // Get timezone abbreviation (CET in winter, CEST in summer)
+        // Rome is UTC+1 in winter (CET) and UTC+2 in summer (CEST)
+        // DST in Europe typically runs from last Sunday in March to last Sunday in October
+        // Get the month in Rome's timezone
+        const romeMonth = parseInt(now.toLocaleString('en-US', { timeZone: 'Europe/Rome', month: 'numeric' }));
+        const isDST = romeMonth >= 3 && romeMonth <= 10;
+        const timezoneAbbr = isDST ? 'CEST (UTC+2)' : 'CET (UTC+1)';
         
         return `
             <li class="search-suggestions-preview-item carrot carrot--clock">
@@ -382,9 +390,9 @@ const carrotTemplates = {
                         </div>
                     </div>
                     <div class="clock-details">
-                        <p class="clock-location">Tokyo, Japan</p>
+                        <p class="clock-location">Rome, Italy</p>
                         <p class="clock-time"><strong>${displayHours}:${displayMinutes}</strong> <span class="clock-period">${period}</span></p>
-                        <p class="clock-meta">JST (UTC+9) · ${dayName}, ${monthName} ${date}</p>
+                        <p class="clock-meta">${timezoneAbbr} · ${dayName}, ${monthName} ${date}</p>
                     </div>
                 </div>
             </li>
@@ -510,5 +518,112 @@ const carrotTemplates = {
             </div>
         </li>
     `,
+
+    /**
+     * Currency conversion carrot
+     * Shows currency conversion rates and calculator
+     */
+    currency: (amount, fromCurrency, toCurrency) => {
+        // Default values if not provided
+        const amt = amount || '100';
+        const from = fromCurrency || 'USD';
+        const to = toCurrency || 'EUR';
+        
+        // Mock conversion rate (in real implementation, this would come from an API)
+        const conversionRates = {
+            'USD': { 'EUR': 0.92, 'GBP': 0.79, 'JPY': 149.50, 'CAD': 1.35, 'AUD': 1.52 },
+            'EUR': { 'USD': 1.09, 'GBP': 0.86, 'JPY': 162.50, 'CAD': 1.47, 'AUD': 1.65 },
+            'GBP': { 'USD': 1.27, 'EUR': 1.16, 'JPY': 189.50, 'CAD': 1.71, 'AUD': 1.93 },
+            'JPY': { 'USD': 0.0067, 'EUR': 0.0062, 'GBP': 0.0053, 'CAD': 0.0090, 'AUD': 0.0102 },
+            'CAD': { 'USD': 0.74, 'EUR': 0.68, 'GBP': 0.58, 'JPY': 111.00, 'AUD': 1.13 },
+            'AUD': { 'USD': 0.66, 'EUR': 0.61, 'GBP': 0.52, 'JPY': 98.50, 'CAD': 0.88 }
+        };
+        
+        const rate = conversionRates[from] && conversionRates[from][to] ? conversionRates[from][to] : 1;
+        const convertedAmount = (parseFloat(amt) * rate).toFixed(2);
+        
+        return `
+        <li class="search-suggestions-preview-item carrot carrot--currency">
+            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+            <div class="currency-converter">
+                <div class="currency-header">
+                    <h3 class="currency-title">Currency Converter</h3>
+                </div>
+                <div class="currency-conversion">
+                    <div class="currency-amount">
+                        <span class="currency-value">${amt}</span>
+                        <span class="currency-code">${from}</span>
+                    </div>
+                    <div class="currency-arrow">→</div>
+                    <div class="currency-amount">
+                        <span class="currency-value">${convertedAmount}</span>
+                        <span class="currency-code">${to}</span>
+                    </div>
+                </div>
+                <div class="currency-rate">
+                    <span class="currency-rate-label">Exchange rate:</span>
+                    <span class="currency-rate-value">1 ${from} = ${rate.toFixed(4)} ${to}</span>
+                </div>
+                <div class="currency-popular">
+                    <p class="currency-popular-label">${amt} ${from} in other currencies:</p>
+                    <div class="currency-popular-list">
+                        ${from !== 'EUR' && to !== 'EUR' ? `<span class="currency-popular-item">${(parseFloat(amt) * (conversionRates[from]?.EUR || 1)).toFixed(2)} EUR</span>` : ''}
+                        ${from !== 'GBP' && to !== 'GBP' ? `<span class="currency-popular-item">${(parseFloat(amt) * (conversionRates[from]?.GBP || 1)).toFixed(2)} GBP</span>` : ''}
+                        ${from !== 'JPY' && to !== 'JPY' ? `<span class="currency-popular-item">${(parseFloat(amt) * (conversionRates[from]?.JPY || 1)).toFixed(2)} JPY</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        </li>
+        `;
+    },
+
+    /**
+     * Translation carrot
+     * Shows translation result from AI
+     */
+    translation: (term, targetLanguage, translationResult) => {
+        const displayTerm = term || '';
+        const language = targetLanguage || 'italian';
+        const translation = translationResult || 'Loading translation...';
+        
+        return `
+        <li class="search-suggestions-preview-item carrot carrot--translation">
+            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+            <div class="translation-converter">
+                <div class="translation-header">
+                    <h3 class="translation-title">Translation</h3>
+                </div>
+                <div class="translation-content">
+                    <div class="translation-original">
+                        <span class="translation-label">Original:</span>
+                        <span class="translation-term">${displayTerm}</span>
+                    </div>
+                    <div class="translation-arrow">→</div>
+                    <div class="translation-result">
+                        <span class="translation-label">${language.charAt(0).toUpperCase() + language.slice(1)}:</span>
+                        <span class="translation-text">${translation}</span>
+                    </div>
+                </div>
+            </div>
+        </li>
+        `;
+    },
+
+    /**
+     * Renewable energy story card carrot
+     * Shows the thought-provoking story card for renewable energy
+     */
+    renewableEnergy: () => {
+        return `
+        <li class="search-suggestions-preview-item carrot carrot--story-card">
+            <a href="#" class="card" style="display: block; text-decoration: none; color: inherit;">
+                <div class="image-placeholder"></div>
+                <h2>Breakthroughs in Renewable Energy</h2>
+                <p>Eco World</p>
+                <p class="sponsored-label">Sponsored</p>
+            </a>
+        </li>
+        `;
+    },
 };
 
