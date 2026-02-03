@@ -2070,6 +2070,7 @@
             'sushi': 19,         // adMarketplaceSushi
             'sneakers': 9,       // bigAd
             'uber stock': 6,     // stocks
+            'stocks': 20,        // stocksETFs
             'ac8170': 1,         // flights
             'lakers game': 5,    // sports
             'coffee shops': 0,   // local
@@ -2402,7 +2403,11 @@
                     // 'renewable energy': "renewable" alone could be "renewable resources", "renewable energy", "renewable power"
                     //                      "renewable e" could be "renewable energy", "renewable electricity", "renewable energy sources"
                     //                      "renewable en" (12 chars) is clearer - likely "renewable energy"
-                    'renewable energy': 12  // Require "renewable en" (12 chars) - clear intent for renewable energy
+                    'renewable energy': 12,  // Require "renewable en" (12 chars) - clear intent for renewable energy
+                    
+                    // 'stocks': "stocks" alone could be "stocks", "stocks market", "stocks today", "stocks to buy"
+                    //           But "stocks" (6 chars) is the full word, so it's acceptable
+                    'stocks': 6              // "stocks" (6 chars) - full word, acceptable
                 };
                 
                 const minLength = minLengths[matchedTerm] || 3;
@@ -2537,12 +2542,14 @@
             }
             
             if (carrotState !== undefined && carrotList && suggestionsContainer) {
-                // Special handling for ad marketplace carrots (chair, ramen, sushi) and local carrots (coffee shops) - show as regular suggestion, not as carrot
+                // Special handling for ad marketplace carrots (chair, ramen, sushi), local carrots (coffee shops), and stocks (uber stock, stocks) - show as regular suggestion, not as carrot
                 // Check both queryLower and matchedTerm to catch exact and partial matches
                 if ((carrotState === 8 && (queryLower === 'chair' || matchedTerm === 'chair')) || 
                     (carrotState === 18 && (queryLower === 'ramen' || matchedTerm === 'ramen')) || 
                     (carrotState === 19 && (queryLower === 'sushi' || matchedTerm === 'sushi')) ||
-                    (carrotState === 0 && (queryLower === 'coffee shops' || matchedTerm === 'coffee shops'))) {
+                    (carrotState === 0 && (queryLower === 'coffee shops' || matchedTerm === 'coffee shops')) ||
+                    (carrotState === 6 && (queryLower === 'uber stock' || matchedTerm === 'uber stock')) ||
+                    (carrotState === 20 && (queryLower === 'stocks' || matchedTerm === 'stocks'))) {
                     // Don't show these carrots as right panel carrots - they're handled in updateSuggestions
                     return false;
                 }
@@ -2784,6 +2791,26 @@
                     } else {
                         finalHtml = htmlString + coffeeShopsCarrotHtml;
                     }
+                } else if (queryLower === 'uber stock' || (queryLower.startsWith('uber sto') && queryLower.length >= 8)) {
+                    // Insert stocks carrot after first item (typed text)
+                    // Insert all three stock items directly - CSS will display them side by side
+                    const stocksCarrotHtml = carrotTemplates.stocks();
+                    const firstItemEnd = htmlString.indexOf('</li>');
+                    if (firstItemEnd !== -1) {
+                        finalHtml = htmlString.substring(0, firstItemEnd + 5) + stocksCarrotHtml + htmlString.substring(firstItemEnd + 5);
+                    } else {
+                        finalHtml = htmlString + stocksCarrotHtml;
+                    }
+                } else if (queryLower === 'stocks') {
+                    // Insert stocks ETFs carrot after first item (typed text)
+                    // Insert all three ETF items directly - CSS will display them side by side
+                    const stocksETFsCarrotHtml = carrotTemplates.stocksETFs();
+                    const firstItemEnd = htmlString.indexOf('</li>');
+                    if (firstItemEnd !== -1) {
+                        finalHtml = htmlString.substring(0, firstItemEnd + 5) + stocksETFsCarrotHtml + htmlString.substring(firstItemEnd + 5);
+                    } else {
+                        finalHtml = htmlString + stocksETFsCarrotHtml;
+                    }
                 }
                 
                 console.log('Generated HTML length:', finalHtml.length);
@@ -2885,6 +2912,25 @@
                         });
                     });
                 }
+                
+                // For stocks items, attach hover to the stock divs
+                // All three stocks are now in a single <li>, so we need to handle them separately
+                if (item.classList.contains('stocks-wrapper')) {
+                    const stockDivs = item.querySelectorAll('.stock-item');
+                    stockDivs.forEach((stockDiv, divIndex) => {
+                        stockDiv.addEventListener('mouseenter', (e) => {
+                            e.stopPropagation();
+                            // Set the selected index based on which stock div is hovered
+                            const allItems = Array.from(suggestionsList.querySelectorAll('.search-suggestions-preview-item'));
+                            const itemIndex = allItems.indexOf(item);
+                            // For stocks, first stock = itemIndex, second = itemIndex + 1, third = itemIndex + 2
+                            const stockIndex = parseInt(stockDiv.dataset.stockIndex || '0');
+                            const actualIndex = itemIndex + stockIndex;
+                            selectedSuggestionIndex = actualIndex;
+                            updateSelectedSuggestion();
+                        });
+                    });
+                }
             });
             
             // Clear selection when mouse leaves the suggestions list
@@ -2921,7 +2967,7 @@
                 return;
             }
             
-            // Calculate virtual index (accounting for coffee shops counting as 2 items)
+            // Calculate virtual index (accounting for coffee shops counting as 2 items and stocks counting as 3 items)
             const itemIndex = Array.from(suggestionItems).indexOf(item);
             if (itemIndex >= 0) {
                 let virtualIndex = 0;
@@ -2936,12 +2982,16 @@
                             // Regular local business - counts as 1
                             virtualIndex += 1;
                         }
+                    } else if (currentItem.classList.contains('stocks-wrapper')) {
+                        const stockDivs = currentItem.querySelectorAll('.stock-item');
+                        // Stocks item - count each stock div as a virtual item
+                        virtualIndex += stockDivs.length > 0 ? stockDivs.length : 1;
                     } else {
                         // Regular suggestion - counts as 1
                         virtualIndex += 1;
                     }
                 }
-                // For the hovered item itself, if it's coffee shops, determine which business
+                // For the hovered item itself, if it's coffee shops or stocks, determine which sub-item
                 if (item.classList.contains('local-business-wrapper')) {
                     const businessDivs = item.querySelectorAll('.local-business');
                     if (businessDivs.length === 2) {
@@ -2951,6 +3001,11 @@
                     } else {
                         selectedSuggestionIndex = virtualIndex;
                     }
+                } else if (item.classList.contains('stocks-wrapper')) {
+                    const stockDivs = item.querySelectorAll('.stock-item');
+                    // This is stocks - default to first stock (index 0)
+                    // The stock div hover handler will override this
+                    selectedSuggestionIndex = virtualIndex;
                 } else {
                     selectedSuggestionIndex = virtualIndex;
                 }
@@ -2978,6 +3033,11 @@
                 localBusinesses.forEach((business) => {
                     business.classList.remove('local-business--selected');
                 });
+                // Also remove selected state from stock-item divs (for side-by-side stocks)
+                const stockItems = item.querySelectorAll('.stock-item');
+                stockItems.forEach((stock) => {
+                    stock.classList.remove('stock-item--selected');
+                });
                 // Hide "Search with Google" hint
                 const hintElement = item.querySelector('.search-hint');
                 if (hintElement) {
@@ -2985,9 +3045,9 @@
                 }
             });
             
-            // Calculate total virtual items (accounting for coffee shops having 2 businesses)
+            // Calculate total virtual items (accounting for coffee shops having 2 businesses and stocks having 3 items)
             let virtualItemCount = 0;
-            const virtualItemMap = []; // Maps virtual index to [itemIndex, businessIndex]
+            const virtualItemMap = []; // Maps virtual index to [itemIndex, businessIndex/stockIndex]
             suggestionItems.forEach((item, itemIndex) => {
                 if (item.classList.contains('local-business-wrapper')) {
                     const businessDivs = item.querySelectorAll('.local-business');
@@ -3001,9 +3061,21 @@
                         virtualItemMap.push([itemIndex, 0]);
                         virtualItemCount += 1;
                     }
+                } else if (item.classList.contains('stocks-wrapper')) {
+                    const stockDivs = item.querySelectorAll('.stock-item');
+                    // Stocks item - each stock div counts as a virtual item
+                    stockDivs.forEach((stockDiv, stockIndex) => {
+                        virtualItemMap.push([itemIndex, stockIndex]);
+                        virtualItemCount += 1;
+                    });
+                    // If no stock divs found, treat as single item
+                    if (stockDivs.length === 0) {
+                        virtualItemMap.push([itemIndex, -1]);
+                        virtualItemCount += 1;
+                    }
                 } else {
                     // Regular suggestion - counts as 1
-                    virtualItemMap.push([itemIndex, -1]); // -1 means no business div
+                    virtualItemMap.push([itemIndex, -1]); // -1 means no sub-item div
                     virtualItemCount += 1;
                 }
             });
@@ -3019,6 +3091,13 @@
                     const businessDivs = selectedItem.querySelectorAll('.local-business');
                     if (businessDivs[businessIndex]) {
                         businessDivs[businessIndex].classList.add('local-business--selected');
+                    }
+                }
+                // For stocks item, highlight the specific stock div
+                if (selectedItem.classList.contains('stocks-wrapper') && businessIndex >= 0) {
+                    const stockDivs = selectedItem.querySelectorAll('.stock-item');
+                    if (stockDivs[businessIndex]) {
+                        stockDivs[businessIndex].classList.add('stock-item--selected');
                     }
                 }
                 
@@ -3068,6 +3147,9 @@
                     break;
                 case 6:
                     carrotList.innerHTML = carrotTemplates.stocks();
+                    break;
+                case 20:
+                    carrotList.innerHTML = carrotTemplates.stocksETFs();
                     break;
                 case 7:
                     carrotList.innerHTML = carrotTemplates.worldClock();
@@ -3536,6 +3618,25 @@
                 const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
                 if (suggestionItems.length === 0) return;
                 
+                // Calculate virtual item count (accounting for coffee shops having 2 businesses and stocks having 3 items)
+                let virtualItemCount = 0;
+                suggestionItems.forEach((item) => {
+                    if (item.classList.contains('local-business-wrapper')) {
+                        const businessDivs = item.querySelectorAll('.local-business');
+                        if (businessDivs.length === 2) {
+                            virtualItemCount += 2; // Coffee shops
+                        } else {
+                            virtualItemCount += 1;
+                        }
+                    } else if (item.classList.contains('stocks-wrapper')) {
+                        const stockDivs = item.querySelectorAll('.stock-item');
+                        // Count each stock div as a virtual item
+                        virtualItemCount += stockDivs.length > 0 ? stockDivs.length : 1;
+                    } else {
+                        virtualItemCount += 1;
+                    }
+                });
+                
                 if (event.key === 'ArrowDown') {
                     event.preventDefault();
                     // Keyboard navigation steals selection from hovered item
@@ -3544,12 +3645,29 @@
                     if (selectedSuggestionIndex < 0) {
                         selectedSuggestionIndex = 0;
                     } else {
-                        selectedSuggestionIndex = (selectedSuggestionIndex + 1) % suggestionItems.length;
+                        selectedSuggestionIndex = (selectedSuggestionIndex + 1) % virtualItemCount;
                     }
                     updateSelectedSuggestion(true); // true = keyboard navigation
-                    // Scroll into view if needed
-                    if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
-                        suggestionItems[selectedSuggestionIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    // Scroll into view if needed - find the actual DOM item
+                    if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < virtualItemCount) {
+                        // Find which DOM item contains this virtual index
+                        let currentVirtualIndex = 0;
+                        for (let i = 0; i < suggestionItems.length; i++) {
+                            const item = suggestionItems[i];
+                            let itemVirtualCount = 1;
+                            if (item.classList.contains('local-business-wrapper')) {
+                                const businessDivs = item.querySelectorAll('.local-business');
+                                itemVirtualCount = businessDivs.length === 2 ? 2 : 1;
+                            } else if (item.classList.contains('stocks-wrapper')) {
+                                const stockDivs = item.querySelectorAll('.stock-item');
+                                itemVirtualCount = stockDivs.length > 0 ? stockDivs.length : 1;
+                            }
+                            if (selectedSuggestionIndex >= currentVirtualIndex && selectedSuggestionIndex < currentVirtualIndex + itemVirtualCount) {
+                                item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                break;
+                            }
+                            currentVirtualIndex += itemVirtualCount;
+                        }
                     }
                 } else if (event.key === 'ArrowUp') {
                     event.preventDefault();
@@ -3557,16 +3675,33 @@
                     // If nothing is selected, select the last item
                     // Otherwise, move up one
                     if (selectedSuggestionIndex < 0) {
-                        selectedSuggestionIndex = suggestionItems.length - 1;
+                        selectedSuggestionIndex = virtualItemCount - 1;
                     } else if (selectedSuggestionIndex <= 0) {
-                        selectedSuggestionIndex = suggestionItems.length - 1;
+                        selectedSuggestionIndex = virtualItemCount - 1;
                     } else {
                         selectedSuggestionIndex--;
                     }
                     updateSelectedSuggestion(true); // true = keyboard navigation
-                    // Scroll into view if needed
-                    if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestionItems.length) {
-                        suggestionItems[selectedSuggestionIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    // Scroll into view if needed - find the actual DOM item
+                    if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < virtualItemCount) {
+                        // Find which DOM item contains this virtual index
+                        let currentVirtualIndex = 0;
+                        for (let i = 0; i < suggestionItems.length; i++) {
+                            const item = suggestionItems[i];
+                            let itemVirtualCount = 1;
+                            if (item.classList.contains('local-business-wrapper')) {
+                                const businessDivs = item.querySelectorAll('.local-business');
+                                itemVirtualCount = businessDivs.length === 2 ? 2 : 1;
+                            } else if (item.classList.contains('stocks-wrapper')) {
+                                const stockDivs = item.querySelectorAll('.stock-item');
+                                itemVirtualCount = stockDivs.length > 0 ? stockDivs.length : 1;
+                            }
+                            if (selectedSuggestionIndex >= currentVirtualIndex && selectedSuggestionIndex < currentVirtualIndex + itemVirtualCount) {
+                                item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                break;
+                            }
+                            currentVirtualIndex += itemVirtualCount;
+                        }
                     }
                 }
                 // COMMENTED OUT: Google search on Enter disabled

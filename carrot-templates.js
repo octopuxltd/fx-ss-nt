@@ -315,45 +315,64 @@ const carrotTemplates = {
      * Stocks carrot
      * Shows stock price, changes, and related financial data
      * Colors: green for positive changes, red for negative changes
+     * Displayed horizontally as second suggestion item
      */
     stocks: () => `
-        <li class="search-suggestions-preview-item carrot">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile carrot-tile--stocks" aria-hidden="true">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="dollar-icon">
-                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" fill="currentColor"/>
-                </svg>
-            </div>
-            <div class="carrot-lines">
-                <p class="carrot-line">UBER</p>
-                <p class="carrot-line"><strong>$73.45</strong> <span class="green-text">+2.18 (3.06%)</span></p>
-                <p class="carrot-line carrot-line--meta">NYSE · Updated 4:00pm ET</p>
-            </div>
-        </li>
-        <li class="search-suggestions-preview-item carrot">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile carrot-tile--stocks" aria-hidden="true">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="dollar-icon">
-                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" fill="currentColor"/>
-                </svg>
-            </div>
-            <div class="carrot-lines">
-                <p class="carrot-line">52-week range</p>
-                <p class="carrot-line"><strong>$53.12</strong> - <strong>$87.00</strong></p>
-                <p class="carrot-line carrot-line--meta">Market cap: $148.2B</p>
+        <li class="search-suggestions-preview-item carrot carrot--stocks stocks-wrapper" data-index="stocks-1">
+            <div class="stock-item" data-stock-index="0">
+                <div class="carrot-tile carrot-tile--stocks carrot-tile--stocks-up" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stock-arrow-icon">
+                        <path d="M12 5v14M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="carrot-lines">
+                    <p class="carrot-line"><strong>UBER</strong> · Uber Technologies Inc</p>
+                    <p class="carrot-line"><span class="green-text">+2.18 (3.06%)</span> · $73.45 <span class="small-caps">USD</span> · NYSE</p>
+                </div>
             </div>
         </li>
-        <li class="search-suggestions-preview-item carrot">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
-            <div class="carrot-tile carrot-tile--stocks" aria-hidden="true">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="dollar-icon">
-                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z" fill="currentColor"/>
-                </svg>
+    `,
+
+    /**
+     * Stocks ETFs carrot
+     * Shows ETF stock information (VOO, QQQ, DIA)
+     * Colors: green for positive changes, red for negative changes, grey for no change
+     * Displayed horizontally as second suggestion item
+     */
+    stocksETFs: () => `
+        <li class="search-suggestions-preview-item carrot carrot--stocks stocks-wrapper" data-index="stocks-etfs-1">
+            <div class="stock-item" data-stock-index="0">
+                <div class="carrot-tile carrot-tile--stocks carrot-tile--stocks-down" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stock-arrow-icon">
+                        <path d="M12 19V5M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="carrot-lines">
+                    <p class="carrot-line"><strong>VOO</strong> · Vanguard S&P 500 ETF</p>
+                    <p class="carrot-line"><span class="red-text">-0.11%</span> · $559.44 <span class="small-caps">USD</span> · S&P 500</p>
+                </div>
             </div>
-            <div class="carrot-lines">
-                <p class="carrot-line">Related stocks</p>
-                <p class="carrot-line">LYFT <strong>$15.32</strong> <span class="red-text">-0.45 (2.85%)</span></p>
-                <p class="carrot-line carrot-line--meta">DASH <strong>$182.16</strong> <span class="green-text">+3.21 (1.79%)</span></p>
+            <div class="stock-item" data-stock-index="1">
+                <div class="carrot-tile carrot-tile--stocks carrot-tile--stocks-up" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stock-arrow-icon">
+                        <path d="M12 5v14M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="carrot-lines">
+                    <p class="carrot-line"><strong>QQQ</strong> · Invesco QQQ Trust</p>
+                    <p class="carrot-line"><span class="green-text">+1.53%</span> · $539.78 <span class="small-caps">USD</span> · NASDAQ</p>
+                </div>
+            </div>
+            <div class="stock-item" data-stock-index="2">
+                <div class="carrot-tile carrot-tile--stocks carrot-tile--stocks-neutral" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stock-arrow-icon">
+                        <path d="M7 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="carrot-lines">
+                    <p class="carrot-line"><strong>DIA</strong> · SPDR Dow Jones ETF</p>
+                    <p class="carrot-line">0% · $480.40 <span class="small-caps">USD</span> · Dow Jones</p>
+                </div>
             </div>
         </li>
     `,
