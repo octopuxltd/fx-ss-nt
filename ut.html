@@ -1400,8 +1400,8 @@
     <script src="config.js" onerror="console.warn('config.js not found. Using example config. Please create config.js from config.example.js'); window.API_CONFIG = window.API_CONFIG || { OPENROUTER_API_KEY: '', PEXELS_API_KEY: '' };"></script>
     <script>
         // AI API Configuration
-        // Default to OpenAI (Server 2) - users can switch via the dropdown
-        let AI_PROVIDER = 'openai';
+        // Load saved provider from localStorage, or default to OpenAI (Server 2)
+        let AI_PROVIDER = localStorage.getItem('ai_provider') || 'openai';
         const OPENROUTER_API_KEY = window.API_CONFIG?.OPENROUTER_API_KEY || '';
         const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
         const CLAUDE_API_KEY = window.API_CONFIG?.CLAUDE_API_KEY || '';
@@ -7842,6 +7842,14 @@
                 const newProvider = event.target.value;
                 AI_PROVIDER = newProvider;
                 console.log('[SERVER] Switched to:', AI_PROVIDER);
+                
+                // Save the provider selection to localStorage
+                try {
+                    localStorage.setItem('ai_provider', newProvider);
+                    console.log('[SERVER] Saved provider preference:', newProvider);
+                } catch (e) {
+                    console.error('[SERVER] Could not save provider preference:', e);
+                }
                 
                 // Clear cache when switching providers to force fresh results
                 try {
