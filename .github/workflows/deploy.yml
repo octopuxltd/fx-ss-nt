@@ -21,19 +21,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create config.js from secrets
+      - name: Prepare deployment directory
         run: |
-            cat > config.js << EOF
-            // API Configuration
-            // This file is generated during deployment from GitHub Secrets
-            
-            window.API_CONFIG = {
-                OPENROUTER_API_KEY: '${{ secrets.OPENROUTER_API_KEY }}',
-                CLAUDE_API_KEY: '${{ secrets.CLAUDE_API_KEY }}',
-                OPENAI_API_KEY: '${{ secrets.OPENAI_API_KEY }}',
-                PEXELS_API_KEY: '${{ secrets.PEXELS_API_KEY }}'
-            };
-            EOF
+          # Create a clean deployment directory
+          mkdir -p _deploy
+          
+          # Copy all files (rsync respects .gitignore by default)
+          # Use -L to follow symlinks, -r for recursive, -t to preserve times
+          cp -r . _deploy/
+          
+          # Remove git files from deploy directory
+          rm -rf _deploy/.git _deploy/.github
+          
+          # Now create config.js in the deploy directory
+          cat > _deploy/config.js << EOF
+          // API Configuration
+          // This file is generated during deployment from GitHub Secrets
+          
+          window.API_CONFIG = {
+              OPENROUTER_API_KEY: '${{ secrets.OPENROUTER_API_KEY }}',
+              CLAUDE_API_KEY: '${{ secrets.CLAUDE_API_KEY }}',
+              OPENAI_API_KEY: '${{ secrets.OPENAI_API_KEY }}',
+              PEXELS_API_KEY: '${{ secrets.PEXELS_API_KEY }}'
+          };
+          EOF
+          
+          echo "✓ Deployment directory prepared"
+          echo "✓ config.js created:"
+          ls -la _deploy/config.js
+          echo "Contents:"
+          cat _deploy/config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -41,7 +58,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_deploy'
 
       - name: Deploy to GitHub Pages
         id: deployment
