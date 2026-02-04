@@ -1452,6 +1452,73 @@
             }
         }
         
+        // Firefox suggestions cache functions
+        function getFirefoxCacheKey(query) {
+            return `firefox_suggestions_${query.toLowerCase().trim()}`;
+        }
+        
+        function getCachedFirefoxSuggestions(query) {
+            try {
+                const cacheKey = getFirefoxCacheKey(query);
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    // Check if cache is still valid (24 hours)
+                    const cacheAge = Date.now() - parsed.timestamp;
+                    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+                    if (cacheAge < maxAge) {
+                        console.log('[API-FIREFOX] Found cached Firefox suggestions:', parsed.selectedSuggestions ? parsed.selectedSuggestions.length : parsed.suggestions?.length, '| Count to show:', parsed.countToShow);
+                        // Return both selected suggestions (the ones actually shown) and count to show
+                        // Support both old format (suggestions array) and new format (selectedSuggestions array)
+                        return {
+                            selectedSuggestions: parsed.selectedSuggestions || parsed.suggestions,
+                            countToShow: parsed.countToShow || (parsed.selectedSuggestions ? parsed.selectedSuggestions.length : parsed.suggestions?.length || 0)
+                        };
+                    } else {
+                        console.log('[API-FIREFOX] Cache expired, removing old cache');
+                        localStorage.removeItem(cacheKey);
+                    }
+                }
+            } catch (error) {
+                console.error('[API-FIREFOX] Error reading from cache:', error);
+            }
+            return null;
+        }
+        
+        function cacheFirefoxSuggestions(query, selectedSuggestions, countToShow) {
+            try {
+                if (!selectedSuggestions || selectedSuggestions.length === 0) {
+                    return; // Don't cache empty results
+                }
+                const cacheKey = getFirefoxCacheKey(query);
+                const cacheData = {
+                    selectedSuggestions: selectedSuggestions, // Cache the actual suggestions that were shown
+                    countToShow: countToShow || selectedSuggestions.length,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+                console.log('[API-FIREFOX] Cached', selectedSuggestions.length, 'Firefox suggestions for:', query, '| Count to show:', countToShow);
+            } catch (error) {
+                console.error('[API-FIREFOX] Error caching Firefox suggestions:', error);
+                // localStorage might be full, try to clear old entries
+                try {
+                    const keysToRemove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith('firefox_suggestions_')) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                    // Remove oldest entries first (simple approach: remove first 10)
+                    keysToRemove.slice(0, 10).forEach(key => localStorage.removeItem(key));
+                    // Retry caching
+                    localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+                } catch (e) {
+                    console.error('[API-FIREFOX] Could not clear cache:', e);
+                }
+            }
+        }
+        
         // Helper function to make a search suggestions request attempt
         async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0) {
             console.log(`[API-SEARCH] ===== Starting search suggestions attempt ${attemptNumber} for query: "${query}" =====`);
@@ -1692,8 +1759,16 @@
             
             // Check cache first (only on first attempt, not retries)
             let cachedSuggestions = null;
+            let cachedFirefoxData = null;
+            let cachedSelectedFirefoxSuggestions = null;
+            let cachedFirefoxCountToShow = null; // Declare outside if block so it's accessible throughout function
             if (retryCount === 0) {
                 cachedSuggestions = getCachedSuggestions(query);
+                cachedFirefoxData = getCachedFirefoxSuggestions(query);
+                if (cachedFirefoxData) {
+                    cachedSelectedFirefoxSuggestions = cachedFirefoxData.selectedSuggestions;
+                    cachedFirefoxCountToShow = cachedFirefoxData.countToShow;
+                }
                 if (cachedSuggestions && cachedSuggestions.length > 0) {
                     console.log('[API] Found', cachedSuggestions.length, 'cached suggestions');
                     // Note: We still fetch Firefox suggestions even if we have cached search suggestions
@@ -1703,11 +1778,17 @@
                         console.log('[API] Only', cachedSuggestions.length, 'cached suggestions, will fetch from AI to fill remaining slots');
                     }
                 }
+                if (cachedSelectedFirefoxSuggestions && cachedSelectedFirefoxSuggestions.length > 0) {
+                    console.log('[API-FIREFOX] Found', cachedSelectedFirefoxSuggestions.length, 'cached Firefox suggestions | Count to show:', cachedFirefoxCountToShow);
+                }
             }
             
-            // Make both requests concurrently (always fetch Firefox suggestions)
+            // Make both requests concurrently (always fetch Firefox suggestions, unless we have cached ones)
             const searchPromise = fetchSearchSuggestions(query, maxRetries);
-            const firefoxPromise = fetchFirefoxSuggestions(query, maxRetries);
+            // If we have cached selected Firefox suggestions, skip the API call entirely
+            const firefoxPromise = cachedSelectedFirefoxSuggestions && cachedSelectedFirefoxSuggestions.length > 0
+                ? Promise.resolve(cachedSelectedFirefoxSuggestions)
+                : fetchFirefoxSuggestions(query, maxRetries);
             
             try {
                 const [searchResults, firefoxResults] = await Promise.allSettled([searchPromise, firefoxPromise]);
@@ -1732,6 +1813,7 @@
                     if (firefoxSuggestions.length === 0) {
                         console.warn('[API] Firefox suggestions fulfilled but empty array received');
                     }
+                    // Note: Caching is now handled in the processing section where we determine countToShow
                 } else {
                     console.error('[API] Firefox suggestions failed:', firefoxResults.reason);
                     firefoxSuggestions = []; // Ensure it's an empty array, not undefined
@@ -1767,48 +1849,83 @@
                 let selectedFirefoxSuggestions = [];
                 if (firefoxSuggestions && firefoxSuggestions.length > 0 && !isWinterOlympicsActive) {
                     console.log('[API] Processing', firefoxSuggestions.length, 'Firefox suggestions');
-                    const validFirefoxSuggestions = firefoxSuggestions
-                        .filter(item => {
-                            if (typeof item === 'object' && item.title) {
-                                return item.title && item.title.length > 0;
-                            }
-                            return false;
-                        })
-                        .slice(0, 4);
                     
-                    console.log('[API] Valid Firefox suggestions:', validFirefoxSuggestions.length);
-                    
-                    if (validFirefoxSuggestions.length > 0) {
-                        const numToReplace = Math.floor(Math.random() * validFirefoxSuggestions.length) + 1; // 1-4
-                        selectedFirefoxSuggestions = validFirefoxSuggestions.slice(0, numToReplace);
+                    // Check if we have cached selected suggestions (the exact ones shown before)
+                    if (cachedSelectedFirefoxSuggestions && cachedSelectedFirefoxSuggestions.length > 0) {
+                        // Use cached selected suggestions directly - these are the exact ones that were shown before
+                        selectedFirefoxSuggestions = cachedSelectedFirefoxSuggestions;
+                        const numToReplace = cachedFirefoxCountToShow || selectedFirefoxSuggestions.length;
+                        console.log('[API] Using cached Firefox suggestions directly:', selectedFirefoxSuggestions.length, '| Count to show:', numToReplace);
                         
                         // Extract titles for replacing in suggestions list
                         const firefoxTitles = selectedFirefoxSuggestions.map(item => item.title);
                         
-                        console.log(`[API] Replacing last ${numToReplace} suggestions with Firefox titles:`, firefoxTitles);
+                        console.log(`[API] Replacing last ${numToReplace} suggestions with cached Firefox titles:`, firefoxTitles);
                         console.log(`[API] Current finalSuggestions before replacement:`, finalSuggestions);
                         
                         // Replace the last N suggestions with Firefox suggestion titles
-                        // Ensure we don't try to replace more than we have, but always add Firefox suggestions
                         const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
                         const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
                         
-                        // If we have no suggestions to keep, just use Firefox suggestions
-                        // Otherwise, keep some and replace the rest with Firefox suggestions
                         if (finalSuggestions.length === 0) {
-                            // No existing suggestions, just use Firefox suggestions
                             finalSuggestions = firefoxTitles.slice(0, 9);
                         } else {
                             finalSuggestions = [
                                 ...finalSuggestions.slice(0, keepCount),
                                 ...firefoxTitles
-                            ].slice(0, 9); // Ensure we don't exceed 9
+                            ].slice(0, 9);
                         }
                         
-                        console.log(`[API] Replaced last ${actualNumToReplace} suggestions with ${selectedFirefoxSuggestions.length} Firefox suggestions:`, selectedFirefoxSuggestions);
-                        console.log(`[API] Final suggestions after replacement:`, finalSuggestions);
+                        console.log(`[API] Replaced last ${actualNumToReplace} suggestions with ${selectedFirefoxSuggestions.length} cached Firefox suggestions`);
                     } else {
-                        console.log('[API] No valid Firefox suggestions to replace');
+                        // No cached suggestions - fetch and select new ones
+                        const validFirefoxSuggestions = firefoxSuggestions
+                            .filter(item => {
+                                if (typeof item === 'object' && item.title) {
+                                    return item.title && item.title.length > 0;
+                                }
+                                return false;
+                            })
+                            .slice(0, 4);
+                        
+                        console.log('[API] Valid Firefox suggestions:', validFirefoxSuggestions.length);
+                        
+                        if (validFirefoxSuggestions.length > 0) {
+                            // Generate new count: minimum 2, maximum available (up to 4)
+                            const maxCount = Math.min(validFirefoxSuggestions.length, 4);
+                            const minCount = Math.min(2, maxCount); // At least 2, but not more than available
+                            const numToReplace = minCount === maxCount ? maxCount : Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount; // 2-4 (or 2-maxCount if less than 4)
+                            console.log('[API] Generated new Firefox count to show:', numToReplace, '(min:', minCount, 'max:', maxCount, ')');
+                            
+                            selectedFirefoxSuggestions = validFirefoxSuggestions.slice(0, numToReplace);
+                            
+                            // Extract titles for replacing in suggestions list
+                            const firefoxTitles = selectedFirefoxSuggestions.map(item => item.title);
+                            
+                            console.log(`[API] Replacing last ${numToReplace} suggestions with Firefox titles:`, firefoxTitles);
+                            console.log(`[API] Current finalSuggestions before replacement:`, finalSuggestions);
+                            
+                            // Replace the last N suggestions with Firefox suggestion titles
+                            const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
+                            const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
+                            
+                            if (finalSuggestions.length === 0) {
+                                finalSuggestions = firefoxTitles.slice(0, 9);
+                            } else {
+                                finalSuggestions = [
+                                    ...finalSuggestions.slice(0, keepCount),
+                                    ...firefoxTitles
+                                ].slice(0, 9);
+                            }
+                            
+                            console.log(`[API] Replaced last ${actualNumToReplace} suggestions with ${selectedFirefoxSuggestions.length} Firefox suggestions:`, selectedFirefoxSuggestions);
+                            console.log(`[API] Final suggestions after replacement:`, finalSuggestions);
+                            
+                            // Cache the selected Firefox suggestions (the exact ones shown) with the count
+                            cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, numToReplace);
+                        } else {
+                            console.log('[API] No valid Firefox suggestions to replace');
+                        }
                     }
                 } else {
                     console.log('[API] No Firefox suggestions received');
@@ -2797,9 +2914,13 @@
         const suggestionsList = document.querySelector('.search-suggestions-preview-list:first-child');
         
         let currentState = 0; // Track current state
+        let lastCarrotContext = null;
+        let suspendedCarrotContext = null;
         let selectedSuggestionIndex = -1; // Track selected suggestion index (only one at a time)
         let suggestionsJustUpdated = false; // Track if suggestions were just updated to prevent stale hover
         let isKeyboardNavigating = false; // Track if user is using keyboard navigation
+        let currentDisplayedSuggestions = []; // Track currently displayed suggestions for incremental filtering
+        let currentFirefoxSuggestions = []; // Track current Firefox suggestions (full objects) for incremental filtering
         
         // Fixed skeleton widths for each row position (1-10)
         // Range: 60-160px (shortest is now 60px instead of 30px, longest stays at 160px)
@@ -3543,6 +3664,261 @@
             skeletons.forEach(skeleton => skeleton.remove());
         }
         
+        // Filter existing suggestions based on next character typed
+        // Helper function to highlight matching characters in text
+        function highlightMatchingText(text, searchValue, isTypedText, isGmailSuggestion) {
+            if (!searchValue || isTypedText || isGmailSuggestion) {
+                return text;
+            }
+            
+            const searchNoSpaces = searchValue.replace(/\s/g, '');
+            const textLower = text.toLowerCase();
+            const textNoSpaces = textLower.replace(/\s/g, '');
+            const matchIndex = textNoSpaces.indexOf(searchNoSpaces);
+            
+            if (matchIndex === -1) {
+                return text;
+            }
+            
+            // Find the actual position in the original text
+            let charCount = 0;
+            let startIndex = -1;
+            let endIndex = -1;
+            
+            for (let i = 0; i < text.length; i++) {
+                if (text[i] !== ' ') {
+                    if (charCount === matchIndex) {
+                        startIndex = i;
+                    }
+                    if (charCount === matchIndex + searchNoSpaces.length - 1) {
+                        endIndex = i + 1;
+                        break;
+                    }
+                    charCount++;
+                }
+            }
+            
+            if (startIndex !== -1 && endIndex !== -1) {
+                const before = text.substring(0, startIndex);
+                const match = text.substring(startIndex, endIndex);
+                const after = text.substring(endIndex);
+                return `${before}<strong>${match}</strong>${after}`;
+            }
+            
+            return text;
+        }
+        
+        function filterExistingSuggestions(query) {
+            if (!suggestionsList || currentDisplayedSuggestions.length === 0) {
+                return [];
+            }
+            
+            const queryLower = query.toLowerCase();
+            const queryLength = queryLower.length;
+            
+            console.log('[FILTER] Filtering', currentDisplayedSuggestions.length, 'suggestions for query:', queryLower);
+            
+            // Filter suggestions that match the query
+            const filteredSuggestions = currentDisplayedSuggestions.filter(suggestion => {
+                const suggestionLower = suggestion.toLowerCase();
+                // Check if suggestion has enough characters and matches at the next position
+                if (suggestionLower.length < queryLength) {
+                    return false;
+                }
+                // Check if suggestion starts with the query
+                return suggestionLower.startsWith(queryLower);
+            });
+            
+            console.log('[FILTER] Filtered to', filteredSuggestions.length, 'matching suggestions');
+            
+            // Rebuild the list: typed text first, then matching suggestions, then skeletons, then Firefox Suggest items
+            if (suggestionsList) {
+                // Get current search value to identify typed text
+                const searchValueTrimmed = searchBoxElement ? searchBoxElement.value.trim() : '';
+                const searchValueLower = searchValueTrimmed.toLowerCase();
+                console.log('[FILTER] Search value trimmed:', searchValueTrimmed, '| Lower:', searchValueLower);
+                
+                // Get all current items (including headings)
+                const allItems = Array.from(suggestionsList.querySelectorAll('.search-suggestions-preview-item'));
+                console.log('[FILTER] Total items found:', allItems.length);
+                const headings = allItems.filter(item => item.classList.contains('search-suggestions-preview-heading'));
+                console.log('[FILTER] Headings found:', headings.length);
+                const firefoxSuggestHeading = headings.find(h => h.querySelector('.firefox-suggest-heading'));
+                const otherHeadings = headings.filter(h => !h.querySelector('.firefox-suggest-heading'));
+                console.log('[FILTER] Firefox Suggest heading:', !!firefoxSuggestHeading, '| Other headings:', otherHeadings.length);
+                const suggestionItems = allItems.filter(item => !item.classList.contains('skeleton') && !item.classList.contains('search-suggestions-preview-heading'));
+                console.log('[FILTER] Suggestion items (non-skeleton, non-heading):', suggestionItems.length);
+                
+                // Separate Firefox Suggest items from regular search suggestions
+                const firefoxSuggestItems = suggestionItems.filter(item => item.classList.contains('firefox-suggest-item'));
+                const regularSuggestionItems = suggestionItems.filter(item => !item.classList.contains('firefox-suggest-item'));
+                console.log('[FILTER] Firefox Suggest items:', firefoxSuggestItems.length, '| Regular items:', regularSuggestionItems.length);
+                
+                // Identify and separate typed text item (first item that matches the search value exactly)
+                let typedTextItem = null;
+                const matchingRegularItems = [];
+                const nonMatchingRegularItems = [];
+                
+                regularSuggestionItems.forEach((item, index) => {
+                    const itemText = item.querySelector('.label')?.textContent?.trim();
+                    const dataIndex = item.getAttribute('data-index');
+                    console.log('[FILTER] Item', index, '| Text:', itemText, '| Data-index:', dataIndex);
+                    if (itemText) {
+                        const itemLower = itemText.toLowerCase();
+                        // Check if this is the typed text (exact match, usually first item with data-index="0")
+                        if (searchValueTrimmed && itemLower === searchValueLower) {
+                            console.log('[FILTER] ✓ Found typed text item:', itemText);
+                            typedTextItem = item;
+                        } else if (itemLower.length >= queryLength && itemLower.startsWith(queryLower)) {
+                            console.log('[FILTER] ✓ Matching item:', itemText);
+                            matchingRegularItems.push(item);
+                        } else {
+                            console.log('[FILTER] ✗ Non-matching item:', itemText);
+                            nonMatchingRegularItems.push(item);
+                        }
+                    }
+                });
+                
+                console.log('[FILTER] Typed text item found:', !!typedTextItem);
+                console.log('[FILTER] Matching regular items:', matchingRegularItems.length);
+                console.log('[FILTER] Non-matching regular items:', nonMatchingRegularItems.length);
+                
+                // Filter Firefox Suggest items that match the query
+                const matchingFirefoxItems = [];
+                firefoxSuggestItems.forEach(item => {
+                    const itemText = item.querySelector('.label')?.textContent?.trim();
+                    if (itemText) {
+                        const itemLower = itemText.toLowerCase();
+                        if (itemLower.length >= queryLength && itemLower.startsWith(queryLower)) {
+                            matchingFirefoxItems.push(item);
+                        }
+                    }
+                });
+                
+                // Remove all items to rebuild
+                allItems.forEach(item => item.remove());
+                
+                // Calculate how many skeletons we need (up to 9 total regular suggestions, minus typed text and matching regular items)
+                const itemsToShow = (typedTextItem ? 1 : 0) + matchingRegularItems.length;
+                const skeletonCount = Math.max(0, 9 - itemsToShow);
+                console.log('[FILTER] Items to show:', itemsToShow, '| Skeleton count:', skeletonCount);
+                
+                // Rebuild list in correct order:
+                // 1. Other headings (like "Your recent searches")
+                console.log('[FILTER] Adding', otherHeadings.length, 'other headings');
+                otherHeadings.forEach(heading => {
+                    suggestionsList.appendChild(heading);
+                });
+                
+                // 2. Typed text item (always first, create if it doesn't exist)
+                let finalItemsToShow = itemsToShow;
+                let finalSkeletonCount = skeletonCount;
+                
+                if (typedTextItem) {
+                    console.log('[FILTER] Adding existing typed text item:', typedTextItem.querySelector('.label')?.textContent?.trim());
+                    // Ensure typed text item has is-selected class and Search with Google hint is visible
+                    typedTextItem.classList.add('is-selected');
+                    const hintElement = typedTextItem.querySelector('.search-hint:not(.firefox-url-display)');
+                    if (hintElement) {
+                        hintElement.style.display = 'inline';
+                        console.log('[FILTER] Set hintElement display to inline for preserved typed text item');
+                    } else {
+                        // Add the hint if it doesn't exist
+                        const hintHtml = `<span class="search-hint" style="display: inline;"><span class="search-hint-interpunct">&nbsp;•</span><span class="search-hint-text">Search with Google</span></span>`;
+                        typedTextItem.insertAdjacentHTML('beforeend', hintHtml);
+                        console.log('[FILTER] Added Search with Google hint to preserved typed text item');
+                    }
+                    suggestionsList.appendChild(typedTextItem);
+                } else if (searchValueTrimmed) {
+                    // Create typed text item if it doesn't exist
+                    console.log('[FILTER] Creating new typed text item for:', searchValueTrimmed);
+                    const isInHistory = isInSearchHistory(searchValueTrimmed);
+                    const typedTextIcon = isInHistory ? 'icons/clock.svg' : 'icons/search.svg';
+                    const typedTextHtml = `
+                        <li class="search-suggestions-preview-item is-selected" data-index="0">
+                            <img src="${typedTextIcon}" alt="" aria-hidden="true" class="suggestion-icon">
+                            <span class="label">${searchValueTrimmed}</span>
+                            <span class="search-hint" style="display: inline;"><span class="search-hint-interpunct">&nbsp;•</span><span class="search-hint-text">Search with Google</span></span>
+                        </li>
+                    `;
+                    suggestionsList.insertAdjacentHTML('beforeend', typedTextHtml);
+                    console.log('[FILTER] Created typed text item with is-selected class and Search with Google hint');
+                    // Update counts to account for the typed text item we just added
+                    finalItemsToShow = itemsToShow + 1;
+                    finalSkeletonCount = Math.max(0, 9 - finalItemsToShow);
+                } else {
+                    console.log('[FILTER] ⚠️ No typed text item found and no search value!');
+                }
+                
+                // 3. Matching regular search suggestions
+                console.log('[FILTER] Adding', matchingRegularItems.length, 'matching regular items');
+                matchingRegularItems.forEach(item => {
+                    // Update highlighting for matching characters
+                    const labelElement = item.querySelector('.label');
+                    if (labelElement) {
+                        const originalText = labelElement.textContent.trim();
+                        const isGmailSuggestion = item.classList.contains('gmail-suggestion');
+                        const highlightedText = highlightMatchingText(originalText, searchValueTrimmed, false, isGmailSuggestion);
+                        labelElement.innerHTML = highlightedText;
+                    }
+                    suggestionsList.appendChild(item);
+                });
+                
+                // 4. Skeletons (to fill up to 9 regular suggestions)
+                if (finalSkeletonCount > 0) {
+                    const skeletonHTML = Array.from({ length: finalSkeletonCount }, (_, i) => {
+                        const skeletonRowIndex = finalItemsToShow + i;
+                        const width = skeletonWidths[skeletonRowIndex] || skeletonWidths[skeletonRowIndex % skeletonWidths.length] || 80;
+                        return `
+                            <li class="search-suggestions-preview-item skeleton" data-index="-1">
+                                <div class="suggestion-icon" style="background-color: #E5E7EB; width: 16px; height: 16px; border-radius: 2px; opacity: 0.6; display: block; flex-shrink: 0;"></div>
+                                <span class="skeleton-text" style="width: ${width}px; height: 14px; background-color: #E5E7EB; border-radius: 4px; opacity: 0.6; display: block;"></span>
+                            </li>
+                        `;
+                    }).join('');
+                    suggestionsList.insertAdjacentHTML('beforeend', skeletonHTML);
+                }
+                
+                // 5. Firefox Suggest heading (if there are Firefox Suggest items)
+                if (matchingFirefoxItems.length > 0 && firefoxSuggestHeading) {
+                    suggestionsList.appendChild(firefoxSuggestHeading);
+                }
+                
+                // 6. Matching Firefox Suggest items (always at the bottom)
+                matchingFirefoxItems.forEach(item => {
+                    suggestionsList.appendChild(item);
+                });
+                
+                // Preserve Firefox suggestions that match the query
+                // Get Firefox suggestions from the DOM items we kept
+                const preservedFirefoxSuggestions = [];
+                matchingFirefoxItems.forEach(item => {
+                    const title = item.getAttribute('data-firefox-title');
+                    const url = item.getAttribute('data-firefox-url');
+                    const description = item.getAttribute('data-firefox-description');
+                    if (title) {
+                        preservedFirefoxSuggestions.push({
+                            title: title,
+                            url: url || '',
+                            description: description || ''
+                        });
+                    }
+                });
+                
+                // Update current Firefox suggestions with preserved ones (even if empty, to clear old ones)
+                currentFirefoxSuggestions = preservedFirefoxSuggestions;
+                console.log('[FILTER] Preserved', preservedFirefoxSuggestions.length, 'Firefox suggestions that match query');
+            } else {
+                // No suggestionsList, clear Firefox suggestions
+                currentFirefoxSuggestions = [];
+            }
+            
+            // Update current displayed suggestions
+            currentDisplayedSuggestions = filteredSuggestions;
+            
+            return filteredSuggestions;
+        }
+        
         function updateSuggestions(suggestions) {
             console.log('[UPDATE] ===== updateSuggestions CALLED =====');
             console.log('[UPDATE] Suggestions array:', suggestions);
@@ -3566,6 +3942,28 @@
             
             // Remove any existing skeletons when updating with real suggestions
             removeSkeletons();
+            
+            // Get currently displayed suggestions from DOM to preserve their order
+            const currentlyDisplayedOrder = [];
+            if (suggestionsList) {
+                const displayedItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item:not(.skeleton):not(.search-suggestions-preview-heading):not(.firefox-suggest-item)');
+                displayedItems.forEach(item => {
+                    const itemText = item.querySelector('.label')?.textContent?.trim();
+                    if (itemText) {
+                        currentlyDisplayedOrder.push(itemText);
+                    }
+                });
+            }
+            console.log('[UPDATE] Currently displayed order (to preserve):', currentlyDisplayedOrder);
+            
+            // Update current displayed suggestions
+            currentDisplayedSuggestions = Array.isArray(suggestions) ? [...suggestions] : [];
+            
+            // Update current Firefox suggestions if they're provided
+            if (suggestions && suggestions._firefoxSuggestions) {
+                currentFirefoxSuggestions = suggestions._firefoxSuggestions;
+                console.log('[UPDATE] Stored', currentFirefoxSuggestions.length, 'Firefox suggestions');
+            }
             
             // Check if these are the default suggestions - if so, ensure they're all in history
             const allDefaultSuggestions = ['hoka', '13 in macbook air', 'Coffee machines for sale', 'taylor swift', 'coffee grinder', 'gmail'];
@@ -3659,7 +4057,28 @@
                 });
                 
                 // Combine: history first, then non-history
-                const sortedSuggestions = [...sortedHistory, ...sortedNonHistory];
+                let sortedSuggestions = [...sortedHistory, ...sortedNonHistory];
+                
+                // Preserve the order of already-displayed suggestions
+                // If we have currently displayed items, maintain their relative order
+                if (currentlyDisplayedOrder.length > 0) {
+                    const preservedOrder = [];
+                    const remainingSuggestions = [...sortedSuggestions];
+                    
+                    // First, add items that were already displayed, in their original order
+                    currentlyDisplayedOrder.forEach(displayedText => {
+                        const displayedLower = displayedText.toLowerCase();
+                        const foundIndex = remainingSuggestions.findIndex(s => s.toLowerCase() === displayedLower);
+                        if (foundIndex >= 0) {
+                            preservedOrder.push(remainingSuggestions[foundIndex]);
+                            remainingSuggestions.splice(foundIndex, 1);
+                        }
+                    });
+                    
+                    // Combine: preserved order first, then new sorted suggestions
+                    sortedSuggestions = [...preservedOrder, ...remainingSuggestions];
+                    console.log('[UPDATE] Preserved order of', preservedOrder.length, 'already-displayed suggestions');
+                }
                 
                 console.log('Sorted suggestions:', sortedSuggestions.length);
                 
@@ -3677,6 +4096,7 @@
                 const suggestionsPreview = document.querySelector('.search-suggestions-preview');
                 const isWinterOlympicsActive = suggestionsPreview && suggestionsPreview.classList.contains('winter-olympics-active');
                 const firefoxSuggestions = (!isWinterOlympicsActive && suggestions._firefoxSuggestions) ? suggestions._firefoxSuggestions : [];
+                console.log('[UPDATE] Firefox suggestions from _firefoxSuggestions:', firefoxSuggestions.length, '| isWinterOlympicsActive:', isWinterOlympicsActive);
                 // Extract titles for matching (handle both object and string formats)
                 const firefoxSuggestionsLower = firefoxSuggestions.map(fs => {
                     if (typeof fs === 'string') {
@@ -3730,7 +4150,15 @@
                 
                 const htmlString = finalSuggestionsToShow.map((text, index) => {
                 // First suggestion (typed text) - check if it's in history
-                const isTypedText = index === 0 && searchValueTrimmed && text === searchValueTrimmed;
+                // Also check if text matches searchValueTrimmed (case-insensitive) to handle filtered suggestions
+                const textMatchesTyped = searchValueTrimmed && text.toLowerCase() === searchValueTrimmed.toLowerCase();
+                const isTypedText = index === 0 && searchValueTrimmed && (text === searchValueTrimmed || textMatchesTyped);
+                console.log('[UPDATE] Item', index, '| Text:', text, '| searchValueTrimmed:', searchValueTrimmed, '| isTypedText:', isTypedText);
+                
+                // Log whether this typed text item should be selected and show "Search with Google"
+                if (isTypedText) {
+                    console.log('[UPDATE] Typed text item detected - should be selected:', true, '| Should show Search with Google:', true);
+                }
                 
                 // Show "Your recent searches" heading after gmail if showing default suggestions
                 let headingHtml = '';
@@ -3758,6 +4186,8 @@
                     </li>
                     `;
                 }
+                
+                const isSwitchToTab = isFirefoxSuggest && switchToTabTitle && textLower === switchToTabTitle.toLowerCase();
                 
                 // Check if this suggestion was randomly assigned clock icon (for new additions)
                 const isForcedClock = suggestionsToMarkWithClock.some(s => s.toLowerCase() === text.toLowerCase());
@@ -3788,40 +4218,10 @@
                 
                 // Bold matching characters (ignore spaces in search value)
                 // Skip bolding for the typed text itself (first item) and gmail suggestion
-                let displayText = titleCaseText;
-                if (searchValue && !isTypedText && !isGmailSuggestion) {
-                    const searchNoSpaces = searchValue.replace(/\s/g, '');
-                    const textToSearch = isFirefoxSuggest ? titleCaseText : text;
-                    const textLower = textToSearch.toLowerCase();
-                    const textNoSpaces = textLower.replace(/\s/g, '');
-                    const matchIndex = textNoSpaces.indexOf(searchNoSpaces);
-                    
-                    if (matchIndex !== -1) {
-                        // Find the actual position in the original text
-                        let charCount = 0;
-                        let startIndex = -1;
-                        let endIndex = -1;
-                        
-                        for (let i = 0; i < textToSearch.length; i++) {
-                            if (textToSearch[i] !== ' ') {
-                                if (charCount === matchIndex) {
-                                    startIndex = i;
-                                }
-                                if (charCount === matchIndex + searchNoSpaces.length - 1) {
-                                    endIndex = i + 1;
-                                    break;
-                                }
-                                charCount++;
-                            }
-                        }
-                        
-                        if (startIndex !== -1 && endIndex !== -1) {
-                            const before = textToSearch.substring(0, startIndex);
-                            const match = textToSearch.substring(startIndex, endIndex);
-                            const after = textToSearch.substring(endIndex);
-                            displayText = `${before}<strong>${match}</strong>${after}`;
-                        }
-                    }
+                const textToSearch = isFirefoxSuggest || isGmailSuggestion ? titleCaseText : text;
+                let displayText = highlightMatchingText(textToSearch, searchValue, isTypedText, isGmailSuggestion);
+                if (isGmailSuggestion) {
+                    displayText = titleCaseText;
                 }
                 
                 const firefoxDataAttrs = isFirefoxSuggest && firefoxSuggestData 
@@ -3835,10 +4235,18 @@
                     firefoxImageUrl = firefoxImageCache.get(cacheKey) || '';
                 }
                 
+                // For typed text, add is-selected class to keep it highlighted
+                const typedTextSelectedClass = isTypedText ? ' is-selected' : '';
+                console.log('[UPDATE] Item', index, '| isTypedText:', isTypedText, '| typedTextSelectedClass:', typedTextSelectedClass);
+                
+                const tabIconSvg = '<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>';
+                const firefoxSuggestIconSvg = '<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+
                 const itemHtml = `
-                    <li class="search-suggestions-preview-item ${isFirefoxSuggest ? 'firefox-suggest-item' : ''} ${isGmailSuggestion ? 'gmail-suggestion' : ''}" data-index="${index}" ${firefoxDataAttrs}>
+                    <li class="search-suggestions-preview-item${typedTextSelectedClass} ${isFirefoxSuggest ? 'firefox-suggest-item' : ''} ${isGmailSuggestion ? 'gmail-suggestion' : ''}" data-index="${index}" ${firefoxDataAttrs}>
                         ${isFirefoxSuggest 
-                            ? `<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>${firefoxImageUrl 
+                            ? `${isSwitchToTab ? tabIconSvg : firefoxSuggestIconSvg}
+                                ${firefoxImageUrl 
                                 ? `<img src="${firefoxImageUrl}" alt="" aria-hidden="true" class="suggestion-icon firefox-suggest-image-icon" onload="this.classList.add('loaded');">`
                                 : `<div class="suggestion-icon firefox-suggest-image-icon firefox-image-placeholder" aria-hidden="true"></div>`}`
                             : `<img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon ${isGmailSuggestion ? 'gmail-icon' : ''}">`
@@ -3848,7 +4256,7 @@
                             ? (textLower === switchToTabTitle?.toLowerCase()
                                 ? `<span class="search-hint firefox-switch-tab-display"><span class="firefox-switch-tab-interpunct">&nbsp;•&nbsp;&nbsp;&nbsp;</span><button class="firefox-switch-tab-button" type="button"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>Switch to tab</button></span>`
                                 : `<span class="search-hint firefox-url-display">&nbsp;•&nbsp;&nbsp;&nbsp;<span class="firefox-url-text">${(firefoxSuggestData.url || '').replace(/^www\./i, '').toLowerCase()}</span></span>`)
-                            : !isFirefoxSuggest ? `<span class="search-hint" style="display: none;"><span class="search-hint-interpunct">&nbsp;•</span><span class="search-hint-text">${isGmailSuggestion ? 'Your top visited site' : 'Search with Google'}</span></span>` : ''
+                            : !isFirefoxSuggest ? `<span class="search-hint" style="display: ${isTypedText ? 'inline' : 'none'};"><span class="search-hint-interpunct">&nbsp;•</span><span class="search-hint-text">${isGmailSuggestion ? 'Your top visited site' : 'Search with Google'}</span></span>` : ''
                         }
                         ${!isTypedText && !isFirefoxSuggest && (icon === 'icons/clock.svg' || isInHistory || isForcedClock) ? `
                         <div class="suggestion-actions">
@@ -3931,6 +4339,77 @@
                     } else {
                         finalHtml = htmlString + sportsCarrotHtml;
                     }
+                }
+                
+                // Add Firefox suggestions after regular suggestions (if they exist and aren't already in the list)
+                if (firefoxSuggestions && firefoxSuggestions.length > 0 && !isDefaultSuggestions) {
+                    console.log('[UPDATE] Adding Firefox suggestions to HTML. Count:', firefoxSuggestions.length);
+                    // Check if Firefox Suggest heading has been shown
+                    let firefoxHeadingAdded = false;
+                    
+                    firefoxSuggestions.forEach((fs, fsIndex) => {
+                        const fsTitle = typeof fs === 'string' ? fs : (fs.title || '');
+                        const fsTitleLower = fsTitle.toLowerCase();
+                        const fsData = typeof fs === 'object' ? fs : { title: fs, url: '', description: '' };
+                        
+                        // Check if this Firefox suggestion is already in the regular list
+                        const alreadyInList = finalSuggestionsToShow.some(s => s.toLowerCase() === fsTitleLower);
+                        if (alreadyInList) {
+                            console.log('[UPDATE] Firefox suggestion already in regular list, skipping:', fsTitle);
+                            return;
+                        }
+                        
+                        // Add Firefox Suggest heading before the first Firefox suggestion
+                        if (!firefoxHeadingAdded && !firefoxSuggestHeadingShown) {
+                            firefoxHeadingAdded = true;
+                            const headingHtml = `
+                                <li class="search-suggestions-preview-item search-suggestions-preview-heading" data-index="-1">
+                                    <span class="firefox-suggest-heading">Firefox Suggest</span>
+                                </li>
+                            `;
+                            finalHtml += headingHtml;
+                            console.log('[UPDATE] Added Firefox Suggest heading');
+                        }
+                        
+                        // Render the Firefox suggestion
+                        const fsLower = fsTitleLower;
+                        const switchToTabTitle = firefoxSuggestionsList.length > 0 
+                            ? firefoxSuggestionsList[Math.floor(Math.random() * firefoxSuggestionsList.length)] 
+                            : null;
+                        const isSwitchToTab = switchToTabTitle && fsLower === switchToTabTitle.toLowerCase();
+                        
+                        // Get cached image URL
+                        let firefoxImageUrl = '';
+                        if (fsData.title) {
+                            const cacheKey = fsData.title.toLowerCase();
+                            firefoxImageUrl = firefoxImageCache.get(cacheKey) || '';
+                        }
+                        
+                        const firefoxDataAttrs = `data-firefox-title="${(fsData.title || '').replace(/"/g, '&quot;')}" data-firefox-description="${(fsData.description || '').replace(/"/g, '&quot;')}" data-firefox-url="${(fsData.url || '').replace(/"/g, '&quot;')}"`;
+                        
+                        const tabIconSvg = '<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>';
+                        const firefoxSuggestIconSvg = '<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+
+                        const firefoxItemHtml = `
+                            <li class="search-suggestions-preview-item firefox-suggest-item" data-index="${finalSuggestionsToShow.length + fsIndex}" ${firefoxDataAttrs}>
+                                ${isSwitchToTab ? tabIconSvg : firefoxSuggestIconSvg}
+                                ${firefoxImageUrl 
+                            ? `<img src="${firefoxImageUrl}" alt="" aria-hidden="true" class="suggestion-icon firefox-suggest-image-icon" onload="this.classList.add('loaded');">`
+                            : `<div class="suggestion-icon firefox-suggest-image-icon firefox-image-placeholder" aria-hidden="true"></div>`}
+                                <span class="label">${fsTitle.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}</span>
+                                ${fsData.url 
+                                    ? (isSwitchToTab
+                                        ? `<span class="search-hint firefox-switch-tab-display"><span class="firefox-switch-tab-interpunct">&nbsp;•&nbsp;&nbsp;&nbsp;</span><button class="firefox-switch-tab-button" type="button"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>Switch to tab</button></span>`
+                                        : `<span class="search-hint firefox-url-display">&nbsp;•&nbsp;&nbsp;&nbsp;<span class="firefox-url-text">${(fsData.url || '').replace(/^www\./i, '').toLowerCase()}</span></span>`)
+                                    : ''
+                                }
+                            </li>
+                        `;
+                        finalHtml += firefoxItemHtml;
+                        console.log('[UPDATE] Added Firefox suggestion to HTML:', fsTitle);
+                    });
+                } else {
+                    console.log('[UPDATE] No Firefox suggestions to add. firefoxSuggestions:', firefoxSuggestions, '| isDefaultSuggestions:', isDefaultSuggestions);
                 }
                 
                 console.log('Generated HTML length:', finalHtml.length);
@@ -4040,10 +4519,24 @@
             // Set first suggestion as selected by default only if there's text typed
             const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
             const hasTypedText = searchBoxElement && searchBoxElement.value.trim().length > 0;
+            console.log('[UPDATE] Setting selected suggestion | hasTypedText:', hasTypedText, '| suggestionItems.length:', suggestionItems.length);
             if (suggestionItems.length > 0 && hasTypedText) {
                 selectedSuggestionIndex = 0;
+                console.log('[UPDATE] Setting selectedSuggestionIndex to 0 for typed text');
                 // Enable keyboard navigation mode to prevent hover from interfering
                 suggestionsList.classList.add('keyboard-navigating');
+                // Ensure typed text item is selected and shows "Search with Google"
+                const typedTextItem = suggestionItems[0];
+                if (typedTextItem) {
+                    typedTextItem.classList.add('is-selected');
+                    const hintElement = typedTextItem.querySelector('.search-hint:not(.firefox-url-display)');
+                    if (hintElement) {
+                        hintElement.style.display = 'inline';
+                        console.log('[UPDATE] Set hintElement display to inline for typed text item');
+                    } else {
+                        console.log('[UPDATE] ⚠️ No hintElement found for typed text item');
+                    }
+                }
             } else {
                 selectedSuggestionIndex = -1;
                 suggestionsList.classList.remove('keyboard-navigating');
@@ -4911,9 +5404,28 @@
         }
         
         function handleFirefoxSuggestionLeave(event) {
-            // Don't hide preview box when leaving Firefox suggestions
-            // It will only hide when hovering a Google suggestion
-            return;
+            const relatedTarget = event.relatedTarget;
+            if (relatedTarget instanceof Element) {
+                if (relatedTarget.closest('.firefox-suggest-item') || relatedTarget.closest('.preview-box')) {
+                    return;
+                }
+            }
+
+            if (!suspendedCarrotContext || !suggestionsContainer) {
+                return;
+            }
+
+            hideFirefoxPreviewBox();
+            setCarrotContent(
+                suspendedCarrotContext.state,
+                suspendedCarrotContext.amountOrTerm,
+                suspendedCarrotContext.fromCurrencyOrTargetLanguage,
+                suspendedCarrotContext.toCurrencyOrTranslation
+            );
+            currentState = suspendedCarrotContext.state;
+            suggestionsContainer.classList.remove('expand-left');
+            suggestionsContainer.classList.add('show-carrot');
+            suspendedCarrotContext = null;
         }
         
         function handleSuggestionHover(event) {
@@ -5113,8 +5625,12 @@
                 
                 // Show "Search with Google" hint (Firefox URLs are always visible)
                 const hintElement = selectedItem.querySelector('.search-hint:not(.firefox-url-display)');
+                console.log('[SELECT] Selected item at index', selectedSuggestionIndex, '| hintElement found:', !!hintElement);
                 if (hintElement) {
                     hintElement.style.display = 'inline';
+                    console.log('[SELECT] Set hintElement display to inline');
+                } else {
+                    console.log('[SELECT] No hintElement found for selected item');
                 }
                 
                 // If selected item is a Firefox suggestion, show preview box
@@ -5303,6 +5819,9 @@
             
             // If carrot is visible, hide it so preview box can replace it
             if (suggestionsContainer.classList.contains('show-carrot')) {
+                if (lastCarrotContext) {
+                    suspendedCarrotContext = { ...lastCarrotContext };
+                }
                 suggestionsContainer.classList.remove('show-carrot');
             }
             
@@ -5346,14 +5865,15 @@
             if (savedKeyPoints && Array.isArray(savedKeyPoints) && savedKeyPoints.length > 0) {
                 // Display saved key points
                 keyPointsHtml = `
+                    <button class="preview-box-visit-button" type="button">Visit site →</button>
                     <ul class="preview-box-key-points">
                         ${savedKeyPoints.map(point => `<li>${point.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
                     </ul>
-                    <a href="#" class="preview-box-visit-link">Visit site →</a>
                 `;
             } else {
                 // Show generate button
                 keyPointsHtml = `
+                    <button class="preview-box-visit-button" type="button">Visit site →</button>
                     <button class="preview-box-generate-button" data-preview-title="${title.replace(/"/g, '&quot;')}" data-preview-description="${description.replace(/"/g, '&quot;')}" data-preview-url="${url.replace(/"/g, '&quot;')}">
                         <img src="icons/sparkles.svg" alt="" class="preview-box-sparkles-icon" aria-hidden="true">
                         Generate key points
@@ -5472,10 +5992,10 @@
                     saveKeyPoints(url, keyPoints);
                     
                     const keyPointsHtml = `
+                        <button class="preview-box-visit-button" type="button">Visit site →</button>
                         <ul class="preview-box-key-points">
                             ${keyPoints.map(point => `<li>${point.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
                         </ul>
-                        <a href="#" class="preview-box-visit-link">Visit site →</a>
                     `;
                     container.innerHTML = keyPointsHtml;
                 } else {
@@ -5525,6 +6045,13 @@
             if (!carrotList) {
                 return;
             }
+
+            lastCarrotContext = {
+                state,
+                amountOrTerm,
+                fromCurrencyOrTargetLanguage,
+                toCurrencyOrTranslation
+            };
 
             // Use templates from carrot-templates.js
             switch(state) {
@@ -6400,6 +6927,26 @@
                 });
             }
 
+            let shouldCloseCarrotOnInput = false;
+
+            if (searchBoxElement) {
+                searchBoxElement.addEventListener('beforeinput', (event) => {
+                    const target = event.target;
+                    if (!(target instanceof HTMLInputElement)) {
+                        shouldCloseCarrotOnInput = false;
+                        return;
+                    }
+
+                    const inputType = event.inputType || '';
+                    const hasSelection = target.selectionStart !== null
+                        && target.selectionEnd !== null
+                        && target.selectionStart !== target.selectionEnd;
+
+                    shouldCloseCarrotOnInput = inputType.startsWith('delete')
+                        || (hasSelection && (inputType.startsWith('insert') || inputType === 'insertReplacementText'));
+                });
+            }
+
             // Update clear button on input
             searchBoxElement.addEventListener('input', (event) => {
                 console.log('[INPUT] ===== INPUT EVENT STARTED =====');
@@ -6407,6 +6954,19 @@
                 const value = (event.target.value || '').toString();
                 const valueLower = value.toLowerCase().trim();
                 console.log('[INPUT] Raw value:', value, '| Trimmed lower:', valueLower, '| Length:', valueLower.length);
+                
+                // Immediately close carrot when deleting text or overwriting a selection
+                if (suggestionsContainer && suggestionsContainer.classList.contains('show-carrot') && shouldCloseCarrotOnInput) {
+                    console.log('[INPUT] Delete or overwrite detected, closing carrot immediately');
+                    suggestionsContainer.classList.remove('show-carrot');
+                    suggestionsContainer.classList.add('expand-left');
+                    currentState = 0;
+                    if (carrotList) {
+                        carrotList.innerHTML = '';
+                        carrotList.dataset.carrotState = '0';
+                    }
+                }
+                shouldCloseCarrotOnInput = false;
                 
                 // Handle Winter Olympics schedule and background color (doesn't block suggestions)
                 const isWinterOlympics = valueLower === 'winter ol' || valueLower.startsWith('winter ol');
@@ -6437,40 +6997,17 @@
                 
                 if (!matchedCarrot && valueLower.length === 0) {
                     console.log('[INPUT] Empty field, clearing carrot');
-                    // Clear carrot when field is empty
+                    // Clear carrot when field is empty (already closed above, but ensure preview box is cleared)
                     if (suggestionsContainer) {
-                        suggestionsContainer.classList.remove('show-carrot');
                         suggestionsContainer.classList.remove('show-preview-box');
-                        suggestionsContainer.classList.add('expand-left');
                         const previewBox = document.querySelector('.preview-box');
                         if (previewBox) {
                             previewBox.innerHTML = '';
                             previewBox.style.display = 'none';
                         }
                     }
-                    currentState = 0;
-                    if (carrotList) {
-                        carrotList.innerHTML = '';
-                        carrotList.dataset.carrotState = '0';
-                    }
                     // Restore product grid when search is cleared
                     restoreProductGrid();
-                } else if (!matchedCarrot && valueLower.trim().length > 0) {
-                    // Check if this could be a prefix of a demo search
-                    const couldBeDemoSearch = Object.keys(demoSearchCarrots).some(term => term.startsWith(valueLower));
-                    console.log('[INPUT] couldBeDemoSearch:', couldBeDemoSearch);
-                    
-                    if (!couldBeDemoSearch && suggestionsContainer && suggestionsContainer.classList.contains('show-carrot')) {
-                        console.log('[INPUT] Hiding carrot for non-demo search');
-                        // User is typing something that's not a demo search, hide carrot
-                        suggestionsContainer.classList.remove('show-carrot');
-                        suggestionsContainer.classList.add('expand-left');
-                        currentState = 0;
-                        if (carrotList) {
-                            carrotList.innerHTML = '';
-                            carrotList.dataset.carrotState = '0';
-                        }
-                    }
                 }
                 
                 // Continue to update suggestions even if a carrot is showing
@@ -6534,55 +7071,59 @@
                     }
                     console.log('[INPUT] lastApiQuery:', lastApiQuery);
                     
-                    // Always remove skeletons before updating suggestions
-                    console.log('[INPUT] Removing skeletons');
-                    removeSkeletons();
+                    // Check if we have existing suggestions to filter
+                    const hasExistingSuggestions = currentDisplayedSuggestions.length > 0;
+                    console.log('[INPUT] Has existing suggestions:', hasExistingSuggestions, 'count:', currentDisplayedSuggestions.length);
                     
-                    // Show immediate local results while waiting for AI
-                    let localSuggestions = [];
-                    console.log('[INPUT] Checking for local suggestions...');
-                    if (typeof suggestionWords !== 'undefined' && suggestionWords) {
-                        console.log('[INPUT] suggestionWords is available, filtering...');
-                        const allSuggestions = [];
-                        Object.values(suggestionWords).forEach(suggestions => {
-                            allSuggestions.push(...suggestions);
-                        });
+                    if (hasExistingSuggestions) {
+                        // Filter existing suggestions based on next character
+                        // filterExistingSuggestions already handles adding skeletons to fill up to 9 total
+                        console.log('[INPUT] Filtering existing suggestions for query:', valueLower);
+                        const filteredSuggestions = filterExistingSuggestions(valueLower);
+                        console.log('[INPUT] Filtered suggestions count:', filteredSuggestions.length);
+                        // No need to add skeletons here - filterExistingSuggestions already did it
+                    } else {
+                        // No existing suggestions, show local results while waiting for AI
+                        console.log('[INPUT] No existing suggestions, showing local results');
+                        removeSkeletons();
                         
-                        // Filter to only suggestions that start with the query (word-start matching)
-                        const filtered = allSuggestions.filter(suggestion => {
-                            const suggestionLower = suggestion.toLowerCase();
-                            // Check if suggestion starts with query
-                            if (suggestionLower.startsWith(valueLower)) {
-                                return true;
-                            }
-                            // Check if any word in the suggestion starts with the query
-                            const words = suggestionLower.split(/\s+/);
-                            return words.some(word => word.startsWith(valueLower));
-                        });
-                        
-                        localSuggestions = [...new Set(filtered)];
-                        if (localSuggestions.length > 0) {
-                            const localCount = Math.min(localSuggestions.length, 10);
-                            // Update suggestions with filtered list (this will clear old suggestions)
-                            updateSuggestions(localSuggestions.slice(0, localCount));
-                            // Show skeleton loaders to fill up to 9 total (typed text is shown separately as first item)
-                            const skeletonCount = 9 - localCount;
-                            if (skeletonCount > 0) {
-                                showSkeletonLoaders(skeletonCount);
+                        let localSuggestions = [];
+                        if (typeof suggestionWords !== 'undefined' && suggestionWords) {
+                            const allSuggestions = [];
+                            Object.values(suggestionWords).forEach(suggestions => {
+                                allSuggestions.push(...suggestions);
+                            });
+                            
+                            // Filter to only suggestions that start with the query
+                            const filtered = allSuggestions.filter(suggestion => {
+                                const suggestionLower = suggestion.toLowerCase();
+                                if (suggestionLower.startsWith(valueLower)) {
+                                    return true;
+                                }
+                                const words = suggestionLower.split(/\s+/);
+                                return words.some(word => word.startsWith(valueLower));
+                            });
+                            
+                            localSuggestions = [...new Set(filtered)];
+                            if (localSuggestions.length > 0) {
+                                const localCount = Math.min(localSuggestions.length, 10);
+                                updateSuggestions(localSuggestions.slice(0, localCount));
+                                const skeletonCount = 9 - localCount;
+                                if (skeletonCount > 0) {
+                                    showSkeletonLoaders(skeletonCount);
+                                }
+                            } else {
+                                updateSuggestions([]);
+                                showSkeletonLoaders(9);
                             }
                         } else {
-                            // If no local suggestions, clear list and show 9 skeletons (typed text is shown separately as first item)
                             updateSuggestions([]);
                             showSkeletonLoaders(9);
                         }
-                    } else {
-                        // If no suggestionWords available, clear list and show 9 skeletons (typed text is shown separately as first item)
-                        updateSuggestions([]);
-                        showSkeletonLoaders(9);
                     }
                     
-                    // Capture localSuggestions for use in async callback
-                    const currentLocalSuggestions = [...localSuggestions];
+                    // Capture current displayed suggestions for use in async callback
+                    const currentLocalSuggestions = hasExistingSuggestions ? [...currentDisplayedSuggestions] : (localSuggestions || []);
                     
                     // Debounce API call (wait 300ms after user stops typing)
                     apiCallTimer = setTimeout(async () => {
@@ -6632,33 +7173,77 @@
                                             }
                                         });
                                         
-                                        // Merge local and AI suggestions, removing duplicates
-                                        const allSuggestions = [...currentLocalSuggestions];
-                                        console.log('[AI] currentLocalSuggestions:', currentLocalSuggestions, 'length:', currentLocalSuggestions.length);
-                                        console.log('[AI] aiSuggestions before forEach:', aiSuggestions, 'length:', aiSuggestions ? aiSuggestions.length : 0);
-                                        
-                                        if (aiSuggestions && Array.isArray(aiSuggestions)) {
-                                            aiSuggestions.forEach(aiSuggestion => {
-                                                if (typeof aiSuggestion === 'string') {
-                                                    const aiLower = aiSuggestion.toLowerCase();
-                                                    // Only add if not already in local suggestions
-                                                    if (!allSuggestions.some(s => s.toLowerCase() === aiLower)) {
-                                                        allSuggestions.push(aiSuggestion);
-                                                    }
-                                                } else {
-                                                    console.warn('[AI] Non-string suggestion found:', aiSuggestion);
+                                        // Get currently displayed suggestions from DOM (excluding Firefox Suggest items and skeletons)
+                                        const currentlyDisplayed = [];
+                                        if (suggestionsList) {
+                                            const displayedItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item:not(.skeleton):not(.search-suggestions-preview-heading):not(.firefox-suggest-item)');
+                                            displayedItems.forEach(item => {
+                                                const itemText = item.querySelector('.label')?.textContent?.trim();
+                                                if (itemText) {
+                                                    currentlyDisplayed.push(itemText);
                                                 }
                                             });
-                                        } else {
-                                            console.error('[AI] aiSuggestions is not an array!', typeof aiSuggestions, aiSuggestions);
+                                        }
+                                        
+                                        console.log('[AI] Currently displayed suggestions:', currentlyDisplayed);
+                                        
+                                        // Start with currently displayed suggestions
+                                        const allSuggestions = [...currentlyDisplayed];
+                                        
+                                        // Count existing skeletons to know how many AI suggestions to add
+                                        const skeletonCount = suggestionsList ? suggestionsList.querySelectorAll('.skeleton').length : 0;
+                                        console.log('[AI] Existing skeleton count:', skeletonCount);
+                                        
+                                        // Add AI suggestions to fill skeleton slots, avoiding duplicates
+                                        // IMPORTANT: Exclude Firefox suggestions from regular suggestions - they're handled separately
+                                        if (aiSuggestions && Array.isArray(aiSuggestions) && skeletonCount > 0) {
+                                            let addedCount = 0;
+                                            for (const aiSuggestion of aiSuggestions) {
+                                                if (addedCount >= skeletonCount) break;
+                                                if (typeof aiSuggestion === 'string') {
+                                                    const aiLower = aiSuggestion.toLowerCase();
+                                                    // Skip Firefox suggestions - they're handled separately via _firefoxSuggestions
+                                                    const isFirefoxSuggestion = firefoxTitles.includes(aiLower);
+                                                    if (isFirefoxSuggestion) {
+                                                        console.log('[AI] Skipping Firefox suggestion from regular list:', aiSuggestion);
+                                                        continue;
+                                                    }
+                                                    // Only add if not already in displayed suggestions and matches query
+                                                    const alreadyDisplayed = currentlyDisplayed.some(s => s.toLowerCase() === aiLower);
+                                                    if (!alreadyDisplayed && aiLower.startsWith(valueLower)) {
+                                                        allSuggestions.push(aiSuggestion);
+                                                        addedCount++;
+                                                    }
+                                                }
+                                            }
+                                            console.log('[AI] Added', addedCount, 'new AI suggestions to fill', skeletonCount, 'skeleton slots');
                                         }
                                         
                                         console.log('[AI] allSuggestions after merge:', allSuggestions, 'length:', allSuggestions.length);
                                         
-                                        // Limit to 9 total suggestions (typed text is shown separately as first item)
+                                        // Limit to 9 total regular suggestions (typed text is shown separately as first item)
+                                        // This includes currently displayed + new AI suggestions (no duplicates)
                                         const mergedSuggestions = allSuggestions.slice(0, 9);
+                                        
+                                        // Preserve existing Firefox suggestions that match the query, only add new ones if needed
+                                        const queryLower = valueLower.toLowerCase();
+                                        const preservedFirefoxSuggestions = currentFirefoxSuggestions.filter(fs => {
+                                            const fsTitle = (typeof fs === 'string' ? fs : fs.title || '').toLowerCase();
+                                            return fsTitle.length >= queryLower.length && fsTitle.startsWith(queryLower);
+                                        });
+                                        
+                                        // Only fetch new Firefox suggestions if we don't have enough matching ones
+                                        // Use preserved ones if they exist, otherwise use new ones from API
+                                        const finalFirefoxSuggestions = preservedFirefoxSuggestions.length > 0 
+                                            ? preservedFirefoxSuggestions 
+                                            : firefoxSuggestions;
+                                        
+                                        console.log('[AI] Preserved', preservedFirefoxSuggestions.length, 'Firefox suggestions from previous query');
+                                        console.log('[AI] New Firefox suggestions from API:', firefoxSuggestions.length);
+                                        console.log('[AI] Using', finalFirefoxSuggestions.length, 'Firefox suggestions total');
+                                        
                                         // Store Firefox suggestions (full objects) for rendering
-                                        mergedSuggestions._firefoxSuggestions = firefoxSuggestions;
+                                        mergedSuggestions._firefoxSuggestions = finalFirefoxSuggestions;
                                         console.log('[AI] Merged suggestions (local + AI):', mergedSuggestions);
                                         console.log('[AI] Merged suggestions length:', mergedSuggestions.length);
                                         console.log('[AI] Merged suggestions isArray:', Array.isArray(mergedSuggestions));
@@ -6666,7 +7251,7 @@
                                         console.log('[AI] Firefox suggestions length:', firefoxSuggestions.length);
                                         console.log('[AI] Firefox titles:', firefoxTitles);
                                         console.log('[AI] About to call updateSuggestions with:', mergedSuggestions);
-                                        // updateSuggestions will remove skeletons and replace with new suggestions
+                                        // updateSuggestions will add new suggestions where skeletons were
                                         updateSuggestions(mergedSuggestions);
                                     } else {
                                         // No AI suggestions - update with just local suggestions
