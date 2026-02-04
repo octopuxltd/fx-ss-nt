@@ -72,6 +72,15 @@ const carrotTemplates = {
                     <span class="ad-marketplace-sponsored">Sponsored</span>
                 </div>
             </div>
+            <div class="suggestion-actions">
+                <button class="suggestion-menu-button" type="button" aria-label="More options">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="4" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="12" cy="8" r="1.5" fill="currentColor"/>
+                    </svg>
+                </button>
+            </div>
         </li>
     `,
 
@@ -84,6 +93,15 @@ const carrotTemplates = {
                     <span class="ad-marketplace-sponsored">Sponsored</span>
                 </div>
             </div>
+            <div class="suggestion-actions">
+                <button class="suggestion-menu-button" type="button" aria-label="More options">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="4" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="12" cy="8" r="1.5" fill="currentColor"/>
+                    </svg>
+                </button>
+            </div>
         </li>
     `,
 
@@ -95,6 +113,15 @@ const carrotTemplates = {
                     <p class="local-business-name"><strong>sushi</strong> – Nobu Restaurant – Official Site</p>
                     <span class="ad-marketplace-sponsored">Sponsored</span>
                 </div>
+            </div>
+            <div class="suggestion-actions">
+                <button class="suggestion-menu-button" type="button" aria-label="More options">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="4" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="12" cy="8" r="1.5" fill="currentColor"/>
+                    </svg>
+                </button>
             </div>
         </li>
     `,
@@ -645,7 +672,8 @@ const carrotTemplates = {
             <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
             <div class="translation-converter">
                 <div class="translation-header">
-                    <h3 class="translation-title">Translation</h3>
+                    <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="" class="translation-icon" aria-hidden="true">
+                    <h3 class="translation-title">Firefox Translation</h3>
                 </div>
                 <div class="translation-content">
                     <div class="translation-original">

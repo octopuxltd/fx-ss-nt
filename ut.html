@@ -292,25 +292,29 @@
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0);
-            border: 1px solid rgba(0, 0, 0, 0);
+            background-color: transparent;
+            border: none;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: background-color 0.2s ease, transform 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0);
+            box-shadow: none;
+            opacity: 0;
         }
 
         .info-icon-button:hover {
-            background-color: rgba(255, 255, 255, 0);
+            background-color: transparent;
             transform: scale(1.05);
+            opacity: 0;
         }
 
         .info-icon-button svg {
             width: 18px;
             height: 18px;
-            stroke: rgba(55, 65, 81, 0);
+            stroke: transparent;
+            fill: transparent;
+            opacity: 0;
         }
 
         .demo-searches-card {
@@ -397,7 +401,8 @@
             transition: opacity 0.35s ease-in-out;
         }
 
-        .search-wrapper:focus-within::before {
+        .search-wrapper:focus-within::before,
+        .top-overlay.is-focused .search-wrapper::before {
             opacity: 1;
         }
 
@@ -662,6 +667,7 @@
             justify-content: center;
             width: 100%;
             min-width: 0;
+            position: relative;
         }
 
         .overlay-product-title {
@@ -714,6 +720,51 @@
             color: rgba(15, 23, 42, 0.6);
             cursor: pointer;
             z-index: 1;
+            transition: opacity 0.2s ease;
+        }
+
+        .overlay-product-card:hover .overlay-product-section-icon {
+            opacity: 0;
+        }
+
+        .overlay-product-card-actions {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            position: absolute;
+            right: 12px;
+            bottom: 0;
+            z-index: 2;
+        }
+
+        .overlay-product-card:hover .overlay-product-card-actions {
+            display: flex;
+        }
+
+        .overlay-product-menu-button,
+        .overlay-product-close-button {
+            background: transparent;
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6B7280;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .overlay-product-menu-button:hover,
+        .overlay-product-close-button:hover {
+            opacity: 1;
+        }
+
+        .overlay-product-menu-button svg,
+        .overlay-product-close-button svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
         }
 
         .overlay-product-meta-favicon {
@@ -1667,10 +1718,14 @@
                 
                 // Handle Firefox suggestions
                 if (firefoxResults.status === 'fulfilled') {
-                    firefoxSuggestions = firefoxResults.value;
+                    firefoxSuggestions = firefoxResults.value || [];
                     console.log('[API] Received', firefoxSuggestions.length, 'Firefox suggestions');
+                    if (firefoxSuggestions.length === 0) {
+                        console.warn('[API] Firefox suggestions fulfilled but empty array received');
+                    }
                 } else {
                     console.error('[API] Firefox suggestions failed:', firefoxResults.reason);
+                    firefoxSuggestions = []; // Ensure it's an empty array, not undefined
                 }
                 
                 // If we had cached suggestions, merge them with AI results
@@ -1696,8 +1751,12 @@
                 }
                 
                 // Process Firefox suggestions and replace last suggestions
+                // Skip Firefox suggestions if winter olympics is active
+                const suggestionsPreview = document.querySelector('.search-suggestions-preview');
+                const isWinterOlympicsActive = suggestionsPreview && suggestionsPreview.classList.contains('winter-olympics-active');
+                
                 let selectedFirefoxSuggestions = [];
-                if (firefoxSuggestions && firefoxSuggestions.length > 0) {
+                if (firefoxSuggestions && firefoxSuggestions.length > 0 && !isWinterOlympicsActive) {
                     console.log('[API] Processing', firefoxSuggestions.length, 'Firefox suggestions');
                     const validFirefoxSuggestions = firefoxSuggestions
                         .filter(item => {
@@ -1721,12 +1780,23 @@
                         console.log(`[API] Current finalSuggestions before replacement:`, finalSuggestions);
                         
                         // Replace the last N suggestions with Firefox suggestion titles
-                        finalSuggestions = [
-                            ...finalSuggestions.slice(0, finalSuggestions.length - numToReplace),
-                            ...firefoxTitles
-                        ].slice(0, 9); // Ensure we don't exceed 9
+                        // Ensure we don't try to replace more than we have, but always add Firefox suggestions
+                        const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
+                        const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
                         
-                        console.log(`[API] Replaced last ${numToReplace} suggestions with ${selectedFirefoxSuggestions.length} Firefox suggestions:`, selectedFirefoxSuggestions);
+                        // If we have no suggestions to keep, just use Firefox suggestions
+                        // Otherwise, keep some and replace the rest with Firefox suggestions
+                        if (finalSuggestions.length === 0) {
+                            // No existing suggestions, just use Firefox suggestions
+                            finalSuggestions = firefoxTitles.slice(0, 9);
+                        } else {
+                            finalSuggestions = [
+                                ...finalSuggestions.slice(0, keepCount),
+                                ...firefoxTitles
+                            ].slice(0, 9); // Ensure we don't exceed 9
+                        }
+                        
+                        console.log(`[API] Replaced last ${actualNumToReplace} suggestions with ${selectedFirefoxSuggestions.length} Firefox suggestions:`, selectedFirefoxSuggestions);
                         console.log(`[API] Final suggestions after replacement:`, finalSuggestions);
                     } else {
                         console.log('[API] No valid Firefox suggestions to replace');
@@ -1946,7 +2016,7 @@
                             <li>• youtube</li>
                             <li>• happy emoji</li>
                         </ul>
-                        <button type="button" class="clear-history-button" style="margin-top: 12px; padding: 6px 12px; background-color: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 6px; cursor: pointer; font-size: 12px; color: #374151; transition: background-color 0.2s ease;">Clear search history</button>
+                        <button type="button" class="clear-history-button" style="margin-top: 12px; padding: 6px 12px; background-color: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 6px; cursor: pointer; font-size: 12px; color: #374151; transition: background-color 0.2s ease;">Reset prototype</button>
                     </div>
                 </div>
             </div>
@@ -2214,7 +2284,31 @@
             }
 
             productContent.renderInto(container, sectionKeys);
+            
+            // Attach close button handlers for product cards
+            attachProductCardCloseHandlers();
         };
+        
+        function attachProductCardCloseHandlers() {
+            const productCards = document.querySelectorAll('.overlay-product-close-button');
+            productCards.forEach(button => {
+                // Remove any existing listeners by cloning the button
+                const newButton = button.cloneNode(true);
+                button.replaceWith(newButton);
+                
+                newButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Find the parent product card
+                    const productCard = newButton.closest('.overlay-product-card');
+                    if (productCard) {
+                        // Remove the card from the DOM
+                        productCard.remove();
+                    }
+                });
+            });
+        }
 
         // Function to render Winter Olympics schedule
         const renderWinterOlympicsSchedule = () => {
@@ -2237,31 +2331,35 @@
                     <div class="overlay-product-column" style="grid-column: 1 / -1;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
                             <div>
-                                <p style="margin: 0 0 4px 0; font-size: 32px; font-weight: 500; color: #1F2933;">Winter Olympics 2026</p>
-                                <p style="margin: 0; font-size: 16px; color: #6B7280;">Milan-Cortina, Italy · Sponsored by ESPN</p>
+                                <p style="margin: 0 0 4px 0; font-size: 32px; font-weight: 500; color: #1F2933; text-shadow: 0 0 16px rgba(255, 255, 255, 1), 0 0 12px rgba(255, 255, 255, 1), 0 0 8px rgba(255, 255, 255, 0.9), 0 0 4px rgba(255, 255, 255, 0.8);">Winter Olympics 2026</p>
+                                <p style="margin: 0; font-size: 16px; color: #6B7280; text-shadow: 0 0 14px rgba(255, 255, 255, 1), 0 0 10px rgba(255, 255, 255, 0.9), 0 0 6px rgba(255, 255, 255, 0.8), 0 0 3px rgba(255, 255, 255, 0.7);">Milan-Cortina, Italy · Sponsored by ESPN</p>
                             </div>
-                            <img src="icons/olympics.svg" alt="Olympics" style="flex-shrink: 0; width: 240px; height: 120px;">
+                            <div style="display: flex; align-items: center; gap: 56px;">
+                                <img src="icons/espn.svg" alt="ESPN" style="flex-shrink: 0; width: 140px; height: auto; filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));">
+                                <img src="icons/olympics.svg" alt="Olympics" style="flex-shrink: 0; width: 140px; height: auto; filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));">
+                                <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" style="flex-shrink: 0; width: 48px; height: 48px; filter: drop-shadow(0 0 12px rgba(255, 255, 255, 1)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));">
+                            </div>
                         </div>
                     </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 24px;">
                         <div class="overlay-product-card olympics-card-blue" style="flex-direction: column; height: auto; padding: 16px;">
                             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Today</div>
-                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Alpine Skiing</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933; text-shadow: 0 0 12px rgba(255, 255, 255, 1), 0 0 8px rgba(255, 255, 255, 0.9), 0 0 4px rgba(255, 255, 255, 0.8);">Alpine Skiing</div>
                             <div style="font-size: 13px; color: #6B7280;">Men's Downhill • 10:00 AM</div>
                         </div>
                         <div class="overlay-product-card olympics-card-black" style="flex-direction: column; height: auto; padding: 16px;">
                             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Today</div>
-                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Figure Skating</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933; text-shadow: 0 0 12px rgba(255, 255, 255, 1), 0 0 8px rgba(255, 255, 255, 0.9), 0 0 4px rgba(255, 255, 255, 0.8);">Figure Skating</div>
                             <div style="font-size: 13px; color: #6B7280;">Pairs Short Program • 2:30 PM</div>
                         </div>
                         <div class="overlay-product-card olympics-card-red" style="flex-direction: column; height: auto; padding: 16px;">
                             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Tomorrow</div>
-                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Ice Hockey</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933; text-shadow: 0 0 12px rgba(255, 255, 255, 1), 0 0 8px rgba(255, 255, 255, 0.9), 0 0 4px rgba(255, 255, 255, 0.8);">Ice Hockey</div>
                             <div style="font-size: 13px; color: #6B7280;">USA vs Canada • 8:00 PM</div>
                         </div>
                         <div class="overlay-product-card olympics-card-yellow" style="flex-direction: column; height: auto; padding: 16px;">
                             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Feb 8</div>
-                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Snowboarding</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933; text-shadow: 0 0 12px rgba(255, 255, 255, 1), 0 0 8px rgba(255, 255, 255, 0.9), 0 0 4px rgba(255, 255, 255, 0.8);">Snowboarding</div>
                             <div style="font-size: 13px; color: #6B7280;">Men's Halfpipe Final • 11:00 AM</div>
                         </div>
                     </div>
@@ -2591,26 +2689,27 @@
             });
         }
 
-        // Clear search history button
+        // Reset prototype button - clears all localStorage
         const clearHistoryButton = document.querySelector('.clear-history-button');
         if (clearHistoryButton) {
             clearHistoryButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 try {
-                    localStorage.removeItem('search_history');
-                    clearHistoryButton.textContent = 'History cleared';
+                    // Clear all localStorage items
+                    localStorage.clear();
+                    clearHistoryButton.textContent = 'Prototype reset';
                     clearHistoryButton.style.backgroundColor = '#D1FAE5';
                     clearHistoryButton.style.color = '#065F46';
                     setTimeout(() => {
-                        clearHistoryButton.textContent = 'Clear search history';
+                        clearHistoryButton.textContent = 'Reset prototype';
                         clearHistoryButton.style.backgroundColor = '#F3F4F6';
                         clearHistoryButton.style.color = '#374151';
                     }, 2000);
                 } catch (error) {
-                    console.error('Error clearing search history:', error);
-                    clearHistoryButton.textContent = 'Error clearing history';
+                    console.error('Error resetting prototype:', error);
+                    clearHistoryButton.textContent = 'Error resetting';
                     setTimeout(() => {
-                        clearHistoryButton.textContent = 'Clear search history';
+                        clearHistoryButton.textContent = 'Reset prototype';
                     }, 2000);
                 }
             });
@@ -3268,6 +3367,58 @@
             }
         }
 
+        function getRemovedDefaultSuggestions() {
+            try {
+                const removed = localStorage.getItem('removed_default_suggestions');
+                return removed ? JSON.parse(removed) : [];
+            } catch (error) {
+                console.error('Error reading removed default suggestions:', error);
+                return [];
+            }
+        }
+
+        function addToRemovedDefaultSuggestions(text) {
+            try {
+                const removed = getRemovedDefaultSuggestions();
+                const textLower = text.toLowerCase();
+                if (!removed.some(item => item.toLowerCase() === textLower)) {
+                    removed.push(text);
+                    localStorage.setItem('removed_default_suggestions', JSON.stringify(removed));
+                }
+                return true;
+            } catch (error) {
+                console.error('Error adding to removed default suggestions:', error);
+                return false;
+            }
+        }
+
+        function getDefaultSuggestions() {
+            const allDefaults = ['hoka', '13 in macbook air', 'Coffee machines for sale', 'taylor swift', 'coffee grinder', 'gmail'];
+            const removed = getRemovedDefaultSuggestions();
+            const removedLower = removed.map(r => r.toLowerCase());
+            return allDefaults.filter(suggestion => !removedLower.includes(suggestion.toLowerCase()));
+        }
+
+        function removeFromSearchHistory(text) {
+            try {
+                const history = getSearchHistory();
+                const textLower = text.toLowerCase();
+                const filteredHistory = history.filter(item => item.toLowerCase() !== textLower);
+                localStorage.setItem('search_history', JSON.stringify(filteredHistory));
+                
+                // Also add to removed default suggestions if it's a default suggestion
+                const defaultSuggestions = ['hoka', '13 in macbook air', 'Coffee machines for sale', 'taylor swift', 'coffee grinder', 'gmail'];
+                if (defaultSuggestions.some(ds => ds.toLowerCase() === textLower)) {
+                    addToRemovedDefaultSuggestions(text);
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error removing from search history:', error);
+                return false;
+            }
+        }
+
         // Track Firefox suggestions globally
         const firefoxSuggestionsSet = new Set();
         
@@ -3361,11 +3512,21 @@
             }
             console.log('[UPDATE] ✓ suggestionsList exists, proceeding...');
             
+            // Reset container height to auto so it can expand to fit content
+            const previewContainer = document.querySelector('.search-suggestions-preview');
+            if (previewContainer) {
+                previewContainer.style.height = '';
+                previewContainer.style.minHeight = '';
+                previewContainer.style.maxHeight = '1000px';
+                console.log('[UPDATE] Reset preview container height to auto');
+            }
+            
             // Remove any existing skeletons when updating with real suggestions
             removeSkeletons();
             
             // Check if these are the default suggestions - if so, ensure they're all in history
-            const defaultSuggestions = ['hoka', 'macbook', '13 in macbook air', 'Coffee machines for sale', 'taylor swift', 'coffee grinder', 'gmail'];
+            const allDefaultSuggestions = ['hoka', '13 in macbook air', 'Coffee machines for sale', 'taylor swift', 'coffee grinder', 'gmail'];
+            const defaultSuggestions = getDefaultSuggestions();
             const isDefaultSuggestions = suggestions.length === defaultSuggestions.length && 
                 suggestions.every(s => defaultSuggestions.some(ds => ds.toLowerCase() === s.toLowerCase()));
             
@@ -3469,7 +3630,10 @@
                 console.log('Mapping suggestions to HTML...');
                 
                 // Get Firefox suggestions from the suggestions array if available
-                const firefoxSuggestions = suggestions._firefoxSuggestions || [];
+                // Skip Firefox suggestions if winter olympics is active
+                const suggestionsPreview = document.querySelector('.search-suggestions-preview');
+                const isWinterOlympicsActive = suggestionsPreview && suggestionsPreview.classList.contains('winter-olympics-active');
+                const firefoxSuggestions = (!isWinterOlympicsActive && suggestions._firefoxSuggestions) ? suggestions._firefoxSuggestions : [];
                 // Extract titles for matching (handle both object and string formats)
                 const firefoxSuggestionsLower = firefoxSuggestions.map(fs => {
                     if (typeof fs === 'string') {
@@ -3493,9 +3657,49 @@
                 // Track if we've shown the Firefox Suggest heading
                 let firefoxSuggestHeadingShown = false;
                 
-                const htmlString = suggestionsToShow.map((text, index) => {
+                // Check if these are default suggestions (shown when no text is typed)
+                const defaultSuggestions = getDefaultSuggestions();
+                const isDefaultSuggestions = !searchValueTrimmed && suggestionsToShow.length === defaultSuggestions.length && 
+                    suggestionsToShow.every(s => defaultSuggestions.some(ds => ds.toLowerCase() === s.toLowerCase()));
+                
+                // For default suggestions, separate gmail and show it first, then heading, then rest
+                let finalSuggestionsToShow = suggestionsToShow;
+                let gmailSuggestion = null;
+                if (isDefaultSuggestions) {
+                    const gmailIndex = suggestionsToShow.findIndex(s => s.toLowerCase() === 'gmail');
+                    if (gmailIndex >= 0) {
+                        gmailSuggestion = suggestionsToShow[gmailIndex];
+                        finalSuggestionsToShow = [
+                            gmailSuggestion,
+                            ...suggestionsToShow.filter((s, i) => i !== gmailIndex)
+                        ];
+                    }
+                }
+                
+                let recentSearchesHeadingShown = false;
+                
+                // Randomly select one Firefox suggestion to show "Switch to tab" button instead of URL
+                const firefoxSuggestionsList = Array.from(firefoxSuggestionsMap.keys());
+                const randomSwitchToTabIndex = firefoxSuggestionsList.length > 0 
+                    ? Math.floor(Math.random() * firefoxSuggestionsList.length) 
+                    : -1;
+                const switchToTabTitle = randomSwitchToTabIndex >= 0 ? firefoxSuggestionsList[randomSwitchToTabIndex] : null;
+                
+                const htmlString = finalSuggestionsToShow.map((text, index) => {
                 // First suggestion (typed text) - check if it's in history
                 const isTypedText = index === 0 && searchValueTrimmed && text === searchValueTrimmed;
+                
+                // Show "Your recent searches" heading after gmail if showing default suggestions
+                let headingHtml = '';
+                if (isDefaultSuggestions && gmailSuggestion && index === 1 && !recentSearchesHeadingShown) {
+                    // Show heading before the second item (first item after gmail)
+                    recentSearchesHeadingShown = true;
+                    headingHtml = `
+                    <li class="search-suggestions-preview-item search-suggestions-preview-heading" data-index="-1">
+                        <span class="firefox-suggest-heading">Your recent searches</span>
+                    </li>
+                    `;
+                }
                 
                 // Check if this is a Firefox suggestion and get its full data
                 const textLower = text.toLowerCase();
@@ -3503,8 +3707,7 @@
                 const firefoxSuggestData = isFirefoxSuggest ? firefoxSuggestionsMap.get(textLower) : null;
                 
                 // Show Firefox Suggest heading before the first Firefox suggestion
-                let headingHtml = '';
-                if (isFirefoxSuggest && !firefoxSuggestHeadingShown && !isTypedText) {
+                if (isFirefoxSuggest && !firefoxSuggestHeadingShown && !isTypedText && !isDefaultSuggestions) {
                     firefoxSuggestHeadingShown = true;
                     headingHtml = `
                     <li class="search-suggestions-preview-item search-suggestions-preview-heading" data-index="-1">
@@ -3518,23 +3721,32 @@
                 // Check if it's in history (will also get clock icon)
                 const isInHistory = isInSearchHistory(text);
                 
+                // Special handling for gmail suggestion
+                const isGmailSuggestion = textLower === 'gmail' && isDefaultSuggestions;
+                
                 // For typed text, show clock if in history, otherwise search icon
                 // For Firefox suggestions, use rounded square icon
-                const icon = isTypedText 
+                // For gmail suggestion, use Gmail favicon
+                const icon = isGmailSuggestion
+                    ? 'favicons/Google Mail.svg'
+                    : isTypedText 
                     ? (isInSearchHistory(text) ? 'icons/clock.svg' : 'icons/search.svg')
                     : isFirefoxSuggest
                     ? 'icons/firefox-suggest.svg'
                     : getIconForSuggestion(text, isForcedClock);
                 
                 // Convert Firefox suggestions to Title Case
-                const titleCaseText = isFirefoxSuggest 
+                // For gmail suggestion, use special text
+                const titleCaseText = isGmailSuggestion
+                    ? 'Inbox (84) - your.email@gmail.com - Gmail'
+                    : isFirefoxSuggest 
                     ? text.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')
                     : text;
                 
                 // Bold matching characters (ignore spaces in search value)
-                // Skip bolding for the typed text itself (first item)
+                // Skip bolding for the typed text itself (first item) and gmail suggestion
                 let displayText = titleCaseText;
-                if (searchValue && !isTypedText) {
+                if (searchValue && !isTypedText && !isGmailSuggestion) {
                     const searchNoSpaces = searchValue.replace(/\s/g, '');
                     const textToSearch = isFirefoxSuggest ? titleCaseText : text;
                     const textLower = textToSearch.toLowerCase();
@@ -3581,18 +3793,34 @@
                 }
                 
                 const itemHtml = `
-                    <li class="search-suggestions-preview-item ${isFirefoxSuggest ? 'firefox-suggest-item' : ''}" data-index="${index}" ${firefoxDataAttrs}>
+                    <li class="search-suggestions-preview-item ${isFirefoxSuggest ? 'firefox-suggest-item' : ''} ${isGmailSuggestion ? 'gmail-suggestion' : ''}" data-index="${index}" ${firefoxDataAttrs}>
                         ${isFirefoxSuggest 
                             ? `<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>${firefoxImageUrl 
                                 ? `<img src="${firefoxImageUrl}" alt="" aria-hidden="true" class="suggestion-icon firefox-suggest-image-icon" onload="this.classList.add('loaded');">`
                                 : `<div class="suggestion-icon firefox-suggest-image-icon firefox-image-placeholder" aria-hidden="true"></div>`}`
-                            : `<img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon">`
+                            : `<img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon ${isGmailSuggestion ? 'gmail-icon' : ''}">`
                         }
                         <span class="label">${displayText}</span>
                         ${isFirefoxSuggest && firefoxSuggestData && firefoxSuggestData.url 
-                            ? `<span class="search-hint firefox-url-display">&nbsp;•&nbsp;&nbsp;&nbsp;<span class="firefox-url-text">${(firefoxSuggestData.url || '').replace(/^www\./i, '').toLowerCase()}</span></span>`
-                            : !isFirefoxSuggest ? '<span class="search-hint" style="display: none;">&nbsp;•<span class="search-hint-text">Search with Google</span></span>' : ''
+                            ? (textLower === switchToTabTitle?.toLowerCase()
+                                ? `<span class="search-hint firefox-switch-tab-display"><span class="firefox-switch-tab-interpunct">&nbsp;•&nbsp;&nbsp;&nbsp;</span><button class="firefox-switch-tab-button" type="button"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>Switch to tab</button></span>`
+                                : `<span class="search-hint firefox-url-display">&nbsp;•&nbsp;&nbsp;&nbsp;<span class="firefox-url-text">${(firefoxSuggestData.url || '').replace(/^www\./i, '').toLowerCase()}</span></span>`)
+                            : !isFirefoxSuggest ? `<span class="search-hint" style="display: none;"><span class="search-hint-interpunct">&nbsp;•</span><span class="search-hint-text">${isGmailSuggestion ? 'Your top visited site' : 'Search with Google'}</span></span>` : ''
                         }
+                        ${!isTypedText && !isFirefoxSuggest && (icon === 'icons/clock.svg' || isInHistory || isForcedClock) ? `
+                        <div class="suggestion-actions">
+                            <button class="suggestion-menu-button" type="button" aria-label="More options" data-suggestion-text="${text.replace(/"/g, '&quot;')}">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="4" cy="8" r="1.5" fill="currentColor"/>
+                                    <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                                    <circle cx="12" cy="8" r="1.5" fill="currentColor"/>
+                                </svg>
+                            </button>
+                            <div class="suggestion-menu-dropdown" style="display: none;">
+                                <button class="suggestion-menu-item" type="button">Remove from Firefox search history</button>
+                            </div>
+                        </div>
+                        ` : ''}
                     </li>
                 `;
                 
@@ -3689,8 +3917,20 @@
                             return;
                         }
                         
-                        // Get all suggestion items (excluding the first one which is the typed text)
+                        // Get all suggestion items, excluding Firefox suggestions, headings, and the first typed text item
                         const allItems = Array.from(suggestionsList.querySelectorAll('.search-suggestions-preview-item'));
+                        // Filter to only search suggestions (not Firefox suggestions, not headings, not the typed text)
+                        const searchSuggestions = allItems.filter((item, index) => {
+                            // Skip first item (typed text)
+                            if (index === 0) return false;
+                            // Skip Firefox suggestions
+                            if (item.classList.contains('firefox-suggest-item')) return false;
+                            // Skip headings
+                            if (item.classList.contains('search-suggestions-preview-heading')) return false;
+                            // Skip carrots
+                            if (item.classList.contains('carrot')) return false;
+                            return true;
+                        });
                         
                         // Check if carrot is already inserted
                         const existingCarrot = suggestionsList.querySelector('.carrot--ad-marketplace');
@@ -3698,11 +3938,10 @@
                             return; // Already inserted
                         }
                         
-                        if (allItems.length > 1) {
-                            // Pick a random position among suggestions (excluding first item)
-                            // Random position between 1 and allItems.length (inclusive)
-                            const randomPosition = Math.floor(Math.random() * (allItems.length - 1)) + 1;
-                            const targetItem = allItems[randomPosition];
+                        if (searchSuggestions.length > 0) {
+                            // Pick a random position among search suggestions only
+                            const randomPosition = Math.floor(Math.random() * searchSuggestions.length);
+                            const targetItem = searchSuggestions[randomPosition];
                             
                             // Get the carrot HTML
                             let adMarketplaceCarrotHtml;
@@ -3787,6 +4026,568 @@
             // Attach pin button handlers for stocks and sports items
             attachPinButtonHandlersForSuggestions();
             
+            // Attach close button handlers for suggestion rows
+            attachCloseButtonHandlers();
+            
+            // Attach menu button handlers for suggestion rows
+            attachMenuButtonHandlers();
+            
+        }
+        
+        function attachCloseButtonHandlers() {
+            if (!suggestionsList) return;
+            
+            const closeButtons = suggestionsList.querySelectorAll('.suggestion-close-button');
+            closeButtons.forEach(button => {
+                // Remove any existing listeners by cloning the button
+                const newButton = button.cloneNode(true);
+                button.replaceWith(newButton);
+                
+                newButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Find the parent suggestion item
+                    const suggestionItem = newButton.closest('.search-suggestions-preview-item');
+                    if (suggestionItem && !suggestionItem.classList.contains('removing')) {
+                        // Get the current height before animating
+                        const height = suggestionItem.offsetHeight;
+                        suggestionItem.style.height = height + 'px';
+                        suggestionItem.style.marginTop = getComputedStyle(suggestionItem).marginTop;
+                        suggestionItem.style.marginBottom = getComputedStyle(suggestionItem).marginBottom;
+                        
+                        // Log heights before removal
+                        const previewContainer = document.querySelector('.search-suggestions-preview');
+                        const columnContainer = suggestionsList?.parentElement;
+                        console.log('[REMOVE] Before removal:', {
+                            itemHeight: height,
+                            listHeight: suggestionsList?.offsetHeight,
+                            columnContainerHeight: columnContainer?.offsetHeight,
+                            previewContainerHeight: previewContainer?.offsetHeight,
+                            previewContainerMaxHeight: previewContainer ? getComputedStyle(previewContainer).maxHeight : null,
+                            previewContainerStyleHeight: previewContainer?.style.height
+                        });
+                        
+                        // Force reflow to ensure styles are applied
+                        suggestionItem.offsetHeight;
+                        
+                        // Add removing class to trigger fade out animation
+                        suggestionItem.classList.add('removing');
+                        
+                        // Force container to recalculate height by reading its offsetHeight
+                        if (suggestionsList) {
+                            suggestionsList.offsetHeight; // Force reflow
+                        }
+                        
+                        // Log heights after adding removing class
+                        console.log('[REMOVE] After adding removing class:', {
+                            listHeight: suggestionsList?.offsetHeight,
+                            columnContainerHeight: columnContainer?.offsetHeight,
+                            previewContainerHeight: previewContainer?.offsetHeight
+                        });
+                        
+                        // Remove from DOM after animation completes
+                        setTimeout(() => {
+                            suggestionItem.remove();
+                            
+                            // Use requestAnimationFrame to ensure DOM has updated
+                            requestAnimationFrame(() => {
+                                // Log heights after DOM removal
+                                console.log('[REMOVE] After DOM removal (before recalc):', {
+                                    listHeight: suggestionsList?.offsetHeight,
+                                    listScrollHeight: suggestionsList?.scrollHeight,
+                                    columnContainerHeight: columnContainer?.offsetHeight,
+                                    columnContainerScrollHeight: columnContainer?.scrollHeight,
+                                    previewContainerHeight: previewContainer?.offsetHeight,
+                                    previewContainerScrollHeight: previewContainer?.scrollHeight
+                                });
+                                
+                                // Force container to recalculate height after removal
+                                if (suggestionsList) {
+                                    // Trigger reflow to ensure container shrinks
+                                    suggestionsList.offsetHeight;
+                                    // Recalculate parent containers
+                                    const columnContainer = suggestionsList.parentElement;
+                                    if (columnContainer && columnContainer.classList.contains('search-suggestions-preview-column-container')) {
+                                        // Remove any explicit height to let it recalculate
+                                        columnContainer.style.height = '';
+                                        columnContainer.style.minHeight = '';
+                                        // Force reflow
+                                        columnContainer.offsetHeight;
+                                        
+                                        // Calculate the actual content height AFTER forcing reflow
+                                        const columnContainerHeight = columnContainer.scrollHeight;
+                                        console.log('[REMOVE] Column container scrollHeight:', columnContainerHeight);
+                                        
+                                        // Also update the main suggestions preview container
+                                        const previewContainer = columnContainer.parentElement;
+                                        if (previewContainer && previewContainer.classList.contains('search-suggestions-preview')) {
+                                            // Remove any explicit height to let it recalculate
+                                            previewContainer.style.height = '';
+                                            previewContainer.style.minHeight = '';
+                                            previewContainer.style.maxHeight = '1000px';
+                                            
+                                            // Force reflow
+                                            previewContainer.offsetHeight;
+                                            
+                                            // Calculate the actual content height AFTER forcing reflow
+                                            const previewContainerHeight = previewContainer.scrollHeight;
+                                            console.log('[REMOVE] Preview container scrollHeight:', previewContainerHeight);
+                                            
+                                            // Set explicit height based on content
+                                            if (previewContainerHeight > 0 && previewContainerHeight < 296) {
+                                                previewContainer.style.height = previewContainerHeight + 'px';
+                                                console.log('[REMOVE] Set preview container height to:', previewContainerHeight + 'px');
+                                                
+                                                // Force another reflow after setting height
+                                                previewContainer.offsetHeight;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Log heights after recalculation
+                                const finalColumnContainer = suggestionsList?.parentElement;
+                                const finalPreviewContainer = finalColumnContainer?.parentElement;
+                                console.log('[REMOVE] After recalculation:', {
+                                    listHeight: suggestionsList?.offsetHeight,
+                                    listScrollHeight: suggestionsList?.scrollHeight,
+                                    columnContainerHeight: finalColumnContainer?.offsetHeight,
+                                    columnContainerScrollHeight: finalColumnContainer?.scrollHeight,
+                                    previewContainerHeight: finalPreviewContainer?.offsetHeight,
+                                    previewContainerScrollHeight: finalPreviewContainer?.scrollHeight,
+                                    previewContainerMaxHeight: finalPreviewContainer ? getComputedStyle(finalPreviewContainer).maxHeight : null,
+                                    previewContainerStyleHeight: finalPreviewContainer?.style.height,
+                                    previewContainerComputedHeight: finalPreviewContainer ? getComputedStyle(finalPreviewContainer).height : null
+                                });
+                            });
+                            
+                            // Update selected index if needed
+                            const remainingItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item:not(.search-suggestions-preview-heading):not(.removing)');
+                            if (selectedSuggestionIndex >= remainingItems.length) {
+                                selectedSuggestionIndex = remainingItems.length - 1;
+                                updateSelectedSuggestion();
+                            }
+                        }, 300); // Match CSS transition duration
+                    }
+                });
+            });
+        }
+        
+        function attachMenuButtonHandlers() {
+            console.log('=== attachMenuButtonHandlers START ===');
+            if (!suggestionsList) {
+                console.error('suggestionsList is null!');
+                return;
+            }
+            
+            const menuButtons = suggestionsList.querySelectorAll('.suggestion-menu-button');
+            console.log('Found', menuButtons.length, 'menu buttons');
+            
+            if (menuButtons.length === 0) {
+                console.warn('No menu buttons found!');
+                return;
+            }
+            
+            menuButtons.forEach((button, index) => {
+                console.log(`\n--- Processing button ${index} ---`);
+                console.log('Button element:', button);
+                console.log('Button parent:', button.parentElement);
+                console.log('Button next sibling:', button.nextElementSibling);
+                
+                // Get the dropdown before cloning (it's the next sibling)
+                const originalDropdown = button.nextElementSibling;
+                console.log('Original dropdown:', originalDropdown);
+                console.log('Is dropdown?', originalDropdown?.classList.contains('suggestion-menu-dropdown'));
+                
+                // Remove any existing listeners by cloning the button
+                const newButton = button.cloneNode(true);
+                console.log('Cloned button:', newButton);
+                button.replaceWith(newButton);
+                
+                // Re-attach dropdown if it exists
+                let menuDropdown = null;
+                if (originalDropdown && originalDropdown.classList.contains('suggestion-menu-dropdown')) {
+                    // Insert dropdown right after the button
+                    newButton.parentNode.insertBefore(originalDropdown, newButton.nextSibling);
+                    menuDropdown = originalDropdown;
+                    console.log('Dropdown re-attached successfully');
+                } else {
+                    // Try to find it after insertion
+                    menuDropdown = newButton.nextElementSibling;
+                    console.log('Looking for dropdown after insertion:', menuDropdown);
+                    if (!menuDropdown || !menuDropdown.classList.contains('suggestion-menu-dropdown')) {
+                        console.warn('Dropdown not found for button:', newButton);
+                        menuDropdown = null;
+                    }
+                }
+                
+                if (!menuDropdown) {
+                    console.error(`Button ${index}: No dropdown found, skipping handler attachment`);
+                    return;
+                }
+                
+                console.log(`Button ${index}: Dropdown found:`, menuDropdown);
+                console.log('Dropdown HTML:', menuDropdown.outerHTML.substring(0, 200));
+                console.log('Dropdown computed display:', window.getComputedStyle(menuDropdown).display);
+                console.log('Dropdown inline style:', menuDropdown.style.display);
+                
+                newButton.addEventListener('click', (e) => {
+                    console.log(`\n=== BUTTON ${index} CLICKED ===`);
+                    console.log('Event:', e);
+                    console.log('Event target:', e.target);
+                    console.log('Event currentTarget:', e.currentTarget);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Prevent hover state from being triggered
+                    const suggestionItem = newButton.closest('.search-suggestions-preview-item');
+                    if (suggestionItem) {
+                        suggestionItem.classList.add('menu-clicked');
+                        setTimeout(() => {
+                            suggestionItem.classList.remove('menu-clicked');
+                        }, 100);
+                    }
+                    
+                    // Close all other dropdowns
+                    const allDropdowns = document.querySelectorAll('.suggestion-menu-dropdown');
+                    console.log('Found', allDropdowns.length, 'total dropdowns');
+                    allDropdowns.forEach((d, i) => {
+                        if (d !== menuDropdown) {
+                            console.log(`Closing dropdown ${i}`);
+                            d.style.display = 'none';
+                        }
+                    });
+                    
+                    // Toggle this dropdown
+                    const inlineDisplay = menuDropdown.style.display;
+                    const computedDisplay = window.getComputedStyle(menuDropdown).display;
+                    console.log('Current inline display:', inlineDisplay);
+                    console.log('Current computed display:', computedDisplay);
+                    
+                    const isHidden = inlineDisplay === 'none' || (!inlineDisplay && computedDisplay === 'none');
+                    console.log('Is hidden?', isHidden);
+                    
+                    if (isHidden) {
+                        // Move dropdown to body to avoid overflow clipping
+                        const buttonRect = newButton.getBoundingClientRect();
+                        // Store reference to original parent and suggestion item for restoration
+                        const actionsContainer = newButton.parentElement;
+                        const suggestionItem = newButton.closest('.search-suggestions-preview-item');
+                        menuDropdown.dataset.originalButtonId = `btn-${index}`;
+                        menuDropdown._originalParent = actionsContainer;
+                        menuDropdown._suggestionItem = suggestionItem;
+                        
+                        // Keep the suggestion item highlighted when dropdown is open
+                        if (suggestionItem) {
+                            suggestionItem.classList.add('is-selected');
+                            suggestionItem.classList.add('dropdown-open');
+                        }
+                        
+                        document.body.appendChild(menuDropdown);
+                        menuDropdown.style.position = 'fixed';
+                        menuDropdown.style.left = (buttonRect.right - 220) + 'px';
+                        menuDropdown.style.top = (buttonRect.bottom + 4) + 'px';
+                        menuDropdown.style.right = 'auto';
+                        menuDropdown.style.display = 'block';
+                        console.log('Dropdown moved to body, positioned at:', {
+                            left: menuDropdown.style.left,
+                            top: menuDropdown.style.top,
+                            buttonRect,
+                            parent: actionsContainer,
+                            suggestionItem
+                        });
+                        
+                        // Keep suggestion item highlighted when hovering over dropdown
+                        // Use a closure to store the timeout
+                        let mouseLeaveTimeout = null;
+                        
+                        const handleMouseEnter = () => {
+                            // Cancel any pending close timeout
+                            if (mouseLeaveTimeout) {
+                                clearTimeout(mouseLeaveTimeout);
+                                mouseLeaveTimeout = null;
+                            }
+                            if (suggestionItem) {
+                                suggestionItem.classList.add('is-selected');
+                            }
+                        };
+                        
+                        const handleMouseLeave = (e) => {
+                            // Clear any existing timeout
+                            if (mouseLeaveTimeout) {
+                                clearTimeout(mouseLeaveTimeout);
+                            }
+                            
+                            // Use a small delay to check if mouse is moving back to suggestion item
+                            mouseLeaveTimeout = setTimeout(() => {
+                                // Check if dropdown is still visible
+                                if (menuDropdown.style.display === 'none') {
+                                    return; // Already closed
+                                }
+                                
+                                // Close the dropdown
+                                menuDropdown.style.display = 'none';
+                                
+                                // Remove highlight from suggestion item
+                                if (suggestionItem) {
+                                    suggestionItem.classList.remove('is-selected');
+                                    suggestionItem.classList.remove('dropdown-open');
+                                }
+                                
+                                // Move back to original position if it was moved to body
+                                if (menuDropdown.parentElement === document.body && menuDropdown._originalParent) {
+                                    menuDropdown._originalParent.appendChild(menuDropdown);
+                                    menuDropdown.style.position = 'absolute';
+                                    menuDropdown.style.left = 'auto';
+                                    menuDropdown.style.top = 'auto';
+                                    menuDropdown.style.right = '0';
+                                }
+                            }, 150); // Small delay to allow mouse to move to suggestion item
+                        };
+                        
+                        menuDropdown.addEventListener('mouseenter', handleMouseEnter);
+                        menuDropdown.addEventListener('mouseleave', handleMouseLeave);
+                    } else {
+                        menuDropdown.style.display = 'none';
+                        // Move back to original position
+                        if (menuDropdown._originalParent) {
+                            menuDropdown._originalParent.appendChild(menuDropdown);
+                            menuDropdown.style.position = 'absolute';
+                            menuDropdown.style.left = 'auto';
+                            menuDropdown.style.top = 'auto';
+                            menuDropdown.style.right = '0';
+                        } else {
+                            const actionsContainer = newButton.parentElement;
+                            if (actionsContainer && actionsContainer.classList.contains('suggestion-actions')) {
+                                actionsContainer.appendChild(menuDropdown);
+                                menuDropdown.style.position = 'absolute';
+                                menuDropdown.style.left = 'auto';
+                                menuDropdown.style.top = 'auto';
+                                menuDropdown.style.right = '0';
+                            }
+                        }
+                    }
+                    
+                    console.log('New display style:', menuDropdown.style.display);
+                    console.log('New computed display:', window.getComputedStyle(menuDropdown).display);
+                    console.log('Dropdown rect:', menuDropdown.getBoundingClientRect());
+                    console.log('Dropdown z-index:', window.getComputedStyle(menuDropdown).zIndex);
+                    console.log('Dropdown visibility:', window.getComputedStyle(menuDropdown).visibility);
+                    console.log('Dropdown opacity:', window.getComputedStyle(menuDropdown).opacity);
+                    console.log('Dropdown element:', menuDropdown);
+                });
+                
+                // Handle menu item click
+                if (menuDropdown && menuDropdown.classList.contains('suggestion-menu-dropdown')) {
+                    const menuItem = menuDropdown.querySelector('.suggestion-menu-item');
+                    if (menuItem) {
+                        const newMenuItem = menuItem.cloneNode(true);
+                        menuItem.replaceWith(newMenuItem);
+                        
+                        newMenuItem.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            const suggestionText = newButton.getAttribute('data-suggestion-text');
+                            const suggestionItem = newButton.closest('.search-suggestions-preview-item');
+                            
+                            if (suggestionText && suggestionItem) {
+                                // Remove from search history
+                                removeFromSearchHistory(suggestionText);
+                                
+                                // Check if this is a default suggestion
+                                const defaultSuggestions = ['hoka', '13 in macbook air', 'Coffee machines for sale', 'taylor swift', 'coffee grinder', 'gmail'];
+                                const isDefaultSuggestion = defaultSuggestions.some(ds => ds.toLowerCase() === suggestionText.toLowerCase());
+                                
+                                // Hide dropdown
+                                menuDropdown.style.display = 'none';
+                                
+                                if (isDefaultSuggestion) {
+                                    // Remove the item from the list with fade-out animation
+                                    if (!suggestionItem.classList.contains('removing')) {
+                                        // Get the current height before animating
+                                        const height = suggestionItem.offsetHeight;
+                                        suggestionItem.style.height = height + 'px';
+                                        suggestionItem.style.marginTop = getComputedStyle(suggestionItem).marginTop;
+                                        suggestionItem.style.marginBottom = getComputedStyle(suggestionItem).marginBottom;
+                                        
+                                        // Log heights before removal
+                                        const previewContainer = document.querySelector('.search-suggestions-preview');
+                                        const columnContainer = suggestionsList?.parentElement;
+                                        console.log('[REMOVE-MENU] Before removal:', {
+                                            itemHeight: height,
+                                            listHeight: suggestionsList?.offsetHeight,
+                                            columnContainerHeight: columnContainer?.offsetHeight,
+                                            previewContainerHeight: previewContainer?.offsetHeight,
+                                            previewContainerMaxHeight: previewContainer ? getComputedStyle(previewContainer).maxHeight : null,
+                                            previewContainerStyleHeight: previewContainer?.style.height
+                                        });
+                                        
+                                        // Force reflow to ensure styles are applied
+                                        suggestionItem.offsetHeight;
+                                        
+                                        // Add removing class to trigger fade out animation
+                                        suggestionItem.classList.add('removing');
+                                        
+                                        // Force container to recalculate height by reading its offsetHeight
+                                        if (suggestionsList) {
+                                            suggestionsList.offsetHeight; // Force reflow
+                                        }
+                                        
+                                        // Log heights after adding removing class
+                                        console.log('[REMOVE-MENU] After adding removing class:', {
+                                            listHeight: suggestionsList?.offsetHeight,
+                                            columnContainerHeight: columnContainer?.offsetHeight,
+                                            previewContainerHeight: previewContainer?.offsetHeight
+                                        });
+                                        
+                                        // Remove from DOM after animation completes
+                                        setTimeout(() => {
+                                            suggestionItem.remove();
+                                            
+                                            // Use requestAnimationFrame to ensure DOM has updated
+                                            requestAnimationFrame(() => {
+                                                // Log heights after DOM removal
+                                                console.log('[REMOVE-MENU] After DOM removal (before recalc):', {
+                                                    listHeight: suggestionsList?.offsetHeight,
+                                                    listScrollHeight: suggestionsList?.scrollHeight,
+                                                    columnContainerHeight: columnContainer?.offsetHeight,
+                                                    columnContainerScrollHeight: columnContainer?.scrollHeight,
+                                                    previewContainerHeight: previewContainer?.offsetHeight,
+                                                    previewContainerScrollHeight: previewContainer?.scrollHeight
+                                                });
+                                                
+                                                // Force container to recalculate height after removal
+                                                if (suggestionsList) {
+                                                    // Trigger reflow to ensure container shrinks
+                                                    suggestionsList.offsetHeight;
+                                                    // Recalculate parent containers
+                                                    const columnContainer = suggestionsList.parentElement;
+                                                    if (columnContainer && columnContainer.classList.contains('search-suggestions-preview-column-container')) {
+                                                        // Remove any explicit height to let it recalculate
+                                                        columnContainer.style.height = '';
+                                                        columnContainer.style.minHeight = '';
+                                                        // Force reflow
+                                                        columnContainer.offsetHeight;
+                                                        
+                                                        // Calculate the actual content height AFTER forcing reflow
+                                                        const columnContainerHeight = columnContainer.scrollHeight;
+                                                        console.log('[REMOVE-MENU] Column container scrollHeight:', columnContainerHeight);
+                                                        
+                                                        // Also update the main suggestions preview container
+                                                        const previewContainer = columnContainer.parentElement;
+                                                        if (previewContainer && previewContainer.classList.contains('search-suggestions-preview')) {
+                                                            // Remove any explicit height to let it recalculate
+                                                            previewContainer.style.height = '';
+                                                            previewContainer.style.minHeight = '';
+                                                            previewContainer.style.maxHeight = '1000px';
+                                                            
+                                                            // Force reflow
+                                                            previewContainer.offsetHeight;
+                                                            
+                                                            // Calculate height based on actual remaining items
+                                                            const remainingItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item:not(.removing)');
+                                                            let calculatedHeight = 0;
+                                                            remainingItems.forEach(item => {
+                                                                if (!item.classList.contains('removing')) {
+                                                                    calculatedHeight += item.offsetHeight;
+                                                                }
+                                                            });
+                                                            // Add padding and gaps
+                                                            const listPadding = parseInt(getComputedStyle(suggestionsList).paddingTop) + parseInt(getComputedStyle(suggestionsList).paddingBottom);
+                                                            const listGap = parseInt(getComputedStyle(suggestionsList).gap) * (remainingItems.length - 1);
+                                                            calculatedHeight += listPadding + listGap;
+                                                            
+                                                            const columnPadding = parseInt(getComputedStyle(columnContainer).paddingTop) + parseInt(getComputedStyle(columnContainer).paddingBottom);
+                                                            const columnHeight = calculatedHeight + columnPadding;
+                                                            
+                                                            const previewContainerHeight = previewContainer.scrollHeight;
+                                                            console.log('[REMOVE-MENU] Preview container scrollHeight:', previewContainerHeight);
+                                                            console.log('[REMOVE-MENU] Calculated height from items:', {
+                                                                remainingItemsCount: remainingItems.length,
+                                                                calculatedListHeight: calculatedHeight,
+                                                                calculatedColumnHeight: columnHeight,
+                                                                previewContainerScrollHeight: previewContainerHeight
+                                                            });
+                                                            
+                                                            // Use the smaller of scrollHeight or calculated height
+                                                            const targetHeight = Math.min(previewContainerHeight, columnHeight + 10); // Add small buffer
+                                                            
+                                                            // Set explicit height based on content
+                                                            if (targetHeight > 0 && targetHeight < 296) {
+                                                                previewContainer.style.height = targetHeight + 'px';
+                                                                console.log('[REMOVE-MENU] Set preview container height to:', targetHeight + 'px');
+                                                                
+                                                                // Force another reflow after setting height
+                                                                previewContainer.offsetHeight;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Log heights after recalculation
+                                                const finalColumnContainer = suggestionsList?.parentElement;
+                                                const finalPreviewContainer = finalColumnContainer?.parentElement;
+                                                console.log('[REMOVE-MENU] After recalculation:', {
+                                                    listHeight: suggestionsList?.offsetHeight,
+                                                    listScrollHeight: suggestionsList?.scrollHeight,
+                                                    columnContainerHeight: finalColumnContainer?.offsetHeight,
+                                                    columnContainerScrollHeight: finalColumnContainer?.scrollHeight,
+                                                    previewContainerHeight: finalPreviewContainer?.offsetHeight,
+                                                    previewContainerScrollHeight: finalPreviewContainer?.scrollHeight,
+                                                    previewContainerMaxHeight: finalPreviewContainer ? getComputedStyle(finalPreviewContainer).maxHeight : null,
+                                                    previewContainerStyleHeight: finalPreviewContainer?.style.height,
+                                                    previewContainerComputedHeight: finalPreviewContainer ? getComputedStyle(finalPreviewContainer).height : null
+                                                });
+                                            });
+                                            
+                                            // Update selected index if needed
+                                            const remainingItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item:not(.search-suggestions-preview-heading):not(.removing)');
+                                            if (selectedSuggestionIndex >= remainingItems.length) {
+                                                selectedSuggestionIndex = remainingItems.length - 1;
+                                                updateSelectedSuggestion();
+                                            }
+                                        }, 300); // Match CSS transition duration
+                                    }
+                                } else {
+                                    // Change icon from clock to search
+                                    const iconElement = suggestionItem.querySelector('.suggestion-icon');
+                                    if (iconElement && iconElement.tagName === 'IMG') {
+                                        iconElement.src = 'icons/search.svg';
+                                    }
+                                    
+                                    // Hide the menu button since it's no longer in history
+                                    const actionsContainer = suggestionItem.querySelector('.suggestion-actions');
+                                    if (actionsContainer) {
+                                        actionsContainer.style.display = 'none';
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+            
+            // Close dropdowns when clicking outside (only attach once)
+            if (!window.dropdownClickHandlerAttached) {
+                window.dropdownClickHandlerAttached = true;
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.suggestion-actions') && !e.target.closest('.suggestion-menu-dropdown')) {
+                        document.querySelectorAll('.suggestion-menu-dropdown').forEach(dropdown => {
+                            dropdown.style.display = 'none';
+                            // Move back to original position if it was moved to body
+                            if (dropdown.parentElement === document.body && dropdown._originalParent) {
+                                dropdown._originalParent.appendChild(dropdown);
+                                dropdown.style.position = 'absolute';
+                                dropdown.style.left = 'auto';
+                                dropdown.style.top = 'auto';
+                                dropdown.style.right = '0';
+                            }
+                        });
+                    }
+                });
+            }
         }
         
         function attachPinButtonHandlersForSuggestions() {
@@ -3860,9 +4661,43 @@
                 // For Firefox suggestions, add special hover handler to populate preview box
                 if (item.classList.contains('firefox-suggest-item')) {
                     item.addEventListener('mouseenter', handleFirefoxSuggestionHover);
-                    item.addEventListener('mouseleave', handleFirefoxSuggestionLeave);
+                    item.addEventListener('mouseleave', (e) => {
+                        // Check if mouse is moving to a dropdown
+                        const relatedTarget = e.relatedTarget;
+                        const openDropdown = document.querySelector('.suggestion-menu-dropdown[style*="block"]');
+                        if (openDropdown && (relatedTarget === openDropdown || openDropdown.contains(relatedTarget))) {
+                            // Mouse is moving to dropdown, keep highlight
+                            return;
+                        }
+                        // Check if this item has an open dropdown
+                        if (item.classList.contains('dropdown-open')) {
+                            return; // Keep highlight if dropdown is open
+                        }
+                        handleFirefoxSuggestionLeave(e);
+                    });
                 } else {
                     item.addEventListener('mouseenter', handleSuggestionHover);
+                    // Handle mouseleave but check if dropdown is open
+                    item.addEventListener('mouseleave', (e) => {
+                        // Check if mouse is moving to a dropdown
+                        const relatedTarget = e.relatedTarget;
+                        const openDropdown = document.querySelector('.suggestion-menu-dropdown[style*="block"]');
+                        if (openDropdown && (relatedTarget === openDropdown || openDropdown.contains(relatedTarget))) {
+                            // Mouse is moving to dropdown, keep highlight
+                            return;
+                        }
+                        // Check if this item has an open dropdown
+                        if (item.classList.contains('dropdown-open')) {
+                            return; // Keep highlight if dropdown is open
+                        }
+                        // Normal mouseleave behavior
+                        if (item.classList.contains('firefox-suggest-item')) {
+                            handleFirefoxSuggestionLeave(e);
+                        } else {
+                            selectedSuggestionIndex = -1;
+                            updateSelectedSuggestion();
+                        }
+                    });
                 }
                 
                 // For local business items, attach hover to the business divs
@@ -3944,13 +4779,24 @@
             // But don't hide preview box - it should stay open until Google suggestion is hovered
             const suggestionsContainer = suggestionsList.closest('.search-suggestions-preview-column-container');
             if (suggestionsContainer) {
-                suggestionsContainer.addEventListener('mouseleave', () => {
+                suggestionsContainer.addEventListener('mouseleave', (e) => {
+                    // Check if mouse is moving to a dropdown
+                    const relatedTarget = e.relatedTarget;
+                    const openDropdown = document.querySelector('.suggestion-menu-dropdown[style*="block"]');
+                    if (openDropdown && (relatedTarget === openDropdown || openDropdown.contains(relatedTarget))) {
+                        // Mouse is moving to dropdown, keep highlight
+                        return;
+                    }
                     selectedSuggestionIndex = -1;
                     suggestionsList.classList.remove('keyboard-navigating');
                     // Don't call updateSelectedSuggestion() here as it would hide the preview box
                     // Just remove selection styling
                     const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
                     suggestionItems.forEach(item => {
+                        // Don't remove highlight if dropdown is open for this item
+                        if (item.classList.contains('dropdown-open')) {
+                            return;
+                        }
                         item.classList.remove('is-selected');
                         const hintElement = item.querySelector('.search-hint:not(.firefox-url-display)');
                         if (hintElement) {
@@ -4244,11 +5090,16 @@
                 
                 // If this is keyboard navigation, update the search box text
                 if (isKeyboardNavigation && searchBoxElement) {
-                    const label = selectedItem.querySelector('.label');
-                    if (label) {
-                        // Extract text without HTML tags (removes <strong> tags but keeps text)
-                        const suggestionText = label.textContent || label.innerText;
-                        searchBoxElement.value = suggestionText.trim();
+                    if (selectedItem.classList.contains('gmail-suggestion')) {
+                        // Clear search box text when selecting gmail suggestion
+                        searchBoxElement.value = '';
+                    } else {
+                        const label = selectedItem.querySelector('.label');
+                        if (label) {
+                            // Extract text without HTML tags (removes <strong> tags but keeps text)
+                            const suggestionText = label.textContent || label.innerText;
+                            searchBoxElement.value = suggestionText.trim();
+                        }
                     }
                 }
             } else {
@@ -4455,6 +5306,7 @@
                     <ul class="preview-box-key-points">
                         ${savedKeyPoints.map(point => `<li>${point.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
                     </ul>
+                    <a href="https://${url.replace(/^www\./i, '')}" class="preview-box-visit-link" target="_blank" rel="noopener noreferrer">Visit site →</a>
                 `;
             } else {
                 // Show generate button
@@ -4580,6 +5432,7 @@
                         <ul class="preview-box-key-points">
                             ${keyPoints.map(point => `<li>${point.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
                         </ul>
+                        <a href="https://${url.replace(/^www\./i, '')}" class="preview-box-visit-link" target="_blank" rel="noopener noreferrer">Visit site →</a>
                     `;
                     container.innerHTML = keyPointsHtml;
                 } else {
@@ -5302,15 +6155,9 @@
                 if (!searchBoxElement.value.trim()) {
                     // Clear AI suggestions tracking
                     aiSuggestionsSet.clear();
-                    updateSuggestions([
-                        'hoka',
-                        'macbook',
-                        '13 in macbook air',
-                        'Coffee machines for sale',
-                        'taylor swift',
-                        'coffee grinder',
-                        'gmail'
-                    ]);
+                    // Get default suggestions filtered by removed ones
+                    const defaultSuggestions = getDefaultSuggestions();
+                    updateSuggestions(defaultSuggestions);
                 }
             });
 
@@ -5352,13 +6199,15 @@
                     event.preventDefault();
                     // Keyboard navigation steals selection from hovered item
                     // If nothing is selected, select the first item (index 0)
-                    // Otherwise, move down one (but don't wrap around - stop at last item)
+                    // Otherwise, move down one (wrap around to first if at last item)
                     if (selectedSuggestionIndex < 0) {
                         selectedSuggestionIndex = 0;
                     } else if (selectedSuggestionIndex < virtualItemCount - 1) {
                         selectedSuggestionIndex = selectedSuggestionIndex + 1;
+                    } else {
+                        // Wrap around to first item when at last item
+                        selectedSuggestionIndex = 0;
                     }
-                    // If already at last item, stay there (don't wrap to first)
                     updateSelectedSuggestion(true); // true = keyboard navigation
                     // Scroll into view if needed - find the actual DOM item
                     if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < virtualItemCount) {
@@ -5814,7 +6663,6 @@
                     aiSuggestionsSet.clear();
                     updateSuggestions([
                         'hoka',
-                        'macbook',
                         '13 in macbook air',
                         'Coffee machines for sale',
                         'taylor swift',

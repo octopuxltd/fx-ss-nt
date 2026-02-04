@@ -39,14 +39,23 @@ const productContent = (() => {
         
         // Wrap image with favicon overlay if image exists
         const imageWithFavicon = image && metaFavicon ? `<div class="overlay-product-image-wrapper">${image}${metaFavicon}</div>` : image;
-        const actions = card.showActions ? `
-            <span class="overlay-product-card-actions" aria-hidden="true">
-                <svg width="16" height="6" viewBox="0 0 16 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="3" cy="3" r="1" fill="currentColor"/>
-                    <circle cx="8" cy="3" r="1" fill="currentColor"/>
-                    <circle cx="13" cy="3" r="1" fill="currentColor"/>
-                </svg>
-            </span>
+        
+        // Add action buttons (••• and X) for history, openTabs, and bookmarks sections
+        const productCardActions = (columnKey === 'history' || columnKey === 'openTabs' || columnKey === 'bookmarks') ? `
+            <div class="overlay-product-card-actions">
+                <button class="overlay-product-menu-button" type="button" aria-label="More options">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="4" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                        <circle cx="12" cy="8" r="1.5" fill="currentColor"/>
+                    </svg>
+                </button>
+                <button class="overlay-product-close-button" type="button" aria-label="Remove item">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
         ` : '';
 
         // Article-style cards: image on top, text below (matching renewable energy card layout)
@@ -70,7 +79,7 @@ const productContent = (() => {
                 <h3 class="overlay-product-title">${card.title}</h3>
                 ${meta}
             </div>
-            ${actions}
+            ${productCardActions}
         </a>
     `;
     };
