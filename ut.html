@@ -38,6 +38,37 @@
             background-attachment: fixed;
         }
 
+        .server-selector {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            z-index: 100;
+        }
+
+        .server-selector select {
+            padding: 8px 12px;
+            font-size: 13px;
+            font-family: Arial, sans-serif;
+            background-color: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        .server-selector select:hover {
+            background-color: rgba(255, 255, 255, 1);
+            border-color: rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .server-selector select:focus {
+            outline: none;
+            border-color: #0060DF;
+            box-shadow: 0 0 0 3px rgba(0, 96, 223, 0.1);
+        }
+
         .pane {
             padding: 24px;
         }
@@ -1368,9 +1399,14 @@
     <!-- Load API configuration (config.js is gitignored) -->
     <script src="config.js" onerror="console.warn('config.js not found. Using example config. Please create config.js from config.example.js'); window.API_CONFIG = window.API_CONFIG || { OPENROUTER_API_KEY: '', PEXELS_API_KEY: '' };"></script>
     <script>
-        // OpenRouter API Configuration
+        // AI API Configuration
+        let AI_PROVIDER = window.API_CONFIG?.AI_PROVIDER || 'openrouter';
         const OPENROUTER_API_KEY = window.API_CONFIG?.OPENROUTER_API_KEY || '';
         const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+        const CLAUDE_API_KEY = window.API_CONFIG?.CLAUDE_API_KEY || '';
+        const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+        const OPENAI_API_KEY = window.API_CONFIG?.OPENAI_API_KEY || '';
+        const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
         
         // Debounce timer for API calls
         let apiCallTimer = null;
@@ -1521,7 +1557,7 @@
         
         // Helper function to make a search suggestions request attempt
         async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0) {
-            console.log(`[API-SEARCH] ===== Starting search suggestions attempt ${attemptNumber} for query: "${query}" =====`);
+            console.log(`[API-SEARCH] ===== Starting search suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}) =====`);
             if (delayMs > 0) {
                 console.log(`[API-SEARCH] Waiting ${delayMs}ms before attempt ${attemptNumber}...`);
                 await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -1530,60 +1566,169 @@
             const startTime = Date.now();
             console.log(`[API-SEARCH] Making request attempt ${attemptNumber} for query: "${query}"`);
             
-            if (!OPENROUTER_API_KEY) {
+            // Check API key based on provider
+            if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
+                console.error('[API-SEARCH] ✗ Claude API key not set');
+                throw new Error('Claude API key not set');
+            } else if (AI_PROVIDER === 'openrouter' && !OPENROUTER_API_KEY) {
                 console.error('[API-SEARCH] ✗ OpenRouter API key not set');
-                throw new Error('API key not set');
+                throw new Error('OpenRouter API key not set');
+            } else if (AI_PROVIDER === 'openai' && !OPENAI_API_KEY) {
+                console.error('[API-SEARCH] ✗ OpenAI API key not set');
+                throw new Error('OpenAI API key not set');
             }
             console.log('[API-SEARCH] ✓ API key is set');
             
-            const requestBody = {
-                model: 'anthropic/claude-3-haiku',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a search suggestion generator. Generate 10 popular search queries where at least one word starts with the user\'s query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of 10 search queries, sorted by popularity. No explanations, just the JSON array.'
+            const systemPrompt = 'You are a search suggestion generator. Generate 10 popular search queries where at least one word starts with the user\'s query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of 10 search queries, sorted by popularity. No explanations, just the JSON array.';
+            const userPrompt = `Generate 10 popular search suggestions where at least one word starts with: "${query}". Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`;
+            
+            let response, data, content;
+            
+            if (AI_PROVIDER === 'openai') {
+                // OpenAI API request
+                const requestBody = {
+                    model: 'gpt-4o-mini',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: systemPrompt
+                        },
+                        {
+                            role: 'user',
+                            content: userPrompt
+                        }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 200
+                };
+                
+                response = await fetch(OPENAI_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENAI_API_KEY}`
                     },
-                    {
-                        role: 'user',
-                        content: `Generate 10 popular search suggestions where at least one word starts with: "${query}". Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const requestDuration = Date.now() - startTime;
+                console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
+                    status: response.status,
+                    duration: `${requestDuration}ms`
+                });
+                
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        errorText = await response.text();
+                    } catch (e) {
+                        errorText = 'Could not read error response';
                     }
-                ],
-                temperature: 0.7,
-                max_tokens: 200
-            };
-            
-            const response = await fetch(OPENROUTER_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'Search Suggestions'
-                },
-                body: JSON.stringify(requestBody)
-            });
-            
-            const requestDuration = Date.now() - startTime;
-            console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
-                status: response.status,
-                duration: `${requestDuration}ms`
-            });
-            
-            if (!response.ok) {
-                let errorText;
-                try {
-                    errorText = await response.text();
-                } catch (e) {
-                    errorText = 'Could not read error response';
+                    
+                    const error = new Error(`API error: ${response.status} - ${errorText}`);
+                    error.hasResponse = true;
+                    throw error;
                 }
                 
-                const error = new Error(`API error: ${response.status} - ${errorText}`);
-                error.hasResponse = true;
-                throw error;
+                data = await response.json();
+                content = data.choices?.[0]?.message?.content?.trim();
+            } else if (AI_PROVIDER === 'claude') {
+                // Claude API request
+                const requestBody = {
+                    model: 'claude-3-5-haiku-20241022',
+                    max_tokens: 200,
+                    temperature: 0.7,
+                    system: systemPrompt,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: userPrompt
+                        }
+                    ]
+                };
+                
+                response = await fetch(CLAUDE_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': CLAUDE_API_KEY,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const requestDuration = Date.now() - startTime;
+                console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
+                    status: response.status,
+                    duration: `${requestDuration}ms`
+                });
+                
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        errorText = await response.text();
+                    } catch (e) {
+                        errorText = 'Could not read error response';
+                    }
+                    
+                    const error = new Error(`API error: ${response.status} - ${errorText}`);
+                    error.hasResponse = true;
+                    throw error;
+                }
+                
+                data = await response.json();
+                content = data.content?.[0]?.text?.trim();
+            } else {
+                // OpenRouter API request
+                const requestBody = {
+                    model: 'anthropic/claude-3-haiku',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: systemPrompt
+                        },
+                        {
+                            role: 'user',
+                            content: userPrompt
+                        }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 200
+                };
+                
+                response = await fetch(OPENROUTER_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'HTTP-Referer': window.location.origin,
+                        'X-Title': 'Search Suggestions'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const requestDuration = Date.now() - startTime;
+                console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
+                    status: response.status,
+                    duration: `${requestDuration}ms`
+                });
+                
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        errorText = await response.text();
+                    } catch (e) {
+                        errorText = 'Could not read error response';
+                    }
+                    
+                    const error = new Error(`API error: ${response.status} - ${errorText}`);
+                    error.hasResponse = true;
+                    throw error;
+                }
+                
+                data = await response.json();
+                content = data.choices[0]?.message?.content?.trim();
             }
-            
-            const data = await response.json();
-            const content = data.choices[0]?.message?.content?.trim();
             
             if (!content) {
                 const error = new Error('Empty content in response');
@@ -1636,7 +1781,7 @@
 
         // Helper function to make a Firefox suggestions request attempt
         async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) {
-            console.log(`[API-FIREFOX] ===== Starting Firefox suggestions attempt ${attemptNumber} for query: "${query}" =====`);
+            console.log(`[API-FIREFOX] ===== Starting Firefox suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}) =====`);
             if (delayMs > 0) {
                 console.log(`[API-FIREFOX] Waiting ${delayMs}ms before attempt ${attemptNumber}...`);
                 await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -1645,60 +1790,169 @@
             const startTime = Date.now();
             console.log(`[API-FIREFOX] Making request attempt ${attemptNumber} for query: "${query}"`);
             
-            if (!OPENROUTER_API_KEY) {
+            // Check API key based on provider
+            if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
+                console.error('[API-FIREFOX] ✗ Claude API key not set');
+                throw new Error('Claude API key not set');
+            } else if (AI_PROVIDER === 'openrouter' && !OPENROUTER_API_KEY) {
                 console.error('[API-FIREFOX] ✗ OpenRouter API key not set');
-                throw new Error('API key not set');
+                throw new Error('OpenRouter API key not set');
+            } else if (AI_PROVIDER === 'openai' && !OPENAI_API_KEY) {
+                console.error('[API-FIREFOX] ✗ OpenAI API key not set');
+                throw new Error('OpenAI API key not set');
             }
             console.log('[API-FIREFOX] ✓ API key is set');
             
-            const requestBody = {
-                model: 'anthropic/claude-3-haiku',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a browser history suggestion generator. Generate 4 Firefox suggestions (page titles from simulated browser history related to the query). Each Firefox suggestion should be an object with "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). Return ONLY a JSON array of 4 objects, each with title, url, description. No explanations, just the JSON array.'
+            const systemPrompt = 'You are a browser history suggestion generator. Generate 4 Firefox suggestions (page titles from simulated browser history related to the query). Each Firefox suggestion should be an object with "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). Return ONLY a JSON array of 4 objects, each with title, url, description. No explanations, just the JSON array.';
+            const userPrompt = `Generate 4 Firefox suggestions related to "${query}". Each Firefox suggestion should be an object with: "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). Return only a JSON array.`;
+            
+            let response, data, content;
+            
+            if (AI_PROVIDER === 'openai') {
+                // OpenAI API request
+                const requestBody = {
+                    model: 'gpt-4o-mini',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: systemPrompt
+                        },
+                        {
+                            role: 'user',
+                            content: userPrompt
+                        }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 300
+                };
+                
+                response = await fetch(OPENAI_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENAI_API_KEY}`
                     },
-                    {
-                        role: 'user',
-                        content: `Generate 4 Firefox suggestions related to "${query}". Each Firefox suggestion should be an object with: "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). Return only a JSON array.`
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const requestDuration = Date.now() - startTime;
+                console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
+                    status: response.status,
+                    duration: `${requestDuration}ms`
+                });
+                
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        errorText = await response.text();
+                    } catch (e) {
+                        errorText = 'Could not read error response';
                     }
-                ],
-                temperature: 0.7,
-                max_tokens: 300
-            };
-            
-            const response = await fetch(OPENROUTER_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'Search Suggestions'
-                },
-                body: JSON.stringify(requestBody)
-            });
-            
-            const requestDuration = Date.now() - startTime;
-            console.log(`[API] Attempt ${attemptNumber} response received:`, {
-                status: response.status,
-                duration: `${requestDuration}ms`
-            });
-            
-            if (!response.ok) {
-                let errorText;
-                try {
-                    errorText = await response.text();
-                } catch (e) {
-                    errorText = 'Could not read error response';
+                    
+                    const error = new Error(`API error: ${response.status} - ${errorText}`);
+                    error.hasResponse = true;
+                    throw error;
                 }
                 
-                const error = new Error(`API error: ${response.status} - ${errorText}`);
-                error.hasResponse = true;
-                throw error;
+                data = await response.json();
+                content = data.choices?.[0]?.message?.content?.trim();
+            } else if (AI_PROVIDER === 'claude') {
+                // Claude API request
+                const requestBody = {
+                    model: 'claude-3-5-haiku-20241022',
+                    max_tokens: 300,
+                    temperature: 0.7,
+                    system: systemPrompt,
+                    messages: [
+                        {
+                            role: 'user',
+                            content: userPrompt
+                        }
+                    ]
+                };
+                
+                response = await fetch(CLAUDE_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': CLAUDE_API_KEY,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const requestDuration = Date.now() - startTime;
+                console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
+                    status: response.status,
+                    duration: `${requestDuration}ms`
+                });
+                
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        errorText = await response.text();
+                    } catch (e) {
+                        errorText = 'Could not read error response';
+                    }
+                    
+                    const error = new Error(`API error: ${response.status} - ${errorText}`);
+                    error.hasResponse = true;
+                    throw error;
+                }
+                
+                data = await response.json();
+                content = data.content?.[0]?.text?.trim();
+            } else {
+                // OpenRouter API request
+                const requestBody = {
+                    model: 'anthropic/claude-3-haiku',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: systemPrompt
+                        },
+                        {
+                            role: 'user',
+                            content: userPrompt
+                        }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 300
+                };
+                
+                response = await fetch(OPENROUTER_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'HTTP-Referer': window.location.origin,
+                        'X-Title': 'Search Suggestions'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const requestDuration = Date.now() - startTime;
+                console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
+                    status: response.status,
+                    duration: `${requestDuration}ms`
+                });
+                
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        errorText = await response.text();
+                    } catch (e) {
+                        errorText = 'Could not read error response';
+                    }
+                    
+                    const error = new Error(`API error: ${response.status} - ${errorText}`);
+                    error.hasResponse = true;
+                    throw error;
+                }
+                
+                data = await response.json();
+                content = data.choices[0]?.message?.content?.trim();
             }
-            
-            const data = await response.json();
-            const content = data.choices[0]?.message?.content?.trim();
             
             if (!content) {
                 const error = new Error('Empty content in response');
@@ -2099,6 +2353,12 @@
     </script>
 </head>
 <body class="ut-page">
+    <div class="server-selector">
+        <select id="server-selector" aria-label="Select AI server">
+            <option value="openrouter">Server 1</option>
+            <option value="openai">Server 2</option>
+        </select>
+    </div>
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
@@ -3090,44 +3350,125 @@
         async function fetchTranslation(query, term) {
             console.log('[TRANSLATION] Fetching translation for query:', query);
             
-            if (!OPENROUTER_API_KEY) {
+            // Check API key based on provider
+            if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
+                console.warn('[TRANSLATION] Claude API key not set');
+                return { translation: 'Translation unavailable', language: null };
+            } else if (AI_PROVIDER === 'openrouter' && !OPENROUTER_API_KEY) {
                 console.warn('[TRANSLATION] OpenRouter API key not set');
+                return { translation: 'Translation unavailable', language: null };
+            } else if (AI_PROVIDER === 'openai' && !OPENAI_API_KEY) {
+                console.warn('[TRANSLATION] OpenAI API key not set');
                 return { translation: 'Translation unavailable', language: null };
             }
             
-            const requestBody = {
-                model: 'anthropic/claude-3-haiku',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a translation assistant. Translate the user\'s query. Return a JSON object with "translation" (the translated text) and "language" (the target language name, capitalized, e.g. "Italian", "Spanish"). Example: {"translation": "Ciao", "language": "Italian"}'
-                    },
-                    {
-                        role: 'user',
-                        content: query
-                    }
-                ],
-                temperature: 0.3,
-                max_tokens: 150
-            };
+            const systemPrompt = 'You are a translation assistant. Translate the user\'s query. Return a JSON object with "translation" (the translated text) and "language" (the target language name, capitalized, e.g. "Italian", "Spanish"). Example: {"translation": "Ciao", "language": "Italian"}';
+            
+            let response, data, content;
             
             try {
-                const response = await fetch(OPENROUTER_API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-                
-                if (!response.ok) {
-                    console.error('[TRANSLATION] API error:', response.status, response.statusText);
-                    return { translation: 'Translation unavailable', language: null };
+                if (AI_PROVIDER === 'openai') {
+                    // OpenAI API request
+                    const requestBody = {
+                        model: 'gpt-4o-mini',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: systemPrompt
+                            },
+                            {
+                                role: 'user',
+                                content: query
+                            }
+                        ],
+                        temperature: 0.3,
+                        max_tokens: 150
+                    };
+                    
+                    response = await fetch(OPENAI_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${OPENAI_API_KEY}`
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    if (!response.ok) {
+                        console.error('[TRANSLATION] API error:', response.status, response.statusText);
+                        return { translation: 'Translation unavailable', language: null };
+                    }
+                    
+                    data = await response.json();
+                    content = data.choices?.[0]?.message?.content?.trim() || '';
+                } else if (AI_PROVIDER === 'claude') {
+                    // Claude API request
+                    const requestBody = {
+                        model: 'claude-3-5-haiku-20241022',
+                        max_tokens: 150,
+                        temperature: 0.3,
+                        system: systemPrompt,
+                        messages: [
+                            {
+                                role: 'user',
+                                content: query
+                            }
+                        ]
+                    };
+                    
+                    response = await fetch(CLAUDE_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': CLAUDE_API_KEY,
+                            'anthropic-version': '2023-06-01'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    if (!response.ok) {
+                        console.error('[TRANSLATION] API error:', response.status, response.statusText);
+                        return { translation: 'Translation unavailable', language: null };
+                    }
+                    
+                    data = await response.json();
+                    content = data.content?.[0]?.text?.trim() || '';
+                } else {
+                    // OpenRouter API request
+                    const requestBody = {
+                        model: 'anthropic/claude-3-haiku',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: systemPrompt
+                            },
+                            {
+                                role: 'user',
+                                content: query
+                            }
+                        ],
+                        temperature: 0.3,
+                        max_tokens: 150
+                    };
+                    
+                    response = await fetch(OPENROUTER_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    if (!response.ok) {
+                        console.error('[TRANSLATION] API error:', response.status, response.statusText);
+                        return { translation: 'Translation unavailable', language: null };
+                    }
+                    
+                    data = await response.json();
+                    content = data.choices?.[0]?.message?.content?.trim() || '';
                 }
                 
-                const data = await response.json();
-                const content = data.choices?.[0]?.message?.content?.trim() || '';
                 console.log('[TRANSLATION] Received response:', content);
                 
                 // Try to parse as JSON first
@@ -5919,43 +6260,120 @@
             buttonElement.innerHTML = '<img src="icons/sparkles.svg" alt="" class="preview-box-sparkles-icon" aria-hidden="true"> Generating...';
             
             try {
-                if (!OPENROUTER_API_KEY) {
-                    throw new Error('API key not set');
+                // Check API key based on provider
+                if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
+                    throw new Error('Claude API key not set');
+                } else if (AI_PROVIDER === 'openrouter' && !OPENROUTER_API_KEY) {
+                    throw new Error('OpenRouter API key not set');
+                } else if (AI_PROVIDER === 'openai' && !OPENAI_API_KEY) {
+                    throw new Error('OpenAI API key not set');
                 }
                 
-                const requestBody = {
-                    model: 'anthropic/claude-3-haiku',
-                    messages: [
-                        {
-                            role: 'system',
-                            content: 'You are a helpful assistant that generates interesting facts from article titles and descriptions. Return exactly 3 interesting facts as a JSON array of strings. Each fact should be concise (6-10 words max) and be an interesting, surprising, or noteworthy fact about the topic. The first fact should be unexpected but not bizarre or untruthful. Example: ["Interesting fact one about the topic", "Surprising detail two with important information", "Noteworthy fact three that captures attention"]'
+                const systemPrompt = 'You are a helpful assistant that generates interesting facts from article titles and descriptions. Return exactly 3 interesting facts as a JSON array of strings. Each fact should be concise (6-10 words max) and be an interesting, surprising, or noteworthy fact about the topic. The first fact should be unexpected but not bizarre or untruthful. Example: ["Interesting fact one about the topic", "Surprising detail two with important information", "Noteworthy fact three that captures attention"]';
+                const userPrompt = `Title: ${title}\n\nDescription: ${description}\n\nGenerate 3 interesting facts about this article topic. The first fact should be unexpected but not bizarre or untruthful. Make them engaging and informative. Return only a JSON array of 3 strings, nothing else.`;
+                
+                let response, data, content;
+                
+                if (AI_PROVIDER === 'openai') {
+                    // OpenAI API request
+                    const requestBody = {
+                        model: 'gpt-4o-mini',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: systemPrompt
+                            },
+                            {
+                                role: 'user',
+                                content: userPrompt
+                            }
+                        ],
+                        max_tokens: 200,
+                        temperature: 0.7
+                    };
+                    
+                    response = await fetch(OPENAI_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${OPENAI_API_KEY}`
                         },
-                        {
-                            role: 'user',
-                            content: `Title: ${title}\n\nDescription: ${description}\n\nGenerate 3 interesting facts about this article topic. The first fact should be unexpected but not bizarre or untruthful. Make them engaging and informative. Return only a JSON array of 3 strings, nothing else.`
-                        }
-                    ],
-                    max_tokens: 200,
-                    temperature: 0.7
-                };
-                
-                const response = await fetch(OPENROUTER_API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                        'HTTP-Referer': window.location.origin,
-                        'X-Title': 'Key Points Generator'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`API error: ${response.status}`);
+                    }
+                    
+                    data = await response.json();
+                    content = data.choices?.[0]?.message?.content?.trim() || '';
+                } else if (AI_PROVIDER === 'claude') {
+                    // Claude API request
+                    const requestBody = {
+                        model: 'claude-3-5-haiku-20241022',
+                        max_tokens: 200,
+                        temperature: 0.7,
+                        system: systemPrompt,
+                        messages: [
+                            {
+                                role: 'user',
+                                content: userPrompt
+                            }
+                        ]
+                    };
+                    
+                    response = await fetch(CLAUDE_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': CLAUDE_API_KEY,
+                            'anthropic-version': '2023-06-01'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`API error: ${response.status}`);
+                    }
+                    
+                    data = await response.json();
+                    content = data.content?.[0]?.text?.trim() || '';
+                } else {
+                    // OpenRouter API request
+                    const requestBody = {
+                        model: 'anthropic/claude-3-haiku',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: systemPrompt
+                            },
+                            {
+                                role: 'user',
+                                content: userPrompt
+                            }
+                        ],
+                        max_tokens: 200,
+                        temperature: 0.7
+                    };
+                    
+                    response = await fetch(OPENROUTER_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                            'HTTP-Referer': window.location.origin,
+                            'X-Title': 'Key Points Generator'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`API error: ${response.status}`);
+                    }
+                    
+                    data = await response.json();
+                    content = data.choices?.[0]?.message?.content?.trim() || '';
                 }
-                
-                const data = await response.json();
-                const content = data.choices?.[0]?.message?.content?.trim() || '';
                 
                 // Parse JSON array from response
                 let keyPoints = [];
@@ -7410,6 +7828,34 @@
                 bottomOverlay.style.top = `${Math.max(130, 130 + bottomPane.scrollTop)}px`;
             };
             bottomPane.addEventListener('scroll', handleOverlayPosition, { passive: true });
+        }
+
+        // Server selector dropdown functionality
+        const serverSelector = document.getElementById('server-selector');
+        if (serverSelector) {
+            // Set initial value based on current provider
+            serverSelector.value = AI_PROVIDER;
+            
+            serverSelector.addEventListener('change', (event) => {
+                const newProvider = event.target.value;
+                AI_PROVIDER = newProvider;
+                console.log('[SERVER] Switched to:', AI_PROVIDER);
+                
+                // Clear cache when switching providers to force fresh results
+                try {
+                    const keysToRemove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && (key.startsWith('ai_suggestions_') || key.startsWith('firefox_suggestions_'))) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                    keysToRemove.forEach(key => localStorage.removeItem(key));
+                    console.log('[SERVER] Cleared', keysToRemove.length, 'cached items');
+                } catch (e) {
+                    console.error('[SERVER] Could not clear cache:', e);
+                }
+            });
         }
     </script>
 </body>

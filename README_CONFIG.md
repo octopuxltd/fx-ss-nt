@@ -12,7 +12,12 @@ This project uses API keys that are stored securely and not committed to the rep
 2. Edit `config.js` and add your actual API keys:
    ```javascript
    window.API_CONFIG = {
+       // Choose which AI provider to use: 'openrouter', 'claude', or 'openai'
+       AI_PROVIDER: 'openrouter',
+       
        OPENROUTER_API_KEY: 'your-actual-openrouter-key',
+       CLAUDE_API_KEY: 'your-actual-claude-key',
+       OPENAI_API_KEY: 'your-actual-openai-key',
        PEXELS_API_KEY: 'your-actual-pexels-key'
    };
    ```
@@ -28,7 +33,10 @@ For GitHub Pages deployment, API keys are injected from GitHub Secrets during th
 1. Go to your repository on GitHub
 2. Navigate to **Settings** → **Secrets and variables** → **Actions**
 3. Add the following secrets:
-   - `OPENROUTER_API_KEY`: Your OpenRouter API key
+   - `AI_PROVIDER`: Set to `openrouter`, `claude`, or `openai`
+   - `OPENROUTER_API_KEY`: Your OpenRouter API key (if using OpenRouter)
+   - `CLAUDE_API_KEY`: Your Claude API key (if using Claude)
+   - `OPENAI_API_KEY`: Your OpenAI API key (if using OpenAI)
    - `PEXELS_API_KEY`: Your Pexels API key
 
 ### How it works
