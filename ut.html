@@ -5306,7 +5306,7 @@
                     <ul class="preview-box-key-points">
                         ${savedKeyPoints.map(point => `<li>${point.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
                     </ul>
-                    <a href="https://${url.replace(/^www\./i, '')}" class="preview-box-visit-link" target="_blank" rel="noopener noreferrer">Visit site →</a>
+                    <a href="#" class="preview-box-visit-link">Visit site →</a>
                 `;
             } else {
                 // Show generate button
@@ -5432,7 +5432,7 @@
                         <ul class="preview-box-key-points">
                             ${keyPoints.map(point => `<li>${point.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
                         </ul>
-                        <a href="https://${url.replace(/^www\./i, '')}" class="preview-box-visit-link" target="_blank" rel="noopener noreferrer">Visit site →</a>
+                        <a href="#" class="preview-box-visit-link">Visit site →</a>
                     `;
                     container.innerHTML = keyPointsHtml;
                 } else {
