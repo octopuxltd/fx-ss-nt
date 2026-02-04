@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Tab (search prototype)</title>
+    <title>New Tab (search prototype 2)</title>
     <link rel="icon" type="image/png" href="icons/Fx-Browser-icon-fullColor-64.png">
     <link rel="stylesheet" href="suggestions.css">
     <style>
@@ -6041,6 +6041,65 @@
         }
         
         
+        let lastWeatherSnapshot = null;
+
+        function logWeatherCarrotLayout(label) {
+            const weatherCarrot = carrotList ? carrotList.querySelector('.carrot--weather') : null;
+            const weatherHeader = weatherCarrot ? weatherCarrot.querySelector('.weather-header') : null;
+            const pinButton = weatherCarrot ? weatherCarrot.querySelector('.weather-pin-button') : null;
+
+            if (!weatherCarrot || !weatherHeader || !pinButton) {
+                console.log(`[WEATHER] ${label} | Missing elements`, {
+                    hasCarrot: !!weatherCarrot,
+                    hasHeader: !!weatherHeader,
+                    hasPin: !!pinButton
+                });
+                return;
+            }
+
+            const carrotRect = weatherCarrot.getBoundingClientRect();
+            const headerRect = weatherHeader.getBoundingClientRect();
+            const pinRect = pinButton.getBoundingClientRect();
+            const pinStyles = window.getComputedStyle(pinButton);
+
+            const snapshot = {
+                label,
+                carrot: { width: carrotRect.width, height: carrotRect.height, top: carrotRect.top, left: carrotRect.left },
+                header: { width: headerRect.width, height: headerRect.height, top: headerRect.top, left: headerRect.left },
+                pin: { width: pinRect.width, height: pinRect.height, top: pinRect.top, left: pinRect.left },
+                pinVisibility: pinStyles.visibility,
+                pinOpacity: pinStyles.opacity,
+                pinPointerEvents: pinStyles.pointerEvents
+            };
+
+            if (lastWeatherSnapshot) {
+                const sizeDelta = {
+                    carrotHeight: snapshot.carrot.height - lastWeatherSnapshot.carrot.height,
+                    headerHeight: snapshot.header.height - lastWeatherSnapshot.header.height
+                };
+                snapshot.sizeDelta = sizeDelta;
+            }
+
+            lastWeatherSnapshot = snapshot;
+            console.log(`[WEATHER] ${label} ${JSON.stringify(snapshot)}`);
+        }
+
+        function setupWeatherPinLogging() {
+            const weatherCarrot = carrotList ? carrotList.querySelector('.carrot--weather') : null;
+            if (!weatherCarrot || weatherCarrot.dataset.loggingAttached === 'true') {
+                return;
+            }
+
+            weatherCarrot.dataset.loggingAttached = 'true';
+            logWeatherCarrotLayout('init');
+            weatherCarrot.addEventListener('mouseenter', () => {
+                requestAnimationFrame(() => logWeatherCarrotLayout('mouseenter'));
+            });
+            weatherCarrot.addEventListener('mouseleave', () => {
+                requestAnimationFrame(() => logWeatherCarrotLayout('mouseleave'));
+            });
+        }
+
         function setCarrotContent(state, amountOrTerm, fromCurrencyOrTargetLanguage, toCurrencyOrTranslation) {
             if (!carrotList) {
                 return;
@@ -6072,6 +6131,7 @@
                     // Attach pin button handler for weather
                     setTimeout(() => {
                         attachPinButtonHandler(4);
+                        setupWeatherPinLogging();
                     }, 0);
                     break;
                 case 5:
@@ -6950,6 +7010,9 @@
             // Update clear button on input
             searchBoxElement.addEventListener('input', (event) => {
                 console.log('[INPUT] ===== INPUT EVENT STARTED =====');
+                if (topOverlay && !topOverlay.classList.contains('is-focused')) {
+                    setOverlayState(true);
+                }
                 updateClearButton();
                 const value = (event.target.value || '').toString();
                 const valueLower = value.toLowerCase().trim();

@@ -741,10 +741,14 @@
     color: #1F2933;
     font-size: 11px;
     font-weight: 500;
-    display: none;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
     cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
 }
 
 .carrot-pin-button .pin-icon {
@@ -753,7 +757,9 @@
 
 .search-suggestions-preview-item.carrot:hover .carrot-pin-button,
 .search-suggestions-preview-item.carrot:focus-within .carrot-pin-button {
-    display: inline-flex;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 /* Pin buttons for stock and sports items - only show on individual item hover, not wrapper hover */
@@ -1364,6 +1370,7 @@
     align-items: center;
     width: 100%;
     position: relative;
+    padding-right: 96px;
 }
 
 .weather-title-section {
@@ -1400,15 +1407,21 @@
     color: #1F2933;
     font-size: 11px;
     font-weight: 500;
-    display: none;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
     cursor: pointer;
+    opacity: 0;
+    visibility: visible;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    will-change: opacity;
 }
 
 .carrot--weather:hover .weather-pin-button,
 .carrot--weather:focus-within .weather-pin-button {
-    display: inline-flex;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .weather-summary {
