@@ -284,7 +284,19 @@
     opacity: 1;
 }
 
+.firefox-image-placeholder {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-left: 2px;
+    visibility: hidden;
+}
+
 .ut-page .firefox-suggest-image-icon {
+    margin-left: -2px;
+}
+
+.ut-page .firefox-image-placeholder {
     margin-left: -2px;
 }
 

@@ -3474,7 +3474,7 @@
                         ${isFirefoxSuggest 
                             ? (firefoxImageUrl 
                                 ? `<img src="${firefoxImageUrl}" alt="" aria-hidden="true" class="suggestion-icon firefox-suggest-image-icon" onload="this.classList.add('loaded');">`
-                                : '')
+                                : `<div class="suggestion-icon firefox-suggest-image-icon firefox-image-placeholder" aria-hidden="true"></div>`)
                             : `<img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon">`
                         }
                         <span class="label">${displayText}</span>
@@ -3570,6 +3570,14 @@
                 suggestionsList.innerHTML = finalHtml;
                 console.log('innerHTML set, new innerHTML length:', suggestionsList.innerHTML.length);
                 console.log('Number of child elements:', suggestionsList.children.length);
+                
+                // Check for Firefox suggestion images that are already loaded (from cache)
+                const firefoxImages = suggestionsList.querySelectorAll('.firefox-suggest-image-icon:not(.firefox-image-placeholder)');
+                firefoxImages.forEach((img) => {
+                    if (img.complete && img.naturalHeight !== 0) {
+                        img.classList.add('loaded');
+                    }
+                });
             } catch (error) {
                 console.error('Error in updateSuggestions:', error);
                 console.error('Error stack:', error.stack);
@@ -3600,6 +3608,9 @@
             
             // Attach hover listeners to the new suggestions (after click listeners)
             attachHoverListeners();
+            
+            // Attach preview box hover handlers (if preview box exists)
+            attachPreviewBoxHoverHandlers();
             
             // Attach pin button handlers for stocks and sports items
             attachPinButtonHandlersForSuggestions();
@@ -3774,6 +3785,8 @@
         }
         
         async function handleFirefoxSuggestionHover(event) {
+            if (!suggestionsList) return;
+            
             const item = event.currentTarget;
             const title = item.dataset.firefoxTitle;
             const description = item.dataset.firefoxDescription;
@@ -3786,14 +3799,71 @@
                 return;
             }
             
+            // Calculate virtual index (accounting for coffee shops counting as 2 items, stocks counting as 3 items, and skipping headings)
+            const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
+            const itemIndex = Array.from(suggestionItems).indexOf(item);
+            if (itemIndex >= 0) {
+                let virtualIndex = 0;
+                for (let i = 0; i < itemIndex; i++) {
+                    const currentItem = suggestionItems[i];
+                    // Skip Firefox Suggest heading
+                    if (currentItem.classList.contains('search-suggestions-preview-heading') || currentItem.dataset.index === '-1') {
+                        continue;
+                    }
+                    if (currentItem.classList.contains('local-business-wrapper')) {
+                        const businessDivs = currentItem.querySelectorAll('.local-business');
+                        if (businessDivs.length === 2) {
+                            // Coffee shops item - counts as 2 virtual items
+                            virtualIndex += 2;
+                        } else {
+                            // Regular local business - counts as 1
+                            virtualIndex += 1;
+                        }
+                    } else if (currentItem.classList.contains('stocks-wrapper')) {
+                        const stockDivs = currentItem.querySelectorAll('.stock-item');
+                        // Stocks item - count each stock div as a virtual item
+                        virtualIndex += stockDivs.length > 0 ? stockDivs.length : 1;
+                    } else if (currentItem.classList.contains('sports-wrapper')) {
+                        const sportsDivs = currentItem.querySelectorAll('.sports-item');
+                        // Sports item - count each sports div as a virtual item
+                        virtualIndex += sportsDivs.length > 0 ? sportsDivs.length : 1;
+                    } else {
+                        // Regular suggestion - counts as 1
+                        virtualIndex += 1;
+                    }
+                }
+                selectedSuggestionIndex = virtualIndex;
+                updateSelectedSuggestion();
+            }
+            
             await showFirefoxPreviewBox(item, title, description, url);
         }
         
         function handleFirefoxSuggestionLeave(event) {
             // Only hide if not keyboard navigating (keyboard navigation handles its own preview box)
-            if (!suggestionsList.classList.contains('keyboard-navigating')) {
-                hideFirefoxPreviewBox();
+            if (suggestionsList.classList.contains('keyboard-navigating')) {
+                return;
             }
+            
+            // Check if mouse is moving to the preview box
+            const relatedTarget = event.relatedTarget;
+            const previewBox = document.querySelector('.preview-box');
+            
+            if (previewBox && (relatedTarget === previewBox || previewBox.contains(relatedTarget))) {
+                // Mouse is moving to preview box, don't close
+                return;
+            }
+            
+            // Use a small delay to allow mouse to move to preview box
+            setTimeout(() => {
+                // Check if mouse is now over preview box or still over a Firefox suggestion
+                const isOverPreviewBox = previewBox && (previewBox.matches(':hover') || previewBox.contains(document.activeElement));
+                const isOverFirefoxSuggestion = document.querySelector('.firefox-suggest-item:hover');
+                
+                if (!isOverPreviewBox && !isOverFirefoxSuggestion) {
+                    hideFirefoxPreviewBox();
+                }
+            }, 100);
         }
         
         function handleSuggestionHover(event) {
@@ -3814,12 +3884,16 @@
                 return;
             }
             
-            // Calculate virtual index (accounting for coffee shops counting as 2 items and stocks counting as 3 items)
+            // Calculate virtual index (accounting for coffee shops counting as 2 items, stocks counting as 3 items, and skipping headings)
             const itemIndex = Array.from(suggestionItems).indexOf(item);
             if (itemIndex >= 0) {
                 let virtualIndex = 0;
                 for (let i = 0; i < itemIndex; i++) {
                     const currentItem = suggestionItems[i];
+                    // Skip Firefox Suggest heading
+                    if (currentItem.classList.contains('search-suggestions-preview-heading') || currentItem.dataset.index === '-1') {
+                        continue;
+                    }
                     if (currentItem.classList.contains('local-business-wrapper')) {
                         const businessDivs = currentItem.querySelectorAll('.local-business');
                         if (businessDivs.length === 2) {
@@ -3907,9 +3981,15 @@
             });
             
             // Calculate total virtual items (accounting for coffee shops having 2 businesses and stocks having 3 items)
+            // Skip heading items (data-index="-1" or search-suggestions-preview-heading class)
             let virtualItemCount = 0;
             const virtualItemMap = []; // Maps virtual index to [itemIndex, businessIndex/stockIndex]
             suggestionItems.forEach((item, itemIndex) => {
+                // Skip Firefox Suggest heading
+                if (item.classList.contains('search-suggestions-preview-heading') || item.dataset.index === '-1') {
+                    return;
+                }
+                
                 if (item.classList.contains('local-business-wrapper')) {
                     const businessDivs = item.querySelectorAll('.local-business');
                     if (businessDivs.length === 2) {
@@ -4083,23 +4163,52 @@
             suggestionItems.forEach((item) => {
                 const title = item.dataset.firefoxTitle;
                 if (title && title.toLowerCase() === cacheKey) {
-                    // Check if image doesn't already exist
-                    const existingImg = item.querySelector('.firefox-suggest-image-icon');
+                    // Check if image already exists (as img tag)
+                    const existingImg = item.querySelector('.firefox-suggest-image-icon:not(.firefox-image-placeholder)');
                     if (!existingImg) {
-                        // Create and insert the image
-                        const img = document.createElement('img');
-                        img.src = imageUrl;
-                        img.alt = '';
-                        img.setAttribute('aria-hidden', 'true');
-                        img.className = 'suggestion-icon firefox-suggest-image-icon';
+                        // Find placeholder or create new image
+                        const placeholder = item.querySelector('.firefox-image-placeholder');
                         
-                        // Insert at the beginning of the list item
-                        item.insertBefore(img, item.firstChild);
-                        
-                        // Fade in once loaded
-                        img.onload = () => {
-                            img.classList.add('loaded');
-                        };
+                        if (placeholder) {
+                            // Replace placeholder with actual image
+                            const img = document.createElement('img');
+                            img.alt = '';
+                            img.setAttribute('aria-hidden', 'true');
+                            img.className = 'suggestion-icon firefox-suggest-image-icon';
+                            
+                            // Replace placeholder
+                            placeholder.replaceWith(img);
+                            
+                            // Set src after setting up handlers (in case image loads from cache immediately)
+                            img.onload = () => {
+                                img.classList.add('loaded');
+                            };
+                            
+                            // Check if image is already loaded (from cache)
+                            img.src = imageUrl;
+                            if (img.complete && img.naturalHeight !== 0) {
+                                img.classList.add('loaded');
+                            }
+                        } else {
+                            // No placeholder found, insert image at beginning
+                            const img = document.createElement('img');
+                            img.alt = '';
+                            img.setAttribute('aria-hidden', 'true');
+                            img.className = 'suggestion-icon firefox-suggest-image-icon';
+                            
+                            item.insertBefore(img, item.firstChild);
+                            
+                            // Set src after setting up handlers (in case image loads from cache immediately)
+                            img.onload = () => {
+                                img.classList.add('loaded');
+                            };
+                            
+                            // Check if image is already loaded (from cache)
+                            img.src = imageUrl;
+                            if (img.complete && img.naturalHeight !== 0) {
+                                img.classList.add('loaded');
+                            }
+                        }
                     }
                 }
             });
@@ -4152,6 +4261,37 @@
                     </div>
                 </div>
             `;
+            
+            // Attach hover handlers to keep preview box open when mouse is over it
+            attachPreviewBoxHoverHandlers();
+        }
+        
+        function attachPreviewBoxHoverHandlers() {
+            const previewBox = document.querySelector('.preview-box');
+            if (!previewBox) return;
+            
+            // Check if handlers are already attached to prevent duplicates
+            if (previewBox.dataset.handlersAttached === 'true') return;
+            
+            // Keep preview box open when mouse enters it
+            previewBox.addEventListener('mouseenter', () => {
+                // Preview box stays open - do nothing
+            });
+            
+            // Close preview box when mouse leaves it (unless keyboard navigating)
+            previewBox.addEventListener('mouseleave', () => {
+                if (!suggestionsList || !suggestionsList.classList.contains('keyboard-navigating')) {
+                    // Check if mouse is moving to a Firefox suggestion
+                    setTimeout(() => {
+                        const isOverFirefoxSuggestion = document.querySelector('.firefox-suggest-item:hover');
+                        if (!isOverFirefoxSuggestion) {
+                            hideFirefoxPreviewBox();
+                        }
+                    }, 50);
+                }
+            });
+            
+            previewBox.dataset.handlersAttached = 'true';
         }
         
         function hideFirefoxPreviewBox() {
@@ -4880,6 +5020,9 @@
                         const stockDivs = item.querySelectorAll('.stock-item');
                         // Count each stock div as a virtual item
                         virtualItemCount += stockDivs.length > 0 ? stockDivs.length : 1;
+                    } else if (item.classList.contains('sports-wrapper')) {
+                        const sportsDivs = item.querySelectorAll('.sports-item');
+                        virtualItemCount += sportsDivs.length > 0 ? sportsDivs.length : 1;
                     } else {
                         virtualItemCount += 1;
                     }
