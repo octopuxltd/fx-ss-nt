@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Tab</title>
+    <title>New Tab (search prototype)</title>
+    <link rel="icon" type="image/png" href="icons/Fx-Browser-icon-fullColor-64.png">
     <link rel="stylesheet" href="suggestions.css">
     <style>
         /* Override hover for ut.html - only show selection state, not hover */
@@ -55,6 +56,12 @@
 
         .top-overlay.is-focused .search-container {
             overflow-y: auto;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+
+        .top-overlay.is-focused .search-container::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
         }
 
         .top-overlay {
@@ -76,6 +83,11 @@
             flex-direction: column;
             border-bottom-left-radius: 0;
             border-bottom-right-radius: 0;
+            pointer-events: none; /* Allow pointer events to pass through when not focused */
+        }
+
+        .top-overlay > * {
+            pointer-events: auto; /* Interactive elements can receive events */
         }
 
         .top-overlay.is-scrolled {
@@ -90,6 +102,30 @@
             border-bottom-left-radius: 50px;
             border-bottom-right-radius: 50px;
             overflow-y: auto;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+
+        .top-overlay.is-focused::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
+
+        /* Make overlay background transparent to pointer events, but keep scrolling working via JS */
+        .top-overlay.is-focused {
+            pointer-events: none;
+        }
+
+        /* Ensure all interactive elements in focused overlay can receive pointer events */
+        .top-overlay.is-focused > * {
+            pointer-events: auto;
+        }
+
+
+        /* Ensure bottom content can receive pointer events */
+        .bottom-content {
+            pointer-events: auto;
+            position: relative;
+            z-index: 1;
         }
 
         .top-overlay.is-focused.winter-olympics {
@@ -236,25 +272,25 @@
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(0, 0, 0, 0.1);
+            background-color: rgba(255, 255, 255, 0);
+            border: 1px solid rgba(0, 0, 0, 0);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: background-color 0.2s ease, transform 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0);
         }
 
         .info-icon-button:hover {
-            background-color: rgba(255, 255, 255, 1);
+            background-color: rgba(255, 255, 255, 0);
             transform: scale(1.05);
         }
 
         .info-icon-button svg {
             width: 18px;
             height: 18px;
-            stroke: #374151;
+            stroke: rgba(55, 65, 81, 0);
         }
 
         .demo-searches-card {
@@ -473,7 +509,8 @@
             margin: 0 auto;
             padding: 0 0 32px;
             position: relative;
-            z-index: -1;
+            z-index: 1;
+            pointer-events: auto;
         }
 
         .top-overlay.is-focused .search-description {
@@ -502,7 +539,8 @@
             flex-direction: column;
             gap: 10px;
             position: relative;
-            z-index: -1;
+            z-index: 1;
+            pointer-events: auto;
         }
 
         .overlay-product-heading {
@@ -533,9 +571,10 @@
             align-items: center;
             transition: background-color 0.2s ease, opacity 0.6s ease;
             opacity: 0;
-            cursor: default;
+            cursor: pointer;
             position: relative;
-            z-index: -1;
+            z-index: 1;
+            pointer-events: auto;
         }
 
         .top-overlay.is-focused .overlay-product-card {
@@ -847,6 +886,32 @@
             width: 70%;
             max-width: 1200px;
             color: #FFFFFF;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 32px;
+            justify-content: space-between;
+            margin-top: 48px;
+            margin-bottom: 48px;
+            width: 70%;
+            max-width: 1200px;
+        }
+
+        .footer-links-right {
+            display: flex;
+            gap: 32px;
+        }
+
+        .footer-link {
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .footer-link:hover {
+            text-decoration: underline;
         }
 
         .articles-grid {
@@ -2070,6 +2135,13 @@
                     <p>Modern Home</p>
                 </a>
             </div>
+            <div class="footer-links">
+                <a href="#" class="footer-link">Mozilla</a>
+                <div class="footer-links-right">
+                    <a href="#" class="footer-link">Privacy Notice</a>
+                    <a href="#" class="footer-link">Customize New Tab</a>
+                </div>
+            </div>
         </div>
     </section>
     <script>
@@ -2125,7 +2197,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
                             <div>
                                 <p style="margin: 0 0 4px 0; font-size: 32px; font-weight: 500; color: #1F2933;">Winter Olympics 2026</p>
-                                <p style="margin: 0; font-size: 12px; color: #6B7280;">Milan-Cortina, Italy · Sponsored by ESPN</p>
+                                <p style="margin: 0; font-size: 16px; color: #6B7280;">Milan-Cortina, Italy · Sponsored by ESPN</p>
                             </div>
                             <svg width="320" height="160" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
                                 <!-- Olympic Rings - Interlocking circles -->
@@ -3479,7 +3551,7 @@
                         }
                         <span class="label">${displayText}</span>
                         ${isFirefoxSuggest && firefoxSuggestData && firefoxSuggestData.url 
-                            ? `<span class="search-hint firefox-url-display">&nbsp;•&nbsp;&nbsp;<span class="firefox-url-text">${firefoxSuggestData.url}</span></span>`
+                            ? `<span class="search-hint firefox-url-display">&nbsp;•&nbsp;&nbsp;<span class="firefox-url-text">${(firefoxSuggestData.url || '').replace(/^www\./i, '')}</span></span>`
                             : !isFirefoxSuggest ? '<span class="search-hint" style="display: none;">&nbsp;•&nbsp;&nbsp;Search with Google</span>' : ''
                         }
                     </li>
@@ -4257,7 +4329,7 @@
                     <div class="preview-box-text">
                         <h3 class="preview-box-title">${title.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h3>
                         <p class="preview-box-description">${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-                        <p class="preview-box-url">${url.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                        <p class="preview-box-url">${url.replace(/^www\./i, '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
                     </div>
                 </div>
             `;
@@ -5534,6 +5606,7 @@
 
             overlayScrollTarget.addEventListener('wheel', handleOverlayScrollWheel, { passive: false });
         }
+
 
         const bottomPane = document.querySelector('.pane--bottom');
         if (bottomPane && topOverlay) {
