@@ -28,7 +28,7 @@ const productContent = (() => {
         } else if (columnKey === 'openTabs') {
             sectionIcon = '<svg class="overlay-product-section-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>';
         } else if (columnKey === 'bookmarks') {
-            sectionIcon = '<svg class="overlay-product-section-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2H10V10L6 8L2 10V2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            sectionIcon = '<svg class="overlay-product-section-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
         }
         
         const metaText = card.meta ? `<span class="overlay-product-meta-text">${card.meta}</span>` : '';

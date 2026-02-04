@@ -2677,6 +2677,7 @@
         // Mapping of demo search terms to carrot states
         const demoSearchCarrots = {
             'fox wiki': 2,        // wikipedia
+            'wiki fox': 2,        // wikipedia
             'chair': 8,          // adMarketplace
             'ramen': 18,         // adMarketplaceRamen
             'sushi': 19,         // adMarketplaceSushi
@@ -2981,6 +2982,7 @@
                     //            "fox wi" (6 chars) is better - likely "fox wiki" or "fox weather"
                     //            "fox wik" (7 chars) is even clearer
                     'fox wiki': 7,         // Require "fox wik" (7 chars) - clear intent for wiki
+                    'wiki fox': 7,         // Require "wiki fo" (7 chars) - clear intent for wiki fox
                     
                     // 'chair': "chair" alone could be buying a chair (our carrot) or "chair design", "chair covers", "chair exercises"
                     //          But "chair" (5 chars) is the full word, so it's acceptable
@@ -3581,9 +3583,9 @@
                 const itemHtml = `
                     <li class="search-suggestions-preview-item ${isFirefoxSuggest ? 'firefox-suggest-item' : ''}" data-index="${index}" ${firefoxDataAttrs}>
                         ${isFirefoxSuggest 
-                            ? (firefoxImageUrl 
+                            ? `<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>${firefoxImageUrl 
                                 ? `<img src="${firefoxImageUrl}" alt="" aria-hidden="true" class="suggestion-icon firefox-suggest-image-icon" onload="this.classList.add('loaded');">`
-                                : `<div class="suggestion-icon firefox-suggest-image-icon firefox-image-placeholder" aria-hidden="true"></div>`)
+                                : `<div class="suggestion-icon firefox-suggest-image-icon firefox-image-placeholder" aria-hidden="true"></div>`}`
                             : `<img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon">`
                         }
                         <span class="label">${displayText}</span>
@@ -3605,22 +3607,9 @@
                 // Check if query matches "lakers game" (exact or partial match that would trigger the carrot)
                 const isLakersGameQuery = queryLower === 'lakers game' || (queryLower.startsWith('lakers') && queryLower.length >= 7);
                 let finalHtml = htmlString;
+                // For ad marketplace queries (chair/ramen/sushi), don't insert carrot yet - will be inserted after delay
                 if (isAdMarketplaceQuery) {
-                    let adMarketplaceCarrotHtml;
-                    if (queryLower === 'chair') {
-                        adMarketplaceCarrotHtml = carrotTemplates.adMarketplace();
-                    } else if (queryLower === 'ramen') {
-                        adMarketplaceCarrotHtml = carrotTemplates.adMarketplaceRamen();
-                    } else if (queryLower === 'sushi') {
-                        adMarketplaceCarrotHtml = carrotTemplates.adMarketplaceSushi();
-                    }
-                    // Insert ad marketplace carrot after first item (typed text)
-                    const firstItemEnd = htmlString.indexOf('</li>');
-                    if (firstItemEnd !== -1 && adMarketplaceCarrotHtml) {
-                        finalHtml = htmlString.substring(0, firstItemEnd + 5) + adMarketplaceCarrotHtml + htmlString.substring(firstItemEnd + 5);
-                    } else if (adMarketplaceCarrotHtml) {
-                        finalHtml = htmlString + adMarketplaceCarrotHtml;
-                    }
+                    // Don't insert carrot here - will be inserted after all suggestions are shown
                 } else if (isCoffeeShopsQuery) {
                     // Insert coffee shops carrot after first item (typed text)
                     // Insert both coffee shop items directly - CSS will display them side by side
@@ -3687,6 +3676,80 @@
                         img.classList.add('loaded');
                     }
                 });
+                
+                // For ad marketplace queries (chair/ramen/sushi), insert carrot after all suggestions are loaded
+                if (isAdMarketplaceQuery) {
+                    // Wait for all suggestions to load (no skeletons, list stabilized)
+                    const insertCarrotWhenReady = () => {
+                        // Check if there are any skeletons still loading
+                        const skeletons = suggestionsList.querySelectorAll('.skeleton');
+                        if (skeletons.length > 0) {
+                            // Still loading, check again in a bit
+                            setTimeout(insertCarrotWhenReady, 100);
+                            return;
+                        }
+                        
+                        // Get all suggestion items (excluding the first one which is the typed text)
+                        const allItems = Array.from(suggestionsList.querySelectorAll('.search-suggestions-preview-item'));
+                        
+                        // Check if carrot is already inserted
+                        const existingCarrot = suggestionsList.querySelector('.carrot--ad-marketplace');
+                        if (existingCarrot) {
+                            return; // Already inserted
+                        }
+                        
+                        if (allItems.length > 1) {
+                            // Pick a random position among suggestions (excluding first item)
+                            // Random position between 1 and allItems.length (inclusive)
+                            const randomPosition = Math.floor(Math.random() * (allItems.length - 1)) + 1;
+                            const targetItem = allItems[randomPosition];
+                            
+                            // Get the carrot HTML
+                            let adMarketplaceCarrotHtml;
+                            if (queryLower === 'chair') {
+                                adMarketplaceCarrotHtml = carrotTemplates.adMarketplace();
+                            } else if (queryLower === 'ramen') {
+                                adMarketplaceCarrotHtml = carrotTemplates.adMarketplaceRamen();
+                            } else if (queryLower === 'sushi') {
+                                adMarketplaceCarrotHtml = carrotTemplates.adMarketplaceSushi();
+                            }
+                            
+                            if (adMarketplaceCarrotHtml && targetItem) {
+                                // Create a temporary container to parse the HTML
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = adMarketplaceCarrotHtml;
+                                const carrotElement = tempDiv.firstElementChild;
+                                
+                                if (carrotElement) {
+                                    // Insert the carrot before the target item
+                                    suggestionsList.insertBefore(carrotElement, targetItem);
+                                    
+                                    // Add hover handlers to clear other hover states
+                                    carrotElement.addEventListener('mouseenter', () => {
+                                        suggestionsList.classList.add('carrot-hovered');
+                                        // Remove is-selected from all other items
+                                        const allItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
+                                        allItems.forEach(item => {
+                                            if (item !== carrotElement) {
+                                                item.classList.remove('is-selected');
+                                            }
+                                        });
+                                    });
+                                    
+                                    carrotElement.addEventListener('mouseleave', () => {
+                                        suggestionsList.classList.remove('carrot-hovered');
+                                    });
+                                }
+                            }
+                        } else {
+                            // Not enough items yet, check again
+                            setTimeout(insertCarrotWhenReady, 100);
+                        }
+                    };
+                    
+                    // Start checking after a short delay
+                    setTimeout(insertCarrotWhenReady, 200);
+                }
             } catch (error) {
                 console.error('Error in updateSuggestions:', error);
                 console.error('Error stack:', error.stack);
@@ -4312,6 +4375,33 @@
             });
         }
         
+        // Helper functions for key points localStorage
+        function getKeyPointsStorageKey(url) {
+            // Normalize URL for storage key
+            const normalizedUrl = url.replace(/^www\./i, '').toLowerCase().trim();
+            return `firefox_suggest_keypoints_${normalizedUrl}`;
+        }
+        
+        function saveKeyPoints(url, keyPoints) {
+            try {
+                const storageKey = getKeyPointsStorageKey(url);
+                localStorage.setItem(storageKey, JSON.stringify(keyPoints));
+            } catch (error) {
+                console.error('[KEY POINTS] Error saving to localStorage:', error);
+            }
+        }
+        
+        function getKeyPoints(url) {
+            try {
+                const storageKey = getKeyPointsStorageKey(url);
+                const saved = localStorage.getItem(storageKey);
+                return saved ? JSON.parse(saved) : null;
+            } catch (error) {
+                console.error('[KEY POINTS] Error reading from localStorage:', error);
+                return null;
+            }
+        }
+        
         async function showFirefoxPreviewBox(item, title, description, url) {
             const previewBox = document.querySelector('.preview-box');
             const suggestionsContainer = document.querySelector('.search-suggestions-preview-column-container');
@@ -4356,6 +4446,26 @@
                 }
             }
             
+            // Check for saved key points
+            const savedKeyPoints = getKeyPoints(url);
+            let keyPointsHtml = '';
+            if (savedKeyPoints && Array.isArray(savedKeyPoints) && savedKeyPoints.length > 0) {
+                // Display saved key points
+                keyPointsHtml = `
+                    <ul class="preview-box-key-points">
+                        ${savedKeyPoints.map(point => `<li>${point.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
+                    </ul>
+                `;
+            } else {
+                // Show generate button
+                keyPointsHtml = `
+                    <button class="preview-box-generate-button" data-preview-title="${title.replace(/"/g, '&quot;')}" data-preview-description="${description.replace(/"/g, '&quot;')}" data-preview-url="${url.replace(/"/g, '&quot;')}">
+                        <img src="icons/sparkles.svg" alt="" class="preview-box-sparkles-icon" aria-hidden="true">
+                        Generate key points
+                    </button>
+                `;
+            }
+            
             // Populate preview box
             previewBox.innerHTML = `
                 <div class="preview-box-content">
@@ -4363,17 +4473,124 @@
                     <div class="preview-box-text">
                         <h3 class="preview-box-title">${title.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h3>
                         <p class="preview-box-description">${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-                        <button class="preview-box-generate-button">
-                            <img src="icons/sparkles.svg" alt="" class="preview-box-sparkles-icon" aria-hidden="true">
-                            Generate key points
-                        </button>
+                        <div class="preview-box-key-points-container">
+                            ${keyPointsHtml}
+                        </div>
                         <p class="preview-box-url">${url.replace(/^www\./i, '').toLowerCase().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\//g, '/<wbr>')}</p>
                     </div>
                 </div>
             `;
             
+            // Attach click handler to generate button (if it exists)
+            const generateButton = previewBox.querySelector('.preview-box-generate-button');
+            if (generateButton) {
+                generateButton.addEventListener('click', async () => {
+                    const buttonTitle = generateButton.dataset.previewTitle;
+                    const buttonDescription = generateButton.dataset.previewDescription;
+                    const buttonUrl = generateButton.dataset.previewUrl;
+                    await generateKeyPoints(buttonTitle, buttonDescription, buttonUrl, generateButton);
+                });
+            }
+            
             // Attach hover handlers to keep preview box open when mouse is over it
             attachPreviewBoxHoverHandlers();
+        }
+        
+        async function generateKeyPoints(title, description, url, buttonElement) {
+            const container = buttonElement.parentElement;
+            
+            // Show loading state
+            buttonElement.disabled = true;
+            buttonElement.innerHTML = '<img src="icons/sparkles.svg" alt="" class="preview-box-sparkles-icon" aria-hidden="true"> Generating...';
+            
+            try {
+                if (!OPENROUTER_API_KEY) {
+                    throw new Error('API key not set');
+                }
+                
+                const requestBody = {
+                    model: 'anthropic/claude-3-haiku',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are a helpful assistant that generates interesting facts from article titles and descriptions. Return exactly 3 interesting facts as a JSON array of strings. Each fact should be concise (6-10 words max) and be an interesting, surprising, or noteworthy fact about the topic. The first fact should be unexpected but not bizarre or untruthful. Example: ["Interesting fact one about the topic", "Surprising detail two with important information", "Noteworthy fact three that captures attention"]'
+                        },
+                        {
+                            role: 'user',
+                            content: `Title: ${title}\n\nDescription: ${description}\n\nGenerate 3 interesting facts about this article topic. The first fact should be unexpected but not bizarre or untruthful. Make them engaging and informative. Return only a JSON array of 3 strings, nothing else.`
+                        }
+                    ],
+                    max_tokens: 200,
+                    temperature: 0.7
+                };
+                
+                const response = await fetch(OPENROUTER_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'HTTP-Referer': window.location.origin,
+                        'X-Title': 'Key Points Generator'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const content = data.choices?.[0]?.message?.content?.trim() || '';
+                
+                // Parse JSON array from response
+                let keyPoints = [];
+                try {
+                    // Try to extract JSON array from the response
+                    const jsonMatch = content.match(/\[.*\]/s);
+                    if (jsonMatch) {
+                        keyPoints = JSON.parse(jsonMatch[0]);
+                    } else {
+                        // Fallback: try parsing the whole content
+                        keyPoints = JSON.parse(content);
+                    }
+                    
+                    // Ensure we have an array of strings
+                    if (!Array.isArray(keyPoints)) {
+                        throw new Error('Response is not an array');
+                    }
+                    
+                    // Limit to 3 key points
+                    keyPoints = keyPoints.slice(0, 3).filter(point => typeof point === 'string' && point.length > 0);
+                } catch (parseError) {
+                    console.error('[KEY POINTS] Error parsing response:', parseError);
+                    // Fallback: create key points from title/description
+                    keyPoints = [
+                        `Key insight about ${title}`,
+                        `Important detail from the article`,
+                        `Summary point related to ${title}`
+                    ];
+                }
+                
+                // Replace button with bulleted list
+                if (keyPoints.length > 0) {
+                    // Save to localStorage
+                    saveKeyPoints(url, keyPoints);
+                    
+                    const keyPointsHtml = `
+                        <ul class="preview-box-key-points">
+                            ${keyPoints.map(point => `<li>${point.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`).join('')}
+                        </ul>
+                    `;
+                    container.innerHTML = keyPointsHtml;
+                } else {
+                    throw new Error('No key points generated');
+                }
+            } catch (error) {
+                console.error('[KEY POINTS] Error generating key points:', error);
+                // Show error state
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = '<img src="icons/sparkles.svg" alt="" class="preview-box-sparkles-icon" aria-hidden="true"> Error - Try again';
+            }
         }
         
         function attachPreviewBoxHoverHandlers() {
