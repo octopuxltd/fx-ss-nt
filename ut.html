@@ -2344,22 +2344,22 @@
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 24px;">
                         <div class="overlay-product-card olympics-card-blue" style="flex-direction: column; height: auto; padding: 16px;">
                             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Today</div>
-                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933; text-shadow: 0 0 12px rgba(255, 255, 255, 1), 0 0 8px rgba(255, 255, 255, 0.9), 0 0 4px rgba(255, 255, 255, 0.8);">Alpine Skiing</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Alpine Skiing</div>
                             <div style="font-size: 13px; color: #6B7280;">Men's Downhill • 10:00 AM</div>
                         </div>
                         <div class="overlay-product-card olympics-card-black" style="flex-direction: column; height: auto; padding: 16px;">
                             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Today</div>
-                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933; text-shadow: 0 0 12px rgba(255, 255, 255, 1), 0 0 8px rgba(255, 255, 255, 0.9), 0 0 4px rgba(255, 255, 255, 0.8);">Figure Skating</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Figure Skating</div>
                             <div style="font-size: 13px; color: #6B7280;">Pairs Short Program • 2:30 PM</div>
                         </div>
                         <div class="overlay-product-card olympics-card-red" style="flex-direction: column; height: auto; padding: 16px;">
                             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Tomorrow</div>
-                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933; text-shadow: 0 0 12px rgba(255, 255, 255, 1), 0 0 8px rgba(255, 255, 255, 0.9), 0 0 4px rgba(255, 255, 255, 0.8);">Ice Hockey</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Ice Hockey</div>
                             <div style="font-size: 13px; color: #6B7280;">USA vs Canada • 8:00 PM</div>
                         </div>
                         <div class="overlay-product-card olympics-card-yellow" style="flex-direction: column; height: auto; padding: 16px;">
                             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Feb 8</div>
-                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933; text-shadow: 0 0 12px rgba(255, 255, 255, 1), 0 0 8px rgba(255, 255, 255, 0.9), 0 0 4px rgba(255, 255, 255, 0.8);">Snowboarding</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Snowboarding</div>
                             <div style="font-size: 13px; color: #6B7280;">Men's Halfpipe Final • 11:00 AM</div>
                         </div>
                     </div>
@@ -2559,6 +2559,28 @@
                 topOverlay.classList.remove('winter-olympics');
                 searchWrapperElement.classList.remove('expanded');
                 searchDescriptionElement.classList.remove('expanded');
+                // Clear any inline height styles to return to starting state
+                searchWrapperElement.style.height = '';
+                searchWrapperElement.style.minHeight = '';
+                searchWrapperElement.style.maxHeight = '';
+                if (searchBoxElement) {
+                    searchBoxElement.style.height = '';
+                    searchBoxElement.style.minHeight = '';
+                    searchBoxElement.style.maxHeight = '';
+                }
+                // Clear height styles on suggestions preview container
+                if (searchSuggestionsPreviewElement) {
+                    searchSuggestionsPreviewElement.style.height = '';
+                    searchSuggestionsPreviewElement.style.minHeight = '';
+                    searchSuggestionsPreviewElement.style.maxHeight = '';
+                }
+                // Clear height styles on column container if it exists
+                const columnContainer = document.querySelector('.search-suggestions-preview-column-container');
+                if (columnContainer) {
+                    columnContainer.style.height = '';
+                    columnContainer.style.minHeight = '';
+                    columnContainer.style.maxHeight = '';
+                }
                 bottomOverlay.style.top = '130px';
                 bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
                 bottomOverlay.style.pointerEvents = 'none';
