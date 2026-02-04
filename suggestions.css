@@ -372,7 +372,7 @@
 
 .search-suggestions-preview-item:hover,
 .search-suggestions-preview-item.is-selected {
-    padding-right: 60px;
+    /* padding-right: 60px; - Removed to prevent layout shift on hover */
 }
 
 .search-suggestions-preview-item.menu-clicked {
@@ -460,7 +460,7 @@
 
 .ut-page .search-suggestions-preview-item:hover,
 .ut-page .search-suggestions-preview-item.is-selected {
-    padding-right: 63px;
+    /* padding-right: 63px; - Removed to prevent layout shift on hover */
 }
 
 .ut-page .suggestion-actions {
@@ -1964,7 +1964,7 @@
 
 .search-suggestions-preview-item:hover .search-hint-text,
 .search-suggestions-preview-item.is-selected .search-hint-text {
-    margin-left: 17px;
+    /* margin-left: 17px; - Removed to prevent layout shift on hover */
     position: relative;
     top: 1px;
 }
@@ -2028,7 +2028,7 @@
 
 .search-suggestions-preview-item:hover .firefox-url-text,
 .search-suggestions-preview-item.is-selected .firefox-url-text {
-    padding-left: 12px;
+    /* padding-left: 12px; - Removed to prevent layout shift on hover */
 }
 
 .carrot--currency {
