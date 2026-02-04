@@ -132,6 +132,15 @@
             position: relative;
         }
 
+        /* Prevent scrolling when winter olympics is active */
+        body.winter-olympics-active,
+        html.winter-olympics-active {
+            overflow: hidden;
+            height: 100%;
+            position: fixed;
+            width: 100%;
+        }
+
         .winter-olympics-background {
             position: absolute;
             top: 0;
@@ -2377,6 +2386,9 @@
             if (suggestionsPreview) {
                 suggestionsPreview.classList.remove('winter-olympics-active');
             }
+            // Re-enable scrolling
+            document.body.classList.remove('winter-olympics-active');
+            document.documentElement.classList.remove('winter-olympics-active');
 
             if (originalProductGridContent) {
                 container.innerHTML = originalProductGridContent;
@@ -2557,6 +2569,9 @@
             } else {
                 topOverlay.classList.remove('is-focused');
                 topOverlay.classList.remove('winter-olympics');
+                // Re-enable scrolling
+                document.body.classList.remove('winter-olympics-active');
+                document.documentElement.classList.remove('winter-olympics-active');
                 searchWrapperElement.classList.remove('expanded');
                 searchDescriptionElement.classList.remove('expanded');
                 // Clear any inline height styles to return to starting state
@@ -2651,6 +2666,9 @@
                     if (topOverlay) {
                         topOverlay.classList.add('winter-olympics');
                     }
+                    // Prevent scrolling
+                    document.body.classList.add('winter-olympics-active');
+                    document.documentElement.classList.add('winter-olympics-active');
                     renderWinterOlympicsSchedule();
                 }
                 setTimeout(() => {
@@ -2694,6 +2712,9 @@
                 // Reset winter olympics background if active
                 if (topOverlay && topOverlay.classList.contains('winter-olympics')) {
                     topOverlay.classList.remove('winter-olympics');
+                    // Re-enable scrolling
+                    document.body.classList.remove('winter-olympics-active');
+                    document.documentElement.classList.remove('winter-olympics-active');
                     restoreProductGrid();
                 }
                 setOverlayState(false);
@@ -6395,11 +6416,17 @@
                     if (topOverlay) {
                         topOverlay.classList.add('winter-olympics');
                     }
+                    // Prevent scrolling
+                    document.body.classList.add('winter-olympics-active');
+                    document.documentElement.classList.add('winter-olympics-active');
                     renderWinterOlympicsSchedule();
                 } else {
                     if (topOverlay) {
                         topOverlay.classList.remove('winter-olympics');
                     }
+                    // Re-enable scrolling
+                    document.body.classList.remove('winter-olympics-active');
+                    document.documentElement.classList.remove('winter-olympics-active');
                     // Restore product grid if it was replaced
                     restoreProductGrid();
                 }
