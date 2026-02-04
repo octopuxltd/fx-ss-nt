@@ -484,6 +484,8 @@
             margin: 0 auto;
             opacity: 0;
             transition: opacity 0.6s ease;
+            position: relative;
+            z-index: 0;
         }
 
         .top-overlay.is-focused .overlay-product-grid {
@@ -512,46 +514,77 @@
 
         .overlay-product-card {
             background: #FFFFFF;
-            border-radius: 12px;
+            border-radius: 6px;
             overflow: hidden;
             display: flex;
             flex-direction: row;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+            box-shadow: 0 4px 6px rgba(15, 23, 42, 0.12);
             text-decoration: none;
             color: inherit;
-            height: 90px;
+            height: auto;
+            min-height: 50px;
+            align-items: center;
             transition: background-color 0.2s ease, opacity 0.6s ease;
             opacity: 0;
+            cursor: default;
         }
 
         .top-overlay.is-focused .overlay-product-card {
             opacity: 1;
         }
 
-        .overlay-product-card img:not(.overlay-product-favicon):not(.overlay-product-meta-favicon) {
-            width: 90px;
-            height: 90px;
+        .overlay-product-card img:not(.overlay-product-favicon):not(.overlay-product-meta-favicon):not(.overlay-product-image-favicon) {
+            width: 50px;
+            height: 50px;
             object-fit: cover;
             flex-shrink: 0;
         }
 
+        .overlay-product-image-wrapper {
+            position: relative;
+            width: 50px;
+            height: 50px;
+            flex-shrink: 0;
+        }
+
+        .overlay-product-image-wrapper img:not(.overlay-product-image-favicon) {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+        }
+
+        .overlay-product-image-favicon {
+            position: absolute;
+            bottom: 9px;
+            right: 9px;
+            width: 20px !important;
+            height: 20px !important;
+            border-radius: 2px;
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 1px;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
+            object-fit: contain;
+        }
+
         .overlay-product-card--article img {
             width: 100% !important;
-            height: 160px !important;
+            height: 139px !important;
             object-fit: cover;
         }
 
         .overlay-product-card-body {
-            padding: 12px;
+            padding: 0 12px;
             display: flex;
             flex-direction: column;
             gap: 4px;
             justify-content: center;
+            width: 100%;
+            min-width: 0;
         }
 
         .overlay-product-title {
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 400;
             margin: 0;
             color: #1F2933;
             overflow: hidden;
@@ -560,26 +593,59 @@
         }
 
         .overlay-product-meta {
-            font-size: 12px;
+            font-size: 9px;
             margin: 0;
             color: rgba(15, 23, 42, 0.6);
             display: flex;
             align-items: center;
             gap: 6px;
+            width: 100%;
+            position: relative;
+        }
+
+        .overlay-product-meta-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .overlay-product-meta-text {
+            display: none;
+        }
+
+        .overlay-product-last-viewed {
+            display: inline;
+        }
+
+        .overlay-product-card:hover .overlay-product-meta-text {
+            display: inline;
+        }
+
+        .overlay-product-card:hover .overlay-product-last-viewed {
+            display: none;
+        }
+
+        .overlay-product-section-icon {
+            position: absolute;
+            right: 0;
+            flex-shrink: 0;
+            color: rgba(15, 23, 42, 0.6);
+            cursor: pointer;
+            z-index: 1;
         }
 
         .overlay-product-meta-favicon {
-            width: 16px !important;
-            height: 16px !important;
+            width: 12px !important;
+            height: 12px !important;
             flex-shrink: 0;
             object-fit: contain;
-            max-width: 16px !important;
-            max-height: 16px !important;
+            max-width: 12px !important;
+            max-height: 12px !important;
         }
 
         .overlay-product-card:hover,
         .overlay-product-card:focus {
-            background-color: #F3F4F6;
+            background-color: #EBE7FF;
         }
 
         /* Winter Olympics card hover colors */
@@ -621,51 +687,65 @@
 
         .overlay-product-card--article {
             flex-direction: column;
-            height: 290px;
+            height: 200px;
+            position: relative;
+            z-index: 0;
+            align-items: flex-start;
         }
 
-        .overlay-product-card--article .overlay-product-card-body {
-            padding: 16px;
-            flex-grow: 1;
+        .overlay-product-card--article img {
+            width: 100% !important;
+            height: 139px !important;
+            object-fit: cover;
         }
 
-        .overlay-product-card--article .overlay-product-title {
-            font-size: 18px;
+        .overlay-product-card--article .image-placeholder {
+            width: 100%;
+            height: 139px;
+            background-color: #E5E7EB;
+        }
+
+        .overlay-product-card--article h2 {
+            margin: 8px 16px 4px 16px;
+            font-size: 14px;
+            text-align: left;
+            color: #333;
             font-weight: 500;
-            margin-bottom: 8px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            flex-grow: 1;
+            width: calc(100% - 32px);
+            align-self: flex-start;
         }
 
         .overlay-product-card--article .overlay-product-meta {
-            font-size: 12px;
-            color: #777;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            margin-left: 16px;
+            margin-bottom: 16px;
+            font-size: 9px;
+            color: #333;
         }
 
-        .overlay-product-card--article .overlay-product-meta-favicon {
-            width: 16px !important;
-            height: 16px !important;
-            flex-shrink: 0;
-            object-fit: contain;
-            max-width: 16px !important;
-            max-height: 16px !important;
+        .overlay-product-card--article .sponsored-label {
+            position: absolute;
+            bottom: 8px;
+            right: 16px;
+            font-size: 9px;
+            color: #64748B;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            margin: 0;
+            text-align: left;
         }
 
         .overlay-product-card--article:hover {
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
         }
 
-        .overlay-product-card--article:hover .overlay-product-title {
-            color: #1E90FF;
+        .overlay-product-card--article:hover h2 {
+            color: #333;
         }
 
         .overlay-product-card--article:hover,
         .overlay-product-card--article:focus {
-            background-color: #FFFFFF;
+            background-color: #EBE7FF;
         }
 
 
@@ -1719,7 +1799,7 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
                             <div>
                                 <p style="margin: 0 0 4px 0; font-size: 32px; font-weight: 500; color: #1F2933;">Winter Olympics 2026</p>
-                                <p style="margin: 0; font-size: 12px; color: #6B7280;">Milan-Cortina, Italy</p>
+                                <p style="margin: 0; font-size: 12px; color: #6B7280;">Milan-Cortina, Italy · Sponsored by ESPN</p>
                             </div>
                             <svg width="320" height="160" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
                                 <!-- Olympic Rings - Interlocking circles -->
@@ -2015,6 +2095,14 @@
         if (topOverlay && searchBoxElement && bottomOverlay) {
             searchBoxElement.addEventListener('focus', () => {
                 setOverlayState(true);
+                // Check if search box contains "winter ol" and apply background/schedule
+                const currentValue = searchBoxElement.value.toLowerCase().trim();
+                if (currentValue === 'winter ol' || currentValue.startsWith('winter ol')) {
+                    if (topOverlay) {
+                        topOverlay.classList.add('winter-olympics');
+                    }
+                    renderWinterOlympicsSchedule();
+                }
                 setTimeout(() => {
                     if (!gradientAnimationId) {
                         animateGradient();
@@ -2789,7 +2877,7 @@
             // Generate skeletons with fixed widths based on their row positions
             const skeletonHTML = Array.from({ length: count }, (_, i) => {
                 const rowPosition = startRowIndex + i; // Actual row position (0-9 for rows 1-10)
-                const width = skeletonWidths[rowPosition]; // Use fixed width for this row position
+                const width = skeletonWidths[rowPosition] || skeletonWidths[rowPosition % skeletonWidths.length] || 80; // Use fixed width for this row position, with fallback
                 return `
                     <li class="search-suggestions-preview-item skeleton" data-index="-1">
                         <div class="suggestion-icon" style="background-color: #E5E7EB; width: 16px; height: 16px; border-radius: 2px; opacity: 0.6; display: block; flex-shrink: 0;"></div>
@@ -4333,21 +4421,17 @@
                 const value = (event.target.value || '').toString();
                 const valueLower = value.toLowerCase().trim();
                 
-                // Check for "winter olympics" to change background color
-                if (valueLower === 'winter olympics' || valueLower.includes('winter olympics')) {
+                // Check for "winter ol" to trigger Winter Olympics schedule and background color
+                // Note: This doesn't prevent AI suggestions from being fetched
+                if (valueLower === 'winter ol' || valueLower.startsWith('winter ol')) {
                     if (topOverlay) {
                         topOverlay.classList.add('winter-olympics');
                     }
+                    renderWinterOlympicsSchedule();
                 } else {
                     if (topOverlay) {
                         topOverlay.classList.remove('winter-olympics');
                     }
-                }
-                
-                // Check for "winter ol" to trigger Winter Olympics schedule
-                if (valueLower === 'winter ol' || valueLower.startsWith('winter ol')) {
-                    renderWinterOlympicsSchedule();
-                } else {
                     // Restore product grid if it was replaced
                     restoreProductGrid();
                 }
@@ -4489,14 +4573,16 @@
                     // Debounce API call (wait 300ms after user stops typing)
                     apiCallTimer = setTimeout(async () => {
                         // Only make API call if query hasn't changed
-                        if (searchBoxElement.value.toLowerCase() === valueLower) {
+                        const currentQuery = searchBoxElement.value.toLowerCase().trim();
+                        if (currentQuery === valueLower) {
                             lastApiQuery = valueLower;
                             console.log('Fetching AI suggestions for:', valueLower);
                             
                             const aiSuggestions = await fetchAISuggestions(valueLower);
                             
                             // Only update if query hasn't changed during API call
-                            if (searchBoxElement.value.toLowerCase() === valueLower) {
+                            const finalQuery = searchBoxElement.value.toLowerCase().trim();
+                            if (finalQuery === valueLower) {
                                 if (aiSuggestions.length > 0) {
                                     console.log('AI suggestions received:', aiSuggestions);
                                     

@@ -6,10 +6,9 @@
             heading: 'Sponsored',
             cards: [
                 {
-                    image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80',
-                    alt: 'Article thumbnail',
-                    title: 'The Surprising Science Behind Lightning',
-                    meta: 'SELF G'
+                    image: 'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=600&q=80',
+                    alt: 'Product shot',
+                    title: 'Fellow Stagg EKG Kettle'
                 }
             ]
         };

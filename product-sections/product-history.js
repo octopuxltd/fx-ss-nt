@@ -8,23 +8,26 @@
                 {
                     image: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=600&q=80',
                     alt: 'Quantum computing article',
-                    title: 'Quantum computing breakthroughs and next steps ahead',
+                    title: 'Quantum computing',
                     meta: 'Wikipedia',
-                    metaFavicon: 'favicons/Wikipedia.svg'
+                    metaFavicon: 'favicons/Wikipedia.svg',
+                    lastViewed: '2 days ago'
                 },
                 {
                     image: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=600&q=80',
                     alt: 'Keynote video',
-                    title: 'Keynote livestream highlights recap and timestamps',
+                    title: 'Apple keynote 2026',
                     meta: 'YouTube',
-                    metaFavicon: 'favicons/YouTube.svg'
+                    metaFavicon: 'favicons/YouTube.svg',
+                    lastViewed: 'Continue viewing (16m left)'
                 },
                 {
                     image: 'https://images.unsplash.com/photo-1449247709967-d4461a6a6103?auto=format&fit=crop&w=600&q=80',
                     alt: 'Quarterly insights document',
-                    title: 'Quarterly insights outline saved for leadership review',
+                    title: 'Q4 Report 2025',
                     meta: 'Google Docs',
-                    metaFavicon: 'favicons/Google Docs.svg'
+                    metaFavicon: 'favicons/Google Docs.svg',
+                    lastViewed: 'Opened weekdays at this time'
                 }
             ]
         };

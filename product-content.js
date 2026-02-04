@@ -19,8 +19,26 @@ const productContent = (() => {
     const renderCard = (card, columnKey) => {
         const favicon = card.favicon ? `<img src="${card.favicon}" alt="" class="overlay-product-favicon" role="presentation">` : '';
         const image = card.image ? `<img src="${card.image}" alt="${card.alt || ''}">` : '';
-        const metaFavicon = card.metaFavicon ? `<img src="${card.metaFavicon}" alt="" class="overlay-product-meta-favicon" role="presentation">` : '';
-        const meta = card.meta ? `<p class="overlay-product-meta">${metaFavicon}${card.meta}</p>` : '';
+        const metaFavicon = card.metaFavicon ? `<img src="${card.metaFavicon}" alt="" class="overlay-product-meta-favicon overlay-product-image-favicon" role="presentation">` : '';
+        
+        // Add section icon based on columnKey
+        let sectionIcon = '';
+        if (columnKey === 'history') {
+            sectionIcon = '<svg class="overlay-product-section-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1"/><path d="M6 2.5V6L8.5 7" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        } else if (columnKey === 'openTabs') {
+            sectionIcon = '<svg class="overlay-product-section-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>';
+        } else if (columnKey === 'bookmarks') {
+            sectionIcon = '<svg class="overlay-product-section-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2H10V10L6 8L2 10V2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        }
+        
+        const metaText = card.meta ? `<span class="overlay-product-meta-text">${card.meta}</span>` : '';
+        // Only add "Last viewed:" prefix for quantum computing (first card), others show custom text directly
+        const lastViewedPrefix = card.title === 'Quantum computing' && card.lastViewed ? 'Last viewed: ' : '';
+        const lastViewedText = card.lastViewed && (columnKey === 'history' || columnKey === 'openTabs' || columnKey === 'bookmarks') ? `<span class="overlay-product-last-viewed">${lastViewedPrefix}${card.lastViewed}</span>` : '';
+        const meta = card.meta ? `<p class="overlay-product-meta">${sectionIcon}<span class="overlay-product-meta-left">${metaText}${lastViewedText}</span></p>` : '';
+        
+        // Wrap image with favicon overlay if image exists
+        const imageWithFavicon = image && metaFavicon ? `<div class="overlay-product-image-wrapper">${image}${metaFavicon}</div>` : image;
         const actions = card.showActions ? `
             <span class="overlay-product-card-actions" aria-hidden="true">
                 <svg width="16" height="6" viewBox="0 0 16 6" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -31,15 +49,14 @@ const productContent = (() => {
             </span>
         ` : '';
 
-        // Article-style cards: image on top, text below
+        // Article-style cards: image on top, text below (matching renewable energy card layout)
         if (columnKey === 'articles') {
+            const imageHtml = image || '<div class="image-placeholder"></div>';
             return `
             <a href="#" class="overlay-product-card overlay-product-card--article">
-                ${image}
-                <div class="overlay-product-card-body">
-                    <h3 class="overlay-product-title">${card.title}</h3>
-                    ${meta}
-                </div>
+                ${imageHtml}
+                <h2>${card.title}</h2>
+                <p class="sponsored-label">Sponsored · Amazon.com</p>
             </a>
         `;
         }
@@ -48,7 +65,7 @@ const productContent = (() => {
         return `
         <a href="#" class="overlay-product-card">
             ${favicon}
-            ${image}
+            ${imageWithFavicon || image}
             <div class="overlay-product-card-body">
                 <h3 class="overlay-product-title">${card.title}</h3>
                 ${meta}
@@ -64,9 +81,12 @@ const productContent = (() => {
             ? `<div class="overlay-product-card-list">${cardsHtml}</div>`
             : cardsHtml;
 
+        // Don't show heading for articles section
+        const headingHtml = column.key === 'articles' ? '' : `<p class="overlay-product-heading">${column.heading}</p>`;
+
         return `
         <div class="overlay-product-column">
-            <p class="overlay-product-heading">${column.heading}</p>
+            ${headingHtml}
             ${listWrapper}
         </div>
     `;

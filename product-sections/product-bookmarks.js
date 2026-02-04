@@ -3,28 +3,31 @@
 
     window.productSections.bookmarks = function () {
         return {
-            heading: 'From your bookmarks',
+            heading: 'Bookmarks to revisit',
             cards: [
                 {
                     image: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=600&q=80',
                     alt: 'Design inspiration',
-                    title: 'Design inspiration set with curated color palettes and typography examples',
+                    title: 'Inspiration album',
                     meta: 'Instagram',
-                    metaFavicon: 'favicons/Instagram.svg'
+                    metaFavicon: 'favicons/Instagram.svg',
+                    lastViewed: 'Saved 2 weeks ago'
                 },
                 {
                     image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80',
                     alt: 'Travel itinerary',
-                    title: 'Weekend travel itinerary with restaurant recommendations and local attractions',
+                    title: 'Vacation planning',
                     meta: 'Google',
-                    metaFavicon: 'favicons/Google.svg'
+                    metaFavicon: 'favicons/Google.svg',
+                    lastViewed: 'Saved 1 month ago'
                 },
                 {
                     image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=600&q=80',
                     alt: 'Recipe collection',
-                    title: 'Recipe collection featuring favorite meals and cooking techniques from around the world',
+                    title: 'Quick Recipes',
                     meta: 'YouTube',
-                    metaFavicon: 'favicons/YouTube.svg'
+                    metaFavicon: 'favicons/YouTube.svg',
+                    lastViewed: 'Saved 3 days ago'
                 }
             ]
         };
