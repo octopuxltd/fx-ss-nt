@@ -1402,6 +1402,14 @@
         // AI API Configuration
         // Load saved provider from localStorage, or default to OpenAI (Server 2)
         let AI_PROVIDER = localStorage.getItem('ai_provider') || 'openai';
+        
+        // Model mapping for different providers
+        const MODEL_MAP = {
+            'openrouter-haiku': 'anthropic/claude-3-haiku',
+            'openrouter-gemini': 'google/gemini-3-flash-preview',
+            'openrouter-grok': 'x-ai/grok-4.1-fast',
+            'openai': 'gpt-4o-mini'
+        };
         const OPENROUTER_API_KEY = window.API_CONFIG?.OPENROUTER_API_KEY || '';
         const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
         const CLAUDE_API_KEY = window.API_CONFIG?.CLAUDE_API_KEY || '';
@@ -1558,8 +1566,9 @@
         
         // Helper function to make a search suggestions request attempt
         async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0) {
-            console.log(`[API-SEARCH] ===== Starting search suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}) =====`);
-            console.log(`[API-SEARCH] AI_PROVIDER value: "${AI_PROVIDER}" | Type: ${typeof AI_PROVIDER}`);
+            const modelName = MODEL_MAP[AI_PROVIDER] || AI_PROVIDER;
+            console.log(`[API-SEARCH] ===== Starting search suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}, model: ${modelName}) =====`);
+            console.log(`[API-SEARCH] AI_PROVIDER value: "${AI_PROVIDER}" | Model: "${modelName}" | Type: ${typeof AI_PROVIDER}`);
             if (delayMs > 0) {
                 console.log(`[API-SEARCH] Waiting ${delayMs}ms before attempt ${attemptNumber}...`);
                 await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -1568,14 +1577,18 @@
             const startTime = Date.now();
             console.log(`[API-SEARCH] Making request attempt ${attemptNumber} for query: "${query}"`);
             
+            // Determine which API to use based on provider
+            const isOpenRouter = AI_PROVIDER.startsWith('openrouter-');
+            const isOpenAI = AI_PROVIDER === 'openai';
+            
             // Check API key based on provider
             if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
                 console.error('[API-SEARCH] ✗ Claude API key not set');
                 throw new Error('Claude API key not set');
-            } else if (AI_PROVIDER === 'openrouter' && !OPENROUTER_API_KEY) {
+            } else if (AI_PROVIDER.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
                 console.error('[API-SEARCH] ✗ OpenRouter API key not set');
                 throw new Error('OpenRouter API key not set');
-            } else if (AI_PROVIDER === 'openai' && !OPENAI_API_KEY) {
+            } else if (isOpenAI && !OPENAI_API_KEY) {
                 console.error('[API-SEARCH] ✗ OpenAI API key not set');
                 throw new Error('OpenAI API key not set');
             }
@@ -1586,10 +1599,10 @@
             
             let response, data, content;
             
-            if (AI_PROVIDER === 'openai') {
+            if (isOpenAI) {
                 // OpenAI API request
                 const requestBody = {
-                    model: 'gpt-4o-mini',
+                    model: MODEL_MAP[AI_PROVIDER],
                     messages: [
                         {
                             role: 'system',
@@ -1683,7 +1696,7 @@
             } else {
                 // OpenRouter API request
                 const requestBody = {
-                    model: 'anthropic/claude-3-haiku',
+                    model: MODEL_MAP[AI_PROVIDER] || 'anthropic/claude-3-haiku',
                     messages: [
                         {
                             role: 'system',
@@ -1783,7 +1796,8 @@
 
         // Helper function to make a Firefox suggestions request attempt
         async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) {
-            console.log(`[API-FIREFOX] ===== Starting Firefox suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}) =====`);
+            const modelName = MODEL_MAP[AI_PROVIDER] || AI_PROVIDER;
+            console.log(`[API-FIREFOX] ===== Starting Firefox suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}, model: ${modelName}) =====`);
             if (delayMs > 0) {
                 console.log(`[API-FIREFOX] Waiting ${delayMs}ms before attempt ${attemptNumber}...`);
                 await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -1792,14 +1806,18 @@
             const startTime = Date.now();
             console.log(`[API-FIREFOX] Making request attempt ${attemptNumber} for query: "${query}"`);
             
+            // Determine which API to use based on provider
+            const isOpenRouter = AI_PROVIDER.startsWith('openrouter-');
+            const isOpenAI = AI_PROVIDER === 'openai';
+            
             // Check API key based on provider
             if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
                 console.error('[API-FIREFOX] ✗ Claude API key not set');
                 throw new Error('Claude API key not set');
-            } else if (AI_PROVIDER === 'openrouter' && !OPENROUTER_API_KEY) {
+            } else if (AI_PROVIDER.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
                 console.error('[API-FIREFOX] ✗ OpenRouter API key not set');
                 throw new Error('OpenRouter API key not set');
-            } else if (AI_PROVIDER === 'openai' && !OPENAI_API_KEY) {
+            } else if (isOpenAI && !OPENAI_API_KEY) {
                 console.error('[API-FIREFOX] ✗ OpenAI API key not set');
                 throw new Error('OpenAI API key not set');
             }
@@ -1810,7 +1828,7 @@
             
             let response, data, content;
             
-            if (AI_PROVIDER === 'openai') {
+            if (isOpenAI) {
                 // OpenAI API request
                 const requestBody = {
                     model: 'gpt-4o-mini',
@@ -1907,7 +1925,7 @@
             } else {
                 // OpenRouter API request
                 const requestBody = {
-                    model: 'anthropic/claude-3-haiku',
+                    model: MODEL_MAP[AI_PROVIDER] || 'anthropic/claude-3-haiku',
                     messages: [
                         {
                             role: 'system',
@@ -2357,8 +2375,10 @@
 <body class="ut-page">
     <div class="server-selector">
         <select id="server-selector" aria-label="Select AI server">
-            <option value="openrouter">Server 1</option>
+            <option value="openrouter-haiku">Server 1</option>
             <option value="openai">Server 2</option>
+            <option value="openrouter-gemini">Server 3</option>
+            <option value="openrouter-grok">Server 4</option>
         </select>
     </div>
     <section class="pane pane--bottom">
@@ -3350,16 +3370,21 @@
         
         // Function to fetch translation from AI
         async function fetchTranslation(query, term) {
-            console.log('[TRANSLATION] Fetching translation for query:', query);
+            const modelName = MODEL_MAP[AI_PROVIDER] || AI_PROVIDER;
+            console.log(`[TRANSLATION] Fetching translation for query: "${query}" (provider: ${AI_PROVIDER}, model: ${modelName})`);
+            
+            // Determine which API to use based on provider
+            const isOpenRouter = AI_PROVIDER.startsWith('openrouter-');
+            const isOpenAI = AI_PROVIDER === 'openai';
             
             // Check API key based on provider
             if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
                 console.warn('[TRANSLATION] Claude API key not set');
                 return { translation: 'Translation unavailable', language: null };
-            } else if (AI_PROVIDER === 'openrouter' && !OPENROUTER_API_KEY) {
+            } else if (AI_PROVIDER.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
                 console.warn('[TRANSLATION] OpenRouter API key not set');
                 return { translation: 'Translation unavailable', language: null };
-            } else if (AI_PROVIDER === 'openai' && !OPENAI_API_KEY) {
+            } else if (isOpenAI && !OPENAI_API_KEY) {
                 console.warn('[TRANSLATION] OpenAI API key not set');
                 return { translation: 'Translation unavailable', language: null };
             }
@@ -3369,7 +3394,7 @@
             let response, data, content;
             
             try {
-                if (AI_PROVIDER === 'openai') {
+                if (isOpenAI) {
                     // OpenAI API request
                     const requestBody = {
                         model: 'gpt-4o-mini',
@@ -3438,7 +3463,7 @@
                 } else {
                     // OpenRouter API request
                     const requestBody = {
-                        model: 'anthropic/claude-3-haiku',
+                        model: MODEL_MAP[AI_PROVIDER] || 'anthropic/claude-3-haiku',
                         messages: [
                             {
                                 role: 'system',
@@ -6262,12 +6287,18 @@
             buttonElement.innerHTML = '<img src="icons/sparkles.svg" alt="" class="preview-box-sparkles-icon" aria-hidden="true"> Generating...';
             
             try {
+                // Determine which API to use based on provider
+                const isOpenRouter = AI_PROVIDER.startsWith('openrouter-');
+                const isOpenAI = AI_PROVIDER === 'openai';
+                const modelName = MODEL_MAP[AI_PROVIDER] || AI_PROVIDER;
+                console.log(`[KEY-POINTS] Generating key points for: "${title}" (provider: ${AI_PROVIDER}, model: ${modelName})`);
+                
                 // Check API key based on provider
                 if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
                     throw new Error('Claude API key not set');
-                } else if (AI_PROVIDER === 'openrouter' && !OPENROUTER_API_KEY) {
+                } else if (AI_PROVIDER.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
                     throw new Error('OpenRouter API key not set');
-                } else if (AI_PROVIDER === 'openai' && !OPENAI_API_KEY) {
+                } else if (isOpenAI && !OPENAI_API_KEY) {
                     throw new Error('OpenAI API key not set');
                 }
                 
@@ -6276,7 +6307,7 @@
                 
                 let response, data, content;
                 
-                if (AI_PROVIDER === 'openai') {
+                if (isOpenAI) {
                     // OpenAI API request
                     const requestBody = {
                         model: 'gpt-4o-mini',
@@ -6343,7 +6374,7 @@
                 } else {
                     // OpenRouter API request
                     const requestBody = {
-                        model: 'anthropic/claude-3-haiku',
+                        model: MODEL_MAP[AI_PROVIDER] || 'anthropic/claude-3-haiku',
                         messages: [
                             {
                                 role: 'system',
