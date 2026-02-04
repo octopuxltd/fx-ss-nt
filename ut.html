@@ -1639,6 +1639,11 @@
                 // Store Firefox suggestions (with full data) for later use in rendering
                 finalSuggestions._firefoxSuggestions = selectedFirefoxSuggestions;
                 
+                // Preload images for Firefox suggestions
+                if (selectedFirefoxSuggestions && selectedFirefoxSuggestions.length > 0) {
+                    preloadFirefoxSuggestionImages(selectedFirefoxSuggestions);
+                }
+                
                 // If API failed but we have cached suggestions, return those
                 if (finalSuggestions.length === 0 && cachedSuggestions && cachedSuggestions.length > 0) {
                     console.log('[API] API failed, returning', cachedSuggestions.length, 'cached suggestions as fallback');
@@ -1916,6 +1921,7 @@
                                 <span class="label">gmail</span>
                             </li>
                         </ul>
+                        <div class="preview-box"></div>
                             <ul class="search-suggestions-preview-list">
                                 <li class="search-suggestions-preview-item carrot">
                                     <div class="carrot-tile" aria-hidden="true"></div>
@@ -3452,15 +3458,28 @@
                     }
                 }
                 
+                const firefoxDataAttrs = isFirefoxSuggest && firefoxSuggestData 
+                    ? `data-firefox-title="${(firefoxSuggestData.title || '').replace(/"/g, '&quot;')}" data-firefox-description="${(firefoxSuggestData.description || '').replace(/"/g, '&quot;')}" data-firefox-url="${(firefoxSuggestData.url || '').replace(/"/g, '&quot;')}"`
+                    : '';
+                
+                // Get cached image URL for Firefox suggestions
+                let firefoxImageUrl = '';
+                if (isFirefoxSuggest && firefoxSuggestData && firefoxSuggestData.title) {
+                    const cacheKey = firefoxSuggestData.title.toLowerCase();
+                    firefoxImageUrl = firefoxImageCache.get(cacheKey) || '';
+                }
+                
                 const itemHtml = `
-                    <li class="search-suggestions-preview-item ${isFirefoxSuggest ? 'firefox-suggest-item' : ''}" data-index="${index}" ${isFirefoxSuggest && firefoxSuggestData && firefoxSuggestData.url ? `data-firefox-url="${firefoxSuggestData.url}"` : ''}>
+                    <li class="search-suggestions-preview-item ${isFirefoxSuggest ? 'firefox-suggest-item' : ''}" data-index="${index}" ${firefoxDataAttrs}>
                         ${isFirefoxSuggest 
-                            ? '<div class="suggestion-icon firefox-suggest-icon" aria-hidden="true"></div>'
+                            ? (firefoxImageUrl 
+                                ? `<img src="${firefoxImageUrl}" alt="" aria-hidden="true" class="suggestion-icon firefox-suggest-image-icon" onload="this.classList.add('loaded');">`
+                                : '')
                             : `<img src="${icon}" alt="" aria-hidden="true" class="suggestion-icon">`
                         }
                         <span class="label">${displayText}</span>
                         ${isFirefoxSuggest && firefoxSuggestData && firefoxSuggestData.url 
-                            ? `<span class="search-hint" style="display: none;">&nbsp;•&nbsp;&nbsp;${firefoxSuggestData.url}</span>`
+                            ? `<span class="search-hint firefox-url-display">&nbsp;•&nbsp;&nbsp;<span class="firefox-url-text">${firefoxSuggestData.url}</span></span>`
                             : !isFirefoxSuggest ? '<span class="search-hint" style="display: none;">&nbsp;•&nbsp;&nbsp;Search with Google</span>' : ''
                         }
                     </li>
@@ -3655,7 +3674,13 @@
             
             const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
             suggestionItems.forEach((item, index) => {
-                item.addEventListener('mouseenter', handleSuggestionHover);
+                // For Firefox suggestions, add special hover handler to populate preview box
+                if (item.classList.contains('firefox-suggest-item')) {
+                    item.addEventListener('mouseenter', handleFirefoxSuggestionHover);
+                    item.addEventListener('mouseleave', handleFirefoxSuggestionLeave);
+                } else {
+                    item.addEventListener('mouseenter', handleSuggestionHover);
+                }
                 
                 // For local business items, attach hover to the business divs
                 // Both businesses are now in a single <li>, so we need to handle them separately
@@ -3746,6 +3771,29 @@
             suggestionsList.addEventListener('mousemove', () => {
                 suggestionsList.classList.remove('keyboard-navigating');
             });
+        }
+        
+        async function handleFirefoxSuggestionHover(event) {
+            const item = event.currentTarget;
+            const title = item.dataset.firefoxTitle;
+            const description = item.dataset.firefoxDescription;
+            const url = item.dataset.firefoxUrl;
+            
+            if (!title || !description || !url) return;
+            
+            // Ignore hover if suggestions were just updated or keyboard navigating
+            if (suggestionsJustUpdated || suggestionsList.classList.contains('keyboard-navigating')) {
+                return;
+            }
+            
+            await showFirefoxPreviewBox(item, title, description, url);
+        }
+        
+        function handleFirefoxSuggestionLeave(event) {
+            // Only hide if not keyboard navigating (keyboard navigation handles its own preview box)
+            if (!suggestionsList.classList.contains('keyboard-navigating')) {
+                hideFirefoxPreviewBox();
+            }
         }
         
         function handleSuggestionHover(event) {
@@ -3851,8 +3899,8 @@
                 sportsItems.forEach((sports) => {
                     sports.classList.remove('sports-item--selected');
                 });
-                // Hide "Search with Google" hint or Firefox URL hint
-                const hintElement = item.querySelector('.search-hint');
+                // Hide "Search with Google" hint (Firefox URLs are always visible)
+                const hintElement = item.querySelector('.search-hint:not(.firefox-url-display)');
                 if (hintElement) {
                     hintElement.style.display = 'none';
                 }
@@ -3933,10 +3981,24 @@
                     }
                 }
                 
-                // Show "Search with Google" hint or Firefox URL hint
-                const hintElement = selectedItem.querySelector('.search-hint');
+                // Show "Search with Google" hint (Firefox URLs are always visible)
+                const hintElement = selectedItem.querySelector('.search-hint:not(.firefox-url-display)');
                 if (hintElement) {
                     hintElement.style.display = 'inline';
+                }
+                
+                // If selected item is a Firefox suggestion, show preview box
+                if (selectedItem.classList.contains('firefox-suggest-item')) {
+                    const title = selectedItem.dataset.firefoxTitle;
+                    const description = selectedItem.dataset.firefoxDescription;
+                    const url = selectedItem.dataset.firefoxUrl;
+                    
+                    if (title && description && url) {
+                        showFirefoxPreviewBox(selectedItem, title, description, url);
+                    }
+                } else {
+                    // Hide preview box if not a Firefox suggestion
+                    hideFirefoxPreviewBox();
                 }
                 
                 // If this is keyboard navigation, update the search box text
@@ -3948,6 +4010,157 @@
                         searchBoxElement.value = suggestionText.trim();
                     }
                 }
+            } else {
+                // No item selected - hide preview box
+                hideFirefoxPreviewBox();
+            }
+        }
+        
+        // Cache for preloaded Firefox suggestion images
+        const firefoxImageCache = new Map();
+        
+        async function preloadFirefoxSuggestionImages(firefoxSuggestions) {
+            const apiKey = window.API_CONFIG?.PEXELS_API_KEY || '';
+            if (!apiKey) return;
+            
+            // Preload images for each Firefox suggestion
+            const preloadPromises = firefoxSuggestions.map(async (suggestion) => {
+                if (!suggestion || !suggestion.title) return;
+                
+                const title = suggestion.title;
+                const cacheKey = title.toLowerCase();
+                
+                // Skip if already cached
+                if (firefoxImageCache.has(cacheKey)) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(title)}&per_page=1`, {
+                        headers: {
+                            Authorization: apiKey
+                        }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.photos && data.photos[0]) {
+                            const imageUrl = data.photos[0].src.large;
+                            
+                            // Preload the image by creating an Image object
+                            return new Promise((resolve) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                    // Cache the image URL only after it's loaded
+                                    firefoxImageCache.set(cacheKey, imageUrl);
+                                    
+                                    // Update any existing Firefox suggestion items with this image
+                                    updateFirefoxSuggestionImage(cacheKey, imageUrl);
+                                    
+                                    resolve();
+                                };
+                                img.onerror = () => {
+                                    console.error('Error loading image for Firefox suggestion:', title);
+                                    resolve();
+                                };
+                                img.src = imageUrl;
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error preloading image for Firefox suggestion:', title, error);
+                }
+            });
+            
+            // Don't await - let it happen in background
+            Promise.all(preloadPromises).catch(error => {
+                console.error('Error preloading Firefox suggestion images:', error);
+            });
+        }
+        
+        function updateFirefoxSuggestionImage(cacheKey, imageUrl) {
+            // Find all Firefox suggestion items that match this cache key and update their images
+            const suggestionItems = document.querySelectorAll('.firefox-suggest-item');
+            suggestionItems.forEach((item) => {
+                const title = item.dataset.firefoxTitle;
+                if (title && title.toLowerCase() === cacheKey) {
+                    // Check if image doesn't already exist
+                    const existingImg = item.querySelector('.firefox-suggest-image-icon');
+                    if (!existingImg) {
+                        // Create and insert the image
+                        const img = document.createElement('img');
+                        img.src = imageUrl;
+                        img.alt = '';
+                        img.setAttribute('aria-hidden', 'true');
+                        img.className = 'suggestion-icon firefox-suggest-image-icon';
+                        
+                        // Insert at the beginning of the list item
+                        item.insertBefore(img, item.firstChild);
+                        
+                        // Fade in once loaded
+                        img.onload = () => {
+                            img.classList.add('loaded');
+                        };
+                    }
+                }
+            });
+        }
+        
+        async function showFirefoxPreviewBox(item, title, description, url) {
+            const previewBox = document.querySelector('.preview-box');
+            const suggestionsContainer = document.querySelector('.search-suggestions-preview-column-container');
+            if (!previewBox || !suggestionsContainer) return;
+            
+            // Show preview box and container
+            suggestionsContainer.classList.add('show-preview-box');
+            previewBox.style.display = 'block';
+            
+            // Get image from cache or use placeholder
+            const cacheKey = title.toLowerCase();
+            let imageUrl = firefoxImageCache.get(cacheKey) || 'https://via.placeholder.com/400x250?text=Image';
+            
+            // If not in cache, try to fetch it (fallback for edge cases)
+            if (!firefoxImageCache.has(cacheKey)) {
+                const apiKey = window.API_CONFIG?.PEXELS_API_KEY || '';
+                if (apiKey) {
+                    try {
+                        const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(title)}&per_page=1`, {
+                            headers: {
+                                Authorization: apiKey
+                            }
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.photos && data.photos[0]) {
+                                imageUrl = data.photos[0].src.large;
+                                firefoxImageCache.set(cacheKey, imageUrl);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error fetching image for Firefox suggestion:', error);
+                    }
+                }
+            }
+            
+            // Populate preview box
+            previewBox.innerHTML = `
+                <div class="preview-box-content">
+                    <img src="${imageUrl}" alt="${title.replace(/"/g, '&quot;')}" class="preview-box-image">
+                    <div class="preview-box-text">
+                        <h3 class="preview-box-title">${title.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h3>
+                        <p class="preview-box-description">${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                        <p class="preview-box-url">${url.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function hideFirefoxPreviewBox() {
+            const previewBox = document.querySelector('.preview-box');
+            const suggestionsContainer = document.querySelector('.search-suggestions-preview-column-container');
+            if (previewBox && suggestionsContainer) {
+                previewBox.innerHTML = '';
+                previewBox.style.display = 'none';
+                suggestionsContainer.classList.remove('show-preview-box');
             }
         }
         
@@ -4648,8 +4861,14 @@
                 if (suggestionItems.length === 0) return;
                 
                 // Calculate virtual item count (accounting for coffee shops having 2 businesses and stocks having 3 items)
+                // Skip heading items (data-index="-1" or search-suggestions-preview-heading class)
                 let virtualItemCount = 0;
                 suggestionItems.forEach((item) => {
+                    // Skip Firefox Suggest heading
+                    if (item.classList.contains('search-suggestions-preview-heading') || item.dataset.index === '-1') {
+                        return;
+                    }
+                    
                     if (item.classList.contains('local-business-wrapper')) {
                         const businessDivs = item.querySelectorAll('.local-business');
                         if (businessDivs.length === 2) {
@@ -4670,12 +4889,13 @@
                     event.preventDefault();
                     // Keyboard navigation steals selection from hovered item
                     // If nothing is selected, select the first item (index 0)
-                    // Otherwise, move down one
+                    // Otherwise, move down one (but don't wrap around - stop at last item)
                     if (selectedSuggestionIndex < 0) {
                         selectedSuggestionIndex = 0;
-                    } else {
-                        selectedSuggestionIndex = (selectedSuggestionIndex + 1) % virtualItemCount;
+                    } else if (selectedSuggestionIndex < virtualItemCount - 1) {
+                        selectedSuggestionIndex = selectedSuggestionIndex + 1;
                     }
+                    // If already at last item, stay there (don't wrap to first)
                     updateSelectedSuggestion(true); // true = keyboard navigation
                     // Scroll into view if needed - find the actual DOM item
                     if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < virtualItemCount) {
@@ -4683,6 +4903,12 @@
                         let currentVirtualIndex = 0;
                         for (let i = 0; i < suggestionItems.length; i++) {
                             const item = suggestionItems[i];
+                            
+                            // Skip Firefox Suggest heading
+                            if (item.classList.contains('search-suggestions-preview-heading') || item.dataset.index === '-1') {
+                                continue;
+                            }
+                            
                             let itemVirtualCount = 1;
                             if (item.classList.contains('local-business-wrapper')) {
                                 const businessDivs = item.querySelectorAll('.local-business');
@@ -4720,6 +4946,12 @@
                         let currentVirtualIndex = 0;
                         for (let i = 0; i < suggestionItems.length; i++) {
                             const item = suggestionItems[i];
+                            
+                            // Skip Firefox Suggest heading
+                            if (item.classList.contains('search-suggestions-preview-heading') || item.dataset.index === '-1') {
+                                continue;
+                            }
+                            
                             let itemVirtualCount = 1;
                             if (item.classList.contains('local-business-wrapper')) {
                                 const businessDivs = item.querySelectorAll('.local-business');
@@ -4793,7 +5025,13 @@
                         // Clear carrot state
                         if (suggestionsContainer) {
                             suggestionsContainer.classList.remove('show-carrot');
+                            suggestionsContainer.classList.remove('show-preview-box');
                             suggestionsContainer.classList.add('expand-left');
+                            const previewBox = document.querySelector('.preview-box');
+                            if (previewBox) {
+                                previewBox.innerHTML = '';
+                                previewBox.style.display = 'none';
+                            }
                         }
                         currentState = 0;
                         if (carrotList) {
@@ -4841,7 +5079,13 @@
                     // Clear carrot when field is empty
                     if (suggestionsContainer) {
                         suggestionsContainer.classList.remove('show-carrot');
+                        suggestionsContainer.classList.remove('show-preview-box');
                         suggestionsContainer.classList.add('expand-left');
+                        const previewBox = document.querySelector('.preview-box');
+                        if (previewBox) {
+                            previewBox.innerHTML = '';
+                            previewBox.style.display = 'none';
+                        }
                     }
                     currentState = 0;
                     if (carrotList) {
