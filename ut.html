@@ -129,7 +129,27 @@
         }
 
         .top-overlay.is-focused.winter-olympics {
-            background-color: #E0F2FE; /* Pale blue */
+            position: relative;
+        }
+
+        .winter-olympics-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('icons/espn2.jpg');
+            background-size: 100% auto;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .top-overlay.is-focused.winter-olympics .winter-olympics-background {
+            opacity: 1;
         }
 
         .top-overlay.no-transition {
@@ -588,6 +608,16 @@
             flex-shrink: 0;
         }
 
+        .overlay-product-favicon {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            flex-shrink: 0;
+            border: 1px solid white;
+            box-sizing: border-box;
+            background-color: white;
+        }
+
         .overlay-product-image-wrapper {
             position: relative;
             width: 50px;
@@ -618,6 +648,10 @@
             width: 100% !important;
             height: 139px !important;
             object-fit: cover;
+        }
+        
+        .overlay-product-card--article img[src*="kettle"] {
+            object-position: center 20%;
         }
 
         .overlay-product-card-body {
@@ -696,7 +730,7 @@
             background-color: #EBE7FF;
         }
 
-        /* Winter Olympics card hover colors */
+        /* Winter Olympics card hover colors - blue, yellow, green, red in order */
         .olympics-card-blue:hover {
             background-color: #0085C7 !important;
         }
@@ -707,16 +741,16 @@
         }
 
         .olympics-card-black:hover {
-            background-color: #000000 !important;
+            background-color: #F4C300 !important; /* Yellow */
         }
 
         .olympics-card-black:hover .overlay-product-title,
         .olympics-card-black:hover div {
-            color: #FFFFFF !important;
+            color: #000000 !important;
         }
 
         .olympics-card-red:hover {
-            background-color: #DF0024 !important;
+            background-color: #009F3D !important; /* Green */
         }
 
         .olympics-card-red:hover .overlay-product-title,
@@ -725,12 +759,12 @@
         }
 
         .olympics-card-yellow:hover {
-            background-color: #F4C300 !important;
+            background-color: #DF0024 !important; /* Red */
         }
 
         .olympics-card-yellow:hover .overlay-product-title,
         .olympics-card-yellow:hover div {
-            color: #000000 !important;
+            color: #FFFFFF !important;
         }
 
         .overlay-product-card--article {
@@ -1860,12 +1894,19 @@
         if (typeof preloadCarrotImages === 'function') {
             preloadCarrotImages(5);
         }
+        
+        // Preload ESPN image for winter olympics background
+        window.addEventListener('load', () => {
+            const espnImage = new Image();
+            espnImage.src = 'icons/espn2.jpg';
+        });
     </script>
 </head>
 <body class="ut-page">
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
+            <div class="winter-olympics-background"></div>
             <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
             <button class="close-button" type="button" aria-label="Close search panel">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2199,16 +2240,7 @@
                                 <p style="margin: 0 0 4px 0; font-size: 32px; font-weight: 500; color: #1F2933;">Winter Olympics 2026</p>
                                 <p style="margin: 0; font-size: 16px; color: #6B7280;">Milan-Cortina, Italy · Sponsored by ESPN</p>
                             </div>
-                            <svg width="320" height="160" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
-                                <!-- Olympic Rings - Interlocking circles -->
-                                <!-- Top row: Blue, Black, Red -->
-                                <circle cx="25" cy="20" r="9" fill="none" stroke="#0085C7" stroke-width="2.5"/>
-                                <circle cx="50" cy="20" r="9" fill="none" stroke="#000000" stroke-width="2.5"/>
-                                <circle cx="75" cy="20" r="9" fill="none" stroke="#DF0024" stroke-width="2.5"/>
-                                <!-- Bottom row: Yellow, Green -->
-                                <circle cx="37.5" cy="35" r="9" fill="none" stroke="#F4C300" stroke-width="2.5"/>
-                                <circle cx="62.5" cy="35" r="9" fill="none" stroke="#009F3D" stroke-width="2.5"/>
-                            </svg>
+                            <img src="icons/olympics.svg" alt="Olympics" style="flex-shrink: 0; width: 240px; height: 120px;">
                         </div>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
@@ -2538,6 +2570,11 @@
                 if (gradientAnimationId) {
                     cancelAnimationFrame(gradientAnimationId);
                     gradientAnimationId = null;
+                }
+                // Reset winter olympics background if active
+                if (topOverlay && topOverlay.classList.contains('winter-olympics')) {
+                    topOverlay.classList.remove('winter-olympics');
+                    restoreProductGrid();
                 }
                 setOverlayState(false);
                 searchBoxElement.blur();
@@ -3551,8 +3588,8 @@
                         }
                         <span class="label">${displayText}</span>
                         ${isFirefoxSuggest && firefoxSuggestData && firefoxSuggestData.url 
-                            ? `<span class="search-hint firefox-url-display">&nbsp;•&nbsp;&nbsp;<span class="firefox-url-text">${(firefoxSuggestData.url || '').replace(/^www\./i, '')}</span></span>`
-                            : !isFirefoxSuggest ? '<span class="search-hint" style="display: none;">&nbsp;•&nbsp;&nbsp;Search with Google</span>' : ''
+                            ? `<span class="search-hint firefox-url-display">&nbsp;•&nbsp;&nbsp;&nbsp;<span class="firefox-url-text">${(firefoxSuggestData.url || '').replace(/^www\./i, '').toLowerCase()}</span></span>`
+                            : !isFirefoxSuggest ? '<span class="search-hint" style="display: none;">&nbsp;•<span class="search-hint-text">Search with Google</span></span>' : ''
                         }
                     </li>
                 `;
@@ -3841,12 +3878,22 @@
             });
             
             // Clear selection when mouse leaves the suggestions list
+            // But don't hide preview box - it should stay open until Google suggestion is hovered
             const suggestionsContainer = suggestionsList.closest('.search-suggestions-preview-column-container');
             if (suggestionsContainer) {
                 suggestionsContainer.addEventListener('mouseleave', () => {
                     selectedSuggestionIndex = -1;
                     suggestionsList.classList.remove('keyboard-navigating');
-                    updateSelectedSuggestion();
+                    // Don't call updateSelectedSuggestion() here as it would hide the preview box
+                    // Just remove selection styling
+                    const suggestionItems = suggestionsList.querySelectorAll('.search-suggestions-preview-item');
+                    suggestionItems.forEach(item => {
+                        item.classList.remove('is-selected');
+                        const hintElement = item.querySelector('.search-hint:not(.firefox-url-display)');
+                        if (hintElement) {
+                            hintElement.style.display = 'none';
+                        }
+                    });
                 });
             }
             
@@ -3912,30 +3959,9 @@
         }
         
         function handleFirefoxSuggestionLeave(event) {
-            // Only hide if not keyboard navigating (keyboard navigation handles its own preview box)
-            if (suggestionsList.classList.contains('keyboard-navigating')) {
-                return;
-            }
-            
-            // Check if mouse is moving to the preview box
-            const relatedTarget = event.relatedTarget;
-            const previewBox = document.querySelector('.preview-box');
-            
-            if (previewBox && (relatedTarget === previewBox || previewBox.contains(relatedTarget))) {
-                // Mouse is moving to preview box, don't close
-                return;
-            }
-            
-            // Use a small delay to allow mouse to move to preview box
-            setTimeout(() => {
-                // Check if mouse is now over preview box or still over a Firefox suggestion
-                const isOverPreviewBox = previewBox && (previewBox.matches(':hover') || previewBox.contains(document.activeElement));
-                const isOverFirefoxSuggestion = document.querySelector('.firefox-suggest-item:hover');
-                
-                if (!isOverPreviewBox && !isOverFirefoxSuggestion) {
-                    hideFirefoxPreviewBox();
-                }
-            }, 100);
+            // Don't hide preview box when leaving Firefox suggestions
+            // It will only hide when hovering a Google suggestion
+            return;
         }
         
         function handleSuggestionHover(event) {
@@ -4163,8 +4189,8 @@
                     }
                 }
             } else {
-                // No item selected - hide preview box
-                hideFirefoxPreviewBox();
+                // No item selected - but don't hide preview box
+                // Preview box should stay open until a Google suggestion is hovered
             }
         }
         
@@ -4291,6 +4317,14 @@
             const suggestionsContainer = document.querySelector('.search-suggestions-preview-column-container');
             if (!previewBox || !suggestionsContainer) return;
             
+            // If carrot is visible, hide it so preview box can replace it
+            if (suggestionsContainer.classList.contains('show-carrot')) {
+                suggestionsContainer.classList.remove('show-carrot');
+            }
+            
+            // Ensure expand-left is set for proper layout
+            suggestionsContainer.classList.add('expand-left');
+            
             // Show preview box and container
             suggestionsContainer.classList.add('show-preview-box');
             previewBox.style.display = 'block';
@@ -4329,7 +4363,11 @@
                     <div class="preview-box-text">
                         <h3 class="preview-box-title">${title.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h3>
                         <p class="preview-box-description">${description.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-                        <p class="preview-box-url">${url.replace(/^www\./i, '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+                        <button class="preview-box-generate-button">
+                            <img src="icons/sparkles.svg" alt="" class="preview-box-sparkles-icon" aria-hidden="true">
+                            Generate key points
+                        </button>
+                        <p class="preview-box-url">${url.replace(/^www\./i, '').toLowerCase().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\//g, '/<wbr>')}</p>
                     </div>
                 </div>
             `;
@@ -4350,17 +4388,10 @@
                 // Preview box stays open - do nothing
             });
             
-            // Close preview box when mouse leaves it (unless keyboard navigating)
+            // Don't close preview box when mouse leaves it
+            // Preview box will only close when a Google suggestion is hovered
             previewBox.addEventListener('mouseleave', () => {
-                if (!suggestionsList || !suggestionsList.classList.contains('keyboard-navigating')) {
-                    // Check if mouse is moving to a Firefox suggestion
-                    setTimeout(() => {
-                        const isOverFirefoxSuggestion = document.querySelector('.firefox-suggest-item:hover');
-                        if (!isOverFirefoxSuggestion) {
-                            hideFirefoxPreviewBox();
-                        }
-                    }, 50);
-                }
+                // Do nothing - preview box stays open until Google suggestion is hovered
             });
             
             previewBox.dataset.handlersAttached = 'true';

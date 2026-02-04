@@ -171,6 +171,10 @@ const carrotTemplates = {
      */
     wikipedia: () => `
         <li class="search-suggestions-preview-item carrot carrot--wikipedia">
+            <div class="carrot-wikipedia-header">
+                <img src="favicons/Wikipedia.svg" alt="" class="carrot-wikipedia-icon" aria-hidden="true">
+                <p class="carrot-wikipedia-heading">From Wikipedia</p>
+            </div>
             <div class="carrot-text-content">
                 <p class="carrot-line carrot-line--title">Fox</p>
                 <p class="carrot-line">Foxes are small-to-medium-sized omnivorous mammals belonging to several genera of the family Canidae. They have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail. Twelve species belong to the monophyletic "true fox" group of genus Vulpes.</p>

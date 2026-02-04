@@ -32,8 +32,8 @@ const productContent = (() => {
         }
         
         const metaText = card.meta ? `<span class="overlay-product-meta-text">${card.meta}</span>` : '';
-        // Only add "Last viewed:" prefix for quantum computing (first card), others show custom text directly
-        const lastViewedPrefix = card.title === 'Quantum computing' && card.lastViewed ? 'Last viewed: ' : '';
+        // Only add "Last viewed" prefix for quantum computing (first card), others show custom text directly
+        const lastViewedPrefix = card.title === 'Quantum computing' && card.lastViewed ? 'Last viewed ' : '';
         const lastViewedText = card.lastViewed && (columnKey === 'history' || columnKey === 'openTabs' || columnKey === 'bookmarks') ? `<span class="overlay-product-last-viewed">${lastViewedPrefix}${card.lastViewed}</span>` : '';
         const meta = card.meta ? `<p class="overlay-product-meta">${sectionIcon}<span class="overlay-product-meta-left">${metaText}${lastViewedText}</span></p>` : '';
         

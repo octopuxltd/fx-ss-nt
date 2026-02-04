@@ -6,7 +6,7 @@
             heading: 'Sponsored',
             cards: [
                 {
-                    image: 'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=600&q=80',
+                    image: 'icons/kettle.jpg',
                     alt: 'Product shot',
                     title: 'Fellow Stagg EKG Kettle'
                 }
