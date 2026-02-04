@@ -1400,7 +1400,8 @@
     <script src="config.js" onerror="console.warn('config.js not found. Using example config. Please create config.js from config.example.js'); window.API_CONFIG = window.API_CONFIG || { OPENROUTER_API_KEY: '', PEXELS_API_KEY: '' };"></script>
     <script>
         // AI API Configuration
-        let AI_PROVIDER = window.API_CONFIG?.AI_PROVIDER || 'openrouter';
+        // Default to OpenAI (Server 2) - users can switch via the dropdown
+        let AI_PROVIDER = 'openai';
         const OPENROUTER_API_KEY = window.API_CONFIG?.OPENROUTER_API_KEY || '';
         const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
         const CLAUDE_API_KEY = window.API_CONFIG?.CLAUDE_API_KEY || '';
@@ -1558,6 +1559,7 @@
         // Helper function to make a search suggestions request attempt
         async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0) {
             console.log(`[API-SEARCH] ===== Starting search suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}) =====`);
+            console.log(`[API-SEARCH] AI_PROVIDER value: "${AI_PROVIDER}" | Type: ${typeof AI_PROVIDER}`);
             if (delayMs > 0) {
                 console.log(`[API-SEARCH] Waiting ${delayMs}ms before attempt ${attemptNumber}...`);
                 await new Promise(resolve => setTimeout(resolve, delayMs));

@@ -23,18 +23,17 @@ jobs:
 
       - name: Create config.js from secrets
         run: |
-          cat > config.js << EOF
-          // API Configuration
-          // This file is generated during deployment from GitHub Secrets
-          
-          window.API_CONFIG = {
-              AI_PROVIDER: '${{ secrets.AI_PROVIDER }}',
-              OPENROUTER_API_KEY: '${{ secrets.OPENROUTER_API_KEY }}',
-              CLAUDE_API_KEY: '${{ secrets.CLAUDE_API_KEY }}',
-              OPENAI_API_KEY: '${{ secrets.OPENAI_API_KEY }}',
-              PEXELS_API_KEY: '${{ secrets.PEXELS_API_KEY }}'
-          };
-          EOF
+            cat > config.js << EOF
+            // API Configuration
+            // This file is generated during deployment from GitHub Secrets
+            
+            window.API_CONFIG = {
+                OPENROUTER_API_KEY: '${{ secrets.OPENROUTER_API_KEY }}',
+                CLAUDE_API_KEY: '${{ secrets.CLAUDE_API_KEY }}',
+                OPENAI_API_KEY: '${{ secrets.OPENAI_API_KEY }}',
+                PEXELS_API_KEY: '${{ secrets.PEXELS_API_KEY }}'
+            };
+            EOF
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
