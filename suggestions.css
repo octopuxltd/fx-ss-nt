@@ -3,13 +3,15 @@
     max-height: 0;
     opacity: 0;
     overflow: hidden;
-    transition: max-height 0.45s ease, opacity 0.3s ease;
+    transition: opacity 0.3s ease;
     position: relative;
-    z-index: 1;
+    z-index: 100;
+    isolation: isolate;
 }
 
 .top-overlay.is-focused .search-suggestions-preview {
     max-height: 1000px;
+    height: auto;
     opacity: 1;
 }
 
@@ -43,6 +45,8 @@
     gap: 8px;
     padding: 0 8px 9px;
     overflow: hidden;
+    position: relative;
+    z-index: 100;
 }
 
 .ut-page .search-suggestions-preview-column-container {
@@ -61,7 +65,7 @@
 }
 
 .search-suggestions-preview-list:has(.skeleton) {
-    padding-top: 1px;
+    padding-top: 0;
 }
 
 .search-suggestions-preview-list:has(.search-suggestions-preview-item:not(.skeleton)) {
@@ -128,6 +132,7 @@
     transition: background-color 0.2s ease;
     cursor: default;
     user-select: none;
+    min-height: 32px;
 }
 
 .ut-page .search-suggestions-preview-item {
@@ -150,11 +155,49 @@
 .search-suggestions-preview-item .label {
     font-size: 14px;
     text-transform: lowercase;
+    line-height: 1.4;
+}
+
+.firefox-suggest-item .label {
+    text-transform: none;
+}
+
+.search-suggestions-preview-heading {
+    padding: 6px 13px 4px 13px !important;
+    cursor: default !important;
+    pointer-events: none;
+}
+
+.firefox-suggest-heading {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: none;
+    letter-spacing: 0.3px;
+}
+
+.firefox-suggest-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background-color: #6B7280;
+    opacity: 0.65;
+    flex-shrink: 0;
+    margin-left: 2px;
+}
+
+.ut-page .firefox-suggest-icon {
+    margin-left: -2px;
 }
 
 .search-suggestions-preview-item.skeleton {
     pointer-events: none;
     cursor: default;
+    margin-top: 0.5px;
+}
+
+.search-suggestions-preview-item.skeleton:first-child {
+    margin-top: 0;
 }
 
 .search-suggestions-preview-item.skeleton .suggestion-icon {
@@ -1427,7 +1470,11 @@
     opacity: 0.6;
     color: #1F2933;
     margin-left: 4px;
+    display: inline;
+    vertical-align: baseline;
+    line-height: inherit;
 }
+
 
 .carrot--currency {
     display: flex;
