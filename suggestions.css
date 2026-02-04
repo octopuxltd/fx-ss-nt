@@ -61,7 +61,7 @@
     transition: height 0.3s ease;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     flex: 0 0 50%;
     transition: transform 0.45s ease-in-out, flex-basis 0.45s ease-in-out;
 }
@@ -572,11 +572,19 @@
 .search-suggestions-preview-item.skeleton {
     pointer-events: none;
     cursor: default;
-    margin-top: 0.5px;
+    margin-top: 3.5px;
 }
 
-.search-suggestions-preview-item.skeleton:first-child {
-    margin-top: 0;
+.search-suggestions-preview-item:first-child.skeleton {
+    margin-top: 1.5px;
+}
+
+.search-suggestions-preview-item:not(:first-child).skeleton:has(~ .search-suggestions-preview-item:not(.skeleton)) {
+    margin-top: 3.5px;
+}
+
+.search-suggestions-preview-item:not(.skeleton) + .search-suggestions-preview-item.skeleton {
+    margin-top: 1.5px;
 }
 
 .search-suggestions-preview-item.skeleton .suggestion-icon {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Tab (search prototype 2)</title>
+    <title>New Tab (search prototype)</title>
     <link rel="icon" type="image/png" href="icons/Fx-Browser-icon-fullColor-64.png">
     <link rel="stylesheet" href="suggestions.css">
     <style>
@@ -1406,8 +1406,6 @@
         // Model mapping for different providers
         const MODEL_MAP = {
             'openrouter-haiku': 'anthropic/claude-3-haiku',
-            'openrouter-gemini': 'google/gemini-3-flash-preview',
-            'openrouter-grok': 'x-ai/grok-4.1-fast',
             'openai': 'gpt-4o-mini'
         };
         const OPENROUTER_API_KEY = window.API_CONFIG?.OPENROUTER_API_KEY || '';
@@ -1565,10 +1563,11 @@
         }
         
         // Helper function to make a search suggestions request attempt
-        async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0) {
-            const modelName = MODEL_MAP[AI_PROVIDER] || AI_PROVIDER;
-            console.log(`[API-SEARCH] ===== Starting search suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}, model: ${modelName}) =====`);
-            console.log(`[API-SEARCH] AI_PROVIDER value: "${AI_PROVIDER}" | Model: "${modelName}" | Type: ${typeof AI_PROVIDER}`);
+        async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, providerOverride = null) {
+            const provider = providerOverride || AI_PROVIDER;
+            const modelName = MODEL_MAP[provider] || provider;
+            console.log(`[API-SEARCH] ===== Starting search suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${provider}, model: ${modelName}) =====`);
+            console.log(`[API-SEARCH] Provider value: "${provider}" | Model: "${modelName}" | Type: ${typeof provider}`);
             if (delayMs > 0) {
                 console.log(`[API-SEARCH] Waiting ${delayMs}ms before attempt ${attemptNumber}...`);
                 await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -1578,14 +1577,14 @@
             console.log(`[API-SEARCH] Making request attempt ${attemptNumber} for query: "${query}"`);
             
             // Determine which API to use based on provider
-            const isOpenRouter = AI_PROVIDER.startsWith('openrouter-');
-            const isOpenAI = AI_PROVIDER === 'openai';
+            const isOpenRouter = provider.startsWith('openrouter-');
+            const isOpenAI = provider === 'openai';
             
             // Check API key based on provider
-            if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
+            if (provider === 'claude' && !CLAUDE_API_KEY) {
                 console.error('[API-SEARCH] ✗ Claude API key not set');
                 throw new Error('Claude API key not set');
-            } else if (AI_PROVIDER.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
+            } else if (provider.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
                 console.error('[API-SEARCH] ✗ OpenRouter API key not set');
                 throw new Error('OpenRouter API key not set');
             } else if (isOpenAI && !OPENAI_API_KEY) {
@@ -1597,12 +1596,15 @@
             const systemPrompt = 'You are a search suggestion generator. Generate 10 popular search queries where at least one word starts with the user\'s query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of 10 search queries, sorted by popularity. No explanations, just the JSON array.';
             const userPrompt = `Generate 10 popular search suggestions where at least one word starts with: "${query}". Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`;
             
+            const promptTimestamp = new Date().toISOString();
+            console.log(`[API-SEARCH] [${promptTimestamp}] Prompt sent to ${provider}:`, userPrompt);
+            
             let response, data, content;
             
             if (isOpenAI) {
                 // OpenAI API request
                 const requestBody = {
-                    model: MODEL_MAP[AI_PROVIDER],
+                    model: MODEL_MAP[provider],
                     messages: [
                         {
                             role: 'system',
@@ -1696,7 +1698,7 @@
             } else {
                 // OpenRouter API request
                 const requestBody = {
-                    model: MODEL_MAP[AI_PROVIDER] || 'anthropic/claude-3-haiku',
+                    model: MODEL_MAP[provider] || 'anthropic/claude-3-haiku',
                     messages: [
                         {
                             role: 'system',
@@ -1783,6 +1785,9 @@
             }
             
             const finalSuggestions = suggestions.filter(s => s && s.length > 0).slice(0, 9);
+            
+            const responseTimestamp = new Date().toISOString();
+            console.log(`[API-SEARCH] [${responseTimestamp}] Response received:`, finalSuggestions);
             console.log(`[API-SEARCH] Attempt ${attemptNumber} succeeded with ${finalSuggestions.length} suggestions`);
             
             if (finalSuggestions.length === 0) {
@@ -2231,6 +2236,31 @@
             }
         }
         
+        // Race both providers and return whichever responds first
+        async function raceProviders(query, attemptNumber) {
+            console.log(`[API-SEARCH] Attempt ${attemptNumber}: Racing both providers`);
+            
+            const providers = ['openrouter-haiku', 'openai'];
+            const promises = providers.map(provider => 
+                makeSearchSuggestionsRequest(query, attemptNumber, 0, provider)
+                    .then(result => ({ provider, result }))
+                    .catch(error => ({ provider, error }))
+            );
+            
+            // Wait for the first successful response
+            const results = await Promise.all(promises);
+            const successful = results.find(r => !r.error);
+            
+            if (successful) {
+                console.log(`[API-SEARCH] Attempt ${attemptNumber}: ${successful.provider} responded first with success`);
+                return successful.result;
+            }
+            
+            // If both failed, throw the first error
+            console.error(`[API-SEARCH] Attempt ${attemptNumber}: Both providers failed`);
+            throw results[0].error;
+        }
+        
         async function fetchSearchSuggestions(query, maxRetries = 2) {
             let resolveFirst = null;
             let rejectFirst = null;
@@ -2265,16 +2295,17 @@
                 resolveFirst({ result, attempt: attemptNumber });
             }
 
-            // Attempt 1 immediately, then additional attempts after 2s and 4s
+            // Attempt 1: Use selected provider
             makeSearchSuggestionsRequest(query, 1, 0)
                 .then(result => handleAttemptResult(1, result, null))
                 .catch(error => handleAttemptResult(1, null, error));
 
+            // Attempt 2: Race both providers after 2s
             setTimeout(() => {
                 if (completed) {
                     return;
                 }
-                makeSearchSuggestionsRequest(query, 2, 0)
+                raceProviders(query, 2)
                     .then(result => handleAttemptResult(2, result, null))
                     .catch(error => handleAttemptResult(2, null, error));
             }, 2000);
@@ -2377,8 +2408,6 @@
         <select id="server-selector" aria-label="Select AI server">
             <option value="openrouter-haiku">Server 1</option>
             <option value="openai">Server 2</option>
-            <option value="openrouter-gemini">Server 3</option>
-            <option value="openrouter-grok">Server 4</option>
         </select>
     </div>
     <section class="pane pane--bottom">
@@ -7571,14 +7600,7 @@
                     console.log('[INPUT] ===== Branch: length >= 3 =====');
                     console.log('[INPUT] Query:', valueLower, '| Length:', valueLower.length, '| isWinterOlympics:', isWinterOlympics);
                     
-                    // Clear any pending API call
-                    if (apiCallTimer) {
-                        console.log('[INPUT] Clearing existing apiCallTimer');
-                        clearTimeout(apiCallTimer);
-                        apiCallTimer = null;
-                    }
-                    
-                    // Clear AI suggestions tracking and skeletons when query changes
+                    // Clear AI suggestions tracking when query changes
                     if (lastApiQuery && lastApiQuery !== valueLower) {
                         console.log('[INPUT] Query changed from', lastApiQuery, 'to', valueLower, '- clearing AI suggestions set');
                         aiSuggestionsSet.clear();
@@ -7588,6 +7610,8 @@
                     // Check if we have existing suggestions to filter
                     const hasExistingSuggestions = currentDisplayedSuggestions.length > 0;
                     console.log('[INPUT] Has existing suggestions:', hasExistingSuggestions, 'count:', currentDisplayedSuggestions.length);
+                    
+                    let localSuggestions = [];
                     
                     if (hasExistingSuggestions) {
                         // Filter existing suggestions based on next character
@@ -7600,8 +7624,6 @@
                         // No existing suggestions, show local results while waiting for AI
                         console.log('[INPUT] No existing suggestions, showing local results');
                         removeSkeletons();
-                        
-                        let localSuggestions = [];
                         if (typeof suggestionWords !== 'undefined' && suggestionWords) {
                             const allSuggestions = [];
                             Object.values(suggestionWords).forEach(suggestions => {
@@ -7637,14 +7659,13 @@
                     }
                     
                     // Capture current displayed suggestions for use in async callback
-                    const currentLocalSuggestions = hasExistingSuggestions ? [...currentDisplayedSuggestions] : (localSuggestions || []);
+                    const currentLocalSuggestions = hasExistingSuggestions ? [...currentDisplayedSuggestions] : localSuggestions;
                     
-                    // Debounce API call (wait 300ms after user stops typing)
-                    apiCallTimer = setTimeout(async () => {
-                        // Only make API call if query hasn't changed
-                        const currentQuery = searchBoxElement.value.toLowerCase().trim();
-                        if (currentQuery === valueLower) {
-                            lastApiQuery = valueLower;
+                    // Make API call immediately (no debounce)
+                    console.log('[INPUT] Making immediate API call for query:', valueLower);
+                    lastApiQuery = valueLower;
+                    (async () => {
+                        try {
                             console.log('[AI] Fetching AI suggestions for:', valueLower, 'winter olympics active:', isWinterOlympics);
                             
                             try {
@@ -7711,6 +7732,7 @@
                                         // Add AI suggestions to fill skeleton slots, avoiding duplicates
                                         // IMPORTANT: Exclude Firefox suggestions from regular suggestions - they're handled separately
                                         if (aiSuggestions && Array.isArray(aiSuggestions) && skeletonCount > 0) {
+                                            // First pass: try to add suggestions that match the full query
                                             let addedCount = 0;
                                             for (const aiSuggestion of aiSuggestions) {
                                                 if (addedCount >= skeletonCount) break;
@@ -7722,22 +7744,43 @@
                                                         console.log('[AI] Skipping Firefox suggestion from regular list:', aiSuggestion);
                                                         continue;
                                                     }
-                                                    // Only add if not already in displayed suggestions and matches query
+                                                    // Only add if not already in displayed and matches full query exactly
                                                     const alreadyDisplayed = currentlyDisplayed.some(s => s.toLowerCase() === aiLower);
-                                                    if (!alreadyDisplayed && aiLower.startsWith(valueLower)) {
+                                                    const matchesFullQuery = aiLower.startsWith(valueLower) || 
+                                                                            aiSuggestion.split(/\s+/).some(word => word.toLowerCase().startsWith(valueLower));
+                                                    if (!alreadyDisplayed && matchesFullQuery) {
                                                         allSuggestions.push(aiSuggestion);
                                                         addedCount++;
                                                     }
                                                 }
                                             }
+                                            
+                                            // Second pass: if we still have skeleton slots, use looser matching (first 3 chars)
+                                            if (addedCount < skeletonCount) {
+                                                console.log('[AI] Only found', addedCount, 'exact matches, looking for partial matches to fill remaining', (skeletonCount - addedCount), 'slots');
+                                                const queryPrefix = valueLower.slice(0, Math.min(valueLower.length, 3));
+                                                for (const aiSuggestion of aiSuggestions) {
+                                                    if (addedCount >= skeletonCount) break;
+                                                    if (typeof aiSuggestion === 'string') {
+                                                        const aiLower = aiSuggestion.toLowerCase();
+                                                        const isFirefoxSuggestion = firefoxTitles.includes(aiLower);
+                                                        if (isFirefoxSuggestion) continue;
+                                                        
+                                                        const alreadyAdded = allSuggestions.some(s => s.toLowerCase() === aiLower);
+                                                        const matchesPrefix = aiLower.startsWith(queryPrefix) || 
+                                                                            aiSuggestion.split(/\s+/).some(word => word.toLowerCase().startsWith(queryPrefix));
+                                                        if (!alreadyAdded && matchesPrefix) {
+                                                            allSuggestions.push(aiSuggestion);
+                                                            addedCount++;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            
                                             console.log('[AI] Added', addedCount, 'new AI suggestions to fill', skeletonCount, 'skeleton slots');
                                         }
                                         
                                         console.log('[AI] allSuggestions after merge:', allSuggestions, 'length:', allSuggestions.length);
-                                        
-                                        // Limit to 9 total regular suggestions (typed text is shown separately as first item)
-                                        // This includes currently displayed + new AI suggestions (no duplicates)
-                                        const mergedSuggestions = allSuggestions.slice(0, 9);
                                         
                                         // Preserve existing Firefox suggestions that match the query, only add new ones if needed
                                         const queryLower = valueLower.toLowerCase();
@@ -7755,6 +7798,15 @@
                                         console.log('[AI] Preserved', preservedFirefoxSuggestions.length, 'Firefox suggestions from previous query');
                                         console.log('[AI] New Firefox suggestions from API:', firefoxSuggestions.length);
                                         console.log('[AI] Using', finalFirefoxSuggestions.length, 'Firefox suggestions total');
+                                        
+                                        // Calculate how many AI suggestions we can show
+                                        // Total = 10 items (1 typed text + Firefox suggestions + AI suggestions)
+                                        // So AI suggestions = 10 - 1 - Firefox count = 9 - Firefox count
+                                        const maxAISuggestions = Math.max(0, 9 - finalFirefoxSuggestions.length);
+                                        console.log('[AI] Max AI suggestions allowed (9 - Firefox count):', maxAISuggestions);
+                                        
+                                        // Limit AI suggestions to leave room for Firefox suggestions
+                                        const mergedSuggestions = allSuggestions.slice(0, maxAISuggestions);
                                         
                                         // Store Firefox suggestions (full objects) for rendering
                                         mergedSuggestions._firefoxSuggestions = finalFirefoxSuggestions;
@@ -7794,12 +7846,11 @@
                                     updateSuggestions([]);
                                 }
                             }
-                        } else {
-                            console.log('[AI] ✗ Query changed before API call, skipping');
-                            console.log('[AI] Expected:', valueLower, '| Got:', currentQuery);
+                        } catch (apiError) {
+                            console.error('[AI] ✗ Error in API call:', apiError);
+                            console.error('[AI] Stack trace:', apiError.stack);
                         }
-                    }, 300);
-                    console.log('[INPUT] API call timer set, timer ID:', apiCallTimer);
+                    })();
                 } else {
                     console.log('[INPUT] Query length is', valueLower.length, '- not processing (should be >= 3)');
                 }
