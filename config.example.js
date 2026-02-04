@@ -4,7 +4,6 @@
 
 window.API_CONFIG = {
     OPENROUTER_API_KEY: 'your-openrouter-api-key-here',
-    CLAUDE_API_KEY: 'your-claude-api-key-here',
     OPENAI_API_KEY: 'your-openai-api-key-here',
     PEXELS_API_KEY: 'your-pexels-api-key-here'
 };
