@@ -26,9 +26,9 @@ jobs:
           # Create a clean deployment directory
           mkdir -p _deploy
           
-          # Copy all files (rsync respects .gitignore by default)
-          # Use -L to follow symlinks, -r for recursive, -t to preserve times
-          cp -r . _deploy/
+          # Copy all files except _deploy itself
+          # Use find to copy everything except the _deploy directory
+          find . -maxdepth 1 ! -name . ! -name _deploy -exec cp -r {} _deploy/ \;
           
           # Remove git files from deploy directory
           rm -rf _deploy/.git _deploy/.github
