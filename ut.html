@@ -3227,6 +3227,7 @@
         let currentState = 0; // Track current state
         let lastCarrotContext = null;
         let suspendedCarrotContext = null;
+        let suspendedByFirefoxUrls = new Set(); // Track which Firefox URLs were displayed when carrot was suspended
         let selectedSuggestionIndex = -1; // Track selected suggestion index (only one at a time)
         let suggestionsJustUpdated = false; // Track if suggestions were just updated to prevent stale hover
         let isKeyboardNavigating = false; // Track if user is using keyboard navigation
@@ -5812,6 +5813,14 @@
                 return;
             }
 
+            // Only restore carrot if leaving a Firefox suggestion that was displayed when carrot was suspended
+            const item = event.currentTarget;
+            const url = item.dataset.firefoxUrl;
+            if (!url || !suspendedByFirefoxUrls.has(url)) {
+                // This Firefox suggestion was not displayed when the carrot was suspended
+                return;
+            }
+
             hideFirefoxPreviewBox();
             setCarrotContent(
                 suspendedCarrotContext.state,
@@ -5823,6 +5832,7 @@
             suggestionsContainer.classList.remove('expand-left');
             suggestionsContainer.classList.add('show-carrot');
             suspendedCarrotContext = null;
+            suspendedByFirefoxUrls.clear();
         }
         
         function handleSuggestionHover(event) {
@@ -6218,6 +6228,13 @@
             if (suggestionsContainer.classList.contains('show-carrot')) {
                 if (lastCarrotContext) {
                     suspendedCarrotContext = { ...lastCarrotContext };
+                    // Track which Firefox suggestions are currently displayed
+                    suspendedByFirefoxUrls.clear();
+                    const firefoxItems = suggestionsList.querySelectorAll('.firefox-suggest-item');
+                    firefoxItems.forEach(item => {
+                        const url = item.dataset.firefoxUrl;
+                        if (url) suspendedByFirefoxUrls.add(url);
+                    });
                 }
                 suggestionsContainer.classList.remove('show-carrot');
             }
@@ -7508,6 +7525,9 @@
                         carrotList.innerHTML = '';
                         carrotList.dataset.carrotState = '0';
                     }
+                    // Clear suspended carrot context since user is typing new input
+                    suspendedCarrotContext = null;
+                    suspendedByFirefoxUrls.clear();
                 }
                 shouldCloseCarrotOnInput = false;
                 
@@ -7549,6 +7569,9 @@
                             previewBox.style.display = 'none';
                         }
                     }
+                    // Clear suspended carrot context since field is empty
+                    suspendedCarrotContext = null;
+                    suspendedByFirefoxUrls.clear();
                     // Restore product grid when search is cleared
                     restoreProductGrid();
                 }
