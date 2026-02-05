@@ -6264,6 +6264,15 @@
                 if (!item.classList.contains('carrot')) {
                     console.log('[AUTOCOMPLETE] Hover detected on item:', item);
                     
+                    // Don't autocomplete for default suggestions (when search box is empty) or Gmail
+                    const isSearchBoxEmpty = !searchBoxElement.value || searchBoxElement.value.trim() === '';
+                    const isGmailItem = item.classList.contains('gmail-suggestion');
+                    
+                    if (isSearchBoxEmpty || isGmailItem) {
+                        console.log('[AUTOCOMPLETE] ✗ Skipping - empty search box or Gmail item');
+                        return;
+                    }
+                    
                     // For Firefox suggestions, use the URL; for regular suggestions, use the label text
                     let suggestionText;
                     if (item.classList.contains('firefox-suggest-item')) {
@@ -6446,42 +6455,48 @@
                 
                 // Update search box with autocomplete for keyboard navigation
                 if (isKeyboardNavigation && !selectedItem.classList.contains('carrot')) {
-                    // For Firefox suggestions, use the URL; for regular suggestions, use the label text
-                    let suggestionText;
-                    if (selectedItem.classList.contains('firefox-suggest-item')) {
-                        suggestionText = selectedItem.dataset.firefoxUrl || null;
-                    } else {
-                        const labelElement = selectedItem.querySelector('.label');
-                        suggestionText = labelElement ? labelElement.textContent.trim() : null;
-                    }
+                    // Don't autocomplete for default suggestions (when search box is empty) or Gmail
+                    const isSearchBoxEmpty = !originalTypedText || originalTypedText.trim() === '';
+                    const isGmailItem = selectedItem.classList.contains('gmail-suggestion');
                     
-                    // Check if this is the typed text item
-                    const isTypedTextItem = suggestionText === originalTypedText || suggestionText === searchBoxElement.value;
-                    
-                    if (suggestionText && !isTypedTextItem) {
-                        // Save original typed text if not already saved
-                        if (!originalTypedText) {
-                            originalTypedText = searchBoxElement.value;
-                        }
-                        
-                        const typedLength = originalTypedText.length;
-                        const lowercaseSuggestionText = suggestionText.toLowerCase();
-                        searchBoxElement.value = lowercaseSuggestionText;
-                        
-                        // For Firefox suggestions (URLs), don't select - just place cursor at end
-                        // For regular suggestions, select only the autocompleted part
+                    if (!isSearchBoxEmpty && !isGmailItem) {
+                        // For Firefox suggestions, use the URL; for regular suggestions, use the label text
+                        let suggestionText;
                         if (selectedItem.classList.contains('firefox-suggest-item')) {
-                            searchBoxElement.setSelectionRange(lowercaseSuggestionText.length, lowercaseSuggestionText.length);
-                        } else if (typedLength > 0 && lowercaseSuggestionText.startsWith(originalTypedText.toLowerCase())) {
-                            searchBoxElement.setSelectionRange(typedLength, lowercaseSuggestionText.length);
+                            suggestionText = selectedItem.dataset.firefoxUrl || null;
                         } else {
-                            // If suggestion doesn't start with typed text, select all
-                            searchBoxElement.setSelectionRange(0, lowercaseSuggestionText.length);
+                            const labelElement = selectedItem.querySelector('.label');
+                            suggestionText = labelElement ? labelElement.textContent.trim() : null;
                         }
-                    } else if (isTypedTextItem && originalTypedText) {
-                        // Restore original typed text when arrowing back to it
-                        searchBoxElement.value = originalTypedText;
-                        searchBoxElement.setSelectionRange(originalTypedText.length, originalTypedText.length);
+                        
+                        // Check if this is the typed text item
+                        const isTypedTextItem = suggestionText === originalTypedText || suggestionText === searchBoxElement.value;
+                        
+                        if (suggestionText && !isTypedTextItem) {
+                            // Save original typed text if not already saved
+                            if (!originalTypedText) {
+                                originalTypedText = searchBoxElement.value;
+                            }
+                            
+                            const typedLength = originalTypedText.length;
+                            const lowercaseSuggestionText = suggestionText.toLowerCase();
+                            searchBoxElement.value = lowercaseSuggestionText;
+                            
+                            // For Firefox suggestions (URLs), don't select - just place cursor at end
+                            // For regular suggestions, select only the autocompleted part
+                            if (selectedItem.classList.contains('firefox-suggest-item')) {
+                                searchBoxElement.setSelectionRange(lowercaseSuggestionText.length, lowercaseSuggestionText.length);
+                            } else if (typedLength > 0 && lowercaseSuggestionText.startsWith(originalTypedText.toLowerCase())) {
+                                searchBoxElement.setSelectionRange(typedLength, lowercaseSuggestionText.length);
+                            } else {
+                                // If suggestion doesn't start with typed text, select all
+                                searchBoxElement.setSelectionRange(0, lowercaseSuggestionText.length);
+                            }
+                        } else if (isTypedTextItem && originalTypedText) {
+                            // Restore original typed text when arrowing back to it
+                            searchBoxElement.value = originalTypedText;
+                            searchBoxElement.setSelectionRange(originalTypedText.length, originalTypedText.length);
+                        }
                     }
                 }
                 
