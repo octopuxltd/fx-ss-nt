@@ -5888,7 +5888,7 @@
             
             // Determine the type of Firefox suggestion (tab, bookmark, or history)
             const isSwitchToTab = item.querySelector('.firefox-switch-tab-button') !== null;
-            const suggestionType = isSwitchToTab ? 'tab' : 'history'; // Default to history for now
+            const suggestionType = isSwitchToTab ? 'tab' : 'bookmark'; // Star icon = bookmark
             
             await showFirefoxPreviewBox(item, title, description, url, suggestionType);
         }
@@ -6141,7 +6141,7 @@
                     if (title && description && url) {
                         // Determine the type of Firefox suggestion
                         const isSwitchToTab = selectedItem.querySelector('.firefox-switch-tab-button') !== null;
-                        const suggestionType = isSwitchToTab ? 'tab' : 'history';
+                        const suggestionType = isSwitchToTab ? 'tab' : 'bookmark'; // Star icon = bookmark
                         
                         showFirefoxPreviewBox(selectedItem, title, description, url, suggestionType);
                     }
@@ -6315,7 +6315,7 @@
             }
         }
         
-        async function showFirefoxPreviewBox(item, title, description, url, suggestionType = 'history') {
+        async function showFirefoxPreviewBox(item, title, description, url, suggestionType = 'bookmark') {
             const previewBox = document.querySelector('.preview-box');
             const suggestionsContainer = document.querySelector('.search-suggestions-preview-column-container');
             if (!previewBox || !suggestionsContainer) return;
@@ -6393,33 +6393,33 @@
             
             // Get the appropriate icon SVG and text based on suggestion type
             const tabIconSvg = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>';
-            const historyIconSvg = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+            const bookmarkIconSvg = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
             
-            // Generate random "visited X days/weeks ago" text for history items
+            // Generate text based on type
             let badgeText = '';
             if (suggestionType === 'tab') {
                 badgeText = 'In an open tab';
             } else if (suggestionType === 'bookmark') {
-                badgeText = 'From your bookmarks';
-            } else {
-                // History item - generate random time ago
-                const randomDays = Math.floor(Math.random() * 60) + 1; // 1-60 days
+                // Bookmark - generate random "bookmarked X ago" text
+                const randomDays = Math.floor(Math.random() * 180) + 1; // 1-180 days
                 if (randomDays === 1) {
-                    badgeText = 'Visited 1 day ago';
+                    badgeText = 'Bookmarked 1 day ago';
                 } else if (randomDays < 7) {
-                    badgeText = `Visited ${randomDays} days ago`;
+                    badgeText = `Bookmarked ${randomDays} days ago`;
                 } else if (randomDays < 14) {
-                    badgeText = 'Visited 1 week ago';
+                    badgeText = 'Bookmarked 1 week ago';
                 } else if (randomDays < 30) {
                     const weeks = Math.floor(randomDays / 7);
-                    badgeText = `Visited ${weeks} weeks ago`;
+                    badgeText = `Bookmarked ${weeks} weeks ago`;
+                } else if (randomDays < 60) {
+                    badgeText = 'Bookmarked 1 month ago';
                 } else {
-                    const weeks = Math.floor(randomDays / 7);
-                    badgeText = `Visited ${weeks} weeks ago`;
+                    const months = Math.floor(randomDays / 30);
+                    badgeText = `Bookmarked ${months} months ago`;
                 }
             }
             
-            const iconSvg = suggestionType === 'tab' ? tabIconSvg : historyIconSvg;
+            const iconSvg = suggestionType === 'tab' ? tabIconSvg : bookmarkIconSvg;
             
             // Populate preview box
             previewBox.innerHTML = `
