@@ -314,9 +314,9 @@
         }
 
         .info-icon-button:hover {
-            background-color: rgba(255, 255, 255, 0.8);
+            background-color: rgba(255, 255, 255, 0.3);
             transform: scale(1.05);
-            opacity: 0.3;
+            opacity: 1;
         }
 
         .info-icon-wrapper.is-open .info-icon-button {
@@ -324,12 +324,35 @@
             opacity: 0 !important;
         }
 
+        .info-icon-button.stay-visible {
+            opacity: 1 !important;
+            background-color: rgba(255, 255, 255, 0.3);
+            pointer-events: auto !important;
+        }
+
         .info-icon-button svg {
-            width: 18px;
-            height: 18px;
-            stroke: transparent;
-            fill: transparent;
-            opacity: 0;
+            width: 36px;
+            height: 36px;
+            color: #FFFFFF;
+            opacity: 1;
+            position: relative;
+            z-index: 1;
+        }
+
+        .info-icon-button svg circle[r="10"] {
+            fill: none;
+            stroke: #FFFFFF;
+            stroke-width: 2;
+        }
+
+        .info-icon-button svg path {
+            stroke: #FFFFFF;
+            stroke-width: 2;
+        }
+
+        .info-icon-button svg circle[r="1"] {
+            fill: #FFFFFF;
+            stroke: none;
         }
 
         .info-icon-button.flash {
@@ -356,7 +379,7 @@
             padding: 16px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
             min-width: 200px;
-            max-width: 300px;
+            max-width: 270px;
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
@@ -3214,7 +3237,7 @@
                     infoIconWrapper.classList.remove('initial-load');
                     infoIconWrapper.classList.add('is-open');
                     
-                    // If help=temp, close after 1 second
+                    // If help=temp, close after 2 seconds and leave button visible
                     if (helpParam === 'temp') {
                         setTimeout(() => {
                             // Add closing class to trigger slide-out animation
@@ -3226,12 +3249,9 @@
                                 infoIconWrapper.classList.remove('is-closing');
                             }, 300); // Match transition duration
                             
-                            // Flash the info button to show its location
+                            // Keep the info button visible instead of flashing
                             if (infoIconButton) {
-                                infoIconButton.classList.add('flash');
-                                setTimeout(() => {
-                                    infoIconButton.classList.remove('flash');
-                                }, 1200); // Match animation duration
+                                infoIconButton.classList.add('stay-visible');
                             }
                         }, 2000); // Close after 2 seconds
                     }

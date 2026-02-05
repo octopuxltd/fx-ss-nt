@@ -137,8 +137,8 @@ const carrotTemplates = {
                 <div class="carrot-big-ad-body">
                     <h3 class="carrot-big-ad-title">Premium Sneakers Collection - Up to 50% Off</h3>
                     <p class="carrot-big-ad-meta">
-                        <img src="favicons/Amazon - Light.svg" alt="" class="carrot-big-ad-favicon" role="presentation">
-                        Amazon - Official Store
+                        <span class="carrot-big-ad-favicon" style="width: 16px; height: 16px; background-color: #000; border-radius: 2px; flex-shrink: 0;"></span>
+                        Nike - Official Store
                     </p>
                 </div>
                 <span class="carrot-big-ad-sponsored">Sponsored</span>
