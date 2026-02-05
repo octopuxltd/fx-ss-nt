@@ -2883,10 +2883,9 @@
 
                 const data = await response.json();
                     const photoUrl = data.photos && data.photos[0] ? data.photos[0].src.medium : null;
-                    imageUrls.push(photoUrl || 'https://via.placeholder.com/600x400?text=Image');
+                    if (photoUrl) imageUrls.push(photoUrl);
                 } catch (error) {
                     console.error('Error fetching image for keyword:', keyword, error);
-                    imageUrls.push('https://via.placeholder.com/600x400?text=Image');
             }
             }
 
@@ -2902,8 +2901,9 @@
             const images = await fetchImages();
 
             imagePlaceholders.forEach((placeholder, index) => {
+                if (!images[index]) return; // Skip if no image available
                 const img = document.createElement('img');
-                img.src = images[index] || 'https://via.placeholder.com/600x400?text=Image';
+                img.src = images[index];
                 img.alt = placeholder.nextElementSibling ? placeholder.nextElementSibling.textContent : 'Article image';
                 img.style.width = '100%';
                 img.style.height = '160px';
@@ -6350,12 +6350,24 @@
         // Cache for preloaded Firefox suggestion images
         const firefoxImageCache = new Map();
         
+        // Fallback images from product grid (Unsplash)
+        const fallbackImages = [
+            'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1449247709967-d4461a6a6103?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=600&q=80',
+            'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=600&q=80'
+        ];
+        
         async function preloadFirefoxSuggestionImages(firefoxSuggestions) {
             const apiKey = window.API_CONFIG?.PEXELS_API_KEY || '';
-            if (!apiKey) return;
             
             // Preload images for each Firefox suggestion
-            const preloadPromises = firefoxSuggestions.map(async (suggestion) => {
+            const preloadPromises = firefoxSuggestions.map(async (suggestion, index) => {
                 if (!suggestion || !suggestion.title) return;
                 
                 const title = suggestion.title;
@@ -6366,40 +6378,51 @@
                     return;
                 }
                 
-                try {
-                    const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(title)}&per_page=1`, {
-                        headers: {
-                            Authorization: apiKey
+                let imageUrl = null;
+                
+                // Try Pexels if API key is available
+                if (apiKey) {
+                    try {
+                        const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(title)}&per_page=1`, {
+                            headers: {
+                                Authorization: apiKey
+                            }
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.photos && data.photos[0]) {
+                                imageUrl = data.photos[0].src.large;
+                            }
                         }
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.photos && data.photos[0]) {
-                            const imageUrl = data.photos[0].src.large;
-                            
-                            // Preload the image by creating an Image object
-                            return new Promise((resolve) => {
-                                const img = new Image();
-                                img.onload = () => {
-                                    // Cache the image URL only after it's loaded
-                                    firefoxImageCache.set(cacheKey, imageUrl);
-                                    
-                                    // Update any existing Firefox suggestion items with this image
-                                    updateFirefoxSuggestionImage(cacheKey, imageUrl);
-                                    
-                                    resolve();
-                                };
-                                img.onerror = () => {
-                                    console.error('Error loading image for Firefox suggestion:', title);
-                                    resolve();
-                                };
-                                img.src = imageUrl;
-                            });
-                        }
+                    } catch (error) {
+                        console.error('Error fetching from Pexels for Firefox suggestion:', title, error);
                     }
-                } catch (error) {
-                    console.error('Error preloading image for Firefox suggestion:', title, error);
                 }
+                
+                // Use fallback image if Pexels didn't return anything
+                if (!imageUrl) {
+                    imageUrl = fallbackImages[index % fallbackImages.length];
+                    console.log('[FIREFOX-IMG] Using fallback image for:', title);
+                }
+                
+                // Preload the image by creating an Image object
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Cache the image URL only after it's loaded
+                        firefoxImageCache.set(cacheKey, imageUrl);
+                        
+                        // Update any existing Firefox suggestion items with this image
+                        updateFirefoxSuggestionImage(cacheKey, imageUrl);
+                        
+                        resolve();
+                    };
+                    img.onerror = () => {
+                        console.error('Error loading image for Firefox suggestion:', title);
+                        resolve();
+                    };
+                    img.src = imageUrl;
+                });
             });
             
             // Don't await - let it happen in background
@@ -6519,11 +6542,11 @@
             suggestionsContainer.classList.add('show-preview-box');
             previewBox.style.display = 'block';
             
-            // Get image from cache or use placeholder
+            // Get image from cache
             const cacheKey = title.toLowerCase();
-            let imageUrl = firefoxImageCache.get(cacheKey) || 'https://via.placeholder.com/400x250?text=Image';
+            let imageUrl = firefoxImageCache.get(cacheKey) || '';
             
-            // If not in cache, try to fetch it (fallback for edge cases)
+            // If not in cache, try to fetch it
             if (!firefoxImageCache.has(cacheKey)) {
                 const apiKey = window.API_CONFIG?.PEXELS_API_KEY || '';
                 if (apiKey) {
@@ -6543,6 +6566,14 @@
                     } catch (error) {
                         console.error('Error fetching image for Firefox suggestion:', error);
                     }
+                }
+                
+                // Use fallback image if Pexels didn't return anything
+                if (!imageUrl) {
+                    // Use a random fallback image
+                    imageUrl = fallbackImages[Math.floor(Math.random() * fallbackImages.length)];
+                    firefoxImageCache.set(cacheKey, imageUrl);
+                    console.log('[FIREFOX-IMG] Using fallback image for preview:', title);
                 }
             }
             
