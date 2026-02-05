@@ -133,14 +133,6 @@
             position: relative;
         }
 
-        /* Prevent scrolling when winter olympics is active */
-        body.winter-olympics-active,
-        html.winter-olympics-active {
-            overflow: hidden;
-            height: 100%;
-            position: fixed;
-            width: 100%;
-        }
 
         .winter-olympics-background {
             position: absolute;
@@ -652,6 +644,7 @@
             transition: opacity 0.6s ease;
             position: relative;
             z-index: -1;
+            min-height: 200px;
         }
 
         .top-overlay.is-focused .overlay-product-grid {
@@ -2879,9 +2872,6 @@
             if (suggestionsPreview) {
                 suggestionsPreview.classList.remove('winter-olympics-active');
             }
-            // Re-enable scrolling
-            document.body.classList.remove('winter-olympics-active');
-            document.documentElement.classList.remove('winter-olympics-active');
 
             if (originalProductGridContent) {
                 container.innerHTML = originalProductGridContent;
@@ -3062,9 +3052,6 @@
             } else {
                 topOverlay.classList.remove('is-focused');
                 topOverlay.classList.remove('winter-olympics');
-                // Re-enable scrolling
-                document.body.classList.remove('winter-olympics-active');
-                document.documentElement.classList.remove('winter-olympics-active');
                 searchWrapperElement.classList.remove('expanded');
                 searchDescriptionElement.classList.remove('expanded');
                 // Clear any inline height styles to return to starting state
@@ -3159,9 +3146,6 @@
                     if (topOverlay) {
                         topOverlay.classList.add('winter-olympics');
                     }
-                    // Prevent scrolling
-                    document.body.classList.add('winter-olympics-active');
-                    document.documentElement.classList.add('winter-olympics-active');
                     renderWinterOlympicsSchedule();
                 }
                 setTimeout(() => {
@@ -3205,9 +3189,6 @@
                 // Reset winter olympics background if active
                 if (topOverlay && topOverlay.classList.contains('winter-olympics')) {
                     topOverlay.classList.remove('winter-olympics');
-                    // Re-enable scrolling
-                    document.body.classList.remove('winter-olympics-active');
-                    document.documentElement.classList.remove('winter-olympics-active');
                     restoreProductGrid();
                 }
                 setOverlayState(false);
@@ -3401,6 +3382,7 @@
         let isKeyboardNavigating = false; // Track if user is using keyboard navigation
         let currentDisplayedSuggestions = []; // Track currently displayed suggestions for incremental filtering
         let currentFirefoxSuggestions = []; // Track current Firefox suggestions (full objects) for incremental filtering
+        let originalTypedText = ''; // Track original typed text to restore on hover leave
         
         // Helper function to log carrot position and layout
         function logCarrotLayout(context = '') {
@@ -5239,10 +5221,26 @@
             
             // Mark that suggestions were just updated to prevent stale hover
             suggestionsJustUpdated = true;
-            // Clear the flag after a short delay to allow mouse movement to be detected
-            setTimeout(() => {
-                suggestionsJustUpdated = false;
-            }, 100);
+            
+            // Add class to disable CSS hover styles
+            if (suggestionsList) {
+                suggestionsList.classList.add('suggestions-updating');
+                
+                // If this is for default suggestions or non-AI updates, clear immediately on next mouse move
+                // This will be overridden by AI response handlers if an AI call is in progress
+                setTimeout(() => {
+                    if (suggestionsJustUpdated) {
+                        const clearHoverFlagDefault = () => {
+                            suggestionsJustUpdated = false;
+                            if (suggestionsList) {
+                                suggestionsList.classList.remove('suggestions-updating');
+                            }
+                            document.removeEventListener('mousemove', clearHoverFlagDefault);
+                        };
+                        document.addEventListener('mousemove', clearHoverFlagDefault, { once: true });
+                    }
+                }, 50);
+            }
             
             // Attach click handlers to suggestions (this clones nodes, so do it first)
             attachClickListeners();
@@ -5955,6 +5953,12 @@
                             selectedSuggestionIndex = -1;
                             updateSelectedSuggestion();
                         }
+                        
+                        // Restore original typed text
+                        if (originalTypedText !== '' && searchBoxElement.value !== originalTypedText) {
+                            searchBoxElement.value = originalTypedText;
+                            searchBoxElement.setSelectionRange(originalTypedText.length, originalTypedText.length);
+                        }
                     });
                 }
                 
@@ -6125,6 +6129,19 @@
             // Determine the type of Firefox suggestion from data attribute
             const suggestionType = item.dataset.firefoxType || 'bookmark';
             
+            // Update search box with the full URL (not highlighted)
+            if (url) {
+                // Save original typed text if not already saved
+                if (!originalTypedText) {
+                    originalTypedText = searchBoxElement.value;
+                }
+                
+                // Set the URL and place cursor at end (no selection)
+                const lowercaseUrl = url.toLowerCase();
+                searchBoxElement.value = lowercaseUrl;
+                searchBoxElement.setSelectionRange(lowercaseUrl.length, lowercaseUrl.length);
+            }
+            
             await showFirefoxPreviewBox(item, title, description, url, suggestionType);
         }
         
@@ -6134,6 +6151,12 @@
                 if (relatedTarget.closest('.firefox-suggest-item') || relatedTarget.closest('.preview-box')) {
                     return;
                 }
+            }
+            
+            // Restore original typed text
+            if (originalTypedText !== '' && searchBoxElement.value !== originalTypedText) {
+                searchBoxElement.value = originalTypedText;
+                searchBoxElement.setSelectionRange(originalTypedText.length, originalTypedText.length);
             }
 
             if (!suspendedCarrotContext || !suggestionsContainer) {
@@ -6236,6 +6259,60 @@
                     selectedSuggestionIndex = virtualIndex;
                 }
                 updateSelectedSuggestion();
+                
+                // Update search box with suggestion text
+                if (!item.classList.contains('carrot')) {
+                    console.log('[AUTOCOMPLETE] Hover detected on item:', item);
+                    
+                    // For Firefox suggestions, use the URL; for regular suggestions, use the label text
+                    let suggestionText;
+                    if (item.classList.contains('firefox-suggest-item')) {
+                        suggestionText = item.dataset.firefoxUrl || null;
+                        console.log('[AUTOCOMPLETE] Firefox suggestion URL:', suggestionText);
+                    } else {
+                        const labelElement = item.querySelector('.label');
+                        suggestionText = labelElement ? labelElement.textContent.trim() : null;
+                        console.log('[AUTOCOMPLETE] Label element:', labelElement);
+                        console.log('[AUTOCOMPLETE] Suggestion text:', suggestionText);
+                    }
+                    console.log('[AUTOCOMPLETE] Current search box value:', searchBoxElement.value);
+                    
+                    // The typed text item is the one where suggestion text equals the current search box value exactly
+                    const isTypedTextItem = suggestionText === searchBoxElement.value;
+                    console.log('[AUTOCOMPLETE] Is typed text item?', isTypedTextItem);
+                    console.log('[AUTOCOMPLETE] Suggestion different from current?', suggestionText !== searchBoxElement.value);
+                    
+                    if (suggestionText && !isTypedTextItem && suggestionText !== searchBoxElement.value) {
+                        console.log('[AUTOCOMPLETE] ✓ Updating search box');
+                        
+                        // Save original typed text if not already saved
+                        if (!originalTypedText) {
+                            originalTypedText = searchBoxElement.value;
+                            console.log('[AUTOCOMPLETE] Saved original typed text:', originalTypedText);
+                        }
+                        
+                        const typedLength = originalTypedText.length;
+                        const lowercaseSuggestionText = suggestionText.toLowerCase();
+                        searchBoxElement.value = lowercaseSuggestionText;
+                        console.log('[AUTOCOMPLETE] Set search box to:', lowercaseSuggestionText);
+                        
+                        // For Firefox suggestions (URLs), don't select - just place cursor at end
+                        // For regular suggestions, select only the autocompleted part
+                        if (item.classList.contains('firefox-suggest-item')) {
+                            searchBoxElement.setSelectionRange(lowercaseSuggestionText.length, lowercaseSuggestionText.length);
+                            console.log('[AUTOCOMPLETE] Placed cursor at end of URL (no selection)');
+                        } else if (typedLength > 0 && lowercaseSuggestionText.startsWith(originalTypedText.toLowerCase())) {
+                            searchBoxElement.setSelectionRange(typedLength, lowercaseSuggestionText.length);
+                            console.log('[AUTOCOMPLETE] Selected range:', typedLength, '-', lowercaseSuggestionText.length);
+                        } else {
+                            // If suggestion doesn't start with typed text, select all
+                            searchBoxElement.setSelectionRange(0, lowercaseSuggestionText.length);
+                            console.log('[AUTOCOMPLETE] Selected all (0 -', lowercaseSuggestionText.length, ')');
+                        }
+                    } else {
+                        console.log('[AUTOCOMPLETE] ✗ Not updating - conditions not met');
+                    }
+                }
             }
         }
         
@@ -6365,6 +6442,47 @@
                     console.log('[SELECT] Set hintElement display to inline');
                 } else {
                     console.log('[SELECT] No hintElement found for selected item');
+                }
+                
+                // Update search box with autocomplete for keyboard navigation
+                if (isKeyboardNavigation && !selectedItem.classList.contains('carrot')) {
+                    // For Firefox suggestions, use the URL; for regular suggestions, use the label text
+                    let suggestionText;
+                    if (selectedItem.classList.contains('firefox-suggest-item')) {
+                        suggestionText = selectedItem.dataset.firefoxUrl || null;
+                    } else {
+                        const labelElement = selectedItem.querySelector('.label');
+                        suggestionText = labelElement ? labelElement.textContent.trim() : null;
+                    }
+                    
+                    // Check if this is the typed text item
+                    const isTypedTextItem = suggestionText === originalTypedText || suggestionText === searchBoxElement.value;
+                    
+                    if (suggestionText && !isTypedTextItem) {
+                        // Save original typed text if not already saved
+                        if (!originalTypedText) {
+                            originalTypedText = searchBoxElement.value;
+                        }
+                        
+                        const typedLength = originalTypedText.length;
+                        const lowercaseSuggestionText = suggestionText.toLowerCase();
+                        searchBoxElement.value = lowercaseSuggestionText;
+                        
+                        // For Firefox suggestions (URLs), don't select - just place cursor at end
+                        // For regular suggestions, select only the autocompleted part
+                        if (selectedItem.classList.contains('firefox-suggest-item')) {
+                            searchBoxElement.setSelectionRange(lowercaseSuggestionText.length, lowercaseSuggestionText.length);
+                        } else if (typedLength > 0 && lowercaseSuggestionText.startsWith(originalTypedText.toLowerCase())) {
+                            searchBoxElement.setSelectionRange(typedLength, lowercaseSuggestionText.length);
+                        } else {
+                            // If suggestion doesn't start with typed text, select all
+                            searchBoxElement.setSelectionRange(0, lowercaseSuggestionText.length);
+                        }
+                    } else if (isTypedTextItem && originalTypedText) {
+                        // Restore original typed text when arrowing back to it
+                        searchBoxElement.value = originalTypedText;
+                        searchBoxElement.setSelectionRange(originalTypedText.length, originalTypedText.length);
+                    }
                 }
                 
                 // If selected item is a Firefox suggestion, show preview box
@@ -7944,6 +8062,11 @@
                     setOverlayState(true);
                 }
                 updateClearButton();
+                
+                // Clear original typed text when user types (not when we programmatically set it)
+                if (!event.inputType || event.inputType.startsWith('insert') || event.inputType === 'deleteContent') {
+                    originalTypedText = '';
+                }
                 const value = (event.target.value || '').toString();
                 const valueLower = value.toLowerCase().trim();
                 console.log('[INPUT] Raw value:', value, '| Trimmed lower:', valueLower, '| Length:', valueLower.length);
@@ -7967,25 +8090,53 @@
                 // Handle Winter Olympics schedule and background color (doesn't block suggestions)
                 const isWinterOlympics = valueLower === 'winter ol' || valueLower.startsWith('winter ol');
                 console.log('[INPUT] isWinterOlympics:', isWinterOlympics);
+                
+                // Log positions BEFORE changes
+                const bottomContent = document.querySelector('.bottom-content');
+                const paneBottom = document.querySelector('.pane--bottom');
+                const productGrid = document.querySelector('[data-product-grid]');
+                if (bottomContent) {
+                    const rect = bottomContent.getBoundingClientRect();
+                    console.log('[POSITION BEFORE] .bottom-content top:', rect.top, 'height:', rect.height);
+                }
+                if (paneBottom) {
+                    const rect = paneBottom.getBoundingClientRect();
+                    console.log('[POSITION BEFORE] .pane--bottom top:', rect.top, 'height:', rect.height);
+                }
+                if (productGrid) {
+                    const rect = productGrid.getBoundingClientRect();
+                    console.log('[POSITION BEFORE] [data-product-grid] top:', rect.top, 'height:', rect.height);
+                }
+                
                 if (isWinterOlympics) {
                     console.log('[INPUT] Setting winter olympics background and schedule');
                     if (topOverlay) {
                         topOverlay.classList.add('winter-olympics');
                     }
-                    // Prevent scrolling
-                    document.body.classList.add('winter-olympics-active');
-                    document.documentElement.classList.add('winter-olympics-active');
                     renderWinterOlympicsSchedule();
                 } else {
                     if (topOverlay) {
                         topOverlay.classList.remove('winter-olympics');
                     }
-                    // Re-enable scrolling
-                    document.body.classList.remove('winter-olympics-active');
-                    document.documentElement.classList.remove('winter-olympics-active');
                     // Restore product grid if it was replaced
                     restoreProductGrid();
                 }
+                
+                // Log positions AFTER changes
+                requestAnimationFrame(() => {
+                    if (bottomContent) {
+                        const rect = bottomContent.getBoundingClientRect();
+                        console.log('[POSITION AFTER] .bottom-content top:', rect.top, 'height:', rect.height);
+                    }
+                    if (paneBottom) {
+                        const rect = paneBottom.getBoundingClientRect();
+                        console.log('[POSITION AFTER] .pane--bottom top:', rect.top, 'height:', rect.height);
+                    }
+                    if (productGrid) {
+                        const rect = productGrid.getBoundingClientRect();
+                        console.log('[POSITION AFTER] [data-product-grid] top:', rect.top, 'height:', rect.height);
+                    }
+                });
                 
                 // Check if this matches a demo search that should show a carrot
                 const matchedCarrot = showCarrotForDemoSearch(valueLower);
@@ -8275,6 +8426,16 @@
                                         console.log('[AI] About to call updateSuggestions with:', mergedSuggestions);
                                         // updateSuggestions will add new suggestions where skeletons were
                                         updateSuggestions(mergedSuggestions);
+                                        
+                                        // Clear suggestionsJustUpdated flag only after mouse moves
+                                        const clearHoverFlag = () => {
+                                            suggestionsJustUpdated = false;
+                                            if (suggestionsList) {
+                                                suggestionsList.classList.remove('suggestions-updating');
+                                            }
+                                            document.removeEventListener('mousemove', clearHoverFlag);
+                                        };
+                                        document.addEventListener('mousemove', clearHoverFlag, { once: true });
                                     } else {
                                         // No AI suggestions - update with just local suggestions
                                         // This will remove skeletons and show local suggestions
@@ -8287,6 +8448,16 @@
                                             removeSkeletons();
                                             updateSuggestions([]);
                                         }
+                                        
+                                        // Clear suggestionsJustUpdated flag only after mouse moves
+                                        const clearHoverFlag = () => {
+                                            suggestionsJustUpdated = false;
+                                            if (suggestionsList) {
+                                                suggestionsList.classList.remove('suggestions-updating');
+                                            }
+                                            document.removeEventListener('mousemove', clearHoverFlag);
+                                        };
+                                        document.addEventListener('mousemove', clearHoverFlag, { once: true });
                                     }
                                 } else {
                                     console.log('[AI] Query changed during API call, ignoring results');

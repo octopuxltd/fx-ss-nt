@@ -61,7 +61,7 @@
     transition: height 0.3s ease;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0;
     flex: 0 0 50%;
     transition: transform 0.45s ease-in-out, flex-basis 0.45s ease-in-out;
     overflow: hidden;
@@ -389,7 +389,7 @@
     justify-content: flex-start;
     align-items: center;
     gap: 12px;
-    padding: 8px 10px;
+    padding: 9px 10px;
     border-radius: 10px;
     color: #1F2933;
     cursor: default;
@@ -514,7 +514,7 @@
 }
 
 .ut-page .search-suggestions-preview-item {
-    padding: 8px 13px;
+    padding: 9px 13px;
     border-radius: 999px;
 }
 
@@ -1023,7 +1023,7 @@
 
 /* Handle hover state for both items */
 /* When hovering over a business div, highlight it */
-.search-suggestions-preview-item.local-business-wrapper:not(.is-selected) > .local-business:hover:not(.local-business--selected) {
+.search-suggestions-preview-list:not(.suggestions-updating) .search-suggestions-preview-item.local-business-wrapper:not(.is-selected) > .local-business:hover:not(.local-business--selected) {
     background-color: #EBE7FF !important;
     border-radius: 10px !important;
     padding: 8px;
@@ -1114,7 +1114,7 @@
     box-sizing: border-box;
 }
 
-.search-suggestions-preview-item.sports-wrapper:not(.is-selected) > .sports-item:hover:not(.sports-item--selected) {
+.search-suggestions-preview-list:not(.suggestions-updating) .search-suggestions-preview-item.sports-wrapper:not(.is-selected) > .sports-item:hover:not(.sports-item--selected) {
     background-color: #EBE7FF !important;
     border-radius: 10px !important;
     padding: 8px;
@@ -1136,7 +1136,7 @@
 }
 
 /* Handle hover state for stock items */
-.search-suggestions-preview-item.stocks-wrapper:not(.is-selected) > .stock-item:hover:not(.stock-item--selected) {
+.search-suggestions-preview-list:not(.suggestions-updating) .search-suggestions-preview-item.stocks-wrapper:not(.is-selected) > .stock-item:hover:not(.stock-item--selected) {
     background-color: #EBE7FF !important;
     border-radius: 10px !important;
     padding: 8px;
@@ -1996,15 +1996,15 @@
 }
 
 /* General hover for regular suggestions (not carrots, not local-business-wrapper, not stocks-wrapper) */
-/* Disable hover styles when keyboard navigating */
-.search-suggestions-preview-list:not(.keyboard-navigating) .search-suggestions-preview-item:hover:not(.local-business-wrapper):not(.stocks-wrapper):not(.sports-wrapper):not(.carrot):not(.is-selected),
-.search-suggestions-preview-list:not(.keyboard-navigating) .search-suggestions-preview-item:focus-within:not(.local-business-wrapper):not(.stocks-wrapper):not(.sports-wrapper):not(.carrot):not(.is-selected) {
+/* Disable hover styles when keyboard navigating or when suggestions are updating */
+.search-suggestions-preview-list:not(.keyboard-navigating):not(.suggestions-updating) .search-suggestions-preview-item:hover:not(.local-business-wrapper):not(.stocks-wrapper):not(.sports-wrapper):not(.carrot):not(.is-selected),
+.search-suggestions-preview-list:not(.keyboard-navigating):not(.suggestions-updating) .search-suggestions-preview-item:focus-within:not(.local-business-wrapper):not(.stocks-wrapper):not(.sports-wrapper):not(.carrot):not(.is-selected) {
     background-color: #EBE7FF;
 }
 
 /* Ensure chair carrot (ad marketplace) gets hover style like regular suggestions */
-.search-suggestions-preview-item.carrot--ad-marketplace:hover,
-.search-suggestions-preview-item.carrot--ad-marketplace:focus-within {
+.search-suggestions-preview-list:not(.suggestions-updating) .search-suggestions-preview-item.carrot--ad-marketplace:hover,
+.search-suggestions-preview-list:not(.suggestions-updating) .search-suggestions-preview-item.carrot--ad-marketplace:focus-within {
     background-color: #EBE7FF;
 }
 
@@ -2020,8 +2020,8 @@
 }
 
 /* General carrot--local hover - but local-business-wrapper has more specific rules */
-.search-suggestions-preview-item.carrot--local:hover:not(.is-selected):not(.local-business-wrapper),
-.search-suggestions-preview-item.carrot--local:focus-within:not(.is-selected):not(.local-business-wrapper) {
+.search-suggestions-preview-list:not(.suggestions-updating) .search-suggestions-preview-item.carrot--local:hover:not(.is-selected):not(.local-business-wrapper),
+.search-suggestions-preview-list:not(.suggestions-updating) .search-suggestions-preview-item.carrot--local:focus-within:not(.is-selected):not(.local-business-wrapper) {
     background-color: #EBE7FF;
 }
 
