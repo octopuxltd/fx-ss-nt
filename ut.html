@@ -38,37 +38,6 @@
             background-attachment: fixed;
         }
 
-        .server-selector {
-            position: fixed;
-            bottom: 16px;
-            left: 16px;
-            z-index: 100;
-        }
-
-        .server-selector select {
-            padding: 8px 12px;
-            font-size: 13px;
-            font-family: Arial, sans-serif;
-            background-color: rgba(255, 255, 255, 0.95);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s ease;
-        }
-
-        .server-selector select:hover {
-            background-color: rgba(255, 255, 255, 1);
-            border-color: rgba(0, 0, 0, 0.2);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .server-selector select:focus {
-            outline: none;
-            border-color: #0060DF;
-            box-shadow: 0 0 0 3px rgba(0, 96, 223, 0.1);
-        }
-
         .pane {
             padding: 24px;
         }
@@ -323,15 +292,15 @@
 
         .info-icon-wrapper {
             position: fixed;
-            bottom: 24px;
-            left: 34px;
+            bottom: 0;
+            left: 0;
             z-index: 11;
         }
 
         .info-icon-button {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            border-radius: 0;
             background-color: transparent;
             border: none;
             display: flex;
@@ -378,6 +347,33 @@
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
+        }
+
+        .demo-searches-close-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+
+        .demo-searches-close-button:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .demo-searches-close-button svg {
+            width: 14px;
+            height: 14px;
+            stroke: #6B7280;
         }
 
         .demo-searches-earlier {
@@ -2406,12 +2402,6 @@
     </script>
 </head>
 <body class="ut-page">
-    <div class="server-selector">
-        <select id="server-selector" aria-label="Select AI server">
-            <option value="openrouter-haiku">Server 1</option>
-            <option value="openai">Server 2</option>
-        </select>
-    </div>
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
@@ -2435,7 +2425,13 @@
                     </svg>
                 </button>
                 <div class="demo-searches-card">
+                    <button type="button" class="demo-searches-close-button" aria-label="Close">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
                     <div class="demo-searches-earlier">
+                        <div class="demo-searches-title">Demo searches to try:</div>
                         <ul>
                             <li>• fox wiki</li>
                             <li>• sneakers</li>
@@ -2455,7 +2451,7 @@
                             <li>• youtube</li>
                             <li>• happy emoji</li>
                         </ul>
-                        <button type="button" class="clear-history-button" style="margin-top: 12px; padding: 6px 12px; background-color: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 6px; cursor: pointer; font-size: 12px; color: #374151; transition: background-color 0.2s ease;">Reset prototype</button>
+                        <button type="button" class="clear-history-button" style="margin-top: 12px; padding: 6px 12px; background-color: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 6px; cursor: pointer; font-size: 12px; color: #374151; transition: background-color 0.2s ease;">Remove cached suggestions</button>
                     </div>
                 </div>
             </div>
@@ -3162,6 +3158,15 @@
             });
         }
 
+        // Close demo searches card on close button click
+        const demoSearchesCloseButton = document.querySelector('.demo-searches-close-button');
+        if (demoSearchesCloseButton && infoIconWrapper) {
+            demoSearchesCloseButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                infoIconWrapper.classList.remove('is-open');
+            });
+        }
+
         // Reset prototype button - clears all localStorage
         const clearHistoryButton = document.querySelector('.clear-history-button');
         if (clearHistoryButton) {
@@ -3170,11 +3175,11 @@
                 try {
                     // Clear all localStorage items
                     localStorage.clear();
-                    clearHistoryButton.textContent = 'Prototype reset';
+                    clearHistoryButton.textContent = 'Cached suggestions removed ✓';
                     clearHistoryButton.style.backgroundColor = '#D1FAE5';
                     clearHistoryButton.style.color = '#065F46';
                     setTimeout(() => {
-                        clearHistoryButton.textContent = 'Reset prototype';
+                        clearHistoryButton.textContent = 'Remove cached suggestions';
                         clearHistoryButton.style.backgroundColor = '#F3F4F6';
                         clearHistoryButton.style.color = '#374151';
                     }, 2000);
@@ -8142,40 +8147,6 @@
         }
 
         // Server selector dropdown functionality
-        const serverSelector = document.getElementById('server-selector');
-        if (serverSelector) {
-            // Set initial value based on current provider
-            serverSelector.value = AI_PROVIDER;
-            
-            serverSelector.addEventListener('change', (event) => {
-                const newProvider = event.target.value;
-                AI_PROVIDER = newProvider;
-                console.log('[SERVER] Switched to:', AI_PROVIDER);
-                
-                // Save the provider selection to localStorage
-                try {
-                    localStorage.setItem('ai_provider', newProvider);
-                    console.log('[SERVER] Saved provider preference:', newProvider);
-                } catch (e) {
-                    console.error('[SERVER] Could not save provider preference:', e);
-                }
-                
-                // Clear cache when switching providers to force fresh results
-                try {
-                    const keysToRemove = [];
-                    for (let i = 0; i < localStorage.length; i++) {
-                        const key = localStorage.key(i);
-                        if (key && (key.startsWith('ai_suggestions_') || key.startsWith('firefox_suggestions_'))) {
-                            keysToRemove.push(key);
-                        }
-                    }
-                    keysToRemove.forEach(key => localStorage.removeItem(key));
-                    console.log('[SERVER] Cleared', keysToRemove.length, 'cached items');
-                } catch (e) {
-                    console.error('[SERVER] Could not clear cache:', e);
-                }
-            });
-        }
     </script>
 </body>
 </html>
