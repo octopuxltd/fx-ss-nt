@@ -300,22 +300,27 @@
         .info-icon-button {
             width: 80px;
             height: 80px;
-            border-radius: 0;
+            border-radius: 0 12px 0 0;
             background-color: transparent;
             border: none;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.2s ease;
+            transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
             box-shadow: none;
             opacity: 0;
         }
 
         .info-icon-button:hover {
-            background-color: transparent;
+            background-color: rgba(255, 255, 255, 0.8);
             transform: scale(1.05);
-            opacity: 0;
+            opacity: 0.3;
+        }
+
+        .info-icon-wrapper.is-open .info-icon-button {
+            pointer-events: none;
+            opacity: 0 !important;
         }
 
         .info-icon-button svg {
@@ -326,12 +331,27 @@
             opacity: 0;
         }
 
+        .info-icon-button.flash {
+            animation: flash-visibility 1.2s ease-out;
+        }
+
+        @keyframes flash-visibility {
+            0%, 100% {
+                opacity: 0;
+                background-color: transparent;
+            }
+            50% {
+                opacity: 0.3;
+                background-color: rgba(255, 255, 255, 0.8);
+            }
+        }
+
         .demo-searches-card {
-            position: absolute;
-            bottom: 40px;
+            position: fixed;
+            bottom: 0;
             left: 0;
-            background-color: rgba(255, 255, 255, 0.98);
-            border-radius: 12px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 0 12px 0 0;
             padding: 16px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
             min-width: 200px;
@@ -339,7 +359,8 @@
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
-            transition: opacity 0.2s ease, visibility 0.2s ease;
+            transform: translate(-100%, 100%);
+            transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s ease;
             z-index: 12;
         }
 
@@ -347,6 +368,18 @@
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
+            transform: translate(0, 0);
+        }
+
+        .info-icon-wrapper.is-closing .demo-searches-card {
+            opacity: 1;
+            transform: translate(-100%, 100%);
+        }
+
+        .info-icon-wrapper.initial-load .demo-searches-card {
+            opacity: 0;
+            transform: translate(-100%, 100%);
+            transition: none;
         }
 
         .demo-searches-close-button {
@@ -401,6 +434,11 @@
             margin: 2px 0;
         }
 
+        .clear-history-button:hover {
+            background-color: #E5E7EB !important;
+            border-color: #9CA3AF !important;
+        }
+
         .search-wrapper {
             position: fixed;
             top: 32px;
@@ -444,6 +482,7 @@
 
         .search-wrapper.expanded {
             width: 70%;
+            background-color: rgba(255, 255, 255, 1);
         }
 
         .search-wrapper:focus-within {
@@ -2451,7 +2490,11 @@
                             <li>• youtube</li>
                             <li>• happy emoji</li>
                         </ul>
-                        <button type="button" class="clear-history-button" style="margin-top: 12px; padding: 6px 12px; background-color: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 6px; cursor: pointer; font-size: 12px; color: #374151; transition: background-color 0.2s ease;">Remove cached suggestions</button>
+                        <label style="display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; cursor: pointer;">
+                            <input type="checkbox" class="enable-searching-checkbox" style="cursor: pointer;">
+                            <span>Enable searching</span>
+                        </label>
+                        <button type="button" class="clear-history-button" style="margin-top: 8px; padding: 6px 12px; background-color: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 6px; cursor: pointer; font-size: 12px; color: #374151; transition: background-color 0.2s ease;">Remove cached suggestions</button>
                     </div>
                 </div>
             </div>
@@ -3156,14 +3199,49 @@
                 e.stopPropagation();
                 infoIconWrapper.classList.toggle('is-open');
             });
+            
+            // Check for help query parameter and show panel by default
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('help') === 'on') {
+                // Add initial-load class to start off-screen
+                infoIconWrapper.classList.add('initial-load');
+                
+                // Pause for a beat, then animate in
+                setTimeout(() => {
+                    infoIconWrapper.classList.remove('initial-load');
+                    infoIconWrapper.classList.add('is-open');
+                }, 600); // 600ms pause before animating in
+            }
+            
+            // Check for search query parameter and enable searching checkbox
+            if (urlParams.get('search') === 'on') {
+                const enableSearchingCheckbox = document.querySelector('.enable-searching-checkbox');
+                if (enableSearchingCheckbox) {
+                    enableSearchingCheckbox.checked = true;
+                }
+            }
         }
 
         // Close demo searches card on close button click
         const demoSearchesCloseButton = document.querySelector('.demo-searches-close-button');
-        if (demoSearchesCloseButton && infoIconWrapper) {
+        if (demoSearchesCloseButton && infoIconWrapper && infoIconButton) {
             demoSearchesCloseButton.addEventListener('click', (e) => {
                 e.stopPropagation();
+                
+                // Add closing class to trigger slide-out animation
+                infoIconWrapper.classList.add('is-closing');
                 infoIconWrapper.classList.remove('is-open');
+                
+                // Remove closing class after animation completes
+                setTimeout(() => {
+                    infoIconWrapper.classList.remove('is-closing');
+                }, 300); // Match transition duration
+                
+                // Flash the info button to show its location
+                infoIconButton.classList.add('flash');
+                setTimeout(() => {
+                    infoIconButton.classList.remove('flash');
+                }, 1200); // Match animation duration
             });
         }
 
@@ -3202,10 +3280,48 @@
             });
         }
 
+        // Close overlay when clicking outside search wrapper (but not on product cards or demo panel)
+        if (topOverlay && searchBoxElement) {
+            topOverlay.addEventListener('click', (event) => {
+                if (!topOverlay.classList.contains('is-focused')) return;
+                
+                // Check if click is inside search wrapper
+                const searchWrapper = document.querySelector('.search-wrapper');
+                if (searchWrapper && searchWrapper.contains(event.target)) {
+                    return; // Don't close if clicking inside search wrapper
+                }
+                
+                // Check if click is on product cards
+                const productGrid = document.querySelector('[data-product-grid]');
+                if (productGrid && productGrid.contains(event.target)) {
+                    return; // Don't close if clicking on product cards
+                }
+                
+                // Check if click is on demo panel
+                const demoPanel = document.querySelector('.demo-searches-card');
+                if (demoPanel && demoPanel.contains(event.target)) {
+                    return; // Don't close if clicking on demo panel
+                }
+                
+                // Close overlay if clicked elsewhere in top-overlay
+                setOverlayState(false);
+                searchBoxElement.blur();
+            });
+        }
+
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && topOverlay && topOverlay.classList.contains('is-focused') && searchBoxElement) {
                 setOverlayState(false);
                 searchBoxElement.blur();
+            }
+            
+            // Handle Ctrl+A (Cmd+A on Mac) to select all text in search box
+            if ((event.key === 'a' || event.key === 'A') && (event.ctrlKey || event.metaKey)) {
+                if (searchBoxElement && document.activeElement !== searchBoxElement) {
+                    event.preventDefault();
+                    searchBoxElement.focus();
+                    searchBoxElement.select();
+                }
             }
         });
 
@@ -5689,12 +5805,19 @@
             });
         }
         
-        // COMMENTED OUT: Google search functionality disabled
-        // function performGoogleSearch(suggestionText) {
-        //     if (!suggestionText || !suggestionText.trim()) return;
-        //     const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(suggestionText.trim())}`;
-        //     window.open(searchUrl, '_blank');
-        // }
+        function performGoogleSearch(suggestionText) {
+            if (!suggestionText || !suggestionText.trim()) return;
+            
+            // Check if searching is enabled
+            const enableSearchingCheckbox = document.querySelector('.enable-searching-checkbox');
+            if (!enableSearchingCheckbox || !enableSearchingCheckbox.checked) {
+                console.log('[SEARCH] Search disabled - checkbox not checked');
+                return;
+            }
+            
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(suggestionText.trim())}`;
+            window.open(searchUrl, '_blank');
+        }
         
         function attachClickListeners() {
             if (!suggestionsList) return;
@@ -5710,14 +5833,13 @@
                     e.preventDefault();
                     e.stopPropagation();
                     
-                    // COMMENTED OUT: Google search on click disabled
                     // Get the suggestion text from the label
-                    // const labelElement = newItem.querySelector('.label');
-                    // if (labelElement) {
-                    //     // Get text content, removing any HTML tags (like <strong>)
-                    //     const suggestionText = labelElement.textContent.trim();
-                    //     performGoogleSearch(suggestionText);
-                    // }
+                    const labelElement = newItem.querySelector('.label');
+                    if (labelElement) {
+                        // Get text content, removing any HTML tags (like <strong>)
+                        const suggestionText = labelElement.textContent.trim();
+                        performGoogleSearch(suggestionText);
+                    }
                 });
             });
         }
@@ -6881,7 +7003,12 @@
                                 const emoji = item.getAttribute('data-emoji');
                                 if (emoji && navigator.clipboard) {
                                     navigator.clipboard.writeText(emoji).then(() => {
-                                        // Visual feedback could be added here
+                                        // Add green copied state
+                                        item.classList.add('copied');
+                                        // Remove after 1 second
+                                        setTimeout(() => {
+                                            item.classList.remove('copied');
+                                        }, 1000);
                                     }).catch(err => {
                                         console.error('Failed to copy emoji:', err);
                                     });
@@ -7619,15 +7746,14 @@
                         }
                     }
                 }
-                // COMMENTED OUT: Google search on Enter disabled
-                // else if (event.key === 'Enter' && selectedSuggestionIndex >= 0) {
-                //     event.preventDefault();
-                //     // Use the search box value (which should be updated by keyboard navigation)
-                //     const searchText = searchBoxElement.value.trim();
-                //     if (searchText) {
-                //         performGoogleSearch(searchText);
-                //     }
-                // }
+                else if (event.key === 'Enter' && selectedSuggestionIndex >= 0) {
+                    event.preventDefault();
+                    // Use the search box value (which should be updated by keyboard navigation)
+                    const searchText = searchBoxElement.value.trim();
+                    if (searchText) {
+                        performGoogleSearch(searchText);
+                    }
+                }
             });
 
 

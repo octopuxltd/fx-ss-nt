@@ -503,6 +503,8 @@ const carrotTemplates = {
      */
     happyEmoji: () => `
         <li class="search-suggestions-preview-item carrot carrot--emoji">
+            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+            <div class="emoji-instruction">Click a symbol to copy it</div>
             <div class="emoji-list">
                 <div class="emoji-item" data-emoji="😊">
                     <span class="emoji-icon">😊</span>
