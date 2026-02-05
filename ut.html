@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
     <title>New Tab (search prototype)</title>
     <link rel="icon" type="image/png" href="icons/Fx-Browser-icon-fullColor-64.png">
     <link rel="stylesheet" href="suggestions.css">
@@ -3202,7 +3203,9 @@
             
             // Check for help query parameter and show panel by default
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('help') === 'on') {
+            const helpParam = urlParams.get('help');
+            
+            if (helpParam === 'on' || helpParam === 'temp') {
                 // Add initial-load class to start off-screen
                 infoIconWrapper.classList.add('initial-load');
                 
@@ -3210,6 +3213,28 @@
                 setTimeout(() => {
                     infoIconWrapper.classList.remove('initial-load');
                     infoIconWrapper.classList.add('is-open');
+                    
+                    // If help=temp, close after 1 second
+                    if (helpParam === 'temp') {
+                        setTimeout(() => {
+                            // Add closing class to trigger slide-out animation
+                            infoIconWrapper.classList.add('is-closing');
+                            infoIconWrapper.classList.remove('is-open');
+                            
+                            // Remove closing class after animation completes
+                            setTimeout(() => {
+                                infoIconWrapper.classList.remove('is-closing');
+                            }, 300); // Match transition duration
+                            
+                            // Flash the info button to show its location
+                            if (infoIconButton) {
+                                infoIconButton.classList.add('flash');
+                                setTimeout(() => {
+                                    infoIconButton.classList.remove('flash');
+                                }, 1200); // Match animation duration
+                            }
+                        }, 2000); // Close after 2 seconds
+                    }
                 }, 600); // 600ms pause before animating in
             }
             
@@ -5815,7 +5840,17 @@
                 return;
             }
             
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(suggestionText.trim())}`;
+            const trimmedText = suggestionText.trim();
+            
+            // Check if the text is a URL (starts with http:// or https://)
+            if (trimmedText.startsWith('http://') || trimmedText.startsWith('https://')) {
+                console.log('[SEARCH] Navigating to URL:', trimmedText);
+                window.open(trimmedText, '_blank');
+                return;
+            }
+            
+            // Otherwise, perform a Google search
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(trimmedText)}`;
             window.open(searchUrl, '_blank');
         }
         
@@ -5832,6 +5867,18 @@
                 newItem.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    
+                    // Check if this is a Firefox suggestion - navigate to URL instead of searching
+                    if (newItem.classList.contains('firefox-suggest-item')) {
+                        const url = newItem.dataset.firefoxUrl;
+                        if (url) {
+                            const fullUrl = url.startsWith('http://') || url.startsWith('https://') 
+                                ? url 
+                                : 'https://' + url;
+                            performGoogleSearch(fullUrl); // This will detect it's a URL and navigate
+                            return;
+                        }
+                    }
                     
                     // Get the suggestion text from the label
                     const labelElement = newItem.querySelector('.label');
