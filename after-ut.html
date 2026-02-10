@@ -3798,6 +3798,11 @@
                 let excerpt = pageData?.extract || '';
                 excerpt = excerpt.replace(/\s+/g, ' ').trim();
                 
+                // Limit to 200 characters
+                if (excerpt.length > 200) {
+                    excerpt = excerpt.substring(0, 200).trim() + '...';
+                }
+                
                 // Get the image URL if available
                 const imageUrl = pageData?.original?.source || 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=300&h=400&q=80';
                 
