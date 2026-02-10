@@ -196,25 +196,33 @@ const carrotTemplates = {
      * Wikipedia article carrot
      * Shows article summary with portrait image
      */
-    wikipedia: () => `
-        <li class="search-suggestions-preview-item carrot carrot--wikipedia">
-            <div class="carrot-wikipedia-header">
-                <img src="favicons/Wikipedia.svg" alt="" class="carrot-wikipedia-icon" aria-hidden="true">
-                <p class="carrot-wikipedia-heading">From Wikipedia</p>
-            </div>
-            <div class="carrot-wikipedia-content-wrapper">
-                <div class="carrot-text-content">
-                    <p class="carrot-line carrot-line--title">Fox</p>
-                    <p class="carrot-line">Foxes are small-to-medium-sized omnivorous mammals belonging to several genera of the family Canidae. They have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail. Twelve species belong to the monophyletic "true fox" group of genus Vulpes.</p>
-                    <a href="https://en.wikipedia.org/wiki/Fox" class="carrot-link" target="_blank" rel="noopener noreferrer">https://en.wikipedia.org/wiki/Fox</a>
+    wikipedia: (data = {}) => {
+        const title = data.title || 'Fox';
+        const excerpt = data.excerpt || 'Foxes are small-to-medium-sized omnivorous mammals belonging to several genera of the family Canidae. They have a flattened skull, upright triangular ears, a pointed, slightly upturned snout, and a long bushy tail. Twelve species belong to the monophyletic "true fox" group of genus Vulpes.';
+        const url = data.url || 'https://en.wikipedia.org/wiki/Fox';
+        const imageUrl = data.imageUrl || 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=300&h=400&q=80';
+        const imageCaption = data.imageCaption || 'Red Fox (Vulpes vulpes)';
+        
+        return `
+            <li class="search-suggestions-preview-item carrot carrot--wikipedia">
+                <div class="carrot-wikipedia-header">
+                    <img src="favicons/Wikipedia.svg" alt="" class="carrot-wikipedia-icon" aria-hidden="true">
+                    <p class="carrot-wikipedia-heading">From Wikipedia</p>
                 </div>
-                <div class="carrot-image-container">
-                    <img src="https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=300&h=400&q=80" alt="Red Fox" class="carrot-portrait-image">
-                    <p class="carrot-image-caption">Red Fox (Vulpes vulpes)</p>
+                <div class="carrot-wikipedia-content-wrapper">
+                    <div class="carrot-text-content">
+                        <p class="carrot-line carrot-line--title">${title}</p>
+                        <p class="carrot-line">${excerpt}</p>
+                        <a href="${url}" class="carrot-link" target="_blank" rel="noopener noreferrer">${url}</a>
+                    </div>
+                    <div class="carrot-image-container">
+                        <img src="${imageUrl}" alt="${title}" class="carrot-portrait-image">
+                        <p class="carrot-image-caption">${imageCaption}</p>
+                    </div>
                 </div>
-            </div>
-        </li>
-    `,
+            </li>
+        `;
+    },
 
     /**
      * Placeholder carrot (state 3)

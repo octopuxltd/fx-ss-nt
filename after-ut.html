@@ -2669,7 +2669,7 @@
                     <div class="demo-searches-earlier">
                         <div class="demo-searches-title">Demo searches to try:</div>
                         <ul>
-                            <li>• fox wiki</li>
+                            <li>• <anything> wiki</li>
                             <li>• sneakers</li>
                             <li>• chair / ramen / sushi</li>
                             <li>• uber stock</li>
@@ -3744,6 +3744,54 @@
             Math.floor(Math.random() * 100) + 60, // Row 9
             Math.floor(Math.random() * 100) + 60  // Row 10
         ];
+        
+        // Store Wikipedia data for dynamic rendering
+        let wikipediaData = null;
+        
+        // Function to fetch Wikipedia search results
+        async function fetchWikipediaFirstResult(searchTerm) {
+            try {
+                const searchUrl = `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(searchTerm)}&fulltext=1&ns0=1`;
+                const response = await fetch(searchUrl);
+                const html = await response.text();
+                
+                // Parse the HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Find the first search result (data-serp-pos="0")
+                const firstResult = doc.querySelector('a[data-serp-pos="0"]');
+                if (!firstResult) {
+                    console.log('[WIKIPEDIA] No search results found');
+                    return null;
+                }
+                
+                // Get the link and title
+                const url = 'https://en.wikipedia.org' + firstResult.getAttribute('href');
+                const title = firstResult.querySelector('.mw-search-result-heading')?.textContent?.trim() || searchTerm;
+                
+                // Get the excerpt
+                const resultDiv = firstResult.closest('.mw-search-result');
+                const excerptDiv = resultDiv?.querySelector('.searchresult');
+                let excerpt = excerptDiv?.textContent?.trim() || '';
+                
+                // Clean up excerpt (remove extra whitespace)
+                excerpt = excerpt.replace(/\s+/g, ' ').trim();
+                
+                console.log('[WIKIPEDIA] Found result:', { title, url, excerpt: excerpt.substring(0, 100) + '...' });
+                
+                return {
+                    title,
+                    url,
+                    excerpt,
+                    imageUrl: 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?auto=format&fit=crop&w=300&h=400&q=80',
+                    imageCaption: title
+                };
+            } catch (error) {
+                console.error('[WIKIPEDIA] Error fetching search results:', error);
+                return null;
+            }
+        }
         
         // Mapping of demo search terms to carrot states
         const demoSearchCarrots = {
@@ -5263,6 +5311,41 @@
                         finalHtml = htmlString.substring(0, firstItemEnd + 5) + sportsCarrotHtml + htmlString.substring(firstItemEnd + 5);
                     } else {
                         finalHtml = htmlString + sportsCarrotHtml;
+                    }
+                } else if (queryLower.endsWith(' wiki') || queryLower.endsWith(' wik')) {
+                    // Extract the search term (everything before " wiki")
+                    const searchTerm = queryLower.endsWith(' wiki') 
+                        ? queryLower.slice(0, -5).trim() 
+                        : queryLower.slice(0, -4).trim();
+                    
+                    if (searchTerm.length > 0) {
+                        // Fetch Wikipedia data asynchronously
+                        fetchWikipediaFirstResult(searchTerm).then(data => {
+                            if (data) {
+                                wikipediaData = data;
+                                // Find and update the Wikipedia carrot if it's already been inserted
+                                const wikiCarrot = suggestionsList.querySelector('.carrot--wikipedia');
+                                if (wikiCarrot) {
+                                    // Replace the carrot content with new data
+                                    const tempDiv = document.createElement('div');
+                                    tempDiv.innerHTML = carrotTemplates.wikipedia(wikipediaData);
+                                    const newCarrot = tempDiv.firstElementChild;
+                                    if (newCarrot) {
+                                        wikiCarrot.replaceWith(newCarrot);
+                                        console.log('[WIKIPEDIA] Updated carrot with fetched data');
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Insert Wikipedia carrot immediately with default data
+                    const wikipediaCarrotHtml = carrotTemplates.wikipedia(wikipediaData);
+                    const firstItemEnd = htmlString.indexOf('</li>');
+                    if (firstItemEnd !== -1) {
+                        finalHtml = htmlString.substring(0, firstItemEnd + 5) + wikipediaCarrotHtml + htmlString.substring(firstItemEnd + 5);
+                    } else {
+                        finalHtml = htmlString + wikipediaCarrotHtml;
                     }
                 } else if (isLakersGameQuery) {
                     // Insert sports carrot after first item (typed text)
