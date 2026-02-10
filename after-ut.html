@@ -5322,35 +5322,57 @@
                 } else if (queryLower.endsWith(' wiki')) {
                     // Extract the search term (everything before " wiki")
                     const searchTerm = queryLower.slice(0, -5).trim();
+                    console.log('[WIKIPEDIA CARROT] Detected wiki search, term:', searchTerm);
                     
                     if (searchTerm.length > 0) {
+                        console.log('[WIKIPEDIA CARROT] Starting fetch for:', searchTerm);
                         // Fetch Wikipedia data asynchronously
                         fetchWikipediaFirstResult(searchTerm).then(data => {
+                            console.log('[WIKIPEDIA CARROT] Fetch completed, data:', data);
                             if (data) {
                                 wikipediaData = data;
+                                console.log('[WIKIPEDIA CARROT] Stored data:', {
+                                    title: data.title,
+                                    url: data.url,
+                                    excerptLength: data.excerpt?.length || 0
+                                });
                                 // Find and update the Wikipedia carrot if it's already been inserted
                                 const wikiCarrot = suggestionsList.querySelector('.carrot--wikipedia');
                                 if (wikiCarrot) {
+                                    console.log('[WIKIPEDIA CARROT] Found existing carrot, updating...');
                                     // Replace the carrot content with new data
                                     const tempDiv = document.createElement('div');
                                     tempDiv.innerHTML = carrotTemplates.wikipedia(wikipediaData);
                                     const newCarrot = tempDiv.firstElementChild;
                                     if (newCarrot) {
                                         wikiCarrot.replaceWith(newCarrot);
-                                        console.log('[WIKIPEDIA] Updated carrot with fetched data');
+                                        console.log('[WIKIPEDIA CARROT] Carrot updated successfully');
+                                    } else {
+                                        console.error('[WIKIPEDIA CARROT] Failed to create new carrot element');
                                     }
+                                } else {
+                                    console.log('[WIKIPEDIA CARROT] No existing carrot found to update');
                                 }
+                            } else {
+                                console.log('[WIKIPEDIA CARROT] No data returned from fetch');
                             }
+                        }).catch(error => {
+                            console.error('[WIKIPEDIA CARROT] Fetch promise rejected:', error);
                         });
+                    } else {
+                        console.log('[WIKIPEDIA CARROT] Search term is empty, skipping');
                     }
                     
                     // Insert Wikipedia carrot immediately with default data
+                    console.log('[WIKIPEDIA CARROT] Inserting carrot with data:', wikipediaData ? 'custom' : 'default');
                     const wikipediaCarrotHtml = carrotTemplates.wikipedia(wikipediaData);
                     const firstItemEnd = htmlString.indexOf('</li>');
                     if (firstItemEnd !== -1) {
                         finalHtml = htmlString.substring(0, firstItemEnd + 5) + wikipediaCarrotHtml + htmlString.substring(firstItemEnd + 5);
+                        console.log('[WIKIPEDIA CARROT] Inserted carrot after first item');
                     } else {
                         finalHtml = htmlString + wikipediaCarrotHtml;
+                        console.log('[WIKIPEDIA CARROT] Appended carrot to end');
                     }
                 } else if (isLakersGameQuery) {
                     // Insert sports carrot after first item (typed text)
