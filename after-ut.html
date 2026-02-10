@@ -665,6 +665,206 @@
             width: 100%;
         }
 
+        .after-ut-page .top-overlay.is-focused {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            height: 100vh;
+            background-color: #EFF6FF;
+        }
+
+        .after-ut-page .search-wrapper.expanded {
+            width: 75%;
+        }
+
+        .after-ut-page .overlay-product-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 32px;
+            width: 75%;
+        }
+
+        .after-ut-page .overlay-product-column {
+            gap: 0;
+        }
+
+        .after-ut-page .overlay-product-heading {
+            font-size: 16px;
+            font-weight: 400;
+            letter-spacing: 0;
+            margin-bottom: 16px;
+        }
+
+        .after-ut-page .after-ut-heading-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .after-ut-page .after-ut-heading-row .overlay-product-heading {
+            margin-bottom: 0;
+        }
+
+        .after-ut-page .after-ut-see-all-button {
+            font-size: 10px;
+            font-weight: normal;
+            color: #0060DF;
+            background: transparent;
+            border: 1px solid #0060DF;
+            border-radius: 12px;
+            padding: 3px 8px;
+            cursor: pointer;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .after-ut-page .after-ut-see-all-button:hover {
+            background-color: #0060DF;
+            color: white;
+        }
+
+        .after-ut-page .after-ut-button-icon {
+            width: 10px;
+            height: 10px;
+            flex-shrink: 0;
+        }
+
+        .after-ut-page .overlay-product-last-viewed {
+            font-size: 11px;
+        }
+
+        .after-ut-page .overlay-product-meta-text {
+            font-size: 11px;
+        }
+
+        .after-ut-page .after-ut-suggestion-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+            margin-bottom: 1px;
+            padding: 8px;
+            margin-left: -8px;
+            margin-right: -8px;
+            border-radius: 12px;
+            transition: background-color 0.2s ease;
+        }
+
+        .after-ut-page .after-ut-suggestion-card:hover {
+            background-color: rgba(232, 223, 252, 0.7);
+        }
+
+        .after-ut-page .after-ut-suggestion-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .after-ut-page .after-ut-suggestion-card::after {
+            content: '';
+            position: absolute;
+            left: 8px;
+            right: 8px;
+            bottom: -1px;
+            height: 1px;
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .after-ut-page .after-ut-suggestion-card:last-child::after {
+            display: none;
+        }
+
+        .after-ut-page .overlay-product-column {
+            position: relative;
+        }
+
+        .after-ut-page .after-ut-suggestion-card {
+            position: relative;
+        }
+
+        .after-ut-page .after-ut-suggestion-card-image-container {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .after-ut-page .after-ut-suggestion-card-image {
+            width: 52px;
+            height: 52px;
+            border-radius: 8px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .after-ut-page .after-ut-suggestion-card-favicon {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            display: none;
+        }
+
+        .after-ut-page .after-ut-suggestion-card:hover .after-ut-suggestion-card-favicon {
+            display: block;
+        }
+
+        .after-ut-page .after-ut-suggestion-card:hover .after-ut-suggestion-section-icon {
+            display: none;
+        }
+
+        .after-ut-page .after-ut-suggestion-card-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .after-ut-page .after-ut-suggestion-card-title {
+            font-size: 14px;
+            font-weight: 400;
+            color: #1F2933;
+            margin: 0;
+            line-height: 1.4;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .after-ut-page .after-ut-suggestion-card-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #6B7280;
+            position: relative;
+        }
+
+        .after-ut-page .after-ut-suggestion-section-icon {
+            flex-shrink: 0;
+            color: #6B7280;
+            order: -1;
+        }
+
+        .after-ut-page .after-ut-suggestion-card-meta-hover {
+            display: none;
+        }
+
+        .after-ut-page .after-ut-suggestion-card-meta-default {
+            display: inline;
+        }
+
+        .after-ut-page .after-ut-suggestion-card:hover .after-ut-suggestion-card-meta-hover {
+            display: inline;
+        }
+
+        .after-ut-page .after-ut-suggestion-card:hover .after-ut-suggestion-card-meta-default {
+            display: none;
+        }
+
         .overlay-product-grid {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1257,58 +1457,6 @@
 
         .no-transition {
             transition: none !important;
-        }
-
-        .search-background-bottom-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            width: 100%;
-            height: 54px;
-            border: none;
-            background-color: #EBE7FF;
-            cursor: pointer;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s ease-in-out, background-color 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
-
-        .top-overlay.is-focused .search-background-bottom-overlay {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .search-background-bottom-overlay svg {
-            display: block;
-        }
-
-        .search-background-bottom-overlay .chevron-shallow {
-            opacity: 1;
-            transition: opacity 0.2s ease-in-out;
-        }
-
-        .search-background-bottom-overlay .chevron-steep {
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
-        }
-
-        .search-background-bottom-overlay:hover {
-            background-color: rgba(255, 255, 255, 1);
-            opacity: 1;
-        }
-
-        .search-background-bottom-overlay:hover .chevron-shallow {
-            opacity: 0;
-        }
-
-        .search-background-bottom-overlay:hover .chevron-steep {
-            opacity: 1;
-            stroke: #374151;
         }
 
         .debug-buttons {
@@ -2489,7 +2637,7 @@
         });
     </script>
 </head>
-<body class="ut-page">
+<body class="ut-page after-ut-page">
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
@@ -2571,13 +2719,6 @@
                 <button class="debug-button" type="button">E</button>
                 </div>
             -->
-            <button class="search-background-bottom-overlay" type="button">
-                <span class="visually-hidden">Collapse search overlay</span>
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path class="chevron-shallow" d="M4 20L16 15L28 20" stroke="#6B7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path class="chevron-steep" d="M6 20L16 12L26 20" stroke="#6B7280" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </button>
             <div class="search-container">
                 <div class="search-wrapper">
                     <div class="search-input-shell">
@@ -2659,7 +2800,7 @@
                 </div>
                 </div>
                 <div class="search-description">
-                    <div class="overlay-product-grid" data-product-grid data-product-sections="history,openTabs,bookmarks,articles"></div>
+                    <div class="overlay-product-grid" data-product-grid data-product-sections="history,openTabs,bookmarks"></div>
                 </div>
             </div>
         </div>
@@ -2814,10 +2955,90 @@
                 originalProductGridSections = sectionKeys;
             }
 
-            productContent.renderInto(container, sectionKeys);
+            // Custom rendering for after-ut-page
+            if (document.body.classList.contains('after-ut-page')) {
+                renderAfterUtSuggestionGrid(container, sectionKeys);
+            } else {
+                productContent.renderInto(container, sectionKeys);
+            }
             
             // Attach close button handlers for product cards
             attachProductCardCloseHandlers();
+        };
+        
+        const renderAfterUtSuggestionGrid = (container, sectionKeys) => {
+            const sections = (sectionKeys || ['history', 'openTabs', 'bookmarks'])
+                .map(key => {
+                    const section = window.productSections?.[key];
+                    if (!section) return null;
+                    const data = typeof section === 'function' ? section() : section;
+                    return data ? { ...data, key } : null;
+                })
+                .filter(Boolean);
+            
+            const renderAfterUtSuggestionCard = (card, columnKey) => {
+                // Determine section icon
+                let sectionIcon = '';
+                if (columnKey === 'history') {
+                    sectionIcon = '<svg class="after-ut-suggestion-section-icon" width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1"/><path d="M6 2.5V6L8.5 7" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                } else if (columnKey === 'openTabs') {
+                    sectionIcon = '<svg class="after-ut-suggestion-section-icon" width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>';
+                } else if (columnKey === 'bookmarks') {
+                    sectionIcon = '<svg class="after-ut-suggestion-section-icon" width="14" height="14" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+                }
+                
+                const image = card.image || '';
+                const metaFavicon = card.metaFavicon || '';
+                const lastViewedPrefix = card.title === 'Quantum computing' && card.lastViewed ? 'Last viewed ' : '';
+                const lastViewedText = card.lastViewed || '';
+                const metaText = card.meta || '';
+                
+                return `
+                    <a href="#" class="after-ut-suggestion-card">
+                        <div class="after-ut-suggestion-card-image-container">
+                            <img src="${image}" alt="${card.alt || ''}" class="after-ut-suggestion-card-image">
+                        </div>
+                        <div class="after-ut-suggestion-card-content">
+                            <h3 class="after-ut-suggestion-card-title">${card.title}</h3>
+                            <div class="after-ut-suggestion-card-meta-row">
+                                ${sectionIcon}
+                                ${metaFavicon ? `<img src="${metaFavicon}" alt="" class="after-ut-suggestion-card-favicon">` : ''}
+                                <span class="after-ut-suggestion-card-meta-text after-ut-suggestion-card-meta-hover">${metaText}</span>
+                                <span class="after-ut-suggestion-card-meta-text after-ut-suggestion-card-meta-default">${lastViewedPrefix}${lastViewedText}</span>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            };
+            
+            const columnsHtml = sections.map(section => {
+                // Determine button icon and text
+                let buttonIcon = '';
+                let buttonText = '';
+                if (section.key === 'history') {
+                    buttonIcon = '<svg class="after-ut-button-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1"/><path d="M6 2.5V6L8.5 7" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+                    buttonText = 'All history';
+                } else if (section.key === 'openTabs') {
+                    buttonIcon = '<svg class="after-ut-button-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>';
+                    buttonText = 'All tabs';
+                } else if (section.key === 'bookmarks') {
+                    buttonIcon = '<svg class="after-ut-button-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+                    buttonText = 'All bookmarks';
+                }
+                
+                const cardsHtml = section.cards.map(card => renderAfterUtSuggestionCard(card, section.key)).join('');
+                return `
+                    <div class="overlay-product-column">
+                        <div class="after-ut-heading-row">
+                            <p class="overlay-product-heading">${section.heading}</p>
+                            <a href="#" class="after-ut-see-all-button">${buttonIcon}${buttonText}</a>
+                        </div>
+                        ${cardsHtml}
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = columnsHtml;
         };
         
         function attachProductCardCloseHandlers() {
@@ -2892,6 +3113,21 @@
                             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Feb 8</div>
                             <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Snowboarding</div>
                             <div style="font-size: 13px; color: #6B7280;">Men's Halfpipe Final • 11:00 AM</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-green" style="flex-direction: column; height: auto; padding: 16px;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Feb 9</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Speed Skating</div>
+                            <div style="font-size: 13px; color: #6B7280;">Women's 1500m Final • 3:00 PM</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-blue" style="flex-direction: column; height: auto; padding: 16px;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Feb 10</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Cross-Country Skiing</div>
+                            <div style="font-size: 13px; color: #6B7280;">Men's 15km Classic • 9:30 AM</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-black" style="flex-direction: column; height: auto; padding: 16px;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px;">Feb 11</div>
+                            <div class="overlay-product-title" style="font-size: 16px; font-weight: 500; margin-bottom: 4px; color: #1F2933;">Bobsled</div>
+                            <div style="font-size: 13px; color: #6B7280;">Two-Man Final • 1:00 PM</div>
                         </div>
                     </div>
                 </div>
@@ -3207,13 +3443,6 @@
             });
         }
 
-        const overlayCloseButton = document.querySelector('.search-background-bottom-overlay');
-        if (overlayCloseButton && searchBoxElement) {
-            overlayCloseButton.addEventListener('click', () => {
-                setOverlayState(false);
-                searchBoxElement.blur();
-            });
-        }
 
         const closeButton = document.querySelector('.close-button');
         if (closeButton && searchBoxElement) {

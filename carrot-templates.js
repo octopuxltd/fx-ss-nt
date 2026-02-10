@@ -152,7 +152,7 @@ const carrotTemplates = {
      */
     flights: () => `
         <li class="search-suggestions-preview-item carrot">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to homepage</button>
             <div class="carrot-tile carrot-tile--flights" aria-hidden="true">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="airplane-icon">
                     <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="currentColor"/>
@@ -165,7 +165,7 @@ const carrotTemplates = {
             </div>
         </li>
         <li class="search-suggestions-preview-item carrot">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to homepage</button>
             <div class="carrot-tile carrot-tile--flights" aria-hidden="true">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="airplane-icon">
                     <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="currentColor"/>
@@ -178,7 +178,7 @@ const carrotTemplates = {
             </div>
         </li>
         <li class="search-suggestions-preview-item carrot">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to homepage</button>
             <div class="carrot-tile carrot-tile--flights" aria-hidden="true">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="airplane-icon">
                     <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="currentColor"/>
@@ -258,7 +258,7 @@ const carrotTemplates = {
                     <p class="weather-title">Weather</p>
                     <p class="weather-subtitle">Accuweather • Your location: New York (<span class="weather-location-change" style="text-decoration: underline; cursor: pointer;">change</span>)</p>
                 </div>
-                <button class="weather-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                <button class="weather-pin-button" type="button"><span class="pin-icon">📌</span>Pin to homepage</button>
             </div>
             <div class="weather-days">
                 <div class="weather-day">
@@ -356,7 +356,7 @@ const carrotTemplates = {
     stocks: () => `
         <li class="search-suggestions-preview-item carrot carrot--stocks stocks-wrapper" data-index="stocks-1">
             <div class="stock-item" data-stock-index="0">
-                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to homepage</button>
                 <div class="carrot-tile carrot-tile--stocks carrot-tile--stocks-up" aria-hidden="true">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="stock-arrow-icon">
                         <path d="M12 5v14M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -460,7 +460,7 @@ const carrotTemplates = {
         
         return `
             <li class="search-suggestions-preview-item carrot carrot--clock">
-                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+                <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to homepage</button>
                 <div class="clock-container">
                     <div class="analog-clock">
                         <div class="clock-face">
@@ -503,7 +503,7 @@ const carrotTemplates = {
      */
     happyEmoji: () => `
         <li class="search-suggestions-preview-item carrot carrot--emoji">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to homepage</button>
             <div class="emoji-instruction">Click a symbol to copy it</div>
             <div class="emoji-list">
                 <div class="emoji-item" data-emoji="😊">
@@ -627,7 +627,7 @@ const carrotTemplates = {
         
         return `
         <li class="search-suggestions-preview-item carrot carrot--currency">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to homepage</button>
             <div class="currency-converter">
                 <div class="currency-header">
                     <h3 class="currency-title">Currency Converter</h3>
@@ -671,7 +671,7 @@ const carrotTemplates = {
         
         return `
         <li class="search-suggestions-preview-item carrot carrot--translation">
-            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to New Tab</button>
+            <button class="carrot-pin-button" type="button"><span class="pin-icon">📌</span>Pin to homepage</button>
             <div class="translation-converter">
                 <div class="translation-header">
                     <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="" class="translation-icon" aria-hidden="true">

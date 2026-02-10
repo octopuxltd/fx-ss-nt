@@ -425,7 +425,7 @@
     z-index: 2;
 }
 
-.search-suggestions-preview-item:hover .suggestion-actions,
+.search-suggestions-preview-list:not(.suggestions-updating) .search-suggestions-preview-item:hover .suggestion-actions,
 .search-suggestions-preview-item.is-selected .suggestion-actions {
     display: flex;
 }

@@ -28,6 +28,30 @@
                     meta: 'YouTube',
                     metaFavicon: 'favicons/YouTube.svg',
                     lastViewed: 'Saved 3 days ago'
+                },
+                {
+                    image: 'https://images.unsplash.com/photo-1452457807411-4979b707c5be?auto=format&fit=crop&w=600&q=80',
+                    alt: 'Gardening tips',
+                    title: 'Spring gardening guide',
+                    meta: 'Reddit',
+                    metaFavicon: 'favicons/Reddit.svg',
+                    lastViewed: 'Saved 5 days ago'
+                },
+                {
+                    image: 'https://images.unsplash.com/photo-1534452203293-494d7ddbf7e0?auto=format&fit=crop&w=600&q=80',
+                    alt: 'Fitness routine',
+                    title: 'Home workout plan',
+                    meta: 'YouTube',
+                    metaFavicon: 'favicons/YouTube.svg',
+                    lastViewed: 'Saved 1 week ago'
+                },
+                {
+                    image: 'https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=600&q=80',
+                    alt: 'Weekend activities',
+                    title: 'Things to do nearby',
+                    meta: 'Yelp',
+                    metaFavicon: 'favicons/Yelp.svg',
+                    lastViewed: 'Saved 4 days ago'
                 }
             ]
         };

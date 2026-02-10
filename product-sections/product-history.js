@@ -6,17 +6,17 @@
             heading: 'From your history',
             cards: [
                 {
-                    image: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=600&q=80',
-                    alt: 'Quantum computing article',
-                    title: 'Quantum computing',
-                    meta: 'Wikipedia',
-                    metaFavicon: 'favicons/Wikipedia.svg',
+                    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80',
+                    alt: 'Recipe article',
+                    title: 'Easy weeknight dinners',
+                    meta: 'Tasty',
+                    metaFavicon: 'favicons/Tasty.svg',
                     lastViewed: '2 days ago'
                 },
                 {
-                    image: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=600&q=80',
-                    alt: 'Keynote video',
-                    title: 'Apple keynote 2026',
+                    image: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?auto=format&fit=crop&w=600&q=80',
+                    alt: 'TV show video',
+                    title: 'The Crown season 6',
                     meta: 'YouTube',
                     metaFavicon: 'favicons/YouTube.svg',
                     lastViewed: 'Continue viewing (16m left)'
@@ -28,6 +28,30 @@
                     meta: 'Google Docs',
                     metaFavicon: 'favicons/Google Docs.svg',
                     lastViewed: 'Opened weekdays at this time'
+                },
+                {
+                    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80',
+                    alt: 'Burger recipe',
+                    title: 'Best burger recipe',
+                    meta: 'AllRecipes',
+                    metaFavicon: 'favicons/AllRecipes.svg',
+                    lastViewed: 'Opened around dinner time'
+                },
+                {
+                    image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=600&q=80',
+                    alt: 'Hiking trail',
+                    title: 'Local hiking trails',
+                    meta: 'AllTrails',
+                    metaFavicon: 'favicons/AllTrails.svg',
+                    lastViewed: 'Last viewed 4 days ago'
+                },
+                {
+                    image: 'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=600&q=80',
+                    alt: 'Fashion trends',
+                    title: 'Summer outfit ideas',
+                    meta: 'Pinterest',
+                    metaFavicon: 'favicons/Pinterest.svg',
+                    lastViewed: 'Last viewed 1 week ago'
                 }
             ]
         };
