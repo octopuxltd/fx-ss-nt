@@ -3752,36 +3752,48 @@
         async function fetchWikipediaFirstResult(searchTerm) {
             console.log('[WIKIPEDIA] Fetching results for:', searchTerm);
             try {
-                // Use Wikipedia's API which supports CORS
-                const apiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=1&srprop=snippet`;
-                console.log('[WIKIPEDIA] Fetching API URL:', apiUrl);
+                // First, search to get the correct page title
+                const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=1`;
+                console.log('[WIKIPEDIA] Fetching search API URL:', searchUrl);
                 
-                const response = await fetch(apiUrl);
+                const searchResponse = await fetch(searchUrl);
                 
-                if (!response.ok) {
-                    console.error('[WIKIPEDIA] Fetch failed with status:', response.status);
+                if (!searchResponse.ok) {
+                    console.error('[WIKIPEDIA] Search fetch failed with status:', searchResponse.status);
                     return null;
                 }
                 
-                const data = await response.json();
-                console.log('[WIKIPEDIA] Received API response:', data);
+                const searchData = await searchResponse.json();
+                console.log('[WIKIPEDIA] Received search API response:', searchData);
                 
-                if (!data.query || !data.query.search || data.query.search.length === 0) {
+                if (!searchData.query || !searchData.query.search || searchData.query.search.length === 0) {
                     console.log('[WIKIPEDIA] No search results found');
                     return null;
                 }
                 
-                const firstResult = data.query.search[0];
+                const firstResult = searchData.query.search[0];
                 const title = firstResult.title;
+                const pageId = firstResult.pageid;
                 const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
                 
-                // Clean up the snippet (remove HTML tags)
-                let excerpt = firstResult.snippet;
-                excerpt = excerpt.replace(/<[^>]*>/g, ''); // Remove HTML tags
-                excerpt = excerpt.replace(/&quot;/g, '"');
-                excerpt = excerpt.replace(/&amp;/g, '&');
-                excerpt = excerpt.replace(/&lt;/g, '<');
-                excerpt = excerpt.replace(/&gt;/g, '>');
+                console.log('[WIKIPEDIA] Found page:', { title, pageId });
+                
+                // Now fetch the actual page extract (opening paragraph)
+                const extractUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&pageids=${pageId}&format=json&origin=*`;
+                console.log('[WIKIPEDIA] Fetching extract API URL:', extractUrl);
+                
+                const extractResponse = await fetch(extractUrl);
+                
+                if (!extractResponse.ok) {
+                    console.error('[WIKIPEDIA] Extract fetch failed with status:', extractResponse.status);
+                    return null;
+                }
+                
+                const extractData = await extractResponse.json();
+                console.log('[WIKIPEDIA] Received extract API response:', extractData);
+                
+                // Get the extract from the page
+                let excerpt = extractData.query?.pages?.[pageId]?.extract || '';
                 excerpt = excerpt.replace(/\s+/g, ' ').trim();
                 
                 console.log('[WIKIPEDIA] Found result:', { title, url, excerpt: excerpt.substring(0, 100) + '...' });
