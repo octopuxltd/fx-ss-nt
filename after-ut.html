@@ -3748,34 +3748,40 @@
         // Store Wikipedia data for dynamic rendering
         let wikipediaData = null;
         
-        // Function to fetch Wikipedia search results
+        // Function to fetch Wikipedia search results using API
         async function fetchWikipediaFirstResult(searchTerm) {
+            console.log('[WIKIPEDIA] Fetching results for:', searchTerm);
             try {
-                const searchUrl = `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(searchTerm)}&fulltext=1&ns0=1`;
-                const response = await fetch(searchUrl);
-                const html = await response.text();
+                // Use Wikipedia's API which supports CORS
+                const apiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=1&srprop=snippet`;
+                console.log('[WIKIPEDIA] Fetching API URL:', apiUrl);
                 
-                // Parse the HTML
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
+                const response = await fetch(apiUrl);
                 
-                // Find the first search result (data-serp-pos="0")
-                const firstResult = doc.querySelector('a[data-serp-pos="0"]');
-                if (!firstResult) {
+                if (!response.ok) {
+                    console.error('[WIKIPEDIA] Fetch failed with status:', response.status);
+                    return null;
+                }
+                
+                const data = await response.json();
+                console.log('[WIKIPEDIA] Received API response:', data);
+                
+                if (!data.query || !data.query.search || data.query.search.length === 0) {
                     console.log('[WIKIPEDIA] No search results found');
                     return null;
                 }
                 
-                // Get the link and title
-                const url = 'https://en.wikipedia.org' + firstResult.getAttribute('href');
-                const title = firstResult.querySelector('.mw-search-result-heading')?.textContent?.trim() || searchTerm;
+                const firstResult = data.query.search[0];
+                const title = firstResult.title;
+                const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
                 
-                // Get the excerpt
-                const resultDiv = firstResult.closest('.mw-search-result');
-                const excerptDiv = resultDiv?.querySelector('.searchresult');
-                let excerpt = excerptDiv?.textContent?.trim() || '';
-                
-                // Clean up excerpt (remove extra whitespace)
+                // Clean up the snippet (remove HTML tags)
+                let excerpt = firstResult.snippet;
+                excerpt = excerpt.replace(/<[^>]*>/g, ''); // Remove HTML tags
+                excerpt = excerpt.replace(/&quot;/g, '"');
+                excerpt = excerpt.replace(/&amp;/g, '&');
+                excerpt = excerpt.replace(/&lt;/g, '<');
+                excerpt = excerpt.replace(/&gt;/g, '>');
                 excerpt = excerpt.replace(/\s+/g, ' ').trim();
                 
                 console.log('[WIKIPEDIA] Found result:', { title, url, excerpt: excerpt.substring(0, 100) + '...' });
@@ -3789,6 +3795,7 @@
                 };
             } catch (error) {
                 console.error('[WIKIPEDIA] Error fetching search results:', error);
+                console.error('[WIKIPEDIA] Error details:', error.message, error.stack);
                 return null;
             }
         }
@@ -5312,11 +5319,9 @@
                     } else {
                         finalHtml = htmlString + sportsCarrotHtml;
                     }
-                } else if (queryLower.endsWith(' wiki') || queryLower.endsWith(' wik')) {
+                } else if (queryLower.endsWith(' wiki')) {
                     // Extract the search term (everything before " wiki")
-                    const searchTerm = queryLower.endsWith(' wiki') 
-                        ? queryLower.slice(0, -5).trim() 
-                        : queryLower.slice(0, -4).trim();
+                    const searchTerm = queryLower.slice(0, -5).trim();
                     
                     if (searchTerm.length > 0) {
                         // Fetch Wikipedia data asynchronously
