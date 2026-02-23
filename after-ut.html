@@ -4233,6 +4233,13 @@
                     // 'sneakers': "sneaker" (singular) is fine - clear intent for sneakers
                     'sneakers': 7,        // "sneaker" (7 chars) - clear intent
                     
+                    // 'nike air j': "nike" alone could be "nike shoes", "nike store", "nike air", "nike jordan"
+                    //               "nike a" could be "nike air", "nike apparel", "nike account"
+                    //               "nike ai" (7 chars) is better - likely "nike air"
+                    //               "nike air" (8 chars) is clearer
+                    //               "nike air j" (10 chars) is very specific
+                    'nike air j': 10,     // Require "nike air j" (10 chars) - clear intent for Air Jordan
+                    
                     // 'weather': "weather" alone could be "weather", "weather forecast", "weather today", "weather app"
                     //            But "weather" (7 chars) is the full word, so it's acceptable
                     'weather': 7,          // "weather" (7 chars) - full word, acceptable
