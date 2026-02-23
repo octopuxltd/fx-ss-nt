@@ -128,14 +128,14 @@ const carrotTemplates = {
 
     /**
      * Big ad carrot
-     * Shows a large article-style card with sneakers content
+     * Shows a large article-style card with Nike Air Jordan content
      */
     bigAd: () => `
         <li class="search-suggestions-preview-item carrot carrot--big-ad">
             <a href="#" class="carrot-big-ad-card">
-                <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&h=300&q=80" alt="Sneakers" class="carrot-big-ad-image">
+                <img src="https://images.unsplash.com/photo-1607522370275-f14206abe5d3?auto=format&fit=crop&w=600&h=300&q=80" alt="Nike Air Jordan" class="carrot-big-ad-image">
                 <div class="carrot-big-ad-body">
-                    <h3 class="carrot-big-ad-title">Premium Sneakers Collection - Up to 50% Off</h3>
+                    <h3 class="carrot-big-ad-title">Nike Air Jordan retro range</h3>
                     <p class="carrot-big-ad-meta">
                         <span class="carrot-big-ad-favicon" style="width: 16px; height: 16px; background-color: #000; border-radius: 2px; flex-shrink: 0;"></span>
                         Nike - Official Store
