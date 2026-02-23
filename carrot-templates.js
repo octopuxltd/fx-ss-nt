@@ -133,7 +133,7 @@ const carrotTemplates = {
     bigAd: () => `
         <li class="search-suggestions-preview-item carrot carrot--big-ad">
             <a href="#" class="carrot-big-ad-card">
-                <img src="https://images.unsplash.com/photo-1607522370275-f14206abe5d3?auto=format&fit=crop&w=600&h=300&q=80" alt="Nike Air Jordan" class="carrot-big-ad-image">
+                <img src="icons/nikeairjordan.webp" alt="Nike Air Jordan" class="carrot-big-ad-image">
                 <div class="carrot-big-ad-body">
                     <h3 class="carrot-big-ad-title">Nike Air Jordan retro range</h3>
                     <p class="carrot-big-ad-meta">
