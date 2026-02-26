@@ -2030,9 +2030,20 @@
     background-color: #EBE7FF;
 }
 
-.search-suggestions-preview-item .search-hint {
+.search-suggestions-preview-item .search-hint:not(.firefox-url-display):not(.firefox-switch-tab-display) {
     font-size: 12px;
     opacity: 0.6;
+    color: #1F2933;
+    margin-left: 4px;
+    display: inline;
+    vertical-align: baseline;
+    line-height: inherit;
+}
+
+/* Firefox URL and Switch to Tab hints - full opacity */
+.search-suggestions-preview-item .search-hint.firefox-url-display,
+.search-suggestions-preview-item .search-hint.firefox-switch-tab-display {
+    font-size: 12px;
     color: #1F2933;
     margin-left: 4px;
     display: inline;

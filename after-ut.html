@@ -8,6 +8,11 @@
     <link rel="icon" type="image/png" href="icons/Fx-Browser-icon-fullColor-64.png">
     <link rel="stylesheet" href="suggestions.css">
     <style>
+        /* Ensure typed text (first suggestion) is bold */
+        .search-suggestions-preview-item .label strong {
+            font-weight: 600;
+        }
+        
         /* Override hover for ut.html - only show selection state, not hover */
         .ut-page .search-suggestions-preview-item:hover:not(.is-selected),
         .ut-page .search-suggestions-preview-item:focus-within:not(.is-selected) {
@@ -4842,7 +4847,7 @@
                     const typedTextHtml = `
                         <li class="search-suggestions-preview-item is-selected" data-index="0">
                             <img src="${typedTextIcon}" alt="" aria-hidden="true" class="suggestion-icon">
-                            <span class="label">${searchValueTrimmed}</span>
+                            <span class="label"><strong>${searchValueTrimmed}</strong></span>
                             <span class="search-hint" style="display: inline;"><span class="search-hint-interpunct">&nbsp;•</span><span class="search-hint-text">Search with Google</span></span>
                         </li>
                     `;
@@ -6910,6 +6915,11 @@
                 
                 // Update search box with autocomplete for keyboard navigation
                 if (isKeyboardNavigation && !selectedItem.classList.contains('carrot')) {
+                    // Save original typed text if not already saved
+                    if (!originalTypedText) {
+                        originalTypedText = searchBoxElement.value;
+                    }
+                    
                     // Don't autocomplete for default suggestions (when search box is empty) or Gmail
                     const isSearchBoxEmpty = !originalTypedText || originalTypedText.trim() === '';
                     const isGmailItem = selectedItem.classList.contains('gmail-suggestion');
@@ -7019,7 +7029,8 @@
         ];
         
         async function preloadFirefoxSuggestionImages(firefoxSuggestions) {
-            const apiKey = window.API_CONFIG?.PEXELS_API_KEY || '';
+            // Skip Pexels API - just use fallback images immediately
+            // This makes Firefox suggestions load instantly with generic but aesthetic images
             
             // Preload images for each Firefox suggestion
             const preloadPromises = firefoxSuggestions.map(async (suggestion, index) => {
@@ -7033,32 +7044,9 @@
                     return;
                 }
                 
-                let imageUrl = null;
-                
-                // Try Pexels if API key is available
-                if (apiKey) {
-                    try {
-                        const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(title)}&per_page=1`, {
-                            headers: {
-                                Authorization: apiKey
-                            }
-                        });
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.photos && data.photos[0]) {
-                                imageUrl = data.photos[0].src.large;
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Error fetching from Pexels for Firefox suggestion:', title, error);
-                    }
-                }
-                
-                // Use fallback image if Pexels didn't return anything
-                if (!imageUrl) {
-                    imageUrl = fallbackImages[index % fallbackImages.length];
-                    console.log('[FIREFOX-IMG] Using fallback image for:', title);
-                }
+                // Use fallback image (generic Unsplash images that load fast)
+                const imageUrl = fallbackImages[index % fallbackImages.length];
+                console.log('[FIREFOX-IMG] Using fallback image for:', title);
                 
                 // Preload the image by creating an Image object
                 return new Promise((resolve) => {
@@ -7330,6 +7318,11 @@
             // Attach click handler to generate button (if it exists)
             const generateButton = previewBox.querySelector('.preview-box-generate-button');
             if (generateButton) {
+                // Prevent input from losing focus when clicking the button
+                generateButton.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); // Prevents focus change
+                });
+                
                 generateButton.addEventListener('click', async () => {
                     const buttonTitle = generateButton.dataset.previewTitle;
                     const buttonDescription = generateButton.dataset.previewDescription;
