@@ -37,9 +37,11 @@ jobs:
           BUILD_TIME=$(date -u +"%Y%m%d%H%M%S")
           echo "Build timestamp: $BUILD_TIME"
           
-          # Replace buildTime in HTML files to force cache refresh
-          sed -i "s/const buildTime = '[0-9]*'/const buildTime = '$BUILD_TIME'/" _deploy/after-ut.html
-          sed -i "s/const buildTime = '[0-9]*'/const buildTime = '$BUILD_TIME'/" _deploy/ut.html
+          # Add version parameter to all script and stylesheet tags
+          sed -i "s|<script src=\"\([^\"]*\.js\)\"|<script src=\"\1?v=$BUILD_TIME\"|g" _deploy/after-ut.html
+          sed -i "s|<script src=\"\([^\"]*\.js\)\"|<script src=\"\1?v=$BUILD_TIME\"|g" _deploy/ut.html
+          sed -i "s|<link rel=\"stylesheet\" href=\"\([^\"]*\.css\)\"|<link rel=\"stylesheet\" href=\"\1?v=$BUILD_TIME\"|g" _deploy/after-ut.html
+          sed -i "s|<link rel=\"stylesheet\" href=\"\([^\"]*\.css\)\"|<link rel=\"stylesheet\" href=\"\1?v=$BUILD_TIME\"|g" _deploy/ut.html
           
           # Now create config.js in the deploy directory
           cat > _deploy/config.js << EOF

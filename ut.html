@@ -9,12 +9,7 @@
     <meta http-equiv="Expires" content="0">
     <title>New Tab (search prototype)</title>
     <link rel="icon" type="image/png" href="icons/Fx-Browser-icon-fullColor-64.png">
-    <script>
-        // Auto-versioning: append build timestamp to bypass cache
-        // This timestamp changes with each deployment to GitHub Pages
-        const buildTime = '20260204160000'; // GitHub Actions will replace this on deploy
-        document.write('<link rel="stylesheet" href="suggestions.css?v=' + buildTime + '">');
-    </script>
+    <link rel="stylesheet" href="suggestions.css">
     <style>
         /* Ensure typed text (first suggestion) is bold */
         .search-suggestions-preview-item .label strong {
@@ -1487,22 +1482,17 @@
             display: none;
         }
     </style>
+    <script src="product-sections/product-history.js"></script>
+    <script src="product-sections/product-bookmarks.js"></script>
+    <script src="product-sections/product-open-tabs.js"></script>
+    <script src="product-sections/product-articles.js"></script>
+    <script src="product-content.js"></script>
+    <script src="carrot-templates.js"></script>
+    <script src="suggestion-words.js"></script>
+    <script src="image-preload.js"></script>
     <script>
-        // Auto-versioning: append build timestamp to bypass cache
-        const buildTime = '20260204160000'; // GitHub Actions will replace this on deploy
-        const scripts = [
-            'product-sections/product-history.js',
-            'product-sections/product-bookmarks.js',
-            'product-sections/product-open-tabs.js',
-            'product-sections/product-articles.js',
-            'product-content.js',
-            'carrot-templates.js',
-            'suggestion-words.js',
-            'image-preload.js'
-        ];
-        scripts.forEach(src => {
-            document.write('<script src="' + src + '?v=' + buildTime + '"><\/script>');
-        });
+        // Signal that product sections are loaded
+        window.productSectionsLoaded = true;
     </script>
     <!-- Load API configuration (config.js is gitignored) -->
     <script src="config.js" onerror="console.warn('config.js not found. Using example config. Please create config.js from config.example.js'); window.API_CONFIG = window.API_CONFIG || { OPENROUTER_API_KEY: '', PEXELS_API_KEY: '' };"></script>
