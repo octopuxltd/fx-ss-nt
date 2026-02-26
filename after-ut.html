@@ -2971,23 +2971,32 @@
         let originalProductGridSections = null;
 
         const renderOverlayProductGrid = () => {
+            console.log('[RENDER] renderOverlayProductGrid called');
             const container = document.querySelector('[data-product-grid]');
+            console.log('[RENDER] Container found:', !!container);
             if (!container) {
+                console.log('[RENDER] No container, returning');
                 return;
             }
             
             // For after-ut-page, check if productSections is available
             // For regular page, check if productContent is available
             const isAfterUtPage = document.body.classList.contains('after-ut-page');
+            console.log('[RENDER] isAfterUtPage:', isAfterUtPage);
+            console.log('[RENDER] window.productSections:', window.productSections);
+            
             if (isAfterUtPage && !window.productSections) {
+                console.log('[RENDER] No productSections, returning');
                 return;
             }
             if (!isAfterUtPage && typeof productContent?.renderInto !== 'function') {
+                console.log('[RENDER] No productContent, returning');
                 return;
             }
 
             const sectionAttr = container.getAttribute('data-product-sections');
             const sectionKeys = sectionAttr ? sectionAttr.split(',').map((section) => section.trim()).filter(Boolean) : undefined;
+            console.log('[RENDER] sectionKeys:', sectionKeys);
 
             // Store original content if not already stored
             if (!originalProductGridSections) {
@@ -2996,6 +3005,7 @@
 
             // Custom rendering for after-ut-page
             if (isAfterUtPage) {
+                console.log('[RENDER] Calling renderAfterUtSuggestionGrid');
                 renderAfterUtSuggestionGrid(container, sectionKeys);
             } else {
                 productContent.renderInto(container, sectionKeys);
@@ -3006,14 +3016,21 @@
         };
         
         const renderAfterUtSuggestionGrid = (container, sectionKeys) => {
+            console.log('[RENDER-GRID] renderAfterUtSuggestionGrid called with sectionKeys:', sectionKeys);
+            console.log('[RENDER-GRID] window.productSections:', window.productSections);
+            
             const sections = (sectionKeys || ['history', 'openTabs', 'bookmarks'])
                 .map(key => {
+                    console.log('[RENDER-GRID] Looking for section:', key);
                     const section = window.productSections?.[key];
+                    console.log('[RENDER-GRID] Found section:', !!section);
                     if (!section) return null;
                     const data = typeof section === 'function' ? section() : section;
                     return data ? { ...data, key } : null;
                 })
                 .filter(Boolean);
+            
+            console.log('[RENDER-GRID] Sections to render:', sections.length);
             
             const renderAfterUtSuggestionCard = (card, columnKey) => {
                 // Determine section icon
@@ -3238,10 +3255,14 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
-            renderOverlayProductGrid();
-            updateImages();
-            // Attach hover listeners to initial suggestions
-            attachHoverListeners();
+            // Wait a tick to ensure all scripts have executed and productSections is available
+            setTimeout(() => {
+                console.log('[RENDER] DOMContentLoaded - checking productSections:', window.productSections);
+                renderOverlayProductGrid();
+                updateImages();
+                // Attach hover listeners to initial suggestions
+                attachHoverListeners();
+            }, 0);
         });
 
         const topOverlay = document.querySelector('.top-overlay');
