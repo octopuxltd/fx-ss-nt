@@ -6627,17 +6627,10 @@
             // Determine the type of Firefox suggestion from data attribute
             const suggestionType = item.dataset.firefoxType || 'bookmark';
             
-            // Update search box with the full URL (not highlighted)
-            if (url) {
-                // Save original typed text if not already saved
-                if (!originalTypedText) {
-                    originalTypedText = searchBoxElement.value;
-                }
-                
-                // Set the URL and place cursor at end (no selection)
-                const lowercaseUrl = url.toLowerCase();
-                searchBoxElement.value = lowercaseUrl;
-                searchBoxElement.setSelectionRange(lowercaseUrl.length, lowercaseUrl.length);
+            // Don't update the search box - keep the typed text
+            // Save original typed text if not already saved for restoration later
+            if (!originalTypedText) {
+                originalTypedText = searchBoxElement.value;
             }
             
             await showFirefoxPreviewBox(item, title, description, url, suggestionType);
