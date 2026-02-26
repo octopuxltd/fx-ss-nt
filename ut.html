@@ -6549,9 +6549,15 @@
                     const isGmailItem = selectedItem.classList.contains('gmail-suggestion');
                     
                     if (!isSearchBoxEmpty && !isGmailItem) {
-                        // For Firefox suggestions, don't autocomplete - keep the typed text
+                        // For Firefox suggestions, restore the typed text
                         // For regular suggestions, use the label text
-                        if (!selectedItem.classList.contains('firefox-suggest-item')) {
+                        if (selectedItem.classList.contains('firefox-suggest-item')) {
+                            // Restore original typed text for Firefox suggestions
+                            if (originalTypedText) {
+                                searchBoxElement.value = originalTypedText;
+                                searchBoxElement.setSelectionRange(originalTypedText.length, originalTypedText.length);
+                            }
+                        } else {
                             let suggestionText;
                             const labelElement = selectedItem.querySelector('.label');
                             suggestionText = labelElement ? labelElement.textContent.trim() : null;
