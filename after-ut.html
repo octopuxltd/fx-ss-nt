@@ -4667,8 +4667,13 @@
         // Filter existing suggestions based on next character typed
         // Helper function to highlight matching characters in text
         function highlightMatchingText(text, searchValue, isTypedText, isGmailSuggestion) {
-            if (!searchValue || isTypedText || isGmailSuggestion) {
+            if (!searchValue || isGmailSuggestion) {
                 return text;
+            }
+            
+            // For typed text, make it bold
+            if (isTypedText) {
+                return `<strong>${text}</strong>`;
             }
             
             const searchNoSpaces = searchValue.replace(/\s/g, '');
