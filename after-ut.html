@@ -6627,15 +6627,17 @@
             // Determine the type of Firefox suggestion from data attribute
             const suggestionType = item.dataset.firefoxType || 'bookmark';
             
-            // Clear search box when hovering Firefox suggestions
+            // Update search box with the full URL (not highlighted)
             if (url) {
                 // Save original typed text if not already saved
                 if (!originalTypedText) {
                     originalTypedText = searchBoxElement.value;
                 }
                 
-                // Clear the search box
-                searchBoxElement.value = '';
+                // Set the URL and place cursor at end (no selection)
+                const lowercaseUrl = url.toLowerCase();
+                searchBoxElement.value = lowercaseUrl;
+                searchBoxElement.setSelectionRange(lowercaseUrl.length, lowercaseUrl.length);
             }
             
             await showFirefoxPreviewBox(item, title, description, url, suggestionType);
@@ -6769,11 +6771,12 @@
                         return;
                     }
                     
-                    // For Firefox suggestions, use the URL; for regular suggestions, use the label text
+                    // For Firefox suggestions, don't autocomplete - keep the typed text
+                    // For regular suggestions, use the label text
                     let suggestionText;
                     if (item.classList.contains('firefox-suggest-item')) {
-                        suggestionText = item.dataset.firefoxUrl || null;
-                        console.log('[AUTOCOMPLETE] Firefox suggestion URL:', suggestionText);
+                        console.log('[AUTOCOMPLETE] Firefox suggestion - keeping typed text');
+                        return; // Don't autocomplete Firefox suggestions
                     } else {
                         const labelElement = item.querySelector('.label');
                         suggestionText = labelElement ? labelElement.textContent.trim() : null;
@@ -6801,12 +6804,8 @@
                         searchBoxElement.value = lowercaseSuggestionText;
                         console.log('[AUTOCOMPLETE] Set search box to:', lowercaseSuggestionText);
                         
-                        // For Firefox suggestions (URLs), don't select - just place cursor at end
-                        // For regular suggestions, select only the autocompleted part
-                        if (item.classList.contains('firefox-suggest-item')) {
-                            searchBoxElement.setSelectionRange(lowercaseSuggestionText.length, lowercaseSuggestionText.length);
-                            console.log('[AUTOCOMPLETE] Placed cursor at end of URL (no selection)');
-                        } else if (typedLength > 0 && lowercaseSuggestionText.startsWith(originalTypedText.toLowerCase())) {
+                        // Select only the autocompleted part
+                        if (typedLength > 0 && lowercaseSuggestionText.startsWith(originalTypedText.toLowerCase())) {
                             searchBoxElement.setSelectionRange(typedLength, lowercaseSuggestionText.length);
                             console.log('[AUTOCOMPLETE] Selected range:', typedLength, '-', lowercaseSuggestionText.length);
                         } else {
@@ -6961,15 +6960,16 @@
                     const isGmailItem = selectedItem.classList.contains('gmail-suggestion');
                     
                     if (!isSearchBoxEmpty && !isGmailItem) {
-                        // For Firefox suggestions, use the URL; for regular suggestions, use the label text
-                        let suggestionText;
+                        // For Firefox suggestions, don't autocomplete - keep the typed text
+                        // For regular suggestions, use the label text
                         if (selectedItem.classList.contains('firefox-suggest-item')) {
-                            // Don't fill search box with URL for Firefox suggestions
-                            suggestionText = null;
-                        } else {
-                            const labelElement = selectedItem.querySelector('.label');
-                            suggestionText = labelElement ? labelElement.textContent.trim() : null;
+                            // Don't autocomplete Firefox suggestions
+                            return;
                         }
+                        
+                        let suggestionText;
+                        const labelElement = selectedItem.querySelector('.label');
+                        suggestionText = labelElement ? labelElement.textContent.trim() : null;
                         
                         // Check if this is the typed text item
                         const isTypedTextItem = suggestionText === originalTypedText || suggestionText === searchBoxElement.value;
@@ -6995,12 +6995,6 @@
                             // Restore original typed text when arrowing back to it
                             searchBoxElement.value = originalTypedText;
                             searchBoxElement.setSelectionRange(originalTypedText.length, originalTypedText.length);
-                        } else if (selectedItem.classList.contains('firefox-suggest-item')) {
-                            // Clear search box for Firefox suggestions
-                            if (!originalTypedText) {
-                                originalTypedText = searchBoxElement.value;
-                            }
-                            searchBoxElement.value = '';
                         }
                     }
                 }
@@ -7028,8 +7022,15 @@
                         // Clear search box text when selecting gmail suggestion
                         searchBoxElement.value = '';
                     } else if (selectedItem.classList.contains('firefox-suggest-item')) {
-                        // Clear search box for Firefox suggestions
-                        searchBoxElement.value = '';
+                        // For Firefox suggestions, show the full URL with https://
+                        const url = selectedItem.dataset.firefoxUrl;
+                        if (url) {
+                            // Add https:// if not already present
+                            const fullUrl = url.startsWith('http://') || url.startsWith('https://') 
+                                ? url 
+                                : 'https://' + url;
+                            searchBoxElement.value = fullUrl;
+                        }
                     } else {
                         const label = selectedItem.querySelector('.label');
                         if (label) {
