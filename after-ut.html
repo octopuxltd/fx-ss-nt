@@ -7015,15 +7015,8 @@
                         // Clear search box text when selecting gmail suggestion
                         searchBoxElement.value = '';
                     } else if (selectedItem.classList.contains('firefox-suggest-item')) {
-                        // For Firefox suggestions, show the full URL with https://
-                        const url = selectedItem.dataset.firefoxUrl;
-                        if (url) {
-                            // Add https:// if not already present
-                            const fullUrl = url.startsWith('http://') || url.startsWith('https://') 
-                                ? url 
-                                : 'https://' + url;
-                            searchBoxElement.value = fullUrl;
-                        }
+                        // For Firefox suggestions, don't update the search box - keep typed text
+                        // The preview box will show the URL
                     } else {
                         const label = selectedItem.querySelector('.label');
                         if (label) {
