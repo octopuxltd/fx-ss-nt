@@ -2972,7 +2972,17 @@
 
         const renderOverlayProductGrid = () => {
             const container = document.querySelector('[data-product-grid]');
-            if (!container || typeof productContent?.renderInto !== 'function') {
+            if (!container) {
+                return;
+            }
+            
+            // For after-ut-page, check if productSections is available
+            // For regular page, check if productContent is available
+            const isAfterUtPage = document.body.classList.contains('after-ut-page');
+            if (isAfterUtPage && !window.productSections) {
+                return;
+            }
+            if (!isAfterUtPage && typeof productContent?.renderInto !== 'function') {
                 return;
             }
 
@@ -2985,7 +2995,7 @@
             }
 
             // Custom rendering for after-ut-page
-            if (document.body.classList.contains('after-ut-page')) {
+            if (isAfterUtPage) {
                 renderAfterUtSuggestionGrid(container, sectionKeys);
             } else {
                 productContent.renderInto(container, sectionKeys);
