@@ -1035,6 +1035,81 @@ document.addEventListener('DOMContentLoaded', () => {
     let gradientAnimationId = null;
     let gradientAngle = 0;
     
+    // Track state for input handler
+    let lastApiQuery = '';
+    let currentDisplayedSuggestions = [];
+    
+    // ===== INPUT EVENT HANDLER =====
+    if (searchInput) {
+        searchInput.addEventListener('input', async (event) => {
+            console.log('[INPUT] ===== INPUT EVENT STARTED =====');
+            
+            const value = (event.target.value || '').toString();
+            const valueLower = value.toLowerCase().trim();
+            console.log('[INPUT] Raw value:', value, '| Trimmed lower:', valueLower, '| Length:', valueLower.length);
+            
+            // Handle empty field - show default suggestions
+            if (valueLower.length === 0) {
+                console.log('[INPUT] Empty field, showing default suggestions');
+                const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
+                // TODO: Call updateSuggestions when implemented
+                console.log('[INPUT] Would update with default suggestions:', defaultSuggestions);
+                currentDisplayedSuggestions = defaultSuggestions;
+                return;
+            }
+            
+            // For 3+ characters, fetch from AI
+            if (valueLower.length >= 3) {
+                console.log('[INPUT] ===== Branch: length >= 3 =====');
+                console.log('[INPUT] Query:', valueLower, '| Length:', valueLower.length);
+                
+                // Check if we have existing suggestions to filter
+                const hasExistingSuggestions = currentDisplayedSuggestions.length > 0;
+                console.log('[INPUT] Has existing suggestions:', hasExistingSuggestions, 'count:', currentDisplayedSuggestions.length);
+                
+                if (hasExistingSuggestions) {
+                    // TODO: Filter existing suggestions when filterExistingSuggestions is implemented
+                    console.log('[INPUT] Would filter existing suggestions for query:', valueLower);
+                } else {
+                    // Show skeletons while waiting for AI
+                    console.log('[INPUT] No existing suggestions, would show skeletons');
+                    // TODO: Call showSkeletonLoaders when implemented
+                }
+                
+                // Make API call
+                console.log('[INPUT] Making immediate API call for query:', valueLower);
+                lastApiQuery = valueLower;
+                
+                try {
+                    console.log('[AI] Fetching AI suggestions for:', valueLower);
+                    const aiSuggestions = await fetchAISuggestions(valueLower);
+                    console.log('[AI] fetchAISuggestions returned:', aiSuggestions);
+                    
+                    // Only update if query hasn't changed during API call
+                    const finalQuery = searchInput.value.toLowerCase().trim();
+                    console.log('[AI] Final query check:', finalQuery, '===', valueLower, '?', finalQuery === valueLower);
+                    
+                    if (finalQuery === valueLower) {
+                        console.log('[AI] ✓ Query still matches after API call');
+                        
+                        if (aiSuggestions && Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
+                            console.log('[AI] Updating with', aiSuggestions.length, 'AI suggestions');
+                            // TODO: Call updateSuggestions when implemented
+                            console.log('[AI] Would update suggestions with:', aiSuggestions);
+                            currentDisplayedSuggestions = aiSuggestions;
+                        } else {
+                            console.log('[AI] No AI suggestions returned');
+                        }
+                    } else {
+                        console.log('[AI] Query changed during API call, ignoring results');
+                    }
+                } catch (error) {
+                    console.error('[AI] Error fetching suggestions:', error);
+                }
+            }
+        });
+    }
+    
     // Animate gradient border
     const animateGradient = () => {
         gradientAngle = (gradientAngle + 1) % 360;
