@@ -10,11 +10,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Handle reduced motion checkbox
     if (reducedMotionCheckbox) {
+        // Load saved state from localStorage
+        const savedReducedMotion = localStorage.getItem('reduced_motion_enabled');
+        if (savedReducedMotion === 'true') {
+            reducedMotionCheckbox.checked = true;
+            document.body.classList.add('reduced-motion');
+        }
+        
         reducedMotionCheckbox.addEventListener('change', (e) => {
             if (e.target.checked) {
                 document.body.classList.add('reduced-motion');
+                localStorage.setItem('reduced_motion_enabled', 'true');
             } else {
                 document.body.classList.remove('reduced-motion');
+                localStorage.setItem('reduced_motion_enabled', 'false');
             }
         });
     }
