@@ -1,5 +1,27 @@
 // Step 1 JavaScript
 
+// ===== API CONFIGURATION =====
+// Load saved provider from localStorage, or default to OpenAI
+let AI_PROVIDER = localStorage.getItem('ai_provider') || 'openai';
+
+// Model mapping for different providers
+const MODEL_MAP = {
+    'openrouter-haiku': 'anthropic/claude-3-haiku',
+    'openai': 'gpt-4o-mini'
+};
+
+const OPENROUTER_API_KEY = window.API_CONFIG?.OPENROUTER_API_KEY || '';
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const CLAUDE_API_KEY = window.API_CONFIG?.CLAUDE_API_KEY || '';
+const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+const OPENAI_API_KEY = window.API_CONFIG?.OPENAI_API_KEY || '';
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+
+console.log('[API CONFIG] Provider:', AI_PROVIDER);
+console.log('[API CONFIG] OpenRouter key present:', !!OPENROUTER_API_KEY);
+console.log('[API CONFIG] OpenAI key present:', !!OPENAI_API_KEY);
+console.log('[API CONFIG] Claude key present:', !!CLAUDE_API_KEY);
+
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
@@ -13,6 +35,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchBoxWrapper = document.querySelector('.search-box-wrapper');
     const searchBoxWrapperOuter = document.querySelector('.search-box-wrapper-outer');
     const reducedMotionCheckbox = document.querySelector('.reduced-motion-checkbox');
+    const suggestionsList = document.querySelector('.suggestions-list');
+    const suggestionItems = document.querySelectorAll('.suggestion-item');
+    const searchSwitcherButton = document.querySelector('.search-switcher-button');
     
     // Click on search-box-wrapper focuses the input
     if (searchBoxWrapper && searchInput) {
@@ -25,17 +50,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Close switcher dropdown when hovering over suggestion items or headings
+    if (suggestionsList && searchSwitcherButton) {
+        // Delegate to handle both existing items and any future items
+        suggestionsList.addEventListener('mouseover', (e) => {
+            const target = e.target.closest('.suggestion-item, .suggestions-heading');
+            if (target && searchSwitcherButton.classList.contains('open')) {
+                console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
+                searchSwitcherButton.classList.remove('open');
+            }
+        });
+    }
+    
     // Handle search switcher button dropdown
-    const searchSwitcherButton = document.querySelector('.search-switcher-button');
     if (searchSwitcherButton) {
+        searchSwitcherButton.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // Prevent input from blurring
+        });
+        
         searchSwitcherButton.addEventListener('click', (e) => {
             e.stopPropagation();
+            const wasOpen = searchSwitcherButton.classList.contains('open');
             searchSwitcherButton.classList.toggle('open');
+            const isNowOpen = searchSwitcherButton.classList.contains('open');
+            
+            console.log('[SWITCHER CLICK] Clicked search switcher button');
+            console.log('[SWITCHER CLICK] Was open:', wasOpen, '→ Now open:', isNowOpen);
+            console.log('[SWITCHER CLICK] Search input focused?', document.activeElement === searchInput);
+            console.log('[SWITCHER CLICK] Suggestions visible?', searchContainer?.classList.contains('focused'));
         });
         
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-switcher-button')) {
+                const wasOpen = searchSwitcherButton.classList.contains('open');
+                if (wasOpen) {
+                    console.log('[OUTSIDE CLICK] Closing switcher dropdown');
+                }
                 searchSwitcherButton.classList.remove('open');
             }
         });
@@ -66,6 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Calculate and set border radius based on wrapper height
     const updateBorderRadius = () => {
+        console.log('[BORDER-RADIUS] Calculating border radiuses...');
+        
         if (searchBoxWrapper && searchBoxWrapperOuter) {
             const wrapperHeight = searchBoxWrapper.offsetHeight;
             const borderRadius = wrapperHeight / 2;
@@ -73,6 +126,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             searchBoxWrapper.style.borderRadius = `${borderRadius}px`;
             searchBoxWrapperOuter.style.borderRadius = `${borderRadius}px`;
+            
+            const outerComputedRadius = getComputedStyle(searchBoxWrapperOuter).borderRadius;
+            const innerComputedRadius = getComputedStyle(searchBoxWrapper).borderRadius;
+            
+            console.log('[BORDER-RADIUS] Search box wrapper:', {
+                wrapperHeight: wrapperHeight,
+                calculatedInnerRadius: borderRadius,
+                calculatedOuterRadius: borderRadius,
+                calculatedGradientRadius: gradientBorderRadius,
+                renderedInnerRadius: innerComputedRadius,
+                renderedOuterRadius: outerComputedRadius
+            });
             
             // The ::before element needs extra radius since it extends outward by 2px
             document.documentElement.style.setProperty('--outer-border-radius', `${gradientBorderRadius}px`);
@@ -84,6 +149,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const buttonHeight = searchSwitcherBtn.offsetHeight;
             const buttonBorderRadius = buttonHeight / 2;
             document.documentElement.style.setProperty('--switcher-button-radius', `${buttonBorderRadius}px`);
+            
+            console.log('[BORDER-RADIUS] Search switcher button:', {
+                height: buttonHeight,
+                radius: buttonBorderRadius
+            });
         }
 
         // Set suggestion items border radius to half the first item's height
@@ -92,6 +162,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemHeight = firstSuggestionItem.offsetHeight;
             const itemBorderRadius = itemHeight / 2;
             document.documentElement.style.setProperty('--suggestion-item-radius', `${itemBorderRadius}px`);
+            
+            console.log('[BORDER-RADIUS] Suggestion items:', {
+                height: itemHeight,
+                radius: itemBorderRadius
+            });
         }
     };
     
@@ -101,8 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update on window resize
     window.addEventListener('resize', updateBorderRadius);
     
-    const suggestionsList = document.querySelector('.suggestions-list');
-    const suggestionItems = document.querySelectorAll('.suggestion-item');
     let firstHoverDone = false;
     let gradientAnimationId = null;
     let gradientAngle = 0;
@@ -116,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
             style = document.createElement('style');
             style.id = 'gradient-animation-style';
         }
-        style.textContent = `.search-box-wrapper-outer:focus-within::before { background: conic-gradient(from ${gradientAngle}deg, #FF00FF 0%, #FFA500 50%, #FF00FF 100%); }`;
+        style.textContent = `.search-box-wrapper-outer:focus-within::before { background: conic-gradient(from ${gradientAngle}deg, #FF00FF 0%, #FFA500 35%, #FFFFFF 50%, #FFA500 65%, #FF00FF 100%); }`;
         if (!document.head.contains(style)) {
             document.head.appendChild(style);
         }
@@ -185,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchInput && searchContainer) {
         searchInput.addEventListener('focus', () => {
             console.log('[FOCUS] Search input focused, isRestoring:', isRestoringFocus);
+            console.log('[FOCUS] Suggestions panel will show');
             
             if (isRestoringFocus) {
                 console.log('[FOCUS] This is a restore focus - keeping transitions suppressed');
@@ -200,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         searchInput.addEventListener('blur', () => {
             console.log('[BLUR] Search input blurred');
+            console.log('[BLUR] Suggestions panel will hide');
             wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
             console.log('[BLUR] Was in focused state:', wasFocusedBeforeBlur);
             

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Step 1</title>
     <link rel="stylesheet" href="step1.css">
+    <script src="config.js" onerror="console.warn('config.js not found. Using example config.'); window.API_CONFIG = window.API_CONFIG || { OPENROUTER_API_KEY: '', OPENAI_API_KEY: '', PEXELS_API_KEY: '' };"></script>
 </head>
 <body>
     <script>
@@ -64,31 +65,33 @@
                 </button>
             </div>
             <ul class="suggestions-list">
-                <li class="suggestion-item gmail-item">
-                    <img src="icons/Gmail.svg" alt="" class="suggestion-icon">
-                    <span class="suggestion-label">Inbox (84) - your.email@gmail.com - Gmail</span>
-                </li>
-                <li class="suggestions-heading">Your Recent Searches</li>
-                <li class="suggestion-item">
-                    <img src="icons/clock.svg" alt="" class="suggestion-icon">
-                    <span class="suggestion-label">hoka</span>
-                </li>
-                <li class="suggestion-item">
-                    <img src="icons/clock.svg" alt="" class="suggestion-icon">
-                    <span class="suggestion-label">13 in macbook air</span>
-                </li>
-                <li class="suggestion-item">
-                    <img src="icons/clock.svg" alt="" class="suggestion-icon">
-                    <span class="suggestion-label">coffee machines for sale</span>
-                </li>
-                <li class="suggestion-item">
-                    <img src="icons/clock.svg" alt="" class="suggestion-icon">
-                    <span class="suggestion-label">taylor swift</span>
-                </li>
-                <li class="suggestion-item">
-                    <img src="icons/clock.svg" alt="" class="suggestion-icon">
-                    <span class="suggestion-label">coffee grinder</span>
-                </li>
+                <div class="suggestions-content">
+                    <li class="suggestion-item gmail-item">
+                        <img src="icons/Gmail.svg" alt="" class="suggestion-icon">
+                        <span class="suggestion-label">Inbox (84) - your.email@gmail.com - Gmail</span>
+                    </li>
+                    <li class="suggestions-heading">Your Recent Searches</li>
+                    <li class="suggestion-item">
+                        <img src="icons/clock.svg" alt="" class="suggestion-icon">
+                        <span class="suggestion-label">hoka</span>
+                    </li>
+                    <li class="suggestion-item">
+                        <img src="icons/clock.svg" alt="" class="suggestion-icon">
+                        <span class="suggestion-label">13 in macbook air</span>
+                    </li>
+                    <li class="suggestion-item">
+                        <img src="icons/clock.svg" alt="" class="suggestion-icon">
+                        <span class="suggestion-label">coffee machines for sale</span>
+                    </li>
+                    <li class="suggestion-item">
+                        <img src="icons/clock.svg" alt="" class="suggestion-icon">
+                        <span class="suggestion-label">taylor swift</span>
+                    </li>
+                    <li class="suggestion-item">
+                        <img src="icons/clock.svg" alt="" class="suggestion-icon">
+                        <span class="suggestion-label">coffee grinder</span>
+                    </li>
+                </div>
             </ul>
         </div>
     </div>
