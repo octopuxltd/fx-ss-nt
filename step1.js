@@ -893,6 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionsList = document.querySelector('.suggestions-list');
     const suggestionItems = document.querySelectorAll('.suggestion-item');
     const searchSwitcherButton = document.querySelector('.search-switcher-button');
+    const searchClearButton = document.querySelector('.search-clear-button');
     
     // Click on search-box-wrapper focuses the input
     if (searchBoxWrapper && searchInput) {
@@ -1410,9 +1411,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // ===== CLEAR BUTTON =====
+    
+    function updateClearButton() {
+        if (searchClearButton && searchInput) {
+            if (searchInput.value.trim().length > 0) {
+                searchClearButton.style.display = 'flex';
+            } else {
+                searchClearButton.style.display = 'none';
+            }
+        }
+    }
+    
+    if (searchClearButton && searchInput) {
+        searchClearButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[CLEAR] Clear button clicked');
+            
+            searchInput.value = '';
+            searchClearButton.style.display = 'none';
+            
+            // Reset to default suggestions
+            const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
+            updateSuggestions(defaultSuggestions);
+            currentDisplayedSuggestions = defaultSuggestions;
+            
+            // Keep focus on input
+            searchInput.focus();
+        });
+    }
+    
     // ===== INPUT EVENT HANDLER =====
     if (searchInput) {
         searchInput.addEventListener('input', async (event) => {
+            updateClearButton();
             console.log('[INPUT] ===== INPUT EVENT STARTED =====');
             
             const value = (event.target.value || '').toString();
