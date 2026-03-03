@@ -236,16 +236,20 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 - [ ] Add skeleton CSS animations
 - [ ] Implement show/hide skeleton logic
 
-### 6.2 Search History
+### 6.2 Search History ✅
 **What it does:**
 - Stores searches in localStorage
 - Used for icon assignment (clock icon)
 - Affects suggestion sorting
 
 **Migration tasks:**
-- [ ] Implement saveToSearchHistory() function
-- [ ] Implement isInSearchHistory() function
-- [ ] Integrate with icon assignment
+- [x] Implement saveToSearchHistory() function
+- [x] Implement isInSearchHistory() function
+- [x] Integrate with icon assignment
+- [x] Add click handlers to save searches
+- [x] Implement moveToTopOfHistory() function
+
+**Status:** COMPLETE (Commit: pending)
 
 ### 6.3 Clear Button
 **What it does:**

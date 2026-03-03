@@ -1063,6 +1063,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    function saveToSearchHistory(text) {
+        try {
+            const history = getSearchHistory();
+            const textLower = text.toLowerCase();
+            
+            // Remove if already exists (case-insensitive)
+            const filteredHistory = history.filter(item => item.toLowerCase() !== textLower);
+            
+            // Add to top of list
+            filteredHistory.unshift(text);
+            
+            // Limit to 100 items
+            const limitedHistory = filteredHistory.slice(0, 100);
+            
+            localStorage.setItem('search_history', JSON.stringify(limitedHistory));
+            console.log('[HISTORY] Saved to history:', text);
+        } catch (error) {
+            console.error('[HISTORY] Error saving to search history:', error);
+        }
+    }
+    
+    function moveToTopOfHistory(text) {
+        try {
+            const history = getSearchHistory();
+            const textLower = text.toLowerCase();
+            const index = history.findIndex(item => item.toLowerCase() === textLower);
+            
+            if (index !== -1) {
+                // Remove from current position and add to top
+                history.splice(index, 1);
+                history.unshift(text);
+                localStorage.setItem('search_history', JSON.stringify(history));
+                console.log('[HISTORY] Moved to top of history:', text);
+            }
+        } catch (error) {
+            console.error('[HISTORY] Error moving in history:', error);
+        }
+    }
+    
     // ===== ICON ASSIGNMENT =====
     
     // Icon mappings for lightning icon (popular/trending suggestions)
@@ -1344,6 +1383,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 li.appendChild(icon);
                 li.appendChild(label);
+                
+                // Add click handler to save to history
+                li.addEventListener('click', () => {
+                    console.log('[CLICK] Suggestion clicked:', suggestion);
+                    saveToSearchHistory(suggestion);
+                });
                 
                 // Append to content
                 suggestionsContent.appendChild(li);
