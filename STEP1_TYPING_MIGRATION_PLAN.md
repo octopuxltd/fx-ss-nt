@@ -213,28 +213,29 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 
 **Migration tasks:**
 - [x] Implement input event listener
-- [x] Add query length branching logic (0 and 3+ chars)
+- [x] Add query length branching logic (all lengths)
 - [x] Integrate with all suggestion sources
 - [x] Handle empty field restoration
-- [ ] Add 1-2 character local lookup (deferred)
+- [x] Add 1-2 character local lookup
 
-**Status:** COMPLETE - Core functionality (Commit: 54a04b6)
-**Note:** 1-2 char local lookup skipped for now
+**Status:** COMPLETE (Commits: 54a04b6, 96478de)
 
 ---
 
 ## Section 6: Additional Features
 
-### 6.1 Skeleton Loaders
+### 6.1 Skeleton Loaders ✅
 **What it does:**
 - Shows placeholder suggestions while AI loads
 - Random widths (60-160px) for natural look
 - Pulse animation
 
 **Migration tasks:**
-- [ ] Create skeleton HTML template
-- [ ] Add skeleton CSS animations
-- [ ] Implement show/hide skeleton logic
+- [x] Create skeleton HTML template
+- [x] Add skeleton CSS animations
+- [x] Implement show/hide skeleton logic
+
+**Status:** COMPLETE (Commit: 4f8b84a) - Same as Section 3.2
 
 ### 6.2 Search History ✅
 **What it does:**
@@ -275,7 +276,7 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 5. ✅ Caching system (Section 1.2)
 6. ✅ AI API calls for search suggestions (Section 2.1)
 7. ✅ Skeleton loaders (Section 3.2)
-8. ⏸️ Filtering existing suggestions - DEFERRED
+8. ✅ Filtering existing suggestions (Section 3.2)
 
 ### Phase 3 (Polish) ✅ COMPLETE
 9. Firefox suggestions - API ready (Section 2.2, 2.3), rendering deferred
