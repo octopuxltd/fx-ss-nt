@@ -1038,6 +1038,66 @@ document.addEventListener('DOMContentLoaded', () => {
     // Track state for input handler
     let lastApiQuery = '';
     let currentDisplayedSuggestions = [];
+    let aiSuggestionsSet = new Set();
+    
+    // ===== SEARCH HISTORY =====
+    
+    function getSearchHistory() {
+        try {
+            const history = localStorage.getItem('search_history');
+            return history ? JSON.parse(history) : [];
+        } catch (error) {
+            console.error('[HISTORY] Error reading search history:', error);
+            return [];
+        }
+    }
+    
+    function isInSearchHistory(text) {
+        try {
+            const history = getSearchHistory();
+            const textLower = text.toLowerCase();
+            return history.some(item => item.toLowerCase() === textLower);
+        } catch (error) {
+            console.error('[HISTORY] Error checking search history:', error);
+            return false;
+        }
+    }
+    
+    // ===== ICON ASSIGNMENT =====
+    
+    // Icon mappings for lightning icon (popular/trending suggestions)
+    const iconMappings = {
+        lightning: ['taylor swift', 'trump', 'weather', 'youtube', 'news', 'spotify', 'amazon', 'netflix', 'tiktok'],
+        search: []
+    };
+    
+    function getIconForSuggestion(text) {
+        try {
+            const textLower = text.toLowerCase();
+            
+            // Check if in search history - gets clock icon
+            if (isInSearchHistory(text)) {
+                return 'icons/clock.svg';
+            }
+            
+            // AI suggestions check for special mappings
+            if (aiSuggestionsSet.has(textLower)) {
+                // Check if it's a lightning-worthy suggestion (popular/trending)
+                if (iconMappings.lightning && iconMappings.lightning.includes(textLower)) {
+                    return 'icons/lightning.svg';
+                } else if (iconMappings.search && iconMappings.search.includes(textLower)) {
+                    return 'icons/search.svg';
+                }
+                return 'icons/search.svg';
+            }
+            
+            // Default to clock icon
+            return 'icons/clock.svg';
+        } catch (error) {
+            console.error('[ICON] Error in getIconForSuggestion:', error);
+            return 'icons/search.svg';
+        }
+    }
     
     // ===== SKELETON LOADERS =====
     

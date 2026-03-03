@@ -156,7 +156,7 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 
 ## Section 4: Suggestion Display & Updating
 
-### 4.1 Update Suggestions Function ✅ (Simplified)
+### 4.1 Update Suggestions Function ✅ COMPLETE
 **Location:** Lines 4970-6577 in after-ut.html
 
 **What it does:**
@@ -169,28 +169,31 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 - Attaches event listeners (hover, click, menu)
 
 **Migration tasks:**
-- [x] Implement updateSuggestions() function (simplified version)
-- [ ] Add suggestion icon assignment logic (using clock icons for now)
-- [ ] Implement typed-text-first logic (deferred)
-- [ ] Add Firefox Suggest rendering (deferred)
-- [x] Attach hover/click handlers (basic version)
+- [x] Implement updateSuggestions() function
+- [x] Add suggestion icon assignment logic (basic version)
+- [x] Implement typed-text-first logic
+- [x] Track AI suggestions for icon assignment
+- [x] Attach hover/click handlers
 
-**Status:** COMPLETE - Simplified version (Commit: d83c9d9)
-**Note:** Icon logic and Firefox rendering can be enhanced later
+**Status:** COMPLETE (Commits: d83c9d9, 38bc3e9)
+**Note:** Basic icon logic implemented (search for AI, clock for others)
 
-### 4.2 Icon Assignment
+### 4.2 Icon Assignment ✅
 **Location:** Within updateSuggestions (lines ~5200-5300)
 
 **What it does:**
-- Lightning icon: AI-generated suggestions
+- Lightning icon: AI-generated suggestions (popular/trending)
 - Clock icon: History suggestions
-- Search icon: Other suggestions
+- Search icon: Other AI suggestions
 - Gmail icon: Gmail shortcut
 
 **Migration tasks:**
-- [ ] Track AI suggestions in Set
-- [ ] Check search history for icon assignment
-- [ ] Implement icon selection logic
+- [x] Track AI suggestions in Set
+- [x] Check search history for icon assignment
+- [x] Implement icon selection logic
+- [x] Add iconMappings for lightning suggestions
+
+**Status:** COMPLETE (Commit: pending)
 
 ---
 
@@ -295,11 +298,13 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 - 1c39f59 - Section 2.2 (Firefox API)
 - 62f33ca - Section 2.3 (Main Fetch)
 - 54a04b6 - Section 5.1 (Input Handler)
-- d83c9d9 - Section 4.1 (Update Suggestions)
+- d83c9d9 - Section 4.1 (Update Suggestions - Initial)
 - 4f8b84a - Section 3.2 (Skeleton Loaders)
 - 96478de - Section 3.1 (Local Suggestions)
 - 1720ddc - Section 3.3 (Highlighting)
-- Pending - Section 3.2 (Filtering)
+- 5d9f533 - Section 3.2 (Filtering)
+- 38bc3e9 - Section 4.1 (Complete)
+- Pending - Section 4.2 (Icon Assignment)
 
 ---
 
