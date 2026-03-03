@@ -1,6 +1,12 @@
 // Step 1 JavaScript
 
+console.log('[INIT] Script loading, checking reduced motion in localStorage');
+const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
+console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
+
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[DOM] DOMContentLoaded fired');
+    console.log('[DOM] Body has reduced-motion class?', document.body.classList.contains('reduced-motion'));
     const searchInput = document.querySelector('.search-input');
     const searchContainer = document.querySelector('.search-container');
     const firefoxLogo = document.querySelector('.firefox-logo');
@@ -8,13 +14,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchBoxWrapperOuter = document.querySelector('.search-box-wrapper-outer');
     const reducedMotionCheckbox = document.querySelector('.reduced-motion-checkbox');
     
+    // Click on search-box-wrapper focuses the input
+    if (searchBoxWrapper && searchInput) {
+        searchBoxWrapper.addEventListener('click', (e) => {
+            // Don't focus if clicking on a button
+            if (e.target.closest('.search-switcher-button') || e.target.closest('.search-button')) {
+                return;
+            }
+            searchInput.focus();
+        });
+    }
+    
+    // Handle search switcher button dropdown
+    const searchSwitcherButton = document.querySelector('.search-switcher-button');
+    if (searchSwitcherButton) {
+        searchSwitcherButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            searchSwitcherButton.classList.toggle('open');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-switcher-button')) {
+                searchSwitcherButton.classList.remove('open');
+            }
+        });
+    }
+    
     // Handle reduced motion checkbox
     if (reducedMotionCheckbox) {
         // Load saved state from localStorage
         const savedReducedMotion = localStorage.getItem('reduced_motion_enabled');
+        console.log('[CHECKBOX] Saved reduced motion:', savedReducedMotion);
         if (savedReducedMotion === 'true') {
+            console.log('[CHECKBOX] Adding reduced-motion class to body');
             reducedMotionCheckbox.checked = true;
             document.body.classList.add('reduced-motion');
+            console.log('[CHECKBOX] Body classes after add:', document.body.className);
         }
         
         reducedMotionCheckbox.addEventListener('change', (e) => {
@@ -33,9 +69,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchBoxWrapper && searchBoxWrapperOuter) {
             const wrapperHeight = searchBoxWrapper.offsetHeight;
             const borderRadius = wrapperHeight / 2;
-            
+            const gradientBorderRadius = borderRadius + 2;
+
             searchBoxWrapper.style.borderRadius = `${borderRadius}px`;
             searchBoxWrapperOuter.style.borderRadius = `${borderRadius}px`;
+            
+            // The ::before element needs extra radius since it extends outward by 2px
+            document.documentElement.style.setProperty('--outer-border-radius', `${gradientBorderRadius}px`);
+        }
+        
+        // Set search-switcher-button border radius to half its height
+        const searchSwitcherBtn = document.querySelector('.search-switcher-button');
+        if (searchSwitcherBtn) {
+            const buttonHeight = searchSwitcherBtn.offsetHeight;
+            const buttonBorderRadius = buttonHeight / 2;
+            document.documentElement.style.setProperty('--switcher-button-radius', `${buttonBorderRadius}px`);
+        }
+
+        // Set suggestion items border radius to half the first item's height
+        const firstSuggestionItem = document.querySelector('.suggestion-item');
+        if (firstSuggestionItem) {
+            const itemHeight = firstSuggestionItem.offsetHeight;
+            const itemBorderRadius = itemHeight / 2;
+            document.documentElement.style.setProperty('--suggestion-item-radius', `${itemBorderRadius}px`);
         }
     };
     
@@ -48,6 +104,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionsList = document.querySelector('.suggestions-list');
     const suggestionItems = document.querySelectorAll('.suggestion-item');
     let firstHoverDone = false;
+    let gradientAnimationId = null;
+    let gradientAngle = 0;
+    
+    // Animate gradient border
+    const animateGradient = () => {
+        gradientAngle = (gradientAngle + 1) % 360;
+        
+        let style = document.getElementById('gradient-animation-style');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'gradient-animation-style';
+        }
+        style.textContent = `.search-box-wrapper-outer:focus-within::before { background: conic-gradient(from ${gradientAngle}deg, #FF00FF 0%, #FFA500 50%, #FF00FF 100%); }`;
+        if (!document.head.contains(style)) {
+            document.head.appendChild(style);
+        }
+        gradientAnimationId = requestAnimationFrame(animateGradient);
+    };
     
     if (searchInput && searchContainer) {
         searchInput.addEventListener('focus', () => {
@@ -103,4 +177,77 @@ document.addEventListener('DOMContentLoaded', () => {
             searchInput.blur();
         }
     });
+    
+    // Maintain focus state when switching apps
+    let wasFocusedBeforeBlur = false;
+    let isRestoringFocus = false;
+    
+    if (searchInput && searchContainer) {
+        searchInput.addEventListener('focus', () => {
+            console.log('[FOCUS] Search input focused, isRestoring:', isRestoringFocus);
+            
+            if (isRestoringFocus) {
+                console.log('[FOCUS] This is a restore focus - keeping transitions suppressed');
+                // Don't add focused class, it's already there
+                isRestoringFocus = false;
+            }
+            
+            // Start gradient animation (unless reduced motion is enabled)
+            if (!gradientAnimationId && !document.body.classList.contains('reduced-motion')) {
+                animateGradient();
+            }
+        });
+        
+        searchInput.addEventListener('blur', () => {
+            console.log('[BLUR] Search input blurred');
+            wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
+            console.log('[BLUR] Was in focused state:', wasFocusedBeforeBlur);
+            
+            // Stop gradient animation
+            if (gradientAnimationId) {
+                cancelAnimationFrame(gradientAnimationId);
+                gradientAnimationId = null;
+            }
+            const existingStyle = document.getElementById('gradient-animation-style');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+        });
+        
+        window.addEventListener('blur', () => {
+            console.log('[WINDOW BLUR] Window lost focus');
+            if (document.activeElement === searchInput) {
+                wasFocusedBeforeBlur = true;
+                console.log('[WINDOW BLUR] Search was focused, remembering state');
+            }
+        });
+        
+        window.addEventListener('focus', () => {
+            console.log('[WINDOW FOCUS] Window gained focus, was focused before?', wasFocusedBeforeBlur);
+            
+            if (wasFocusedBeforeBlur) {
+                console.log('[WINDOW FOCUS] Suppressing transitions and restoring focus');
+                isRestoringFocus = true;
+                
+                // Suppress transitions
+                searchContainer.style.transition = 'none';
+                if (suggestionsList) suggestionsList.style.transition = 'none';
+                const logo = document.querySelector('.firefox-logo');
+                if (logo) logo.style.transition = 'none';
+                
+                // Restore focus
+                searchInput.focus();
+                
+                // Re-enable transitions after state is restored
+                setTimeout(() => {
+                    console.log('[WINDOW FOCUS] Re-enabling transitions');
+                    searchContainer.style.transition = '';
+                    if (suggestionsList) suggestionsList.style.transition = '';
+                    if (logo) logo.style.transition = '';
+                }, 100);
+                
+                wasFocusedBeforeBlur = false;
+            }
+        });
+    }
 });

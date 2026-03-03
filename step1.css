@@ -5,6 +5,19 @@
  * preference by not applying transitions.
  */
 
+:root {
+    /* Color Tokens */
+    --color-pale-grey: #F3F4F6;
+    --color-suggestion-hover: #EBE7FF;
+    --color-text-primary: #1F2933;
+    --color-text-secondary: #6B7280;
+    --color-placeholder: rgba(0, 0, 0, 0.6);
+    --color-white: white;
+    --color-white-35: rgba(255, 255, 255, 0.35);
+    --color-white-66: rgba(255, 255, 255, 0.66);
+    --color-white-90: rgba(255, 255, 255, 0.9);
+}
+
 * {
     box-sizing: border-box;
 }
@@ -48,7 +61,7 @@ body:has(.search-input:focus) .firefox-logo {
     transform: translateX(-50%);
     width: 57.6%;
     max-width: 576px;
-    transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.42s ease-out;
+    transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.25s ease-out;
 }
 
 .search-container.focused {
@@ -69,12 +82,31 @@ body.reduced-motion .search-container.focused {
     display: flex;
     flex-direction: column;
     background-color: rgba(255, 255, 255, 0.35);
-    border-radius: 50px;
+    border-radius: 15px;
     padding: 0;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     position: relative;
     z-index: 10;
     transition: box-shadow 0.25s ease-out, background-color 0.25s linear;
+    isolation: isolate;
+}
+
+.search-box-wrapper-outer::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: var(--outer-border-radius, 52px);
+    padding: 2px;
+    background: conic-gradient(from 0deg, #FF00FF 0%, #FFA500 50%, #FF00FF 100%);
+    -webkit-mask: 
+        linear-gradient(#fff 0 0) content-box, 
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s linear;
+    z-index: -1;
 }
 
 .search-box-wrapper-outer:focus-within {
@@ -82,15 +114,20 @@ body.reduced-motion .search-container.focused {
     background-color: rgba(255, 255, 255, 0.66);
 }
 
+.search-box-wrapper-outer:focus-within::before {
+    opacity: 1;
+}
+
 .search-box-wrapper {
     display: flex;
     align-items: center;
     gap: 10px;
     background-color: rgba(255, 255, 255, 0.35);
-    border-radius: 50px;
-    padding: 10px 10px 10px 10px;
+    border-radius: 15px;
+    padding: 8px 10px 8px 10px;
     width: 100%;
     transition: background-color 0.25s linear;
+    cursor: text;
 }
 
 .search-box-wrapper:focus-within {
@@ -103,9 +140,71 @@ body.reduced-motion .search-container.focused {
     align-items: center;
     gap: 4px;
     background-color: white;
-    border-radius: 999px;
+    border-radius: var(--switcher-button-radius, 15px);
     padding: 6px 8px 6px 6px;
-    transition: background-color 0.25s linear;
+    transition: background-color 0.25s linear, border-radius 0s 0.25s;
+    cursor: pointer;
+    position: relative;
+}
+
+.search-switcher-button.open {
+    border-radius: var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) 0 0;
+    transition: background-color 0.25s linear, border-radius 0s 0s;
+}
+
+.search-switcher-dropdown {
+    position: absolute;
+    top: calc(100%);
+    left: 0;
+    background-color: #F3F4F6;
+    border-radius: 0 var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px);
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 0;
+    overflow: hidden;
+    z-index: 100;
+    transition: max-height 0.25s ease-out;
+}
+
+.dropdown-content {
+    padding: 8px 0;
+}
+
+.search-switcher-button.open .search-switcher-dropdown {
+    max-height: 600px;
+}
+
+.dropdown-label {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background-color: rgba(0, 0, 0, 0.1);
+    margin: 4px 0;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background-color: var(--color-suggestion-hover);
+}
+
+.dropdown-icon {
+    width: 16px;
+    height: 16px;
+    opacity: 0.7;
 }
 
 .search-box-wrapper:focus-within .search-switcher-button {
@@ -125,7 +224,6 @@ body.reduced-motion .search-container.focused {
     padding: 0;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background-color 0.25s linear;
 }
 
 .search-button:hover {
@@ -136,6 +234,13 @@ body.reduced-motion .search-container.focused {
     width: 20px;
     height: 20px;
     stroke: rgba(0, 0, 0, 0.6);
+    position: relative;
+    left: -3px;
+    transition: left 0.2s ease-out;
+}
+
+.search-button:hover svg {
+    left: 0;
 }
 
 .google-icon {
@@ -150,6 +255,12 @@ body.reduced-motion .search-container.focused {
     opacity: 1;
     position: relative;
     top: 1px;
+    transition: transform 0.25s ease-out;
+    transform-origin: center center;
+}
+
+.search-switcher-button.open .chevron {
+    transform: rotate(-180deg);
 }
 
 .search-input {
@@ -188,9 +299,14 @@ body.reduced-motion .search-container.focused {
     cursor: pointer;
 }
 
+body.reduced-motion .search-container {
+    width: 69.12%;
+    max-width: 691.2px;
+}
+
 body.reduced-motion .search-container.focused {
-    width: 57.6%;
-    max-width: 576px;
+    width: 69.12%;
+    max-width: 691.2px;
 }
 
 body.reduced-motion:has(.search-input:focus) .firefox-logo {
@@ -214,7 +330,15 @@ body.reduced-motion .search-box-wrapper {
 }
 
 body.reduced-motion .search-switcher-button {
-    transition: background-color 0s 0s;
+    transition: background-color 0s 0s, border-radius 0s 0s;
+}
+
+body.reduced-motion .search-switcher-dropdown {
+    transition: none;
+}
+
+body.reduced-motion .chevron {
+    transition: none;
 }
 
 body.reduced-motion .firefox-logo {
@@ -233,11 +357,13 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
     max-height: 0;
     overflow: hidden;
     transition: max-height 0.25s ease-out, padding 0.25s ease-out;
+    list-style: none;
+    margin: 0;
 }
 
 .search-box-wrapper-outer:focus-within .suggestions-list {
     max-height: 600px;
-    padding: 0 10px 10px 10px;
+    padding: 10px 10px 10px 10px;
     transition: max-height 0.42s ease-out, padding 0.42s ease-out;
 }
 
@@ -246,12 +372,12 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
     align-items: center;
     gap: 12px;
     padding: 9px 10px;
-    border-radius: 10px;
+    border-radius: var(--suggestion-item-radius, 15px);
     cursor: pointer;
 }
 
 .suggestion-item:hover {
-    background-color: rgba(235, 231, 255, 0.8);
+    background-color: var(--color-suggestion-hover);
 }
 
 .suggestions-list.first-hover-fade .suggestion-item {
@@ -269,8 +395,7 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
 
 .suggestions-heading {
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: normal;
     color: #6B7280;
     padding: 8px 10px 4px 10px;
     font-weight: 500;
