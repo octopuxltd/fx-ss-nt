@@ -1093,6 +1093,55 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('[SKELETON] Removed', skeletons.length, 'skeletons');
     }
     
+    // ===== HIGHLIGHTING MATCHING TEXT =====
+    
+    function highlightMatchingText(text, searchValue, isTypedText, isGmailSuggestion) {
+        if (!searchValue || isGmailSuggestion) {
+            return text;
+        }
+        
+        // For typed text, make it bold
+        if (isTypedText) {
+            return `<strong>${text}</strong>`;
+        }
+        
+        const searchNoSpaces = searchValue.replace(/\s/g, '');
+        const textLower = text.toLowerCase();
+        const textNoSpaces = textLower.replace(/\s/g, '');
+        const matchIndex = textNoSpaces.indexOf(searchNoSpaces);
+        
+        if (matchIndex === -1) {
+            return text;
+        }
+        
+        // Find the actual position in the original text
+        let charCount = 0;
+        let startIndex = -1;
+        let endIndex = -1;
+        
+        for (let i = 0; i < text.length; i++) {
+            if (text[i] !== ' ') {
+                if (charCount === matchIndex) {
+                    startIndex = i;
+                }
+                if (charCount === matchIndex + searchNoSpaces.length - 1) {
+                    endIndex = i + 1;
+                    break;
+                }
+                charCount++;
+            }
+        }
+        
+        if (startIndex !== -1 && endIndex !== -1) {
+            const before = text.substring(0, startIndex);
+            const match = text.substring(startIndex, endIndex);
+            const after = text.substring(endIndex);
+            return `${before}<strong>${match}</strong>${after}`;
+        }
+        
+        return text;
+    }
+    
     // ===== UPDATE SUGGESTIONS FUNCTION =====
     
     function updateSuggestions(suggestions) {
@@ -1143,10 +1192,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 icon.alt = '';
                 icon.className = 'suggestion-icon';
                 
-                // Add label
+                // Add label with highlighting
                 const label = document.createElement('span');
                 label.className = 'suggestion-label';
-                label.textContent = suggestion;
+                
+                // Apply highlighting if there's a search value
+                const isGmailSuggestion = false; // Gmail item is separate
+                const highlightedText = highlightMatchingText(suggestion, searchValueTrimmed, false, isGmailSuggestion);
+                label.innerHTML = highlightedText;
                 
                 li.appendChild(icon);
                 li.appendChild(label);
