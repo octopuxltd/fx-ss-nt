@@ -463,6 +463,270 @@ async function fetchSearchSuggestions(query, maxRetries = 2) {
     return firstResponsePromise;
 }
 
+// ===== FIREFOX SUGGESTIONS API =====
+
+async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) {
+    const modelName = MODEL_MAP[AI_PROVIDER] || AI_PROVIDER;
+    console.log(`[API-FIREFOX] ===== Starting Firefox suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}, model: ${modelName}) =====`);
+    
+    if (delayMs > 0) {
+        console.log(`[API-FIREFOX] Waiting ${delayMs}ms before attempt ${attemptNumber}...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    const startTime = Date.now();
+    console.log(`[API-FIREFOX] Making request attempt ${attemptNumber} for query: "${query}"`);
+    
+    // Determine which API to use based on provider
+    const isOpenRouter = AI_PROVIDER.startsWith('openrouter-');
+    const isOpenAI = AI_PROVIDER === 'openai';
+    
+    // Check API key based on provider
+    if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
+        console.error('[API-FIREFOX] ✗ Claude API key not set');
+        throw new Error('Claude API key not set');
+    } else if (AI_PROVIDER.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
+        console.error('[API-FIREFOX] ✗ OpenRouter API key not set');
+        throw new Error('OpenRouter API key not set');
+    } else if (isOpenAI && !OPENAI_API_KEY) {
+        console.error('[API-FIREFOX] ✗ OpenAI API key not set');
+        throw new Error('OpenAI API key not set');
+    }
+    console.log('[API-FIREFOX] ✓ API key is set');
+    
+    const systemPrompt = 'You are a browser history suggestion generator. Generate 4 Firefox suggestions (page titles from simulated browser history related to the query). Each Firefox suggestion should be an object with "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). IMPORTANT: All 4 suggestions must come from different websites (different domains). Return ONLY a JSON array of 4 objects, each with title, url, description. No explanations, just the JSON array.';
+    const userPrompt = `Generate 4 Firefox suggestions related to "${query}". Each Firefox suggestion should be an object with: "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). IMPORTANT: All 4 suggestions must come from different websites (different domains). Return only a JSON array.`;
+    
+    let response, data, content;
+    
+    if (isOpenAI) {
+        // OpenAI API request
+        const requestBody = {
+            model: 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 300
+        };
+        
+        response = await fetch(OPENAI_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const requestDuration = Date.now() - startTime;
+        console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
+            status: response.status,
+            duration: `${requestDuration}ms`
+        });
+        
+        if (!response.ok) {
+            let errorText;
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = 'Could not read error response';
+            }
+            const error = new Error(`API error: ${response.status} - ${errorText}`);
+            error.hasResponse = true;
+            throw error;
+        }
+        
+        data = await response.json();
+        content = data.choices?.[0]?.message?.content?.trim();
+    } else if (AI_PROVIDER === 'claude') {
+        // Claude API request
+        const requestBody = {
+            model: 'claude-3-5-haiku-20241022',
+            max_tokens: 300,
+            temperature: 0.7,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }]
+        };
+        
+        response = await fetch(CLAUDE_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': CLAUDE_API_KEY,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const requestDuration = Date.now() - startTime;
+        console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
+            status: response.status,
+            duration: `${requestDuration}ms`
+        });
+        
+        if (!response.ok) {
+            let errorText;
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = 'Could not read error response';
+            }
+            const error = new Error(`API error: ${response.status} - ${errorText}`);
+            error.hasResponse = true;
+            throw error;
+        }
+        
+        data = await response.json();
+        content = data.content?.[0]?.text?.trim();
+    } else {
+        // OpenRouter API request
+        const requestBody = {
+            model: MODEL_MAP[AI_PROVIDER] || 'anthropic/claude-3-haiku',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 300
+        };
+        
+        response = await fetch(OPENROUTER_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'Search Suggestions'
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const requestDuration = Date.now() - startTime;
+        console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
+            status: response.status,
+            duration: `${requestDuration}ms`
+        });
+        
+        if (!response.ok) {
+            let errorText;
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = 'Could not read error response';
+            }
+            const error = new Error(`API error: ${response.status} - ${errorText}`);
+            error.hasResponse = true;
+            throw error;
+        }
+        
+        data = await response.json();
+        content = data.choices[0]?.message?.content?.trim();
+    }
+    
+    if (!content) {
+        const error = new Error('Empty content in response');
+        error.hasResponse = true;
+        throw error;
+    }
+    
+    // Parse JSON response
+    let firefoxSuggestions = [];
+    try {
+        const jsonArrayMatch = content.match(/\[.*\]/s);
+        if (jsonArrayMatch) {
+            const parsed = JSON.parse(jsonArrayMatch[0]);
+            if (Array.isArray(parsed)) {
+                firefoxSuggestions = parsed;
+            }
+        } else {
+            const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonObjectMatch) {
+                const parsed = JSON.parse(jsonObjectMatch[0]);
+                if (parsed.firefoxSuggestions && Array.isArray(parsed.firefoxSuggestions)) {
+                    firefoxSuggestions = parsed.firefoxSuggestions;
+                }
+                if (parsed.historyTitles && Array.isArray(parsed.historyTitles)) {
+                    firefoxSuggestions = parsed.historyTitles;
+                }
+            }
+        }
+        
+        console.log(`[API-FIREFOX] Parsed ${firefoxSuggestions.length} Firefox suggestions from response`);
+    } catch (parseError) {
+        console.error('[API-FIREFOX] Parse error:', parseError);
+    }
+    
+    // Filter and validate Firefox suggestions
+    const validFirefoxSuggestions = firefoxSuggestions
+        .filter(item => {
+            if (typeof item === 'object' && item.title) {
+                return item.title && item.title.length > 0;
+            }
+            return false;
+        })
+        .slice(0, 4);
+    
+    console.log(`[API-FIREFOX] Attempt ${attemptNumber} succeeded with ${validFirefoxSuggestions.length} valid Firefox suggestions`);
+    
+    return validFirefoxSuggestions;
+}
+
+async function fetchFirefoxSuggestions(query, maxRetries = 2) {
+    let resolveFirst = null;
+    let rejectFirst = null;
+    const firstResponsePromise = new Promise((resolve, reject) => {
+        resolveFirst = resolve;
+        rejectFirst = reject;
+    });
+
+    const errors = [];
+    const totalAttempts = maxRetries + 1;
+    let completed = false;
+    let finishedAttempts = 0;
+
+    function handleAttemptResult(attemptNumber, result, error) {
+        if (completed) return;
+
+        if (error) {
+            finishedAttempts++;
+            console.log(`[API-FIREFOX] Attempt ${attemptNumber} failed:`, error.message);
+            errors.push({ attempt: attemptNumber, error });
+
+            if (finishedAttempts === totalAttempts) {
+                completed = true;
+                rejectFirst(new Error('All Firefox attempts failed'));
+            }
+            return;
+        }
+
+        completed = true;
+        resolveFirst({ result, attempt: attemptNumber });
+    }
+
+    // Attempt 1 immediately, then additional attempts after 2s and 4s
+    makeFirefoxSuggestionsRequest(query, 1, 0)
+        .then(result => handleAttemptResult(1, result, null))
+        .catch(error => handleAttemptResult(1, null, error));
+
+    setTimeout(() => {
+        if (completed) return;
+        makeFirefoxSuggestionsRequest(query, 2, 0)
+            .then(result => handleAttemptResult(2, result, null))
+            .catch(error => handleAttemptResult(2, null, error));
+    }, 2000);
+
+    setTimeout(() => {
+        if (completed) return;
+        makeFirefoxSuggestionsRequest(query, 3, 0)
+            .then(result => handleAttemptResult(3, result, null))
+            .catch(error => handleAttemptResult(3, null, error));
+    }, 4000);
+
+    return firstResponsePromise;
+}
+
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
