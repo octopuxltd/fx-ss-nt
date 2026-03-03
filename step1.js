@@ -1039,6 +1039,81 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastApiQuery = '';
     let currentDisplayedSuggestions = [];
     
+    // ===== UPDATE SUGGESTIONS FUNCTION =====
+    
+    function updateSuggestions(suggestions) {
+        console.log('[UPDATE] ===== updateSuggestions CALLED =====');
+        console.log('[UPDATE] Suggestions array:', suggestions);
+        console.log('[UPDATE] Suggestions count:', suggestions ? suggestions.length : 0);
+        
+        if (!suggestionsList) {
+            console.log('[UPDATE] ✗ suggestionsList not found, returning early');
+            return;
+        }
+        
+        console.log('[UPDATE] ✓ suggestionsList exists, proceeding...');
+        
+        // Get the suggestions content container
+        const suggestionsContent = suggestionsList.querySelector('.suggestions-content');
+        if (!suggestionsContent) {
+            console.log('[UPDATE] ✗ suggestions-content not found');
+            return;
+        }
+        
+        // Store current displayed suggestions
+        currentDisplayedSuggestions = Array.isArray(suggestions) ? [...suggestions] : [];
+        
+        // Get current search value for the typed text
+        const searchValue = searchInput ? searchInput.value : '';
+        const searchValueTrimmed = searchValue.trim();
+        
+        // Clear existing suggestion items (keep Gmail and heading)
+        const existingItems = suggestionsContent.querySelectorAll('.suggestion-item:not(.gmail-item)');
+        existingItems.forEach(item => item.remove());
+        
+        // Add suggestions
+        if (suggestions && suggestions.length > 0) {
+            console.log('[UPDATE] Adding', suggestions.length, 'suggestions');
+            
+            suggestions.forEach((suggestion, index) => {
+                // Create suggestion item
+                const li = document.createElement('li');
+                li.className = 'suggestion-item';
+                
+                // Add icon (clock for now, will be enhanced later)
+                const icon = document.createElement('img');
+                icon.src = 'icons/clock.svg';
+                icon.alt = '';
+                icon.className = 'suggestion-icon';
+                
+                // Add label
+                const label = document.createElement('span');
+                label.className = 'suggestion-label';
+                label.textContent = suggestion;
+                
+                li.appendChild(icon);
+                li.appendChild(label);
+                
+                // Append to content
+                suggestionsContent.appendChild(li);
+            });
+            
+            console.log('[UPDATE] Added', suggestions.length, 'suggestion items to list');
+        } else {
+            console.log('[UPDATE] No suggestions to add');
+        }
+        
+        // Re-attach event listeners for first hover
+        suggestionItems.forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                if (!firstHoverDone && suggestionsList.classList.contains('first-hover-fade')) {
+                    firstHoverDone = true;
+                    suggestionsList.classList.remove('first-hover-fade');
+                }
+            }, { once: false });
+        });
+    }
+    
     // ===== INPUT EVENT HANDLER =====
     if (searchInput) {
         searchInput.addEventListener('input', async (event) => {
@@ -1052,8 +1127,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (valueLower.length === 0) {
                 console.log('[INPUT] Empty field, showing default suggestions');
                 const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
-                // TODO: Call updateSuggestions when implemented
-                console.log('[INPUT] Would update with default suggestions:', defaultSuggestions);
+                updateSuggestions(defaultSuggestions);
                 currentDisplayedSuggestions = defaultSuggestions;
                 return;
             }
@@ -1094,11 +1168,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         if (aiSuggestions && Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
                             console.log('[AI] Updating with', aiSuggestions.length, 'AI suggestions');
-                            // TODO: Call updateSuggestions when implemented
-                            console.log('[AI] Would update suggestions with:', aiSuggestions);
+                            updateSuggestions(aiSuggestions);
                             currentDisplayedSuggestions = aiSuggestions;
                         } else {
                             console.log('[AI] No AI suggestions returned');
+                            updateSuggestions([]);
                         }
                     } else {
                         console.log('[AI] Query changed during API call, ignoring results');
