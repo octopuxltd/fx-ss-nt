@@ -1039,6 +1039,60 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastApiQuery = '';
     let currentDisplayedSuggestions = [];
     
+    // ===== SKELETON LOADERS =====
+    
+    // Fixed skeleton widths for each row position (1-10)
+    const skeletonWidths = [
+        Math.floor(Math.random() * 100) + 60,
+        Math.floor(Math.random() * 100) + 60,
+        Math.floor(Math.random() * 100) + 60,
+        Math.floor(Math.random() * 100) + 60,
+        Math.floor(Math.random() * 100) + 60,
+        Math.floor(Math.random() * 100) + 60,
+        Math.floor(Math.random() * 100) + 60,
+        Math.floor(Math.random() * 100) + 60,
+        Math.floor(Math.random() * 100) + 60,
+        Math.floor(Math.random() * 100) + 60
+    ];
+    
+    function showSkeletonLoaders(count = 3) {
+        console.log('[SKELETON] showSkeletonLoaders called, count:', count);
+        
+        const suggestionsContent = suggestionsList?.querySelector('.suggestions-content');
+        if (!suggestionsContent) {
+            console.log('[SKELETON] suggestions-content not found');
+            return;
+        }
+        
+        // Get current number of real suggestions
+        const existingItems = suggestionsContent.querySelectorAll('.suggestion-item:not(.skeleton)');
+        const startRowIndex = existingItems.length;
+        
+        // Generate skeletons with fixed widths
+        const skeletonHTML = Array.from({ length: count }, (_, i) => {
+            const rowPosition = startRowIndex + i;
+            const width = skeletonWidths[rowPosition] || skeletonWidths[rowPosition % skeletonWidths.length] || 80;
+            return `
+                <li class="suggestion-item skeleton" data-index="-1">
+                    <div class="suggestion-icon skeleton-icon"></div>
+                    <span class="skeleton-text" style="width: ${width}px;"></span>
+                </li>
+            `;
+        }).join('');
+        
+        console.log('[SKELETON] Adding', count, 'skeletons starting at row', startRowIndex);
+        suggestionsContent.insertAdjacentHTML('beforeend', skeletonHTML);
+    }
+    
+    function removeSkeletons() {
+        const suggestionsContent = suggestionsList?.querySelector('.suggestions-content');
+        if (!suggestionsContent) return;
+        
+        const skeletons = suggestionsContent.querySelectorAll('.skeleton');
+        skeletons.forEach(skeleton => skeleton.remove());
+        console.log('[SKELETON] Removed', skeletons.length, 'skeletons');
+    }
+    
     // ===== UPDATE SUGGESTIONS FUNCTION =====
     
     function updateSuggestions(suggestions) {
@@ -1052,6 +1106,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         console.log('[UPDATE] ✓ suggestionsList exists, proceeding...');
+        
+        // Remove any existing skeletons
+        removeSkeletons();
         
         // Get the suggestions content container
         const suggestionsContent = suggestionsList.querySelector('.suggestions-content');
@@ -1068,7 +1125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchValueTrimmed = searchValue.trim();
         
         // Clear existing suggestion items (keep Gmail and heading)
-        const existingItems = suggestionsContent.querySelectorAll('.suggestion-item:not(.gmail-item)');
+        const existingItems = suggestionsContent.querySelectorAll('.suggestion-item:not(.gmail-item):not(.skeleton)');
         existingItems.forEach(item => item.remove());
         
         // Add suggestions
@@ -1146,8 +1203,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('[INPUT] Would filter existing suggestions for query:', valueLower);
                 } else {
                     // Show skeletons while waiting for AI
-                    console.log('[INPUT] No existing suggestions, would show skeletons');
-                    // TODO: Call showSkeletonLoaders when implemented
+                    console.log('[INPUT] No existing suggestions, showing skeletons');
+                    updateSuggestions([]);
+                    showSkeletonLoaders(9);
                 }
                 
                 // Make API call
