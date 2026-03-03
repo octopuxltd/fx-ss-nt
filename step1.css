@@ -1,0 +1,253 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    min-height: 100vh;
+    background-image: url('bg.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+.firefox-logo {
+    width: 96px;
+    height: auto;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, calc(-50% - 120px));
+    opacity: 1;
+    /* transition: opacity 0.1s linear 0.25s; */
+}
+
+/* body:has(.search-input:focus) .firefox-logo {
+    opacity: 0;
+    transition: opacity 0.1s linear 0s;
+} */
+
+.search-container {
+    position: fixed;
+    top: calc(50% - 60px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 57.6%;
+    max-width: 576px;
+    transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.42s ease-out;
+}
+
+.search-container.focused {
+    width: 69.12%;
+    max-width: 691.2px;
+    transform: translate(-50%, -55px);
+}
+
+body.reduced-motion .search-container {
+    transition: width 0.35s ease-out, max-width 0.35s ease-out;
+}
+
+body.reduced-motion .search-container.focused {
+    transform: translateX(-50%);
+}
+
+.search-box-wrapper-outer {
+    display: flex;
+    flex-direction: column;
+    background-color: rgba(255, 255, 255, 0.35);
+    border-radius: 50px;
+    padding: 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 10;
+    transition: box-shadow 0.25s ease-out, background-color 0.25s linear;
+}
+
+.search-box-wrapper-outer:focus-within {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    background-color: rgba(255, 255, 255, 0.66);
+}
+
+.search-box-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: rgba(255, 255, 255, 0.35);
+    border-radius: 50px;
+    padding: 10px 10px 10px 10px;
+    width: 100%;
+    transition: background-color 0.25s linear;
+}
+
+.search-box-wrapper:focus-within {
+    background-color: rgba(255, 255, 255, 1);
+    transition: background-color 0s 0s;
+}
+
+.search-switcher-button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background-color: white;
+    border-radius: 999px;
+    padding: 6px 8px 6px 6px;
+    transition: background-color 0.25s linear;
+}
+
+.search-box-wrapper:focus-within .search-switcher-button {
+    background-color: #F3F4F6;
+    transition: background-color 0s 0s;
+}
+
+.google-icon {
+    width: 16px;
+    height: 16px;
+    margin: 2px;
+}
+
+.chevron {
+    width: 10px;
+    height: 10px;
+    opacity: 1;
+    position: relative;
+    top: 1px;
+}
+
+.search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 18px;
+    color: #1F2933;
+    font-family: Arial, sans-serif;
+    font-weight: normal;
+}
+
+.search-input::placeholder {
+    color: rgba(0, 0, 0, 0.6);
+}
+
+.reduced-motion-control {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 100;
+}
+
+.reduced-motion-control label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    user-select: none;
+}
+
+.reduced-motion-checkbox {
+    cursor: pointer;
+}
+
+body.reduced-motion .search-container.focused {
+    width: 57.6%;
+    max-width: 576px;
+}
+
+body.reduced-motion:has(.search-input:focus) .firefox-logo {
+    opacity: 1;
+}
+
+body.reduced-motion .suggestions-list {
+    transition: none;
+}
+
+body.reduced-motion .search-box-wrapper-outer:focus-within .suggestions-list {
+    transition: none;
+}
+
+body.reduced-motion .suggestions-list.first-hover-fade .suggestion-item {
+    transition: none;
+}
+
+body.reduced-motion .search-box-wrapper {
+    transition: background-color 0s 0s;
+}
+
+body.reduced-motion .search-switcher-button {
+    transition: background-color 0s 0s;
+}
+
+.suggestions-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0 10px 0 10px;
+    position: relative;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease-out, padding 0.25s ease-out;
+}
+
+.search-box-wrapper-outer:focus-within .suggestions-list {
+    max-height: 600px;
+    padding: 0 10px 10px 10px;
+    transition: max-height 0.42s ease-out, padding 0.42s ease-out;
+}
+
+.suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.suggestion-item:hover {
+    background-color: rgba(235, 231, 255, 0.8);
+}
+
+.suggestions-list.first-hover-fade .suggestion-item {
+    transition: background-color 0.1s linear;
+}
+
+.suggestions-list.transitioning .suggestion-item:hover {
+    background-color: transparent;
+}
+
+.suggestion-item.gmail-item {
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.suggestions-heading {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6B7280;
+    padding: 8px 10px 4px 10px;
+    font-weight: 500;
+}
+
+.suggestion-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.65;
+}
+
+.suggestion-item.gmail-item .suggestion-icon {
+    opacity: 1;
+}
+
+.suggestion-label {
+    font-size: 14px;
+    color: #1F2933;
+    text-transform: lowercase;
+}
+
+.suggestion-item.gmail-item .suggestion-label {
+    text-transform: none;
+}

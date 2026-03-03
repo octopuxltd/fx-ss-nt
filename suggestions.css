@@ -10,8 +10,8 @@
 }
 
 .top-overlay.is-focused .search-suggestions-preview {
-    max-height: 1000px;
-    height: auto;
+    max-height: fit-content;
+    height: fit-content;
     opacity: 1;
 }
 
@@ -52,6 +52,10 @@
 
 .ut-page .search-suggestions-preview-column-container {
     padding: 0 9px 6px;
+}
+
+.search-suggestions-preview-column-container.has-typed {
+    padding-bottom: 11px;
 }
 
 .search-suggestions-preview-list {

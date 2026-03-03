@@ -107,15 +107,15 @@
         }
 
         .top-overlay.is-scrolled.is-focused {
-            background-color: rgba(255, 255, 255, 0.95);
+            background-color: transparent;
         }
 
         .top-overlay.is-focused {
             height: 85vh;
-            background-color: rgba(255, 255, 255, 0.85);
-            border-bottom-color: rgba(0, 0, 0, 0.05);
-            border-bottom-left-radius: 50px;
-            border-bottom-right-radius: 50px;
+            background-color: transparent;
+            border-bottom-color: transparent;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
             overflow-y: auto;
             scrollbar-width: none; /* Firefox */
             -ms-overflow-style: none; /* IE and Edge */
@@ -183,6 +183,7 @@
 
         body.test-spacing-active .firefox-logo {
             top: 142px;
+            transition: none;
         }
 
         body.test-spacing-active .search-wrapper {
@@ -209,10 +210,11 @@
         .firefox-logo {
             position: fixed;
             top: 32px;
-            left: 34px;
+            left: 50%;
+            transform: translateX(-50%);
             transition: top 0.3s ease;
-            width: 48px;
-            height: 48px;
+            width: 96px;
+            height: auto;
             z-index: 11;
         }
 
@@ -719,7 +721,7 @@
             border-bottom-left-radius: 0;
             border-bottom-right-radius: 0;
             height: 100vh;
-            background-color: #EFF6FF;
+            background-color: transparent;
         }
 
         .after-ut-page .search-wrapper.expanded {
@@ -1269,22 +1271,6 @@
             z-index: 1;
         }
 
-        .bottom-overlay {
-            position: fixed;
-            top: 130px;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0);
-            pointer-events: none;
-            z-index: 5;
-            margin-top: -50px;
-            transition: top 0.6s ease, background-color 0.6s ease;
-        }
-
-        .bottom-overlay.no-transition {
-            transition: none !important;
-        }
 
         .bottom-content {
             width: 100%;
@@ -2700,10 +2686,9 @@
 </head>
 <body class="ut-page after-ut-page">
     <section class="pane pane--bottom">
-        <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
             <div class="winter-olympics-background"></div>
-            <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
+            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="Firefox" class="firefox-logo">
             <button class="close-button" type="button" aria-label="Close search panel">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2871,40 +2856,6 @@
             </div>
         </div>
         <div class="bottom-content">
-                <div class="quick-tiles" aria-hidden="true">
-                    <a href="https://www.google.com" target="_blank" class="quick-tiles__tile">
-                        <img src="favicons/Google.svg" alt="" class="quick-tiles__favicon">
-                        <span class="quick-tiles__label">Google</span>
-                    </a>
-                    <a href="https://www.youtube.com" target="_blank" class="quick-tiles__tile">
-                        <img src="favicons/YouTube.svg" alt="" class="quick-tiles__favicon">
-                        <span class="quick-tiles__label">YouTube</span>
-                    </a>
-                    <a href="https://www.instagram.com" target="_blank" class="quick-tiles__tile">
-                        <img src="favicons/Instagram.svg" alt="" class="quick-tiles__favicon">
-                        <span class="quick-tiles__label">Instagram</span>
-                    </a>
-                    <a href="https://www.reddit.com" target="_blank" class="quick-tiles__tile">
-                        <img src="favicons/Reddit.svg" alt="" class="quick-tiles__favicon">
-                        <span class="quick-tiles__label">Reddit</span>
-                    </a>
-                    <a href="https://twitter.com" target="_blank" class="quick-tiles__tile">
-                        <img src="favicons/Twitter.svg" alt="" class="quick-tiles__favicon">
-                        <span class="quick-tiles__label">Twitter</span>
-                    </a>
-                    <a href="https://www.wikipedia.org" target="_blank" class="quick-tiles__tile">
-                        <img src="favicons/Wikipedia.svg" alt="" class="quick-tiles__favicon">
-                        <span class="quick-tiles__label">Wikipedia</span>
-                    </a>
-                    <a href="https://www.facebook.com" target="_blank" class="quick-tiles__tile">
-                        <img src="favicons/Facebook.svg" alt="" class="quick-tiles__favicon">
-                        <span class="quick-tiles__label">Facebook</span>
-                    </a>
-                    <a href="https://slack.com" target="_blank" class="quick-tiles__tile">
-                        <img src="favicons/Slack.svg" alt="" class="quick-tiles__favicon">
-                        <span class="quick-tiles__label">Slack</span>
-                    </a>
-                </div>
             <div class="footer-links">
             </div>
         </div>
@@ -3208,6 +3159,38 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Position search wrapper and Firefox logo vertically centered
+            const positionSearchWrapper = (enableTransition = true) => {
+                const viewportHeight = window.innerHeight;
+                const searchWrapper = document.querySelector('.search-wrapper');
+                const firefoxLogo = document.querySelector('.firefox-logo');
+                
+                if (searchWrapper) {
+                    const halfwayPoint = (viewportHeight / 2) - 50;
+                    if (enableTransition) {
+                        searchWrapper.style.transition = 'top 0.35s ease-in-out, width 0.35s ease-in-out';
+                    } else {
+                        searchWrapper.style.transition = 'none';
+                    }
+                    searchWrapper.style.top = `${halfwayPoint}px`;
+                    
+                    // Re-enable transitions after initial positioning
+                    if (!enableTransition) {
+                        setTimeout(() => {
+                            searchWrapper.style.transition = 'top 0.35s ease-in-out, width 0.35s ease-in-out';
+                        }, 50);
+                    }
+                }
+                
+                if (firefoxLogo) {
+                    const logoHalfwayPoint = (viewportHeight / 2) - 180;
+                    firefoxLogo.style.top = `${logoHalfwayPoint}px`;
+                }
+            };
+            
+            positionSearchWrapper(false); // Disable transition on initial load
+            window.addEventListener('resize', () => positionSearchWrapper(true));
+            
             // Wait a tick to ensure all scripts have executed and productSections is available
             setTimeout(() => {
                 console.log('[RENDER] DOMContentLoaded - checking productSections:', window.productSections);
@@ -3219,7 +3202,6 @@
         });
 
         const topOverlay = document.querySelector('.top-overlay');
-        const bottomOverlay = document.querySelector('.bottom-overlay');
         const searchWrapperElement = document.querySelector('.search-wrapper');
         const searchDescriptionElement = document.querySelector('.search-description');
         const searchSuggestionsPreviewElement = document.querySelector('.search-suggestions-preview');
@@ -3316,10 +3298,10 @@
          const OVERLAY_STATE_KEY = 'overlayExpanded';
          const OVERLAY_RESTORE_KEY = 'overlayRestorePending';
  
-         const elementsForTransitionControl = [topOverlay, bottomOverlay, searchWrapperElement, searchDescriptionElement, searchSuggestionsPreviewElement];
+         const elementsForTransitionControl = [topOverlay, searchWrapperElement, searchDescriptionElement, searchSuggestionsPreviewElement];
 
         const setOverlayState = (expanded, { suppressTransition = false } = {}) => {
-            if (!topOverlay || !bottomOverlay || !searchWrapperElement || !searchDescriptionElement || !searchSuggestionsPreviewElement) {
+            if (!topOverlay || !searchWrapperElement || !searchDescriptionElement || !searchSuggestionsPreviewElement) {
                 return;
             }
 
@@ -3331,9 +3313,6 @@
                 topOverlay.classList.add('is-focused');
                 searchWrapperElement.classList.add('expanded');
                 searchDescriptionElement.classList.add('expanded');
-                bottomOverlay.style.top = '85vh';
-                bottomOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-                bottomOverlay.style.pointerEvents = 'auto';
             } else {
                 topOverlay.classList.remove('is-focused');
                 topOverlay.classList.remove('winter-olympics');
@@ -3381,7 +3360,7 @@
             }
         };
 
-        if (topOverlay && bottomOverlay) {
+        if (topOverlay) {
             const handleOverlayBackground = () => {
                 const scrolled = window.scrollY > 0;
                 topOverlay.classList.toggle('is-scrolled', scrolled);
@@ -3422,9 +3401,20 @@
             }
         };
 
-        if (topOverlay && searchBoxElement && bottomOverlay) {
+        if (topOverlay && searchBoxElement) {
             searchBoxElement.addEventListener('focus', () => {
                 setOverlayState(true);
+                
+                // Slide search wrapper up to cover Firefox logo
+                const searchWrapper = document.querySelector('.search-wrapper');
+                const firefoxLogo = document.querySelector('.firefox-logo');
+                if (searchWrapper && firefoxLogo) {
+                    searchWrapper.style.transition = 'top 0.35s ease-in-out, width 0.35s ease-in-out';
+                    const logoRect = firefoxLogo.getBoundingClientRect();
+                    const newTop = logoRect.top;
+                    searchWrapper.style.top = `${newTop}px`;
+                }
+                
                 // Check if search box contains "winter ol" and apply background/schedule
                 const currentValue = searchBoxElement.value.toLowerCase().trim();
                 if (currentValue === 'winter ol' || currentValue.startsWith('winter ol')) {
@@ -3445,6 +3435,15 @@
             });
 
             searchBoxElement.addEventListener('blur', () => {
+                // Slide search wrapper back to original position
+                const viewportHeight = window.innerHeight;
+                const searchWrapper = document.querySelector('.search-wrapper');
+                if (searchWrapper) {
+                    searchWrapper.style.transition = 'top 0.35s ease-in-out, width 0.35s ease-in-out';
+                    const originalTop = (viewportHeight / 2) - 50;
+                    searchWrapper.style.top = `${originalTop}px`;
+                }
+                
                 const existingStyle = document.getElementById('gradient-animation-style');
                 if (existingStyle) {
                     existingStyle.remove();
@@ -3600,14 +3599,6 @@
             });
         }
 
-        if (bottomOverlay && searchBoxElement) {
-            bottomOverlay.addEventListener('click', () => {
-                if (topOverlay && topOverlay.classList.contains('is-focused')) {
-                    setOverlayState(false);
-                    searchBoxElement.blur();
-                }
-            });
-        }
 
         // Close overlay when clicking outside search wrapper (but not on product cards or demo panel)
         if (topOverlay && searchBoxElement) {
@@ -3654,7 +3645,7 @@
             }
         });
 
-        if (topOverlay && bottomOverlay) {
+        if (topOverlay) {
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'hidden') {
                     sessionStorage.setItem(OVERLAY_STATE_KEY, topOverlay.classList.contains('is-focused') ? 'true' : 'false');
@@ -4947,7 +4938,7 @@
             if (previewContainer) {
                 previewContainer.style.height = '';
                 previewContainer.style.minHeight = '';
-                previewContainer.style.maxHeight = '1000px';
+                previewContainer.style.maxHeight = 'fit-content';
                 console.log('[UPDATE] Reset preview container height to auto');
             }
             
@@ -5814,7 +5805,7 @@
                                             // Remove any explicit height to let it recalculate
                                             previewContainer.style.height = '';
                                             previewContainer.style.minHeight = '';
-                                            previewContainer.style.maxHeight = '1000px';
+                                            previewContainer.style.maxHeight = 'fit-content';
                                             
                                             // Force reflow
                                             previewContainer.offsetHeight;
@@ -8520,6 +8511,16 @@
                 const valueLower = value.toLowerCase().trim();
                 console.log('[INPUT] Raw value:', value, '| Trimmed lower:', valueLower, '| Length:', valueLower.length);
                 
+                // Add class to suggestions container when user has typed
+                const suggestionsColumnContainer = document.querySelector('.search-suggestions-preview-column-container');
+                if (suggestionsColumnContainer) {
+                    if (valueLower.length > 0) {
+                        suggestionsColumnContainer.classList.add('has-typed');
+                    } else {
+                        suggestionsColumnContainer.classList.remove('has-typed');
+                    }
+                }
+                
                 // Immediately close carrot when deleting text or overwriting a selection
                 if (suggestionsContainer && suggestionsContainer.classList.contains('show-carrot') && shouldCloseCarrotOnInput) {
                     console.log('[INPUT] Delete or overwrite detected, closing carrot immediately');
@@ -8992,7 +8993,6 @@
                 if (topOverlay.classList.contains('is-focused')) {
                     return;
                 }
-                bottomOverlay.style.top = `${Math.max(130, 130 + bottomPane.scrollTop)}px`;
             };
             bottomPane.addEventListener('scroll', handleOverlayPosition, { passive: true });
         }
