@@ -1142,6 +1142,54 @@ document.addEventListener('DOMContentLoaded', () => {
         return text;
     }
     
+    // ===== FILTERING EXISTING SUGGESTIONS =====
+    
+    function filterExistingSuggestions(query) {
+        if (!suggestionsList || currentDisplayedSuggestions.length === 0) {
+            console.log('[FILTER] No suggestions to filter');
+            return [];
+        }
+        
+        const queryLower = query.toLowerCase();
+        const queryLength = queryLower.length;
+        
+        console.log('[FILTER] Filtering', currentDisplayedSuggestions.length, 'suggestions for query:', queryLower);
+        
+        // Filter suggestions that match the query
+        const filteredSuggestions = currentDisplayedSuggestions.filter(suggestion => {
+            const suggestionLower = suggestion.toLowerCase();
+            if (suggestionLower.length < queryLength) {
+                return false;
+            }
+            // Check if suggestion starts with query or any word starts with query
+            if (suggestionLower.startsWith(queryLower)) {
+                return true;
+            }
+            const words = suggestionLower.split(/\s+/);
+            return words.some(word => word.startsWith(queryLower));
+        });
+        
+        console.log('[FILTER] Filtered to', filteredSuggestions.length, 'matching suggestions');
+        
+        // Update the display
+        if (filteredSuggestions.length > 0) {
+            updateSuggestions(filteredSuggestions);
+            
+            // Add skeletons to fill up to 9 total
+            const skeletonCount = Math.max(0, 9 - filteredSuggestions.length);
+            if (skeletonCount > 0) {
+                console.log('[FILTER] Adding', skeletonCount, 'skeletons to fill list');
+                showSkeletonLoaders(skeletonCount);
+            }
+        } else {
+            console.log('[FILTER] No matching suggestions, showing all skeletons');
+            updateSuggestions([]);
+            showSkeletonLoaders(9);
+        }
+        
+        return filteredSuggestions;
+    }
+    
     // ===== UPDATE SUGGESTIONS FUNCTION =====
     
     function updateSuggestions(suggestions) {
@@ -1294,8 +1342,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[INPUT] Has existing suggestions:', hasExistingSuggestions, 'count:', currentDisplayedSuggestions.length);
                 
                 if (hasExistingSuggestions) {
-                    // TODO: Filter existing suggestions when filterExistingSuggestions is implemented
-                    console.log('[INPUT] Would filter existing suggestions for query:', valueLower);
+                    // Filter existing suggestions
+                    console.log('[INPUT] Filtering existing suggestions for query:', valueLower);
+                    const filteredSuggestions = filterExistingSuggestions(valueLower);
+                    console.log('[INPUT] Filtered suggestions count:', filteredSuggestions.length);
                 } else {
                     // Show skeletons while waiting for AI
                     console.log('[INPUT] No existing suggestions, showing skeletons');

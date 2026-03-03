@@ -120,22 +120,23 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 
 **Status:** COMPLETE (Commit: 96478de)
 
-### 3.2 Skeleton Loaders ✅
-**Location:** Lines 4670-4708 in after-ut.html
+### 3.2 Filtering & Skeleton Loaders ✅
+**Location:** Lines 4670-4708, 4759-4968 in after-ut.html
 
 **What it does:**
 - Shows placeholder suggestions while waiting for AI
 - Random widths (60-160px) for natural look
 - Pulse animation
 - Removes when real suggestions arrive
+- Filters existing suggestions as you continue typing
 
 **Migration tasks:**
 - [x] Add skeleton loader system
 - [x] Implement showSkeletonLoaders() function
 - [x] Implement removeSkeletons() function
-- [ ] Implement filterExistingSuggestions() function (deferred)
+- [x] Implement filterExistingSuggestions() function
 
-**Status:** COMPLETE (Commit: pending)
+**Status:** COMPLETE (Commits: 4f8b84a, pending)
 
 ### 3.3 Highlighting Matching Text ✅
 **Location:** Lines 4716-4757 in after-ut.html
@@ -297,7 +298,8 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 - d83c9d9 - Section 4.1 (Update Suggestions)
 - 4f8b84a - Section 3.2 (Skeleton Loaders)
 - 96478de - Section 3.1 (Local Suggestions)
-- Pending - Section 3.3 (Highlighting)
+- 1720ddc - Section 3.3 (Highlighting)
+- Pending - Section 3.2 (Filtering)
 
 ---
 
