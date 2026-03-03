@@ -1225,18 +1225,52 @@ document.addEventListener('DOMContentLoaded', () => {
         const existingItems = suggestionsContent.querySelectorAll('.suggestion-item:not(.gmail-item):not(.skeleton)');
         existingItems.forEach(item => item.remove());
         
+        // Prepend typed text as first suggestion if there's text
+        const typedTextInSuggestions = suggestions.some(s => s.toLowerCase() === searchValueTrimmed.toLowerCase());
+        const suggestionsToShow = searchValueTrimmed && !typedTextInSuggestions
+            ? [searchValueTrimmed, ...suggestions]
+            : suggestions;
+        
+        console.log('[UPDATE] Typed text:', searchValueTrimmed, '| In suggestions?', typedTextInSuggestions);
+        console.log('[UPDATE] Total suggestions to show:', suggestionsToShow.length);
+        
+        // Get Firefox suggestions metadata
+        const firefoxSuggestions = suggestions._firefoxSuggestions || [];
+        console.log('[UPDATE] Firefox suggestions:', firefoxSuggestions.length);
+        
+        // Track AI suggestions for icon assignment
+        if (suggestions.length > 0) {
+            suggestions.forEach(suggestion => {
+                const suggestionLower = suggestion.toLowerCase();
+                // Don't track if it's a Firefox suggestion
+                const isFirefox = firefoxSuggestions.some(fs => 
+                    (typeof fs === 'string' && fs.toLowerCase() === suggestionLower) ||
+                    (typeof fs === 'object' && fs.title && fs.title.toLowerCase() === suggestionLower)
+                );
+                if (!isFirefox) {
+                    aiSuggestionsSet.add(suggestionLower);
+                }
+            });
+        }
+        
         // Add suggestions
-        if (suggestions && suggestions.length > 0) {
-            console.log('[UPDATE] Adding', suggestions.length, 'suggestions');
+        if (suggestionsToShow && suggestionsToShow.length > 0) {
+            console.log('[UPDATE] Adding', suggestionsToShow.length, 'suggestions');
             
-            suggestions.forEach((suggestion, index) => {
+            suggestionsToShow.forEach((suggestion, index) => {
+                const isTypedText = index === 0 && searchValueTrimmed && suggestion.toLowerCase() === searchValueTrimmed.toLowerCase();
+                
                 // Create suggestion item
                 const li = document.createElement('li');
                 li.className = 'suggestion-item';
+                if (isTypedText) {
+                    li.setAttribute('data-typed-text', 'true');
+                }
                 
-                // Add icon (clock for now, will be enhanced later)
+                // Get appropriate icon
+                const iconSrc = getIconForSuggestion(suggestion);
                 const icon = document.createElement('img');
-                icon.src = 'icons/clock.svg';
+                icon.src = iconSrc;
                 icon.alt = '';
                 icon.className = 'suggestion-icon';
                 
@@ -1244,9 +1278,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const label = document.createElement('span');
                 label.className = 'suggestion-label';
                 
-                // Apply highlighting if there's a search value
                 const isGmailSuggestion = false; // Gmail item is separate
-                const highlightedText = highlightMatchingText(suggestion, searchValueTrimmed, false, isGmailSuggestion);
+                const highlightedText = highlightMatchingText(suggestion, searchValueTrimmed, isTypedText, isGmailSuggestion);
                 label.innerHTML = highlightedText;
                 
                 li.appendChild(icon);
@@ -1256,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 suggestionsContent.appendChild(li);
             });
             
-            console.log('[UPDATE] Added', suggestions.length, 'suggestion items to list');
+            console.log('[UPDATE] Added', suggestionsToShow.length, 'suggestion items to list');
         } else {
             console.log('[UPDATE] No suggestions to add');
         }
