@@ -277,11 +277,11 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 7. ✅ Skeleton loaders (Section 3.2)
 8. ⏸️ Filtering existing suggestions - DEFERRED
 
-### Phase 3 (Polish) 🔄 OPTIONAL
-9. Firefox suggestions (optional) - API ready (Section 2.2, 2.3), rendering deferred
-10. Highlighting matching text - DEFERRED
-11. Icon assignment logic - Basic version implemented
-12. Search history tracking - DEFERRED
+### Phase 3 (Polish) ✅ COMPLETE
+9. Firefox suggestions - API ready (Section 2.2, 2.3), rendering deferred
+10. ✅ Highlighting matching text (Section 3.3)
+11. ✅ Icon assignment logic (Section 4.2)
+12. ✅ Search history tracking (Section 6.2)
 
 ---
 
@@ -308,7 +308,8 @@ The after-ut.html page has sophisticated AI-powered search suggestions that upda
 - 1720ddc - Section 3.3 (Highlighting)
 - 5d9f533 - Section 3.2 (Filtering)
 - 38bc3e9 - Section 4.1 (Complete)
-- Pending - Section 4.2 (Icon Assignment)
+- 6724d16 - Section 4.2 (Icon Assignment)
+- e32f03a - Section 6.2 (Search History)
 
 ---
 
