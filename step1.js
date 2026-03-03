@@ -727,6 +727,156 @@ async function fetchFirefoxSuggestions(query, maxRetries = 2) {
     return firstResponsePromise;
 }
 
+// ===== MAIN FETCH FUNCTION =====
+
+async function fetchAISuggestions(query, retryCount = 0) {
+    const maxRetries = 2;
+    console.log('[API] Starting fetchAISuggestions for query:', query, retryCount > 0 ? `(retry ${retryCount}/${maxRetries})` : '');
+    
+    // Check cache first (only on first attempt, not retries)
+    let cachedSuggestions = null;
+    let cachedFirefoxData = null;
+    let cachedSelectedFirefoxSuggestions = null;
+    let cachedFirefoxCountToShow = null;
+    
+    if (retryCount === 0) {
+        cachedSuggestions = getCachedSuggestions(query);
+        cachedFirefoxData = getCachedFirefoxSuggestions(query);
+        if (cachedFirefoxData) {
+            cachedSelectedFirefoxSuggestions = cachedFirefoxData.selectedSuggestions;
+            cachedFirefoxCountToShow = cachedFirefoxData.countToShow;
+        }
+        if (cachedSuggestions && cachedSuggestions.length > 0) {
+            console.log('[API] Found', cachedSuggestions.length, 'cached suggestions');
+        }
+        if (cachedSelectedFirefoxSuggestions && cachedSelectedFirefoxSuggestions.length > 0) {
+            console.log('[API-FIREFOX] Found', cachedSelectedFirefoxSuggestions.length, 'cached Firefox suggestions | Count to show:', cachedFirefoxCountToShow);
+        }
+    }
+    
+    // Make both requests concurrently
+    const searchPromise = fetchSearchSuggestions(query, maxRetries);
+    const firefoxPromise = cachedSelectedFirefoxSuggestions && cachedSelectedFirefoxSuggestions.length > 0
+        ? Promise.resolve(cachedSelectedFirefoxSuggestions)
+        : fetchFirefoxSuggestions(query, maxRetries);
+    
+    try {
+        const [searchResults, firefoxResults] = await Promise.allSettled([searchPromise, firefoxPromise]);
+        
+        let finalSuggestions = [];
+        let firefoxSuggestions = [];
+        
+        // Handle search suggestions
+        if (searchResults.status === 'fulfilled') {
+            finalSuggestions = searchResults.value.result || searchResults.value;
+            if (finalSuggestions.length > 0) {
+                cacheSuggestions(query, finalSuggestions);
+            }
+        } else {
+            console.error('[API] Search suggestions failed:', searchResults.reason);
+        }
+        
+        // Handle Firefox suggestions
+        if (firefoxResults.status === 'fulfilled') {
+            firefoxSuggestions = firefoxResults.value.result || firefoxResults.value || [];
+            console.log('[API] Received', firefoxSuggestions.length, 'Firefox suggestions');
+        } else {
+            console.error('[API] Firefox suggestions failed:', firefoxResults.reason);
+            firefoxSuggestions = [];
+        }
+        
+        // Merge cached suggestions with AI results
+        if (cachedSuggestions && cachedSuggestions.length > 0) {
+            if (cachedSuggestions.length >= 9) {
+                finalSuggestions = [...cachedSuggestions];
+                console.log('[API] Using', cachedSuggestions.length, 'cached suggestions as base');
+            } else {
+                console.log('[API] Merging', cachedSuggestions.length, 'cached with', finalSuggestions.length, 'AI suggestions');
+                const combined = [...cachedSuggestions];
+                finalSuggestions.forEach(aiSuggestion => {
+                    const aiLower = aiSuggestion.toLowerCase();
+                    if (!combined.some(s => s.toLowerCase() === aiLower)) {
+                        combined.push(aiSuggestion);
+                    }
+                });
+                finalSuggestions = combined.slice(0, 9);
+            }
+        }
+        
+        // Process Firefox suggestions - replace last N suggestions
+        let selectedFirefoxSuggestions = [];
+        if (firefoxSuggestions && firefoxSuggestions.length > 0) {
+            console.log('[API] Processing', firefoxSuggestions.length, 'Firefox suggestions');
+            
+            if (cachedSelectedFirefoxSuggestions && cachedSelectedFirefoxSuggestions.length > 0) {
+                // Use cached Firefox suggestions
+                selectedFirefoxSuggestions = cachedSelectedFirefoxSuggestions;
+                const numToReplace = cachedFirefoxCountToShow || selectedFirefoxSuggestions.length;
+                
+                const firefoxTitles = selectedFirefoxSuggestions.map(item => item.title);
+                const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
+                const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
+                
+                if (finalSuggestions.length === 0) {
+                    finalSuggestions = firefoxTitles.slice(0, 9);
+                } else {
+                    finalSuggestions = [
+                        ...finalSuggestions.slice(0, keepCount),
+                        ...firefoxTitles
+                    ].slice(0, 9);
+                }
+            } else {
+                // Generate new Firefox suggestions
+                const validFirefoxSuggestions = firefoxSuggestions
+                    .filter(item => typeof item === 'object' && item.title && item.title.length > 0)
+                    .slice(0, 4);
+                
+                if (validFirefoxSuggestions.length > 0) {
+                    const maxCount = Math.min(validFirefoxSuggestions.length, 4);
+                    const minCount = Math.min(2, maxCount);
+                    const numToReplace = minCount === maxCount ? maxCount : Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+                    
+                    selectedFirefoxSuggestions = validFirefoxSuggestions.slice(0, numToReplace);
+                    const firefoxTitles = selectedFirefoxSuggestions.map(item => item.title);
+                    
+                    const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
+                    const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
+                    
+                    if (finalSuggestions.length === 0) {
+                        finalSuggestions = firefoxTitles.slice(0, 9);
+                    } else {
+                        finalSuggestions = [
+                            ...finalSuggestions.slice(0, keepCount),
+                            ...firefoxTitles
+                        ].slice(0, 9);
+                    }
+                    
+                    // Cache the selected Firefox suggestions
+                    cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, numToReplace);
+                }
+            }
+        }
+        
+        // Store Firefox suggestions metadata
+        finalSuggestions._firefoxSuggestions = selectedFirefoxSuggestions;
+        
+        // Fallback to cached suggestions if API failed
+        if (finalSuggestions.length === 0 && cachedSuggestions && cachedSuggestions.length > 0) {
+            console.log('[API] API failed, returning', cachedSuggestions.length, 'cached suggestions as fallback');
+            return cachedSuggestions;
+        }
+        
+        return finalSuggestions;
+    } catch (error) {
+        console.error('[API] Error fetching suggestions:', error);
+        if (cachedSuggestions && cachedSuggestions.length > 0) {
+            console.log('[API] API failed, returning', cachedSuggestions.length, 'cached suggestions as fallback');
+            return cachedSuggestions;
+        }
+        return [];
+    }
+}
+
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
