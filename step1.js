@@ -1189,6 +1189,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
+            // For 1 character - look for all 2-char keys starting with that character
+            if (valueLower.length === 1) {
+                console.log('[INPUT] Branch: length === 1');
+                const matchingSuggestions = [];
+                
+                if (typeof suggestionWords !== 'undefined' && suggestionWords) {
+                    console.log('[INPUT] suggestionWords available, searching keys...');
+                    Object.keys(suggestionWords).forEach(key => {
+                        if (key.startsWith(valueLower)) {
+                            matchingSuggestions.push(...suggestionWords[key]);
+                        }
+                    });
+                    console.log('[INPUT] Found', matchingSuggestions.length, 'matching suggestions');
+                    
+                    if (matchingSuggestions.length > 0) {
+                        const suggestionsToShow = matchingSuggestions.slice(0, 9);
+                        console.log('[INPUT] Updating with local suggestions:', suggestionsToShow);
+                        updateSuggestions(suggestionsToShow);
+                        currentDisplayedSuggestions = suggestionsToShow;
+                        return;
+                    }
+                } else {
+                    console.log('[INPUT] suggestionWords not available');
+                }
+            }
+            
+            // For 2 characters - use exact match
+            if (valueLower.length === 2) {
+                console.log('[INPUT] Branch: length === 2');
+                
+                if (typeof suggestionWords !== 'undefined' && suggestionWords && suggestionWords[valueLower]) {
+                    console.log('[INPUT] Found exact match for', valueLower);
+                    const suggestionsToShow = suggestionWords[valueLower];
+                    updateSuggestions(suggestionsToShow);
+                    currentDisplayedSuggestions = suggestionsToShow;
+                    console.log('[INPUT] Returning early from length === 2 branch');
+                    return;
+                } else {
+                    console.log('[INPUT] No exact match found for:', valueLower);
+                }
+            }
+            
             // For 3+ characters, fetch from AI
             if (valueLower.length >= 3) {
                 console.log('[INPUT] ===== Branch: length >= 3 =====');
