@@ -22,6 +22,147 @@ console.log('[API CONFIG] OpenRouter key present:', !!OPENROUTER_API_KEY);
 console.log('[API CONFIG] OpenAI key present:', !!OPENAI_API_KEY);
 console.log('[API CONFIG] Claude key present:', !!CLAUDE_API_KEY);
 
+// ===== CACHING SYSTEM =====
+
+// LocalStorage cache functions for AI suggestions
+function getCacheKey(query) {
+    return `ai_suggestions_${query.toLowerCase().trim()}`;
+}
+
+function getCachedSuggestions(query) {
+    try {
+        const cacheKey = getCacheKey(query);
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            // Check if cache is still valid (24 hours)
+            const cacheAge = Date.now() - parsed.timestamp;
+            const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+            if (cacheAge < maxAge) {
+                console.log('[CACHE] Found cached suggestions:', parsed.suggestions);
+                // Filter cached suggestions to only include word-start matches
+                const queryLower = query.toLowerCase();
+                const filtered = parsed.suggestions.filter(suggestion => {
+                    const suggestionLower = suggestion.toLowerCase();
+                    // Check if suggestion starts with query
+                    if (suggestionLower.startsWith(queryLower)) {
+                        return true;
+                    }
+                    // Check if any word in the suggestion starts with the query
+                    const words = suggestionLower.split(/\s+/);
+                    return words.some(word => word.startsWith(queryLower));
+                });
+                console.log('[CACHE] Filtered', parsed.suggestions.length, 'cached suggestions to', filtered.length, 'matching query');
+                return filtered.length > 0 ? filtered : null;
+            } else {
+                console.log('[CACHE] Cache expired, removing old cache');
+                localStorage.removeItem(cacheKey);
+            }
+        }
+    } catch (error) {
+        console.error('[CACHE] Error reading from cache:', error);
+    }
+    return null;
+}
+
+function cacheSuggestions(query, suggestions) {
+    try {
+        const cacheKey = getCacheKey(query);
+        const cacheData = {
+            suggestions: suggestions,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        console.log('[CACHE] Cached', suggestions.length, 'suggestions for:', query);
+    } catch (error) {
+        console.error('[CACHE] Error caching suggestions:', error);
+        // localStorage might be full, try to clear old entries
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('ai_suggestions_')) {
+                    keysToRemove.push(key);
+                }
+            }
+            // Remove oldest 10 entries if cache is full
+            if (keysToRemove.length > 50) {
+                keysToRemove.slice(0, 10).forEach(key => localStorage.removeItem(key));
+                // Retry caching
+                localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            }
+        } catch (e) {
+            console.error('[CACHE] Could not clear cache:', e);
+        }
+    }
+}
+
+// Firefox suggestions cache functions
+function getFirefoxCacheKey(query) {
+    return `firefox_suggestions_${query.toLowerCase().trim()}`;
+}
+
+function getCachedFirefoxSuggestions(query) {
+    try {
+        const cacheKey = getFirefoxCacheKey(query);
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            // Check if cache is still valid (24 hours)
+            const cacheAge = Date.now() - parsed.timestamp;
+            const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+            if (cacheAge < maxAge) {
+                console.log('[CACHE-FIREFOX] Found cached Firefox suggestions:', parsed.selectedSuggestions ? parsed.selectedSuggestions.length : parsed.suggestions?.length, '| Count to show:', parsed.countToShow);
+                // Return both selected suggestions and count to show
+                return {
+                    selectedSuggestions: parsed.selectedSuggestions || parsed.suggestions,
+                    countToShow: parsed.countToShow || (parsed.selectedSuggestions ? parsed.selectedSuggestions.length : parsed.suggestions?.length || 0)
+                };
+            } else {
+                console.log('[CACHE-FIREFOX] Cache expired, removing old cache');
+                localStorage.removeItem(cacheKey);
+            }
+        }
+    } catch (error) {
+        console.error('[CACHE-FIREFOX] Error reading from cache:', error);
+    }
+    return null;
+}
+
+function cacheFirefoxSuggestions(query, selectedSuggestions, countToShow) {
+    try {
+        if (!selectedSuggestions || selectedSuggestions.length === 0) {
+            return; // Don't cache empty results
+        }
+        const cacheKey = getFirefoxCacheKey(query);
+        const cacheData = {
+            selectedSuggestions: selectedSuggestions,
+            countToShow: countToShow || selectedSuggestions.length,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        console.log('[CACHE-FIREFOX] Cached', selectedSuggestions.length, 'Firefox suggestions for:', query, '| Count to show:', countToShow);
+    } catch (error) {
+        console.error('[CACHE-FIREFOX] Error caching Firefox suggestions:', error);
+        // localStorage might be full, try to clear old entries
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('firefox_suggestions_')) {
+                    keysToRemove.push(key);
+                }
+            }
+            // Remove oldest entries first (simple approach: remove first 10)
+            keysToRemove.slice(0, 10).forEach(key => localStorage.removeItem(key));
+            // Retry caching
+            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        } catch (e) {
+            console.error('[CACHE-FIREFOX] Could not clear cache:', e);
+        }
+    }
+}
+
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
