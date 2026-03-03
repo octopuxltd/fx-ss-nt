@@ -163,6 +163,306 @@ function cacheFirefoxSuggestions(query, selectedSuggestions, countToShow) {
     }
 }
 
+// ===== AI SEARCH SUGGESTIONS API =====
+
+async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, providerOverride = null) {
+    const provider = providerOverride || AI_PROVIDER;
+    const modelName = MODEL_MAP[provider] || provider;
+    console.log(`[API-SEARCH] ===== Starting search suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${provider}, model: ${modelName}) =====`);
+    
+    if (delayMs > 0) {
+        console.log(`[API-SEARCH] Waiting ${delayMs}ms before attempt ${attemptNumber}...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    const startTime = Date.now();
+    console.log(`[API-SEARCH] Making request attempt ${attemptNumber} for query: "${query}"`);
+    
+    // Determine which API to use based on provider
+    const isOpenRouter = provider.startsWith('openrouter-');
+    const isOpenAI = provider === 'openai';
+    
+    // Check API key based on provider
+    if (provider === 'claude' && !CLAUDE_API_KEY) {
+        console.error('[API-SEARCH] ✗ Claude API key not set');
+        throw new Error('Claude API key not set');
+    } else if (provider.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
+        console.error('[API-SEARCH] ✗ OpenRouter API key not set');
+        throw new Error('OpenRouter API key not set');
+    } else if (isOpenAI && !OPENAI_API_KEY) {
+        console.error('[API-SEARCH] ✗ OpenAI API key not set');
+        throw new Error('OpenAI API key not set');
+    }
+    console.log('[API-SEARCH] ✓ API key is set');
+    
+    const systemPrompt = 'You are a search suggestion generator. Generate 10 popular search queries where at least one word starts with the user\'s query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of 10 search queries, sorted by popularity. No explanations, just the JSON array.';
+    const userPrompt = `Generate 10 popular search suggestions where at least one word starts with: "${query}". Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`;
+    
+    const promptTimestamp = new Date().toISOString();
+    console.log(`[API-SEARCH] [${promptTimestamp}] Prompt sent to ${provider}:`, userPrompt);
+    
+    let response, data, content;
+    
+    if (isOpenAI) {
+        // OpenAI API request
+        const requestBody = {
+            model: MODEL_MAP[provider],
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 200
+        };
+        
+        response = await fetch(OPENAI_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const requestDuration = Date.now() - startTime;
+        console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
+            status: response.status,
+            duration: `${requestDuration}ms`
+        });
+        
+        if (!response.ok) {
+            let errorText;
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = 'Could not read error response';
+            }
+            const error = new Error(`API error: ${response.status} - ${errorText}`);
+            error.hasResponse = true;
+            throw error;
+        }
+        
+        data = await response.json();
+        content = data.choices?.[0]?.message?.content?.trim();
+    } else if (AI_PROVIDER === 'claude') {
+        // Claude API request
+        const requestBody = {
+            model: 'claude-3-5-haiku-20241022',
+            max_tokens: 200,
+            temperature: 0.7,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }]
+        };
+        
+        response = await fetch(CLAUDE_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': CLAUDE_API_KEY,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const requestDuration = Date.now() - startTime;
+        console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
+            status: response.status,
+            duration: `${requestDuration}ms`
+        });
+        
+        if (!response.ok) {
+            let errorText;
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = 'Could not read error response';
+            }
+            const error = new Error(`API error: ${response.status} - ${errorText}`);
+            error.hasResponse = true;
+            throw error;
+        }
+        
+        data = await response.json();
+        content = data.content?.[0]?.text?.trim();
+    } else {
+        // OpenRouter API request
+        const requestBody = {
+            model: MODEL_MAP[provider] || 'anthropic/claude-3-haiku',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 200
+        };
+        
+        response = await fetch(OPENROUTER_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'Search Suggestions'
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const requestDuration = Date.now() - startTime;
+        console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
+            status: response.status,
+            duration: `${requestDuration}ms`
+        });
+        
+        if (!response.ok) {
+            let errorText;
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                errorText = 'Could not read error response';
+            }
+            const error = new Error(`API error: ${response.status} - ${errorText}`);
+            error.hasResponse = true;
+            throw error;
+        }
+        
+        data = await response.json();
+        content = data.choices[0]?.message?.content?.trim();
+    }
+    
+    if (!content) {
+        const error = new Error('Empty content in response');
+        error.hasResponse = true;
+        throw error;
+    }
+    
+    // Parse JSON response
+    let suggestions = [];
+    try {
+        // Try to parse as JSON object first
+        const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonObjectMatch) {
+            const parsed = JSON.parse(jsonObjectMatch[0]);
+            if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
+                suggestions = parsed.suggestions;
+            }
+        }
+        
+        // If no object found or suggestions empty, try array
+        if (suggestions.length === 0) {
+            const jsonArrayMatch = content.match(/\[.*\]/s);
+            if (jsonArrayMatch) {
+                suggestions = JSON.parse(jsonArrayMatch[0]);
+            } else {
+                suggestions = content.split('\n')
+                    .map(line => line.trim().replace(/^[-•\d.\s"']+|[-•\d.\s"']+$/g, ''))
+                    .filter(line => line.length > 0)
+                    .slice(0, 9);
+            }
+        }
+    } catch (parseError) {
+        const quotedMatches = content.match(/"([^"]+)"/g);
+        if (quotedMatches) {
+            suggestions = quotedMatches.map(m => m.replace(/"/g, '')).slice(0, 9);
+        }
+    }
+    
+    const finalSuggestions = suggestions.filter(s => s && s.length > 0).slice(0, 9);
+    
+    const responseTimestamp = new Date().toISOString();
+    console.log(`[API-SEARCH] [${responseTimestamp}] Response received:`, finalSuggestions);
+    console.log(`[API-SEARCH] Attempt ${attemptNumber} succeeded with ${finalSuggestions.length} suggestions`);
+    
+    if (finalSuggestions.length === 0) {
+        const error = new Error('No suggestions parsed');
+        error.hasResponse = true;
+        throw error;
+    }
+    
+    return finalSuggestions;
+}
+
+async function raceProviders(query, attemptNumber) {
+    console.log(`[API-SEARCH] Attempt ${attemptNumber}: Racing both providers`);
+    
+    const providers = ['openrouter-haiku', 'openai'];
+    const promises = providers.map(provider => 
+        makeSearchSuggestionsRequest(query, attemptNumber, 0, provider)
+            .then(result => ({ provider, result }))
+            .catch(error => ({ provider, error }))
+    );
+    
+    // Wait for the first successful response
+    const results = await Promise.all(promises);
+    const successful = results.find(r => !r.error);
+    
+    if (successful) {
+        console.log(`[API-SEARCH] Attempt ${attemptNumber}: ${successful.provider} responded first with success`);
+        return successful.result;
+    }
+    
+    // If both failed, throw the first error
+    console.error(`[API-SEARCH] Attempt ${attemptNumber}: Both providers failed`);
+    throw results[0].error;
+}
+
+async function fetchSearchSuggestions(query, maxRetries = 2) {
+    let resolveFirst = null;
+    let rejectFirst = null;
+    const firstResponsePromise = new Promise((resolve, reject) => {
+        resolveFirst = resolve;
+        rejectFirst = reject;
+    });
+
+    const errors = [];
+    const totalAttempts = maxRetries + 1;
+    let completed = false;
+    let finishedAttempts = 0;
+
+    function handleAttemptResult(attemptNumber, result, error) {
+        if (completed) {
+            return;
+        }
+
+        if (error) {
+            finishedAttempts++;
+            console.log(`[API-SEARCH] Attempt ${attemptNumber} failed:`, error.message);
+            errors.push({ attempt: attemptNumber, error });
+
+            if (finishedAttempts === totalAttempts) {
+                completed = true;
+                rejectFirst(new Error('All search attempts failed'));
+            }
+            return;
+        }
+
+        completed = true;
+        resolveFirst({ result, attempt: attemptNumber });
+    }
+
+    // Attempt 1: Use selected provider
+    makeSearchSuggestionsRequest(query, 1, 0)
+        .then(result => handleAttemptResult(1, result, null))
+        .catch(error => handleAttemptResult(1, null, error));
+
+    // Attempt 2: Race both providers after 2s
+    setTimeout(() => {
+        if (completed) return;
+        raceProviders(query, 2)
+            .then(result => handleAttemptResult(2, result, null))
+            .catch(error => handleAttemptResult(2, null, error));
+    }, 2000);
+
+    // Attempt 3: Retry selected provider after 4s
+    setTimeout(() => {
+        if (completed) return;
+        makeSearchSuggestionsRequest(query, 3, 0)
+            .then(result => handleAttemptResult(3, result, null))
+            .catch(error => handleAttemptResult(3, null, error));
+    }, 4000);
+
+    return firstResponsePromise;
+}
+
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
