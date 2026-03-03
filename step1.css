@@ -252,27 +252,27 @@ body.reduced-motion .search-box-wrapper-outer::before {
 }
 
 .search-clear-button {
-    background: none;
+    background: transparent;
     border: none;
+    border-radius: 50%;
     cursor: pointer;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    opacity: 0.5;
+    width: 36px;
+    height: 36px;
     flex-shrink: 0;
 }
 
 .search-clear-button:hover {
-    opacity: 1;
+    background-color: #F3F4F6;
 }
 
 .search-clear-button svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
+    width: 20px;
+    height: 20px;
+    stroke: rgba(0, 0, 0, 0.6);
 }
 
 .google-icon {
@@ -444,6 +444,33 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
     background-color: var(--color-suggestion-hover);
 }
 
+.suggestion-item .suggestion-separator {
+    color: rgba(0, 0, 0, 0.5);
+    font-size: 12px;
+    padding: 0 8px;
+    display: none;
+}
+
+.suggestion-item .suggestion-hint-text {
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+    display: none;
+}
+
+.suggestion-item:hover .suggestion-separator,
+.suggestion-item:hover .suggestion-hint-text {
+    display: block;
+}
+
+.suggestion-item.gmail-item .suggestion-hint-text::before {
+    content: 'Your top visited site';
+}
+
+.suggestion-item:not(.gmail-item) .suggestion-hint-text::before {
+    content: 'Search with Google';
+}
+
 .suggestions-list.first-hover-fade .suggestion-item::before {
     transition: background-color 0.1s linear;
 }
@@ -452,10 +479,18 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
     background-color: transparent;
 }
 
+.suggestions-list.transitioning .suggestion-item:hover::after {
+    display: none;
+}
+
 
 .suggestion-item.gmail-item {
     font-weight: bold;
     margin-bottom: 8px;
+}
+
+.suggestion-item.gmail-item.gmail-item-hidden {
+    display: none;
 }
 
 .suggestions-heading {
@@ -496,17 +531,15 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
 .skeleton-icon {
     width: 16px;
     height: 16px;
-    background-color: #E5E7EB;
+    background-color: rgba(0, 0, 0, 0.1);
     border-radius: 2px;
-    opacity: 0.6;
     flex-shrink: 0;
 }
 
 .skeleton-text {
     height: 14px;
-    background-color: #E5E7EB;
+    background-color: rgba(0, 0, 0, 0.1);
     border-radius: 4px;
-    opacity: 0.6;
     animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 

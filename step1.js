@@ -885,6 +885,12 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[DOM] DOMContentLoaded fired');
     console.log('[DOM] Body has reduced-motion class?', document.body.classList.contains('reduced-motion'));
     const searchInput = document.querySelector('.search-input');
+    
+    // Clear search input on page load
+    if (searchInput) {
+        searchInput.value = '';
+        console.log('[DOM] Cleared search input on load');
+    }
     const searchContainer = document.querySelector('.search-container');
     const firefoxLogo = document.querySelector('.firefox-logo');
     const searchBoxWrapper = document.querySelector('.search-box-wrapper');
@@ -1321,6 +1327,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchValue = searchInput ? searchInput.value : '';
         const searchValueTrimmed = searchValue.trim();
         
+        // Hide Gmail when typing so typed text replaces it as first suggestion
+        const gmailItem = suggestionsContent.querySelector('.gmail-item');
+        if (gmailItem) {
+            gmailItem.classList.toggle('gmail-item-hidden', !!searchValueTrimmed);
+        }
+        
         // Clear existing suggestion items (keep Gmail and heading)
         const existingItems = suggestionsContent.querySelectorAll('.suggestion-item:not(.gmail-item):not(.skeleton)');
         existingItems.forEach(item => item.remove());
@@ -1382,8 +1394,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const highlightedText = highlightMatchingText(suggestion, searchValueTrimmed, isTypedText, isGmailSuggestion);
                 label.innerHTML = highlightedText;
                 
+                // Add separator
+                const separator = document.createElement('span');
+                separator.className = 'suggestion-separator';
+                separator.textContent = '•';
+                
+                // Add hint text
+                const hintText = document.createElement('span');
+                hintText.className = 'suggestion-hint-text';
+                
                 li.appendChild(icon);
                 li.appendChild(label);
+                li.appendChild(separator);
+                li.appendChild(hintText);
                 
                 // Add click handler to save to history
                 li.addEventListener('click', () => {
@@ -1424,11 +1447,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     if (searchClearButton && searchInput) {
+        searchClearButton.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // Prevent input from blurring
+        });
+        
         searchClearButton.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             console.log('[CLEAR] Clear button clicked');
             
+            // Clear the input value
             searchInput.value = '';
             searchClearButton.style.display = 'none';
             
@@ -1437,7 +1465,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateSuggestions(defaultSuggestions);
             currentDisplayedSuggestions = defaultSuggestions;
             
-            // Keep focus on input
+            // Keep focus on input (keeps panel open)
             searchInput.focus();
         });
     }
