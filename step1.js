@@ -1508,13 +1508,12 @@ document.addEventListener('DOMContentLoaded', () => {
         existingItems.forEach(item => item.remove());
         suggestionsContent.querySelectorAll('.firefox-suggest-section-heading').forEach(h => h.remove());
         
-        // Prepend typed text as first suggestion if there's text
-        const typedTextInSuggestions = suggestions.some(s => s.toLowerCase() === searchValueTrimmed.toLowerCase());
-        const suggestionsToShow = searchValueTrimmed && !typedTextInSuggestions
-            ? [searchValueTrimmed, ...suggestions]
+        // Always put typed text first, then local/AI suggestions (prioritise what user typed)
+        const suggestionsToShow = searchValueTrimmed
+            ? [searchValueTrimmed, ...suggestions.filter(s => s.toLowerCase() !== searchValueTrimmed.toLowerCase())]
             : suggestions;
         
-        console.log('[UPDATE] Typed text:', searchValueTrimmed, '| In suggestions?', typedTextInSuggestions);
+        console.log('[UPDATE] Typed text:', searchValueTrimmed, '| Total suggestions:', suggestionsToShow.length);
         console.log('[UPDATE] Total suggestions to show:', suggestionsToShow.length);
         
         // Get Firefox suggestions metadata
