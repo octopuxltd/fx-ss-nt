@@ -967,6 +967,8 @@ async function fetchAISuggestions(query, retryCount = 0) {
     }
 }
 
+const DEFAULT_SEARCH_ENGINE_KEY = 'default_search_engine';
+
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
@@ -1016,7 +1018,53 @@ document.addEventListener('DOMContentLoaded', () => {
             const localSources = ['Bookmarks', 'History', 'Tabs', 'Actions'];
             const preposition = localSources.includes(label) ? 'in' : 'with';
             if (searchInput) searchInput.placeholder = 'Search ' + preposition + ' ' + label;
+            // Update "Search with X" hints on existing suggestion items
+            const hint = 'Search with ' + label;
+            document.querySelectorAll('.suggestion-item:not(.gmail-item):not(.firefox-suggest-item):not(.visit-site-suggestion) .suggestion-hint-text').forEach(el => {
+                el.dataset.searchHint = hint;
+            });
         }
+    }
+
+    function getEngineLabel(item) {
+        if (!item) return '';
+        const labelEl = item.querySelector('.dropdown-engine-label');
+        return labelEl ? labelEl.textContent.trim() : '';
+    }
+
+    function getCurrentSearchEngineLabel() {
+        const icon = searchSwitcherButton?.querySelector('.google-icon');
+        if (icon?.alt) return icon.alt;
+        const saved = localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY);
+        return saved || 'Google';
+    }
+
+    function setPinnedEngine(pinnedItem) {
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const engineItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
+            el => el.querySelector('.dropdown-engine-label')
+        );
+        const pinEmptyHtml = '<span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span>';
+        const pinHtml = '<img src="icons/pin-filled.svg" alt="" class="dropdown-item-pin" title="Default search engine">';
+        engineItems.forEach(item => {
+            const isPinned = item === pinnedItem;
+            if (isPinned) {
+                item.classList.remove('dropdown-item-search-engine');
+                item.classList.add('dropdown-item-pinned');
+                const oldPin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
+                if (oldPin) {
+                    oldPin.replaceWith(document.createRange().createContextualFragment(pinHtml));
+                }
+            } else {
+                item.classList.remove('dropdown-item-pinned');
+                item.classList.add('dropdown-item-search-engine');
+                const oldPin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
+                if (oldPin) {
+                    oldPin.replaceWith(document.createRange().createContextualFragment(pinEmptyHtml));
+                }
+            }
+        });
     }
     
     // Click on search-box-wrapper focuses the input
@@ -1052,10 +1100,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         searchSwitcherButton.addEventListener('click', (e) => {
             e.stopPropagation();
-            const clickedDropdownItem = e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin');
+            const clickedInsideDropdown = e.target.closest('.search-switcher-dropdown');
             const wasOpen = searchSwitcherButton.classList.contains('open');
-            if (clickedDropdownItem) {
-                console.log('[SWITCHER BUTTON CLICK] Ignoring - click was on dropdown item (already handled by dropdown)');
+            if (clickedInsideDropdown) {
+                console.log('[SWITCHER BUTTON CLICK] Ignoring - click was inside dropdown (already handled by dropdown)');
                 return;
             }
             searchSwitcherButton.classList.toggle('open');
@@ -1111,7 +1159,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 switcherHoveredIndex = -1;
             });
             searchSwitcherDropdown.addEventListener('click', (e) => {
-                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin')) return;
+                const pinEl = e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin');
+                if (pinEl) {
+                    const item = pinEl.closest('.dropdown-item');
+                    if (item && item.querySelector('.dropdown-engine-label')) {
+                        e.stopPropagation();
+                        applySelectedSearchSource(item);
+                        const label = getEngineLabel(item);
+                        if (label) localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, label);
+                        setPinnedEngine(item);
+                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                        switcherHighlightedIndex = -1;
+                        searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
+                        if (searchContainer?.classList.contains('focused')) searchInput?.focus();
+                        return;
+                    }
+                }
                 const item = e.target.closest('.dropdown-item');
                 if (!item) return;
                 if (item.id === 'quick-buttons-toggle') return;
@@ -1144,6 +1207,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     label.textContent = 'Show Quick Buttons';
                 }
             });
+        }
+
+        // Restore saved default search engine on load
+        const savedEngine = localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY);
+        if (savedEngine) {
+            const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
+            const engineItems = enginesContainer ? Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
+                el => el.querySelector('.dropdown-engine-label')
+            ) : [];
+            const match = engineItems.find(item => getEngineLabel(item) === savedEngine);
+            if (match) {
+                applySelectedSearchSource(match);
+                setPinnedEngine(match);
+            }
         }
     }
     
@@ -1651,11 +1728,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 .map(fs => [fs.title.toLowerCase().trim(), fs])
         );
         
-        // Firefox type icons: history = clock, bookmark = star, tab = tab
+        // Firefox type icons from icons folder
         const firefoxTypeIcons = {
-            tab: '<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>',
-            bookmark: '<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
-            history: null  // use icons/clock.svg
+            tab: 'icons/tabs.svg',
+            bookmark: 'icons/star.svg',
+            history: 'icons/clock.svg'
         };
         
         // Add suggestions
@@ -1703,10 +1780,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconSvg.appendChild(circle);
                     iconSvg.appendChild(line1);
                     iconSvg.appendChild(line2);
+                    const iconWrap = document.createElement('span');
+                    iconWrap.className = 'info-icon-tooltip';
+                    iconWrap.setAttribute('data-tooltip', 'Suggestions from your Firefox history, bookmarks, and open tabs. Also includes relevant links from partners, and the occasional privacy-preserving sponsored suggestion.');
+                    iconWrap.appendChild(iconSvg);
                     const span = document.createElement('span');
                     span.textContent = 'From Firefox';
                     headingLi.appendChild(span);
-                    headingLi.appendChild(iconSvg);
+                    headingLi.appendChild(iconWrap);
                     suggestionsContent.appendChild(headingLi);
                     firefoxHeadingAdded = true;
                 }
@@ -1720,22 +1801,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.setAttribute('data-typed-text', 'true');
                 }
                 
-                // Get appropriate icon (Firefox items: history=clock, bookmark=star, tab=tab)
+                // Get appropriate icon (Firefox items: history=clock, bookmark=star, tab=tabs)
                 let iconEl;
                 if (isFirefoxSuggest) {
                     const firefoxData = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
                     const firefoxType = (firefoxData && firefoxData.type) ? firefoxData.type : 'history';
-                    const iconSvg = firefoxTypeIcons[firefoxType];
-                    if (firefoxType === 'history' || !iconSvg) {
-                        iconEl = document.createElement('img');
-                        iconEl.src = 'icons/clock.svg';
-                        iconEl.alt = '';
-                        iconEl.className = 'suggestion-icon';
-                    } else {
-                        iconEl = document.createElement('span');
-                        iconEl.innerHTML = iconSvg;
-                        iconEl.className = 'suggestion-icon-wrapper';
-                    }
+                    const iconSrc = firefoxTypeIcons[firefoxType] || 'icons/clock.svg';
+                    iconEl = document.createElement('img');
+                    iconEl.src = iconSrc;
+                    iconEl.alt = '';
+                    iconEl.className = 'suggestion-icon';
                 } else if (isVisitSite) {
                     iconEl = document.createElement('img');
                     iconEl.src = 'icons/globe.svg';
@@ -1814,7 +1889,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (urlDisplay) {
                         hintText.textContent = urlDisplay;
                     } else {
-                        hintText.textContent = 'Search with Google';
+                        hintText.textContent = 'Search with ' + getCurrentSearchEngineLabel();
                     }
                 }
                 
@@ -1832,6 +1907,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     moreIcon.setAttribute('aria-hidden', 'true');
                     li.appendChild(moreIcon);
                 } else {
+                    if (!isVisitSite) {
+                        hintText.dataset.searchHint = 'Search with ' + getCurrentSearchEngineLabel();
+                    }
                     li.appendChild(separator);
                     li.appendChild(hintText);
                 }
@@ -1925,18 +2003,28 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             console.log('[CLEAR] Clear button clicked');
             
-            // Clear the input value
             searchInput.value = '';
-            searchClearButton.style.display = 'none';
             updateSearchUrlButton();
-            
-            // Reset to default suggestions
             const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
             updateSuggestions(defaultSuggestions);
             currentDisplayedSuggestions = defaultSuggestions;
-            
-            // Keep focus on input (keeps panel open)
             searchInput.focus();
+            
+            let done = false;
+            const hideButton = () => {
+                if (done) return;
+                done = true;
+                searchClearButton.classList.remove('clearing');
+                searchClearButton.style.display = 'none';
+            };
+            searchClearButton.classList.add('clearing');
+            const svg = searchClearButton.querySelector('svg');
+            if (svg) {
+                svg.addEventListener('animationend', hideButton, { once: true });
+                setTimeout(hideButton, 850);
+            } else {
+                hideButton();
+            }
         });
     }
     
@@ -2080,7 +2168,7 @@ document.addEventListener('DOMContentLoaded', () => {
             style = document.createElement('style');
             style.id = 'gradient-animation-style';
         }
-        style.textContent = `.search-box-wrapper-outer:focus-within::before { background: conic-gradient(from ${gradientAngle}deg, #FF00FF 0%, #FFA500 35%, #FFFFFF 50%, #FFA500 65%, #FF00FF 100%); }`;
+        style.textContent = `.search-box-wrapper-outer:has(.search-input:focus)::before { background: conic-gradient(from ${gradientAngle}deg, #FF00FF 0%, #FFA500 35%, #FFFFFF 50%, #FFA500 65%, #FF00FF 100%); }`;
         if (!document.head.contains(style)) {
             document.head.appendChild(style);
         }

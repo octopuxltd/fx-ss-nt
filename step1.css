@@ -114,12 +114,12 @@ body.reduced-motion .search-box-wrapper-outer::before {
     background: conic-gradient(from 0deg, #FF00FF 0%, #FFA500 50%, #FF00FF 100%);
 }
 
-.search-box-wrapper-outer:focus-within {
+.search-box-wrapper-outer:has(.search-input:focus) {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     background-color: rgba(255, 255, 255, 0.66);
 }
 
-.search-box-wrapper-outer:focus-within::before {
+.search-box-wrapper-outer:has(.search-input:focus)::before {
     opacity: 1;
 }
 
@@ -135,7 +135,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
     cursor: text;
 }
 
-.search-box-wrapper:focus-within {
+.search-box-wrapper:has(.search-input:focus) {
     background-color: rgba(255, 255, 255, 1);
     transition: background-color 0s 0s;
 }
@@ -158,7 +158,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
     transition: background-color 0.25s linear, border-radius 0s 0s;
 }
 
-.search-box-wrapper:focus-within .search-switcher-button.open {
+.search-box-wrapper:has(.search-input:focus) .search-switcher-button.open {
     transition: background-color 0s 0s, border-radius 0s 0s;
 }
 
@@ -182,6 +182,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
 
 .search-switcher-button.open .search-switcher-dropdown {
     max-height: 600px;
+    overflow: visible;
 }
 
 .dropdown-label {
@@ -196,10 +197,35 @@ body.reduced-motion .search-box-wrapper-outer::before {
 }
 
 .dropdown-label-info-icon {
+    display: inline-flex;
     width: 14px;
     height: 14px;
     flex-shrink: 0;
     color: inherit;
+    position: relative;
+}
+
+.dropdown-label-info-icon[data-tooltip]:hover::after,
+.info-icon-tooltip[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    margin-bottom: 6px;
+    transform: translateX(-50%);
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #1F2933;
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    white-space: normal;
+    max-width: 220px;
+    width: max-content;
+    z-index: 1000;
+    pointer-events: none;
 }
 
 .dropdown-divider {
@@ -305,7 +331,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
     opacity: 0.7;
 }
 
-.search-box-wrapper:focus-within .search-switcher-button {
+.search-box-wrapper:has(.search-input:focus) .search-switcher-button {
     background-color: #F3F4F6;
     transition: background-color 0s 0s, border-radius 0s 0.25s;
 }
@@ -368,6 +394,24 @@ body.reduced-motion .search-box-wrapper-outer::before {
 
 .search-clear-button:hover svg {
     transform: rotate(90deg);
+}
+
+.search-clear-button.clearing {
+    pointer-events: none;
+}
+
+.search-clear-button.clearing svg {
+    animation: clear-button-spin-fade 0.8s linear forwards;
+}
+
+@keyframes clear-button-spin-fade {
+    70% {
+        opacity: 0;
+    }
+    100% {
+        transform: rotate(-180deg);
+        opacity: 0;
+    }
 }
 
 .search-url-button {
@@ -527,6 +571,7 @@ body.reduced-motion:has(.search-container.focused) .firefox-logo {
 
 .search-container.focused .suggestions-list {
     max-height: 600px;
+    overflow: visible;
     transition: max-height 0.42s ease-out;
 }
 
@@ -685,7 +730,7 @@ body.reduced-motion:has(.search-container.focused) .firefox-logo {
 }
 
 .suggestion-item:not(.gmail-item):not(.firefox-suggest-item) .suggestion-hint-text::before {
-    content: 'Search with Google';
+    content: attr(data-search-hint, 'Search with Google');
 }
 
 .suggestion-item.visit-site-suggestion:not(.gmail-item) .suggestion-hint-text::before {
@@ -758,6 +803,11 @@ body.reduced-motion:has(.search-container.focused) .firefox-logo {
     padding: 8px 10px 4px 10px;
     margin: 2px 0;
     font-weight: 500;
+}
+
+.info-icon-tooltip {
+    display: inline-flex;
+    position: relative;
 }
 
 .firefox-suggest-heading-info-icon {
