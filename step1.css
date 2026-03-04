@@ -619,9 +619,9 @@ body.reduced-motion:has(.search-container.focused) .firefox-logo {
     display: block;
 }
 
-/* When hovering another suggestion, hide hint on the top-two items */
-.suggestions-list:hover .suggestion-item.hint-always-visible:not(:hover) .suggestion-separator,
-.suggestions-list:hover .suggestion-item.hint-always-visible:not(:hover) .suggestion-hint-text {
+/* When hovering a suggestion outside the top two, hide hints on the top-two items */
+.suggestions-list:has(.suggestion-item:not(.hint-always-visible):hover) .suggestion-item.hint-always-visible .suggestion-separator,
+.suggestions-list:has(.suggestion-item:not(.hint-always-visible):hover) .suggestion-item.hint-always-visible .suggestion-hint-text {
     display: none;
 }
 

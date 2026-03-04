@@ -1736,6 +1736,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         iconEl.innerHTML = iconSvg;
                         iconEl.className = 'suggestion-icon-wrapper';
                     }
+                } else if (isVisitSite) {
+                    iconEl = document.createElement('img');
+                    iconEl.src = 'icons/globe.svg';
+                    iconEl.alt = '';
+                    iconEl.className = 'suggestion-icon';
                 } else {
                     const iconSrc = getIconForSuggestion(suggestion);
                     iconEl = document.createElement('img');
