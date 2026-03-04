@@ -995,6 +995,27 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastHoveredItemForInput = null;
     const searchSwitcherButton = document.querySelector('.search-switcher-button');
     const searchClearButton = document.querySelector('.search-clear-button');
+    let switcherHighlightedIndex = -1;
+    let switcherHoveredIndex = -1;
+    
+    function applySelectedSearchSource(item) {
+        if (!item) return;
+        if (item.id === 'quick-buttons-toggle') return;
+        if (item.textContent.includes('Search Settings')) return;
+        const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+        const labelEl = item.querySelector('.dropdown-engine-label');
+        const label = labelEl ? labelEl.textContent.trim() : item.textContent.replace(/\s+/g, ' ').trim();
+        if (iconEl && label) {
+            const switcherIcon = searchSwitcherButton?.querySelector('.google-icon');
+            if (switcherIcon) {
+                switcherIcon.src = iconEl.src || iconEl.getAttribute('src');
+                switcherIcon.alt = label;
+            }
+            const localSources = ['Bookmarks', 'History', 'Tabs', 'Actions'];
+            const preposition = localSources.includes(label) ? 'in' : 'with';
+            if (searchInput) searchInput.placeholder = 'Search ' + preposition + ' ' + label;
+        }
+    }
     
     // Click on search-box-wrapper focuses the input
     if (searchBoxWrapper && searchInput) {
@@ -1014,7 +1035,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target.closest('.suggestion-item, .suggestions-heading');
             if (target && searchSwitcherButton.classList.contains('open')) {
                 console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
-                searchSwitcherButton.classList.remove('open');
+                searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                switcherHighlightedIndex = -1;
+                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                searchContainer.classList.remove('focused');
             }
         });
     }
@@ -1027,9 +1051,24 @@ document.addEventListener('DOMContentLoaded', () => {
         
         searchSwitcherButton.addEventListener('click', (e) => {
             e.stopPropagation();
+            const clickedDropdownItem = e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin');
             const wasOpen = searchSwitcherButton.classList.contains('open');
+            if (clickedDropdownItem) {
+                console.log('[SWITCHER BUTTON CLICK] Ignoring - click was on dropdown item (already handled by dropdown)');
+                return;
+            }
             searchSwitcherButton.classList.toggle('open');
             const isNowOpen = searchSwitcherButton.classList.contains('open');
+            if (wasOpen && !isNowOpen) {
+                switcherHighlightedIndex = -1;
+                searchSwitcherButton.classList.remove('switcher-suppress-hover');
+                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                searchContainer.classList.remove('focused');
+            } else if (!wasOpen && isNowOpen) {
+                searchInput.blur();
+                searchSwitcherButton.focus();
+                searchSwitcherButton.classList.add('switcher-suppress-hover');
+            }
             
             console.log('[SWITCHER CLICK] Clicked search switcher button');
             console.log('[SWITCHER CLICK] Was open:', wasOpen, '→ Now open:', isNowOpen);
@@ -1041,12 +1080,75 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
+                const clickedIntoSearch = e.target.closest('.search-box-wrapper');
                 if (wasOpen) {
-                    console.log('[OUTSIDE CLICK] Closing switcher dropdown');
+                    switcherHighlightedIndex = -1;
+                    searchSwitcherButton.classList.remove('switcher-suppress-hover');
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                    if (!clickedIntoSearch) {
+                        searchContainer.classList.remove('focused');
+                    }
                 }
                 searchSwitcherButton.classList.remove('open');
             }
         });
+        
+        // Clear keyboard highlight when mouse enters dropdown (switch to hover mode)
+        const searchSwitcherDropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        if (searchSwitcherDropdown) {
+            searchSwitcherDropdown.addEventListener('mousemove', () => {
+                if (searchSwitcherButton.classList.contains('switcher-suppress-hover')) {
+                    searchSwitcherButton.classList.remove('switcher-suppress-hover');
+                }
+            });
+            searchSwitcherDropdown.addEventListener('mouseover', (e) => {
+                const item = e.target.closest('.dropdown-item');
+                if (item) {
+                    const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                    const items = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')) : [];
+                    switcherHoveredIndex = items.indexOf(item);
+                    switcherHighlightedIndex = -1;
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
+                }
+            });
+            searchSwitcherDropdown.addEventListener('mouseleave', () => {
+                switcherHoveredIndex = -1;
+            });
+            searchSwitcherDropdown.addEventListener('click', (e) => {
+                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin')) return;
+                const item = e.target.closest('.dropdown-item');
+                if (!item) return;
+                if (item.id === 'quick-buttons-toggle') return;
+                if (item.textContent.includes('Search Settings')) return;
+                console.log('[SWITCHER MOUSE] Dropdown item clicked, applying selection and closing');
+                applySelectedSearchSource(item);
+                searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                switcherHighlightedIndex = -1;
+                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
+                if (searchContainer?.classList.contains('focused')) searchInput?.focus();
+                console.log('[SWITCHER MOUSE] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
+            });
+        }
+        
+        // Quick buttons visibility toggle
+        const quickButtonsToggle = document.getElementById('quick-buttons-toggle');
+        if (quickButtonsToggle) {
+            quickButtonsToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const icon = quickButtonsToggle.querySelector('.quick-buttons-icon');
+                const label = quickButtonsToggle.querySelector('.quick-buttons-label');
+                const isShown = quickButtonsToggle.dataset.visibility === 'shown';
+                if (isShown) {
+                    quickButtonsToggle.dataset.visibility = 'hidden';
+                    icon.src = 'icons/eye-off.svg';
+                    label.textContent = 'Hide Quick Buttons';
+                } else {
+                    quickButtonsToggle.dataset.visibility = 'shown';
+                    icon.src = 'icons/eye.svg';
+                    label.textContent = 'Show Quick Buttons';
+                }
+            });
+        }
     }
     
     // Handle reduced motion checkbox
@@ -1915,6 +2017,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         searchInput.addEventListener('blur', () => {
+            if (searchSwitcherButton?.classList.contains('open')) return;
             // Remove focused class
             searchContainer.classList.remove('focused');
             firstHoverDone = false;
@@ -1942,16 +2045,71 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Handle Escape key to deselect search input
+    // Handle Escape key: close switcher and refocus input, or deselect search input
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && searchInput && document.activeElement === searchInput) {
-            searchInput.blur();
+        if (event.key === 'Escape') {
+            const switcherOpen = searchSwitcherButton?.classList.contains('open');
+            if (switcherOpen) {
+                searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                searchInput?.focus();
+                return;
+            }
+            if (searchInput && document.activeElement === searchInput) {
+                searchInput.blur();
+            }
+        }
+        const switcherOpen = searchSwitcherButton?.classList.contains('open');
+        if (switcherOpen && !event.altKey) {
+            const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+            const dropdownItems = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')) : [];
+            const count = dropdownItems.length;
+            if (event.key === 'Enter' && switcherHighlightedIndex >= 0 && switcherHighlightedIndex < count) {
+                event.preventDefault();
+                const item = dropdownItems[switcherHighlightedIndex];
+                if (item.id !== 'quick-buttons-toggle' && !item.textContent.includes('Search Settings')) {
+                    console.log('[SWITCHER KEYBOARD] Enter pressed on highlighted item, applying selection and closing');
+                    applySelectedSearchSource(item);
+                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                    switcherHighlightedIndex = -1;
+                    dropdownItems.forEach(i => i.classList.remove('highlighted'));
+                    if (searchContainer?.classList.contains('focused')) searchInput?.focus();
+                    console.log('[SWITCHER KEYBOARD] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
+                }
+            } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                if (count > 0) {
+                    event.preventDefault();
+                    searchSwitcherButton.classList.add('switcher-suppress-hover');
+                    const startIndex = switcherHighlightedIndex >= 0 ? switcherHighlightedIndex : switcherHoveredIndex;
+                    if (event.key === 'ArrowDown') {
+                        switcherHighlightedIndex = startIndex >= 0 ? (startIndex + 1) % count : 0;
+                    } else {
+                        switcherHighlightedIndex = startIndex >= 0 ? (startIndex - 1 + count) % count : count - 1;
+                    }
+                    dropdownItems.forEach((item, i) => item.classList.toggle('highlighted', i === switcherHighlightedIndex));
+                    dropdownItems[switcherHighlightedIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                }
+            }
         }
     });
     
-    // Keyboard navigation (ArrowUp, ArrowDown, Enter)
+    // Keyboard navigation (ArrowUp, ArrowDown, Enter); Alt+ArrowUp/Down opens search engine switcher
     if (searchInput && suggestionsList) {
         searchInput.addEventListener('keydown', (event) => {
+            const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+            const dropdownItems = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')) : [];
+            
+            if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+                event.preventDefault();
+                if (searchSwitcherButton) {
+                    searchSwitcherButton.classList.add('open', 'switcher-suppress-hover');
+                    searchInput.blur();
+                    searchSwitcherButton.focus();
+                    switcherHighlightedIndex = -1;
+                    dropdownItems.forEach((item) => item.classList.remove('highlighted'));
+                }
+                return;
+            }
+            
             if (!suggestionsList) return;
             const suggestionsContent = suggestionsList.querySelector('.suggestions-content');
             if (!suggestionsContent) return;
