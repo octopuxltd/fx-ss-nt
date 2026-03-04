@@ -995,6 +995,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastHoveredItemForInput = null;
     const searchSwitcherButton = document.querySelector('.search-switcher-button');
     const searchClearButton = document.querySelector('.search-clear-button');
+    const searchUrlButton = document.querySelector('.search-url-button');
+    const searchButton = document.querySelector('.search-button');
     let switcherHighlightedIndex = -1;
     let switcherHoveredIndex = -1;
     
@@ -1021,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchBoxWrapper && searchInput) {
         searchBoxWrapper.addEventListener('click', (e) => {
             // Don't focus if clicking on a button
-            if (e.target.closest('.search-switcher-button') || e.target.closest('.search-button')) {
+            if (e.target.closest('.search-switcher-button') || e.target.closest('.search-button') || e.target.closest('.search-url-button')) {
                 return;
             }
             searchInput.focus();
@@ -1605,9 +1607,15 @@ document.addEventListener('DOMContentLoaded', () => {
         suggestionsContent.querySelectorAll('.firefox-suggest-section-heading').forEach(h => h.remove());
         
         // Always put typed text first, then local/AI suggestions (prioritise what user typed)
-        const suggestionsToShow = searchValueTrimmed
+        let suggestionsToShow = searchValueTrimmed
             ? [searchValueTrimmed, ...suggestions.filter(s => s.toLowerCase() !== searchValueTrimmed.toLowerCase())]
             : suggestions;
+        
+        if (looksLikeUrl(searchValueTrimmed) && suggestionsToShow.length > 0) {
+            const first = suggestionsToShow[0];
+            const firstText = typeof first === 'object' && first._visitSite ? first._text : first;
+            suggestionsToShow = [{ _visitSite: true, _text: firstText }, ...suggestionsToShow];
+        }
         
         console.log('[UPDATE] Typed text:', searchValueTrimmed, '| Total suggestions:', suggestionsToShow.length);
         console.log('[UPDATE] Total suggestions to show:', suggestionsToShow.length);
@@ -1656,8 +1664,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let firefoxHeadingAdded = false;
             
-            suggestionsToShow.forEach((suggestion, index) => {
-                const isTypedText = index === 0 && searchValueTrimmed && suggestion.toLowerCase() === searchValueTrimmed.toLowerCase();
+            suggestionsToShow.forEach((suggestionOrObj, index) => {
+                const isVisitSite = typeof suggestionOrObj === 'object' && suggestionOrObj._visitSite;
+                const suggestion = isVisitSite ? suggestionOrObj._text : suggestionOrObj;
+                const typedTextIndex = suggestionsToShow[0]?._visitSite ? 1 : 0;
+                const isTypedText = !isVisitSite && index === typedTextIndex && searchValueTrimmed && (suggestion || '').toLowerCase() === searchValueTrimmed.toLowerCase();
                 const isFirefoxSuggest = firefoxTitlesSet.has((suggestion || '').toLowerCase().trim());
                 
                 // Add 'Firefox Suggest' heading before first Firefox item
@@ -1701,8 +1712,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 // Create suggestion item
+                const hasVisitSite = !!suggestionsToShow[0]?._visitSite;
+                const isTopTwoWithHints = hasVisitSite && (index === 0 || index === 1);
                 const li = document.createElement('li');
-                li.className = 'suggestion-item' + (isFirefoxSuggest ? ' firefox-suggest-item' : '');
+                li.className = 'suggestion-item' + (isFirefoxSuggest ? ' firefox-suggest-item' : '') + (isVisitSite ? ' visit-site-suggestion' : '') + (isTopTwoWithHints ? ' hint-always-visible' : '');
                 if (isTypedText) {
                     li.setAttribute('data-typed-text', 'true');
                 }
@@ -1818,10 +1831,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.appendChild(hintText);
                 }
                 
-                // Add click handler to save to history
+                // Add click handler
                 li.addEventListener('click', () => {
-                    console.log('[CLICK] Suggestion clicked:', suggestion);
-                    saveToSearchHistory(suggestion);
+                    if (isVisitSite && looksLikeUrl(suggestion)) {
+                        const url = suggestion.trim();
+                        const toOpen = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+                        window.open(toOpen, '_blank');
+                    } else {
+                        console.log('[CLICK] Suggestion clicked:', suggestion);
+                        saveToSearchHistory(suggestion);
+                    }
                 });
                 
                 // Append to content
@@ -1859,6 +1878,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ===== CLEAR BUTTON =====
     
+    function looksLikeUrl(text) {
+        const t = (text || '').trim();
+        if (!t) return false;
+        if (/^(www\.|https?:\/\/)/i.test(t)) return true;
+        const knownTlds = /\.(com|org|net|edu|gov|io|co|uk|de|fr|au|ca|jp|info|biz|me|app|dev)($|\/)/i;
+        if (knownTlds.test(t) && !/\s/.test(t)) return true;
+        return false;
+    }
+    
     function updateClearButton() {
         if (searchClearButton && searchInput) {
             if (searchInput.value.trim().length > 0) {
@@ -1868,6 +1896,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+    
+    function updateSearchUrlButton() {
+        if (searchUrlButton && searchInput) {
+            const showUrl = looksLikeUrl(searchInput.value);
+            searchUrlButton.style.display = showUrl ? 'flex' : 'none';
+            searchUrlButton.title = showUrl ? 'Search for URL' : '';
+        }
+        if (searchButton && searchInput) {
+            searchButton.title = looksLikeUrl(searchInput.value) ? 'Visit site' : 'Search';
+        }
+    }
+    
+    updateSearchUrlButton();
     
     if (searchClearButton && searchInput) {
         searchClearButton.addEventListener('mousedown', (e) => {
@@ -1882,6 +1923,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Clear the input value
             searchInput.value = '';
             searchClearButton.style.display = 'none';
+            updateSearchUrlButton();
             
             // Reset to default suggestions
             const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
@@ -1893,11 +1935,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    if (searchUrlButton && searchInput) {
+        searchUrlButton.addEventListener('mousedown', (e) => e.preventDefault());
+        searchUrlButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const url = searchInput.value.trim();
+            if (looksLikeUrl(url)) {
+                const toOpen = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+                window.open(toOpen, '_blank');
+            }
+        });
+    }
+    
     // ===== INPUT EVENT HANDLER =====
     if (searchInput) {
         searchInput.addEventListener('input', async (event) => {
             originalTypedText = ''; // Reset so next keyboard nav captures current typed text
             updateClearButton();
+            updateSearchUrlButton();
             console.log('[INPUT] ===== INPUT EVENT STARTED =====');
             
             const value = (event.target.value || '').toString();

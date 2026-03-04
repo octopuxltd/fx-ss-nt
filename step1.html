@@ -38,16 +38,23 @@
                                 <svg class="dropdown-label-info-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                             </div>
                             <div class="dropdown-divider"></div>
+                            <div class="dropdown-search-engines">
+                            <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Amazon - Light.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Amazon</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Bing.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Bing</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/DuckDuckGo.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">DuckDuckGo</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
-                            <div class="dropdown-item dropdown-item-search-engine"><img src="icons/eBay.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">eBay</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
+                            <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Ecosia.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Ecosia</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             <div class="dropdown-item dropdown-item-pinned">
                                 <img src="icons/Google.svg" alt="" class="dropdown-icon dropdown-engine-icon">
                                 <span class="dropdown-engine-label">Google</span>
                                 <img src="icons/pin-filled.svg" alt="" class="dropdown-item-pin" title="Default search engine">
                             </div>
-                            <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Perplexity.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Perplexity</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
+                            <div class="dropdown-item dropdown-item-search-engine"><img src="icons/IMDb.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">IMDb</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
+                            <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Reddit.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Reddit</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
+                            <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Startpage.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Startpage</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Wikipedia.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Wikipedia (en)</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
+                            <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Yahoo.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Yahoo</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
+                            <div class="dropdown-item dropdown-item-search-engine"><img src="icons/YouTube.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">YouTube</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
+                            </div>
                             <div class="dropdown-divider"></div>
                             <div class="dropdown-item"><img src="icons/bookmark.svg" alt="" class="dropdown-icon">Bookmarks</div>
                             <div class="dropdown-item"><img src="icons/tabs.svg" alt="" class="dropdown-icon">Tabs</div>
@@ -66,12 +73,18 @@
                     </div>
                 </div>
                 <input type="text" class="search-input" placeholder="Search with Google">
-                <button type="button" class="search-clear-button" aria-label="Clear search" style="display: none;">
+                <button type="button" class="search-url-button" aria-label="Search for URL" title="Search for URL" style="display: none;">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <button type="button" class="search-clear-button" aria-label="Clear search" title="Clear" style="display: none;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
-                <button type="button" class="search-button" aria-label="Search">
+                <button type="button" class="search-button" aria-label="Search" title="Search">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
