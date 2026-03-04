@@ -1038,7 +1038,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
-                searchContainer.classList.remove('focused');
             }
         });
     }
@@ -1063,7 +1062,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.classList.remove('switcher-suppress-hover');
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
-                searchContainer.classList.remove('focused');
             } else if (!wasOpen && isNowOpen) {
                 searchInput.blur();
                 searchSwitcherButton.focus();
@@ -1080,14 +1078,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
-                const clickedIntoSearch = e.target.closest('.search-box-wrapper');
                 if (wasOpen) {
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
-                    if (!clickedIntoSearch) {
-                        searchContainer.classList.remove('focused');
-                    }
                 }
                 searchSwitcherButton.classList.remove('open');
             }
@@ -1670,7 +1664,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isFirefoxSuggest && !firefoxHeadingAdded) {
                     const headingLi = document.createElement('li');
                     headingLi.className = 'firefox-suggest-section-heading';
-                    headingLi.textContent = 'Firefox Suggest';
+                    const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    iconSvg.setAttribute('class', 'firefox-suggest-heading-info-icon');
+                    iconSvg.setAttribute('width', '14');
+                    iconSvg.setAttribute('height', '14');
+                    iconSvg.setAttribute('viewBox', '0 0 24 24');
+                    iconSvg.setAttribute('fill', 'none');
+                    iconSvg.setAttribute('stroke', 'currentColor');
+                    iconSvg.setAttribute('stroke-width', '2');
+                    iconSvg.setAttribute('stroke-linecap', 'round');
+                    iconSvg.setAttribute('stroke-linejoin', 'round');
+                    iconSvg.setAttribute('aria-hidden', 'true');
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', '12');
+                    circle.setAttribute('cy', '12');
+                    circle.setAttribute('r', '10');
+                    const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line1.setAttribute('x1', '12');
+                    line1.setAttribute('y1', '16');
+                    line1.setAttribute('x2', '12');
+                    line1.setAttribute('y2', '12');
+                    const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line2.setAttribute('x1', '12');
+                    line2.setAttribute('y1', '8');
+                    line2.setAttribute('x2', '12.01');
+                    line2.setAttribute('y2', '8');
+                    iconSvg.appendChild(circle);
+                    iconSvg.appendChild(line1);
+                    iconSvg.appendChild(line2);
+                    const span = document.createElement('span');
+                    span.textContent = 'From Firefox';
+                    headingLi.appendChild(span);
+                    headingLi.appendChild(iconSvg);
                     suggestionsContent.appendChild(headingLi);
                     firefoxHeadingAdded = true;
                 }
@@ -1783,6 +1808,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     hintArea.appendChild(separator);
                     hintArea.appendChild(hintText);
                     li.appendChild(hintArea);
+                    const moreIcon = document.createElement('span');
+                    moreIcon.className = 'firefox-suggest-more-icon';
+                    moreIcon.textContent = '⋯';
+                    moreIcon.setAttribute('aria-hidden', 'true');
+                    li.appendChild(moreIcon);
                 } else {
                     li.appendChild(separator);
                     li.appendChild(hintText);
@@ -2045,13 +2075,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Shift key toggles 'Switch to Tab' / 'Open in a New Tab' on visible buttons
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Shift') {
+            document.querySelectorAll('.firefox-switch-tab-button').forEach(btn => {
+                btn.textContent = 'Open in a New Tab';
+            });
+        }
+    });
+    document.addEventListener('keyup', (event) => {
+        if (event.key === 'Shift') {
+            document.querySelectorAll('.firefox-switch-tab-button').forEach(btn => {
+                btn.textContent = 'Switch to Tab';
+            });
+        }
+    });
+
     // Handle Escape key: close switcher and refocus input, or deselect search input
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             const switcherOpen = searchSwitcherButton?.classList.contains('open');
             if (switcherOpen) {
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
-                searchInput?.focus();
+                if (searchContainer?.classList.contains('focused')) searchInput?.focus();
                 return;
             }
             if (searchInput && document.activeElement === searchInput) {

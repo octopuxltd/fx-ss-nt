@@ -185,10 +185,21 @@ body.reduced-motion .search-box-wrapper-outer::before {
 }
 
 .dropdown-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
     padding: 6px 12px;
     font-size: 12px;
     color: var(--color-text-secondary);
     font-weight: 500;
+}
+
+.dropdown-label-info-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: inherit;
 }
 
 .dropdown-divider {
@@ -309,7 +320,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
 }
 
 .search-button:hover {
-    background-color: #F3F4F6;
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 .search-button svg {
@@ -340,13 +351,18 @@ body.reduced-motion .search-box-wrapper-outer::before {
 }
 
 .search-clear-button:hover {
-    background-color: #F3F4F6;
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 .search-clear-button svg {
     width: 20px;
     height: 20px;
     stroke: rgba(0, 0, 0, 0.6);
+    transition: transform 0.2s ease-out;
+}
+
+.search-clear-button:hover svg {
+    transform: rotate(90deg);
 }
 
 .google-icon {
@@ -543,7 +559,7 @@ body.reduced-motion:has(.search-container.focused) .firefox-logo {
 .suggestion-item .suggestion-separator {
     color: var(--color-hint-accent);
     font-size: 12px;
-    padding: 0 5.6px;
+    padding: 0 3.36px;
     display: none;
 }
 
@@ -689,12 +705,22 @@ body.reduced-motion:has(.search-container.focused) .firefox-logo {
 }
 
 .firefox-suggest-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 11px;
     letter-spacing: normal;
     color: #6B7280;
     padding: 8px 10px 4px 10px;
     margin: 2px 0;
     font-weight: 500;
+}
+
+.firefox-suggest-heading-info-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: inherit;
 }
 
 .suggestion-icon {
@@ -734,6 +760,31 @@ body.reduced-motion:has(.search-container.focused) .firefox-logo {
 
 .suggestion-item.firefox-suggest-item {
     overflow: hidden;
+}
+
+.firefox-suggest-more-icon {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    opacity: 0;
+    border-radius: 50%;
+    transition: opacity 0.1s linear, background-color 0.1s linear;
+}
+
+.suggestion-item.firefox-suggest-item:hover .firefox-suggest-more-icon,
+.suggestion-item.firefox-suggest-item.is-selected .firefox-suggest-more-icon {
+    opacity: 0.8;
+}
+
+.firefox-suggest-more-icon:hover {
+    background-color: white;
 }
 
 .suggestion-item.firefox-suggest-item .suggestion-label {
