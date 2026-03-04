@@ -68,6 +68,10 @@ function getActualDateString(dateIso) {
     const now = new Date();
     const isToday = d.getFullYear() === now.getFullYear() &&
         d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = d.getFullYear() === yesterday.getFullYear() &&
+        d.getMonth() === yesterday.getMonth() && d.getDate() === yesterday.getDate();
     if (isToday) {
         const hours = d.getHours();
         const mins = d.getMinutes();
@@ -76,11 +80,14 @@ function getActualDateString(dateIso) {
         const minsPadded = mins < 10 ? '0' + mins : mins;
         return `at ${h12}.${minsPadded}${ampm}`;
     }
+    if (isYesterday) {
+        return 'yesterday';
+    }
     const day = d.getDate();
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const month = months[d.getMonth()];
     const year = d.getFullYear();
-    return `at ${day} ${month} ${year}`;
+    return `on ${day} ${month} ${year}`;
 }
 
 // ===== CACHING SYSTEM =====
@@ -1446,7 +1453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (isKeyboardNavigation && searchInput) {
                 if (!originalTypedText) originalTypedText = searchInput.value.trim();
-                updateSearchInputForItem(selectedItem, originalTypedText);
+                if (originalTypedText) updateSearchInputForItem(selectedItem, originalTypedText);
             }
             
             selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -2009,7 +2016,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const idx = Array.from(items).indexOf(item);
                     if (idx >= 0) hoveredSuggestionIndex = idx;
                 }
-                if (item !== lastHoveredItemForInput && !suggestionsList.classList.contains('keyboard-navigating')) {
+                if (item !== lastHoveredItemForInput && !suggestionsList.classList.contains('keyboard-navigating') && lastTypedTextInInput) {
                     lastHoveredItemForInput = item;
                     updateSearchInputForItem(item, lastTypedTextInInput);
                 }
