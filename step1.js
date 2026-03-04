@@ -74,13 +74,13 @@ function getActualDateString(dateIso) {
         const ampm = hours >= 12 ? 'pm' : 'am';
         const h12 = hours % 12 || 12;
         const minsPadded = mins < 10 ? '0' + mins : mins;
-        return `${h12}.${minsPadded}${ampm}`;
+        return `at ${h12}.${minsPadded}${ampm}`;
     }
     const day = d.getDate();
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const month = months[d.getMonth()];
     const year = d.getFullYear();
-    return `on ${day} ${month} ${year}`;
+    return `at ${day} ${month} ${year}`;
 }
 
 // ===== CACHING SYSTEM =====
