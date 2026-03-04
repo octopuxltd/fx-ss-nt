@@ -209,7 +209,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
 }
 
 .dropdown-search-engines {
-    max-height: 190px;
+    max-height: 182px;
     overflow-y: auto;
 }
 
