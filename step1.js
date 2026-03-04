@@ -22,6 +22,67 @@ console.log('[API CONFIG] OpenRouter key present:', !!OPENROUTER_API_KEY);
 console.log('[API CONFIG] OpenAI key present:', !!OPENAI_API_KEY);
 console.log('[API CONFIG] Claude key present:', !!CLAUDE_API_KEY);
 
+// ===== FIREFOX HINT TEXT =====
+// Cache a date; compute relative string when rendering; show actual date on hover
+
+function getRandomDateForType(type) {
+    const now = Date.now();
+    let msAgo;
+    const r = Math.random();
+    if (type === 'tab') {
+        if (r < 0.5) msAgo = (5 + Math.floor(Math.random() * 56)) * 60 * 1000;
+        else msAgo = (1 + Math.floor(Math.random() * 24)) * 60 * 60 * 1000;
+    } else if (type === 'bookmark') {
+        if (r < 0.5) msAgo = (1 + Math.floor(Math.random() * 4)) * 7 * 24 * 60 * 60 * 1000;
+        else msAgo = (1 + Math.floor(Math.random() * 11)) * 30 * 24 * 60 * 60 * 1000;
+    } else {
+        if (r < 0.5) msAgo = (1 + Math.floor(Math.random() * 30)) * 24 * 60 * 60 * 1000;
+        else msAgo = (1 + Math.floor(Math.random() * 4)) * 7 * 24 * 60 * 60 * 1000;
+    }
+    return new Date(now - msAgo).toISOString();
+}
+
+function getRelativeDateString(dateIso, type) {
+    const prefixes = { history: 'You visited this page ', bookmark: 'You bookmarked this page ', tab: 'You opened this page ' };
+    const prefix = prefixes[type] || prefixes.history;
+    const d = new Date(dateIso);
+    const now = Date.now();
+    const ms = now - d.getTime();
+    const mins = Math.floor(ms / 60000);
+    const hours = Math.floor(ms / 3600000);
+    const days = Math.floor(ms / 86400000);
+    const weeks = Math.floor(days / 7);
+    const months = Math.floor(days / 30);
+
+    let ago;
+    if (months >= 1) ago = months === 1 ? '1 month ago' : `${months} months ago`;
+    else if (weeks >= 1) ago = weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+    else if (days >= 1) ago = days === 1 ? 'Yesterday' : `${days} days ago`;
+    else if (hours >= 1) ago = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+    else ago = mins <= 1 ? '1 minute ago' : `${mins} minutes ago`;
+    return prefix + ago;
+}
+
+function getActualDateString(dateIso) {
+    const d = new Date(dateIso);
+    const now = new Date();
+    const isToday = d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    if (isToday) {
+        const hours = d.getHours();
+        const mins = d.getMinutes();
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        const h12 = hours % 12 || 12;
+        const minsPadded = mins < 10 ? '0' + mins : mins;
+        return `${h12}.${minsPadded}${ampm}`;
+    }
+    const day = d.getDate();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `on ${day} ${month} ${year}`;
+}
+
 // ===== CACHING SYSTEM =====
 
 // LocalStorage cache functions for AI suggestions
@@ -809,8 +870,23 @@ async function fetchAISuggestions(query, retryCount = 0) {
             console.log('[API] Processing', firefoxSuggestions.length, 'Firefox suggestions');
             
             if (cachedSelectedFirefoxSuggestions && cachedSelectedFirefoxSuggestions.length > 0) {
-                // Use cached Firefox suggestions
-                selectedFirefoxSuggestions = cachedSelectedFirefoxSuggestions;
+                // Use cached Firefox suggestions (ensure each has type for backwards compatibility)
+                selectedFirefoxSuggestions = cachedSelectedFirefoxSuggestions.map(item => ({ ...item }));
+                const firefoxTypes = ['tab', 'bookmark', 'history'];
+                let needsRecache = false;
+                selectedFirefoxSuggestions.forEach((item, i) => {
+                    if (!item.type) {
+                        item.type = firefoxTypes[i % firefoxTypes.length];
+                        item.date = getRandomDateForType(item.type);
+                        needsRecache = true;
+                    } else if (!item.date) {
+                        item.date = getRandomDateForType(item.type);
+                        needsRecache = true;
+                    }
+                });
+                if (needsRecache) {
+                    cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, cachedFirefoxCountToShow || selectedFirefoxSuggestions.length);
+                }
                 const numToReplace = cachedFirefoxCountToShow || selectedFirefoxSuggestions.length;
                 
                 const firefoxTitles = selectedFirefoxSuggestions.map(item => item.title);
@@ -837,6 +913,13 @@ async function fetchAISuggestions(query, retryCount = 0) {
                     const numToReplace = minCount === maxCount ? maxCount : Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
                     
                     selectedFirefoxSuggestions = validFirefoxSuggestions.slice(0, numToReplace);
+                    // Assign type (tab/bookmark/history) on first render; cached for consistency
+                    const firefoxTypes = ['tab', 'bookmark', 'history'];
+                    const shuffled = [...firefoxTypes].sort(() => Math.random() - 0.5);
+                    selectedFirefoxSuggestions.forEach((item, i) => {
+                        item.type = shuffled[i % shuffled.length];
+                        item.date = getRandomDateForType(item.type);
+                    });
                     const firefoxTitles = selectedFirefoxSuggestions.map(item => item.title);
                     
                     const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
@@ -898,6 +981,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const reducedMotionCheckbox = document.querySelector('.reduced-motion-checkbox');
     const suggestionsList = document.querySelector('.suggestions-list');
     const suggestionItems = document.querySelectorAll('.suggestion-item');
+    let selectedSuggestionIndex = -1;
+    let originalTypedText = '';
+    let hoveredSuggestionIndex = -1;
+    let lastTypedTextInInput = '';
+    let lastHoveredItemForInput = null;
     const searchSwitcherButton = document.querySelector('.search-switcher-button');
     const searchClearButton = document.querySelector('.search-clear-button');
     
@@ -1296,9 +1384,78 @@ document.addEventListener('DOMContentLoaded', () => {
         return filteredSuggestions;
     }
     
+    // ===== KEYBOARD NAVIGATION =====
+    
+    function updateSearchInputForItem(item, typedText) {
+        if (!searchInput) return;
+        const isGmailItem = item.classList.contains('gmail-item');
+        const labelEl = item.querySelector('.suggestion-label');
+        const suggestionText = labelEl ? labelEl.textContent.trim() : '';
+        const typed = typedText || '';
+        const isTypedTextItem = suggestionText.toLowerCase() === typed.toLowerCase();
+        
+        if (isGmailItem) {
+            searchInput.value = '';
+        } else if (item.classList.contains('firefox-suggest-item')) {
+            searchInput.value = typed || '';
+            searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+        } else if (suggestionText && !isTypedTextItem) {
+            const typedLen = typed.length;
+            searchInput.value = suggestionText.toLowerCase();
+            if (typedLen > 0 && suggestionText.toLowerCase().startsWith(typed.toLowerCase())) {
+                searchInput.setSelectionRange(typedLen, suggestionText.length);
+            } else {
+                searchInput.setSelectionRange(0, suggestionText.length);
+            }
+        } else if (isTypedTextItem && typed) {
+            searchInput.value = typed;
+            searchInput.setSelectionRange(typed.length, typed.length);
+        }
+    }
+    
+    function updateSelectedSuggestion(isKeyboardNavigation = false) {
+        if (!suggestionsList) return;
+        
+        if (isKeyboardNavigation) {
+            suggestionsList.classList.add('keyboard-navigating');
+        } else {
+            suggestionsList.classList.remove('keyboard-navigating');
+        }
+        
+        const suggestionsContent = suggestionsList.querySelector('.suggestions-content');
+        if (!suggestionsContent) return;
+        
+        const items = suggestionsContent.querySelectorAll('.suggestion-item:not(.skeleton):not(.gmail-item-hidden)');
+        const navigableItems = Array.from(items);
+        
+        navigableItems.forEach((item) => {
+            item.classList.remove('is-selected');
+            const separator = item.querySelector('.suggestion-separator');
+            const hintText = item.querySelector('.suggestion-hint-text');
+            if (separator && !item.classList.contains('firefox-suggest-item')) separator.style.removeProperty('display');
+            if (hintText && !item.classList.contains('firefox-suggest-item')) hintText.style.removeProperty('display');
+        });
+        
+        if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < navigableItems.length) {
+            const selectedItem = navigableItems[selectedSuggestionIndex];
+            selectedItem.classList.add('is-selected');
+            const separator = selectedItem.querySelector('.suggestion-separator');
+            const hintText = selectedItem.querySelector('.suggestion-hint-text');
+            if (separator) separator.style.display = 'block';
+            if (hintText) hintText.style.display = 'block';
+            
+            if (isKeyboardNavigation && searchInput) {
+                if (!originalTypedText) originalTypedText = searchInput.value.trim();
+                updateSearchInputForItem(selectedItem, originalTypedText);
+            }
+            
+            selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+    
     // ===== UPDATE SUGGESTIONS FUNCTION =====
     
-    function updateSuggestions(suggestions) {
+    function updateSuggestions(suggestions, options = {}) {
         console.log('[UPDATE] ===== updateSuggestions CALLED =====');
         console.log('[UPDATE] Suggestions array:', suggestions);
         console.log('[UPDATE] Suggestions count:', suggestions ? suggestions.length : 0);
@@ -1333,9 +1490,16 @@ document.addEventListener('DOMContentLoaded', () => {
             gmailItem.classList.toggle('gmail-item-hidden', !!searchValueTrimmed);
         }
         
-        // Clear existing suggestion items (keep Gmail and heading)
+        // Hide 'Your Recent Searches' heading when typing
+        const headingItem = suggestionsContent.querySelector('.suggestions-heading');
+        if (headingItem) {
+            headingItem.classList.toggle('suggestions-heading-hidden', !!searchValueTrimmed);
+        }
+        
+        // Clear existing suggestion items and Firefox Suggest headings (keep Gmail and Your Recent Searches heading)
         const existingItems = suggestionsContent.querySelectorAll('.suggestion-item:not(.gmail-item):not(.skeleton)');
         existingItems.forEach(item => item.remove());
+        suggestionsContent.querySelectorAll('.firefox-suggest-section-heading').forEach(h => h.remove());
         
         // Prepend typed text as first suggestion if there's text
         const typedTextInSuggestions = suggestions.some(s => s.toLowerCase() === searchValueTrimmed.toLowerCase());
@@ -1365,26 +1529,74 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
+        // Build set of Firefox suggestion titles and map title -> full data for lookup
+        const firefoxTitlesSet = new Set(
+            (firefoxSuggestions || []).map(fs =>
+                (typeof fs === 'string' ? fs : (fs && fs.title ? fs.title : '')).toLowerCase()
+            ).filter(Boolean)
+        );
+        const firefoxDataByTitle = new Map(
+            (firefoxSuggestions || [])
+                .filter(fs => typeof fs === 'object' && fs.title)
+                .map(fs => [fs.title.toLowerCase().trim(), fs])
+        );
+        
+        // Firefox type icons: history = clock, bookmark = star, tab = tab
+        const firefoxTypeIcons = {
+            tab: '<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" stroke-width="1"/><path d="M1 4H11" stroke="currentColor" stroke-width="1"/><circle cx="3" cy="3" r="0.5" fill="currentColor"/><circle cx="5" cy="3" r="0.5" fill="currentColor"/></svg>',
+            bookmark: '<svg class="suggestion-icon firefox-suggest-type-icon" width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 1.2C6.3 2.2 6.6 3.2 7.3 4.4C8.2 4.6 9.4 4.7 10.6 4.9C9.8 6.1 9 7.1 8.3 7.4C8.8 8.8 9.1 9.8 9.2 10.6C7.8 9.8 6.9 9.2 6 8.8C4.1 9.2 3.2 9.8 2.8 10.6C3.1 8.8 3.4 7.8 3.7 7.4C2.8 6.5 2.1 5.5 1.4 4.9C3 5.1 4.1 4.8 4.7 4.4C5.4 3.2 5.7 2.2 6 1.2Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+            history: null  // use icons/clock.svg
+        };
+        
         // Add suggestions
         if (suggestionsToShow && suggestionsToShow.length > 0) {
             console.log('[UPDATE] Adding', suggestionsToShow.length, 'suggestions');
             
+            let firefoxHeadingAdded = false;
+            
             suggestionsToShow.forEach((suggestion, index) => {
                 const isTypedText = index === 0 && searchValueTrimmed && suggestion.toLowerCase() === searchValueTrimmed.toLowerCase();
+                const isFirefoxSuggest = firefoxTitlesSet.has((suggestion || '').toLowerCase().trim());
+                
+                // Add 'Firefox Suggest' heading before first Firefox item
+                if (isFirefoxSuggest && !firefoxHeadingAdded) {
+                    const headingLi = document.createElement('li');
+                    headingLi.className = 'firefox-suggest-section-heading';
+                    headingLi.textContent = 'Firefox Suggest';
+                    suggestionsContent.appendChild(headingLi);
+                    firefoxHeadingAdded = true;
+                }
                 
                 // Create suggestion item
                 const li = document.createElement('li');
-                li.className = 'suggestion-item';
+                li.className = 'suggestion-item' + (isFirefoxSuggest ? ' firefox-suggest-item' : '');
                 if (isTypedText) {
                     li.setAttribute('data-typed-text', 'true');
                 }
                 
-                // Get appropriate icon
-                const iconSrc = getIconForSuggestion(suggestion);
-                const icon = document.createElement('img');
-                icon.src = iconSrc;
-                icon.alt = '';
-                icon.className = 'suggestion-icon';
+                // Get appropriate icon (Firefox items: history=clock, bookmark=star, tab=tab)
+                let iconEl;
+                if (isFirefoxSuggest) {
+                    const firefoxData = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
+                    const firefoxType = (firefoxData && firefoxData.type) ? firefoxData.type : 'history';
+                    const iconSvg = firefoxTypeIcons[firefoxType];
+                    if (firefoxType === 'history' || !iconSvg) {
+                        iconEl = document.createElement('img');
+                        iconEl.src = 'icons/clock.svg';
+                        iconEl.alt = '';
+                        iconEl.className = 'suggestion-icon';
+                    } else {
+                        iconEl = document.createElement('span');
+                        iconEl.innerHTML = iconSvg;
+                        iconEl.className = 'suggestion-icon-wrapper';
+                    }
+                } else {
+                    const iconSrc = getIconForSuggestion(suggestion);
+                    iconEl = document.createElement('img');
+                    iconEl.src = iconSrc;
+                    iconEl.alt = '';
+                    iconEl.className = 'suggestion-icon';
+                }
                 
                 // Add label with highlighting
                 const label = document.createElement('span');
@@ -1394,19 +1606,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 const highlightedText = highlightMatchingText(suggestion, searchValueTrimmed, isTypedText, isGmailSuggestion);
                 label.innerHTML = highlightedText;
                 
-                // Add separator
+                // Add separator and hint (wrap in hint-area for Firefox to allow truncate+fade)
                 const separator = document.createElement('span');
                 separator.className = 'suggestion-separator';
                 separator.textContent = '•';
                 
-                // Add hint text
                 const hintText = document.createElement('span');
                 hintText.className = 'suggestion-hint-text';
+                if (isFirefoxSuggest) {
+                    const firefoxData = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
+                    const dateIso = firefoxData && firefoxData.date;
+                    const firefoxType = (firefoxData && firefoxData.type) ? firefoxData.type : 'history';
+                    const urlDisplay = firefoxData && firefoxData.url
+                        ? (firefoxData.url || '').replace(/^www\./i, '').toLowerCase()
+                        : '';
+                    const isTab = firefoxType === 'tab';
+                    const defaultContent = isTab ? 'switch-to-tab' : (urlDisplay || '');
+                    if (dateIso && (defaultContent || urlDisplay)) {
+                        const fullStr = getRelativeDateString(dateIso, firefoxType);
+                        const prefixes = { history: 'You visited this page ', bookmark: 'You bookmarked this page ', tab: 'You opened this page ' };
+                        const prefix = prefixes[firefoxType] || prefixes.history;
+                        const relativeDatePart = fullStr.slice(prefix.length);
+                        const actualDatePart = getActualDateString(dateIso);
+                        const defaultPart = document.createElement('span');
+                        defaultPart.className = 'suggestion-hint-default-part';
+                        if (isTab) {
+                            const switchBtn = document.createElement('button');
+                            switchBtn.type = 'button';
+                            switchBtn.className = 'firefox-switch-tab-button';
+                            switchBtn.textContent = 'Switch to Tab';
+                            switchBtn.addEventListener('mousedown', (e) => e.preventDefault());
+                            defaultPart.appendChild(switchBtn);
+                        } else {
+                            defaultPart.textContent = urlDisplay;
+                        }
+                        const dateHintPart = document.createElement('span');
+                        dateHintPart.className = 'suggestion-hint-date-hint-part';
+                        dateHintPart.style.display = 'none';
+                        dateHintPart.appendChild(document.createTextNode(prefix));
+                        const datePartSpan = document.createElement('span');
+                        datePartSpan.className = 'suggestion-hint-date-part';
+                        datePartSpan.textContent = relativeDatePart;
+                        datePartSpan.addEventListener('mouseenter', () => { datePartSpan.textContent = actualDatePart; });
+                        datePartSpan.addEventListener('mouseleave', () => { datePartSpan.textContent = relativeDatePart; });
+                        dateHintPart.appendChild(datePartSpan);
+                        hintText.appendChild(defaultPart);
+                        hintText.appendChild(dateHintPart);
+                        li.addEventListener('mouseenter', () => {
+                            defaultPart.style.display = 'none';
+                            dateHintPart.style.display = 'inline';
+                        });
+                        li.addEventListener('mouseleave', () => {
+                            defaultPart.style.display = 'inline';
+                            dateHintPart.style.display = 'none';
+                        });
+                    } else if (urlDisplay) {
+                        hintText.textContent = urlDisplay;
+                    } else {
+                        hintText.textContent = 'Search with Google';
+                    }
+                }
                 
-                li.appendChild(icon);
+                li.appendChild(iconEl);
                 li.appendChild(label);
-                li.appendChild(separator);
-                li.appendChild(hintText);
+                if (isFirefoxSuggest) {
+                    const hintArea = document.createElement('span');
+                    hintArea.className = 'suggestion-hint-area';
+                    hintArea.appendChild(separator);
+                    hintArea.appendChild(hintText);
+                    li.appendChild(hintArea);
+                } else {
+                    li.appendChild(separator);
+                    li.appendChild(hintText);
+                }
                 
                 // Add click handler to save to history
                 li.addEventListener('click', () => {
@@ -1432,6 +1704,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, { once: false });
         });
+        
+        // Set keyboard selection index when suggestions change
+        selectedSuggestionIndex = searchValueTrimmed ? 0 : -1;
+        lastTypedTextInInput = searchValueTrimmed || '';
+        lastHoveredItemForInput = null;
+        updateSelectedSuggestion(false);
+        
+        // Suppress hover until mouse moves to a new item (e.g. when AI suggestions return)
+        if (options.suppressHover && suggestionsList) {
+            suggestionsList.classList.add('suggestions-suppress-hover');
+        } else if (suggestionsList) {
+            suggestionsList.classList.remove('suggestions-suppress-hover');
+        }
     }
     
     // ===== CLEAR BUTTON =====
@@ -1473,6 +1758,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== INPUT EVENT HANDLER =====
     if (searchInput) {
         searchInput.addEventListener('input', async (event) => {
+            originalTypedText = ''; // Reset so next keyboard nav captures current typed text
             updateClearButton();
             console.log('[INPUT] ===== INPUT EVENT STARTED =====');
             
@@ -1570,7 +1856,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         if (aiSuggestions && Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
                             console.log('[AI] Updating with', aiSuggestions.length, 'AI suggestions');
-                            updateSuggestions(aiSuggestions);
+                            updateSuggestions(aiSuggestions, { suppressHover: true });
                             currentDisplayedSuggestions = aiSuggestions;
                         } else {
                             console.log('[AI] No AI suggestions returned');
@@ -1656,6 +1942,90 @@ document.addEventListener('DOMContentLoaded', () => {
             searchInput.blur();
         }
     });
+    
+    // Keyboard navigation (ArrowUp, ArrowDown, Enter)
+    if (searchInput && suggestionsList) {
+        searchInput.addEventListener('keydown', (event) => {
+            if (!suggestionsList) return;
+            const suggestionsContent = suggestionsList.querySelector('.suggestions-content');
+            if (!suggestionsContent) return;
+            
+            const items = suggestionsContent.querySelectorAll('.suggestion-item:not(.skeleton):not(.gmail-item-hidden)');
+            const navigableItems = Array.from(items);
+            const count = navigableItems.length;
+            if (count === 0) return;
+            
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                const startIndex = selectedSuggestionIndex >= 0 ? selectedSuggestionIndex : (hoveredSuggestionIndex >= 0 ? hoveredSuggestionIndex : -1);
+                if (startIndex < 0) {
+                    selectedSuggestionIndex = 0;
+                } else {
+                    selectedSuggestionIndex = (startIndex + 1) % count;
+                }
+                updateSelectedSuggestion(true);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                const startIndex = selectedSuggestionIndex >= 0 ? selectedSuggestionIndex : (hoveredSuggestionIndex >= 0 ? hoveredSuggestionIndex : -1);
+                if (startIndex < 0) {
+                    selectedSuggestionIndex = count - 1;
+                } else {
+                    selectedSuggestionIndex = startIndex <= 0 ? count - 1 : startIndex - 1;
+                }
+                updateSelectedSuggestion(true);
+            } else if (event.key === 'Enter' && selectedSuggestionIndex >= 0) {
+                event.preventDefault();
+                const searchText = searchInput.value.trim();
+                if (searchText) {
+                    saveToSearchHistory(searchText);
+                    window.open('https://www.google.com/search?q=' + encodeURIComponent(searchText), '_blank');
+                }
+            }
+        });
+    }
+    
+    // Clear keyboard-navigating when mouse moves over suggestions
+    if (suggestionsList) {
+        suggestionsList.addEventListener('mousemove', () => {
+            if (suggestionsList.classList.contains('keyboard-navigating')) {
+                suggestionsList.classList.remove('keyboard-navigating');
+                selectedSuggestionIndex = -1;
+                updateSelectedSuggestion(false);
+            }
+            if (suggestionsList.classList.contains('suggestions-suppress-hover')) {
+                suggestionsList.classList.remove('suggestions-suppress-hover');
+                selectedSuggestionIndex = -1;
+                updateSelectedSuggestion(false);
+            }
+        });
+        
+        // Track hovered item index and update search input (like keyboard nav)
+        suggestionsList.addEventListener('mouseover', (e) => {
+            const item = e.target.closest('.suggestion-item:not(.skeleton):not(.gmail-item-hidden)');
+            if (item) {
+                const suggestionsContent = suggestionsList.querySelector('.suggestions-content');
+                if (suggestionsContent) {
+                    const items = suggestionsContent.querySelectorAll('.suggestion-item:not(.skeleton):not(.gmail-item-hidden)');
+                    const idx = Array.from(items).indexOf(item);
+                    if (idx >= 0) hoveredSuggestionIndex = idx;
+                }
+                if (item !== lastHoveredItemForInput && !suggestionsList.classList.contains('keyboard-navigating')) {
+                    lastHoveredItemForInput = item;
+                    updateSearchInputForItem(item, lastTypedTextInInput);
+                }
+            }
+        });
+        suggestionsList.addEventListener('mouseout', (e) => {
+            if (!suggestionsList.contains(e.relatedTarget)) {
+                hoveredSuggestionIndex = -1;
+                lastHoveredItemForInput = null;
+                if (searchInput && lastTypedTextInInput !== undefined) {
+                    searchInput.value = lastTypedTextInInput;
+                    searchInput.setSelectionRange(lastTypedTextInInput.length, lastTypedTextInInput.length);
+                }
+            }
+        });
+    }
     
     // Maintain focus state when switching apps
     let wasFocusedBeforeBlur = false;

@@ -7,6 +7,7 @@
 
 :root {
     /* Color Tokens */
+    --color-hint-accent: #7338E2;
     --color-pale-grey: #F3F4F6;
     --color-suggestion-hover: #EBE7FF;
     --color-text-primary: #1F2933;
@@ -441,19 +442,39 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
 }
 
 .suggestion-item:hover::before {
-    background-color: var(--color-suggestion-hover);
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.suggestion-item:hover::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 0;
+    right: 0;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.suggestion-item:first-child:hover::after {
+    top: 0;
+}
+
+.suggestion-item:last-child:hover::after {
+    bottom: 0;
 }
 
 .suggestion-item .suggestion-separator {
-    color: rgba(0, 0, 0, 0.5);
+    color: var(--color-hint-accent);
     font-size: 12px;
-    padding: 0 8px;
+    padding: 0 5.6px;
     display: none;
 }
 
 .suggestion-item .suggestion-hint-text {
     font-size: 12px;
-    color: rgba(0, 0, 0, 0.5);
+    color: var(--color-hint-accent);
     white-space: nowrap;
     display: none;
 }
@@ -463,12 +484,94 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
     display: block;
 }
 
+.suggestion-item.firefox-suggest-item .suggestion-separator,
+.suggestion-item.firefox-suggest-item .suggestion-hint-text {
+    display: block;
+}
+
+.suggestion-item.is-selected .suggestion-separator,
+.suggestion-item.is-selected .suggestion-hint-text {
+    display: block;
+}
+
+.suggestion-item.is-selected::before {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.suggestion-item.is-selected::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 0;
+    right: 0;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.suggestion-item:first-child.is-selected::after {
+    top: 0;
+}
+
+.suggestion-item:last-child.is-selected::after {
+    bottom: 0;
+}
+
+.suggestions-list.keyboard-navigating .suggestion-item:hover::before {
+    background-color: transparent;
+}
+
+.suggestions-list.keyboard-navigating .suggestion-item:hover::after {
+    display: none;
+}
+
+.suggestions-list.keyboard-navigating .suggestion-item:not(.is-selected):not(.firefox-suggest-item) .suggestion-separator,
+.suggestions-list.keyboard-navigating .suggestion-item:not(.is-selected):not(.firefox-suggest-item) .suggestion-hint-text {
+    display: none;
+}
+
+/* Suppress hover until mouse moves to a new item (e.g. when AI suggestions return) */
+.suggestions-list.suggestions-suppress-hover .suggestion-item:hover::before {
+    background-color: transparent;
+}
+
+.suggestions-list.suggestions-suppress-hover .suggestion-item:hover::after {
+    display: none;
+}
+
+.suggestions-list.suggestions-suppress-hover .suggestion-item:not(.is-selected):not(.firefox-suggest-item) .suggestion-separator,
+.suggestions-list.suggestions-suppress-hover .suggestion-item:not(.is-selected):not(.firefox-suggest-item) .suggestion-hint-text {
+    display: none;
+}
+
 .suggestion-item.gmail-item .suggestion-hint-text::before {
     content: 'Your top visited site';
 }
 
-.suggestion-item:not(.gmail-item) .suggestion-hint-text::before {
+.suggestion-item:not(.gmail-item):not(.firefox-suggest-item) .suggestion-hint-text::before {
     content: 'Search with Google';
+}
+
+.suggestion-hint-date-part {
+    text-decoration: underline dotted;
+}
+
+.firefox-switch-tab-button {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-hint-accent);
+    background: transparent;
+    border: 1px solid var(--color-hint-accent);
+    border-radius: 50px;
+    padding: 0 8px;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+    min-height: 0;
 }
 
 .suggestions-list.first-hover-fade .suggestion-item::before {
@@ -502,11 +605,36 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
     font-weight: 500;
 }
 
+.suggestions-heading.suggestions-heading-hidden {
+    display: none;
+}
+
+.firefox-suggest-section-heading {
+    font-size: 11px;
+    letter-spacing: normal;
+    color: #6B7280;
+    padding: 8px 10px 4px 10px;
+    margin: 2px 0;
+    font-weight: 500;
+}
+
 .suggestion-icon {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
     opacity: 0.65;
+}
+
+.suggestion-icon-wrapper {
+    display: flex;
+    flex-shrink: 0;
+}
+
+.suggestion-icon-wrapper .firefox-suggest-type-icon {
+    width: 16px;
+    height: 16px;
+    opacity: 0.65;
+    color: #4B5563;
 }
 
 .suggestion-item.gmail-item .suggestion-icon {
@@ -519,8 +647,29 @@ body.reduced-motion:has(.search-input:focus) .firefox-logo {
     text-transform: lowercase;
 }
 
-.suggestion-item.gmail-item .suggestion-label {
+.suggestion-item.gmail-item .suggestion-label,
+.suggestion-item.firefox-suggest-item .suggestion-label {
     text-transform: none;
+}
+
+.suggestion-item.firefox-suggest-item {
+    overflow: hidden;
+}
+
+.suggestion-item.firefox-suggest-item .suggestion-label {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.suggestion-hint-area {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    -webkit-mask-image: linear-gradient(to right, black, black 85%, transparent);
+    mask-image: linear-gradient(to right, black, black 85%, transparent);
 }
 
 .suggestion-item.skeleton {
