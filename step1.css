@@ -324,6 +324,12 @@ body.reduced-motion .search-box-wrapper-outer::before {
     max-height: 182px;
     overflow-y: auto;
     scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.dropdown-search-engines::-webkit-scrollbar {
+    display: none;
 }
 
 body.reduced-motion .dropdown-search-engines {

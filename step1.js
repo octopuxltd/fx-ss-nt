@@ -1246,7 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (!wasOpen && isNowOpen) {
                 searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-                if (enginesContainer) enginesContainer.scrollTop = 0;
+                if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
                 const onRevealed = (e) => {
                     if (e.propertyName !== 'max-height') return;
                     searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
@@ -2915,7 +2915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (searchSwitcherButton) {
                     searchSwitcherButton.classList.add('open', 'switcher-suppress-hover');
                     const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-                    if (enginesContainer) enginesContainer.scrollTop = 0;
+                    if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
                     searchInput.blur();
                     searchSwitcherButton.focus();
                     switcherHighlightedIndex = -1;
