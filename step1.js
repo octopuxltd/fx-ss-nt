@@ -2448,10 +2448,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function looksLikeUrl(text) {
         const t = (text || '').trim();
         if (!t) return false;
-        if (/^(www\.|https?:\/\/)/i.test(t)) return true;
         const knownTlds = /\.(com|org|net|edu|gov|io|co|uk|de|fr|au|ca|jp|info|biz|me|app|dev)($|\/)/i;
-        if (knownTlds.test(t) && !/\s/.test(t)) return true;
-        return false;
+        return knownTlds.test(t) && !/\s/.test(t);
     }
     
     function updateClearButton() {
