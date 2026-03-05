@@ -1323,7 +1323,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                         switcherHighlightedIndex = -1;
                         searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
-                        searchInput?.focus();
                         return;
                     }
                 }
