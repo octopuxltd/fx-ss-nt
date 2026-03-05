@@ -30,12 +30,20 @@
             <div class="search-box-wrapper">
                 <div class="search-switcher-button" tabindex="-1">
                     <img src="icons/Google.svg" alt="Google" class="google-icon">
+                    <span class="switcher-button-label" aria-hidden="true" hidden></span>
                     <img src="icons/chevron-step1.svg" alt="" class="chevron">
                     <div class="search-switcher-dropdown">
                         <div class="dropdown-content">
                             <div class="dropdown-label">
                                 <span>This time search with</span>
-                                <span class="dropdown-label-info-icon tooltip-trigger" data-tooltip="If you've typed a search query, selecting a search engine will run your search (hold shift to run it in a new tab). Select a pin to set a search engine as your default." data-tooltip-position="bottom-right">
+                                <span class="dropdown-label-info-icon tooltip-trigger" data-tooltip-position="bottom-right">
+                                    <span class="tooltip-popup">
+                                        <ul>
+                                            <li>If you've typed a search query, selecting a search engine will run your search (hold shift to run it in a new tab).</li>
+                                            <li>Select a pin to set a search engine as your default.</li>
+                                            <li>Drag and drop the search engines to change their order.</li>
+                                        </ul>
+                                    </span>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                                 </span>
                             </div>

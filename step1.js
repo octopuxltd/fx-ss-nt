@@ -43,7 +43,7 @@ function getRandomDateForType(type) {
 }
 
 function getRelativeDateString(dateIso, type) {
-    const prefixes = { history: 'You visited this page ', bookmark: 'You bookmarked this page ', tab: 'You opened this page ' };
+    const prefixes = { history: 'You visited this page ', bookmark: 'You bookmarked this page ', tab: 'You opened this page ', actions: 'You opened this page ' };
     const prefix = prefixes[type] || prefixes.history;
     const d = new Date(dateIso);
     const now = Date.now();
@@ -968,6 +968,7 @@ async function fetchAISuggestions(query, retryCount = 0) {
 }
 
 const DEFAULT_SEARCH_ENGINE_KEY = 'default_search_engine';
+const SEARCH_ENGINE_ORDER_KEY = 'search_engine_order';
 
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
@@ -1122,11 +1123,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const label = labelEl ? labelEl.textContent.trim() : item.textContent.replace(/\s+/g, ' ').trim();
         if (iconEl && label) {
             const switcherIcon = searchSwitcherButton?.querySelector('.google-icon');
+            const switcherLabel = searchSwitcherButton?.querySelector('.switcher-button-label');
             if (switcherIcon) {
                 switcherIcon.src = iconEl.src || iconEl.getAttribute('src');
                 switcherIcon.alt = label;
             }
             const localSources = ['Bookmarks', 'History', 'Tabs', 'Actions'];
+            if (switcherLabel) {
+                if (localSources.includes(label)) {
+                    switcherLabel.textContent = label;
+                    switcherLabel.hidden = false;
+                } else {
+                    switcherLabel.textContent = '';
+                    switcherLabel.hidden = true;
+                    suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+                    if (searchInput && !searchInput.value?.trim() && searchContainer?.classList.contains('focused')) {
+                        const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
+                        updateSuggestions(defaultSuggestions);
+                        suggestionsList?.classList.add('suggestions-revealed');
+                    }
+                }
+            }
             const preposition = localSources.includes(label) ? 'in' : 'with';
             if (searchInput) searchInput.placeholder = 'Search ' + preposition + ' ' + label;
             // Update "Search with X" hints on existing suggestion items
@@ -1195,7 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         suggestionsList.addEventListener('mouseover', (e) => {
             const target = e.target.closest('.suggestion-item, .suggestions-heading');
             const switcherTooltipPinned = tooltipPinned && activeTrigger?.closest('.search-switcher-dropdown');
-            if (target && searchSwitcherButton.classList.contains('open') && !switcherTooltipPinned) {
+            if (target && searchSwitcherButton.classList.contains('open') && !switcherTooltipPinned && !window._searchEngineDragging) {
                 console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
@@ -1228,6 +1245,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
             } else if (!wasOpen && isNowOpen) {
                 searchSwitcherDropdown?.classList.remove('dropdown-revealed');
+                const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+                if (enginesContainer) enginesContainer.scrollTop = 0;
                 const onRevealed = (e) => {
                     if (e.propertyName !== 'max-height') return;
                     searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
@@ -1249,6 +1268,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
+            if (window._searchEngineDragOccurred) {
+                window._searchEngineDragOccurred = false;
+                return;
+            }
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
                 if (wasOpen) {
@@ -1283,6 +1306,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 switcherHoveredIndex = -1;
             });
             searchSwitcherDropdown.addEventListener('click', (e) => {
+                if (window._searchEngineDragOccurred) {
+                    window._searchEngineDragOccurred = false;
+                    return;
+                }
                 const pinEl = e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin');
                 if (pinEl) {
                     const item = pinEl.closest('.dropdown-item');
@@ -1296,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                         switcherHighlightedIndex = -1;
                         searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
-                        if (searchContainer?.classList.contains('focused')) searchInput?.focus();
+                        searchInput?.focus();
                         return;
                     }
                 }
@@ -1310,9 +1337,220 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
-                if (searchContainer?.classList.contains('focused')) searchInput?.focus();
+                searchInput?.focus();
                 console.log('[SWITCHER MOUSE] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
             });
+        }
+
+        // Drag-and-drop reorder for search engines
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (enginesContainer) {
+            let dragHoldTimer = null;
+            let draggedItem = null;
+            let dragOffsetX = 0, dragOffsetY = 0;
+            let dropMarker = null;
+            let dropIndex = -1;
+            let dragScrollInterval = null;
+            let dragOriginalIndex = -1;
+
+            const getEngineItems = () => Array.from(enginesContainer.children).filter(
+                c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+            );
+
+            const getDropIndexFromY = (clientY) => {
+                const items = getEngineItems();
+                if (items.length === 0) return 0;
+                const containerRect = enginesContainer.getBoundingClientRect();
+                if (clientY < containerRect.top) return 0;
+                if (clientY > containerRect.bottom) return items.length;
+                const rows = Array.from(enginesContainer.children).filter(
+                    c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+                );
+                for (let i = 0; i < rows.length; i++) {
+                    const rect = rows[i].getBoundingClientRect();
+                    const mid = rect.top + rect.height / 2;
+                    if (clientY < mid) {
+                        const engineIndex = rows.slice(0, i).filter(r => r.classList.contains('dropdown-item')).length;
+                        return engineIndex;
+                    }
+                }
+                return items.length;
+            };
+
+            const updateDropMarker = (index) => {
+                const items = getEngineItems();
+                if (index < 0 || index > items.length) return;
+                if (!dropMarker) {
+                    dropMarker = document.createElement('div');
+                    dropMarker.className = 'dropdown-drop-marker';
+                    dropMarker.setAttribute('aria-hidden', 'true');
+                }
+                if (dropIndex === index) return;
+                dropIndex = index;
+                const sortSectionForMarker = enginesContainer.querySelector('.engines-sort-section');
+                if (index >= items.length) {
+                    enginesContainer.insertBefore(dropMarker, sortSectionForMarker || null);
+                } else {
+                    enginesContainer.insertBefore(dropMarker, items[index]);
+                }
+            };
+
+            const endDrag = () => {
+                if (!draggedItem) return;
+                document.removeEventListener('mousemove', onDragMove);
+                document.removeEventListener('mouseup', onDragEnd);
+                document.removeEventListener('mouseleave', onDragEnd);
+                if (dragScrollInterval) {
+                    clearInterval(dragScrollInterval);
+                    dragScrollInterval = null;
+                }
+                enginesContainer.classList.remove('engines-dragging');
+                window._searchEngineDragging = false;
+
+                const items = getEngineItems();
+                const currentIndex = dragOriginalIndex;
+                const sortSectionEl = enginesContainer.querySelector('.engines-sort-section');
+                const wouldChange = dropIndex >= 0 && dropIndex !== currentIndex && dropIndex !== currentIndex + 1;
+                if (wouldChange) {
+                    if (dropIndex >= items.length) {
+                        enginesContainer.insertBefore(draggedItem, sortSectionEl || null);
+                    } else {
+                        enginesContainer.insertBefore(draggedItem, items[dropIndex]);
+                    }
+                } else {
+                    if (currentIndex >= items.length) {
+                        enginesContainer.insertBefore(draggedItem, sortSectionEl || null);
+                    } else {
+                        enginesContainer.insertBefore(draggedItem, items[currentIndex]);
+                    }
+                }
+                if (dropMarker?.parentNode) dropMarker.remove();
+                draggedItem.classList.remove('dragging');
+                draggedItem.style.left = '';
+                draggedItem.style.top = '';
+                draggedItem.style.width = '';
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                saveEngineOrder();
+                draggedItem = null;
+                dropMarker = null;
+                dropIndex = -1;
+                window._searchEngineDragOccurred = true;
+            };
+
+            const DRAG_SCROLL_ZONE = 36;
+            const DRAG_SCROLL_SPEED = 8;
+
+            const onDragMove = (e) => {
+                if (!draggedItem) return;
+                draggedItem.style.left = (e.clientX - dragOffsetX) + 'px';
+                draggedItem.style.top = (e.clientY - dragOffsetY) + 'px';
+                updateDropMarker(getDropIndexFromY(e.clientY));
+
+                const containerRect = enginesContainer.getBoundingClientRect();
+                const distFromTop = e.clientY - containerRect.top;
+                const distFromBottom = containerRect.bottom - e.clientY;
+
+                if (dragScrollInterval) {
+                    clearInterval(dragScrollInterval);
+                    dragScrollInterval = null;
+                }
+                if (distFromTop < DRAG_SCROLL_ZONE && distFromTop >= 0 && enginesContainer.scrollTop > 0) {
+                    dragScrollInterval = setInterval(() => {
+                        if (enginesContainer.scrollTop <= 0) {
+                            clearInterval(dragScrollInterval);
+                            dragScrollInterval = null;
+                            return;
+                        }
+                        enginesContainer.scrollTop -= DRAG_SCROLL_SPEED;
+                    }, 16);
+                } else if (distFromBottom < DRAG_SCROLL_ZONE && distFromBottom >= 0 &&
+                    enginesContainer.scrollTop < enginesContainer.scrollHeight - enginesContainer.clientHeight) {
+                    const maxScroll = enginesContainer.scrollHeight - enginesContainer.clientHeight;
+                    dragScrollInterval = setInterval(() => {
+                        if (enginesContainer.scrollTop >= maxScroll) {
+                            clearInterval(dragScrollInterval);
+                            dragScrollInterval = null;
+                            return;
+                        }
+                        enginesContainer.scrollTop += DRAG_SCROLL_SPEED;
+                    }, 16);
+                }
+            };
+
+            const onDragEnd = () => {
+                endDrag();
+            };
+
+            enginesContainer.addEventListener('mousedown', (e) => {
+                const item = e.target.closest('.dropdown-item');
+                if (!item || !item.querySelector('.dropdown-engine-label')) return;
+                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin')) return;
+                e.preventDefault();
+
+                const rect = item.getBoundingClientRect();
+                const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+                if (iconEl) {
+                    const iconRect = iconEl.getBoundingClientRect();
+                    dragOffsetX = (iconRect.left - rect.left) + iconRect.width / 2;
+                    dragOffsetY = (iconRect.top - rect.top) + iconRect.height / 2;
+                } else {
+                    dragOffsetX = e.clientX - rect.left;
+                    dragOffsetY = e.clientY - rect.top;
+                }
+
+                dragHoldTimer = setTimeout(() => {
+                    dragHoldTimer = null;
+                    draggedItem = item;
+                    window._searchEngineDragging = true;
+                    document.body.style.cursor = 'grabbing';
+                    document.body.style.userSelect = 'none';
+                    enginesContainer.classList.add('engines-dragging');
+                    dragOriginalIndex = getEngineItems().indexOf(item);
+                    document.body.appendChild(draggedItem);
+                    draggedItem.classList.add('dragging');
+                    draggedItem.style.width = rect.width + 'px';
+                    draggedItem.style.left = (e.clientX - dragOffsetX) + 'px';
+                    draggedItem.style.top = (e.clientY - dragOffsetY) + 'px';
+                    updateDropMarker(getDropIndexFromY(e.clientY));
+                    document.addEventListener('mousemove', onDragMove);
+                    document.addEventListener('mouseup', onDragEnd);
+                    document.addEventListener('mouseleave', onDragEnd);
+                }, 200);
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (dragHoldTimer) {
+                    clearTimeout(dragHoldTimer);
+                    dragHoldTimer = null;
+                }
+            });
+
+            enginesContainer.addEventListener('mouseleave', () => {
+                if (dragHoldTimer) {
+                    clearTimeout(dragHoldTimer);
+                    dragHoldTimer = null;
+                }
+            });
+        }
+
+        function saveEngineOrder() {
+            const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+            if (!enginesContainer) return;
+            const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
+                el => el.querySelector('.dropdown-engine-label')
+            );
+            const order = items.map(item => getEngineLabel(item));
+            if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
+            const sortSection = enginesContainer.querySelector('.engines-sort-section');
+            if (sortSection) {
+                const engineItems = Array.from(enginesContainer.children).filter(
+                    c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+                );
+                const labels = engineItems.map(i => getEngineLabel(i));
+                const sorted = [...labels].sort((a, b) => a.localeCompare(b));
+                sortSection.hidden = labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
+            }
         }
         
         // Quick buttons visibility toggle
@@ -1335,18 +1573,71 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Restore saved default search engine on load
-        const savedEngine = localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY);
-        if (savedEngine) {
-            const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
-            const engineItems = enginesContainer ? Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
+        // Restore saved default search engine and order on load
+        const enginesContainerForRestore = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (enginesContainerForRestore) {
+            const engineItems = Array.from(enginesContainerForRestore.querySelectorAll('.dropdown-item')).filter(
                 el => el.querySelector('.dropdown-engine-label')
-            ) : [];
-            const match = engineItems.find(item => getEngineLabel(item) === savedEngine);
-            if (match) {
-                applySelectedSearchSource(match);
-                setPinnedEngine(match);
+            );
+            const savedOrder = localStorage.getItem(SEARCH_ENGINE_ORDER_KEY);
+            if (savedOrder) {
+                try {
+                    const order = JSON.parse(savedOrder);
+                    const byLabel = new Map(engineItems.map(item => [getEngineLabel(item), item]));
+                    const ordered = order.map(label => byLabel.get(label)).filter(Boolean);
+                    const rest = engineItems.filter(item => !order.includes(getEngineLabel(item)));
+                    ordered.concat(rest).forEach(item => enginesContainerForRestore.appendChild(item));
+                } catch (_) {}
             }
+            const savedEngine = localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY);
+            if (savedEngine) {
+                const reorderedItems = Array.from(enginesContainerForRestore.querySelectorAll('.dropdown-item')).filter(
+                    el => el.querySelector('.dropdown-engine-label')
+                );
+                const match = reorderedItems.find(item => getEngineLabel(item) === savedEngine);
+                if (match) {
+                    applySelectedSearchSource(match);
+                    setPinnedEngine(match);
+                }
+            }
+
+            const getEngineItemsForSort = () => Array.from(enginesContainerForRestore.children).filter(
+                c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+            );
+
+            const sortSection = document.createElement('div');
+            sortSection.className = 'engines-sort-section';
+            sortSection.innerHTML = '<button type="button" class="engines-sort-alphabetically">Restore A-Z</button>';
+            enginesContainerForRestore.appendChild(sortSection);
+
+            const isEngineListAlphabetical = () => {
+                const items = getEngineItemsForSort();
+                const labels = items.map(i => getEngineLabel(i));
+                const sorted = [...labels].sort((a, b) => a.localeCompare(b));
+                return labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
+            };
+
+            const updateSortButtonVisibility = () => {
+                sortSection.hidden = isEngineListAlphabetical();
+            };
+
+            sortSection.querySelector('.engines-sort-alphabetically').addEventListener('click', (e) => {
+                e.stopPropagation();
+                const items = getEngineItemsForSort();
+                const sorted = [...items].sort((a, b) => getEngineLabel(a).localeCompare(getEngineLabel(b)));
+                sorted.forEach(item => enginesContainerForRestore.insertBefore(item, sortSection));
+                const order = sorted.map(item => getEngineLabel(item));
+                if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
+                updateSortButtonVisibility();
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        const smooth = !document.body.classList.contains('reduced-motion');
+                        enginesContainerForRestore.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+                    });
+                });
+            });
+
+            updateSortButtonVisibility();
         }
     }
     
@@ -1764,6 +2055,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== UPDATE SUGGESTIONS FUNCTION =====
     
     function updateSuggestions(suggestions, options = {}) {
+        const isAtQuery = !!options.isAtQuery;
+        const firefoxSuggestionsOnly = !!options.firefoxSuggestionsOnly;
+        const localSourceMode = options.localSourceMode || '';
+        const localSourceModeToType = { Bookmarks: 'bookmark', Tabs: 'tab', History: 'history', Actions: 'actions' };
+        const displayType = (firefoxSuggestionsOnly && localSourceMode) ? (localSourceModeToType[localSourceMode] || 'history') : null;
         console.log('[UPDATE] ===== updateSuggestions CALLED =====');
         console.log('[UPDATE] Suggestions array:', suggestions);
         console.log('[UPDATE] Suggestions count:', suggestions ? suggestions.length : 0);
@@ -1791,6 +2087,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Get current search value for the typed text
         const searchValue = searchInput ? searchInput.value : '';
         const searchValueTrimmed = searchValue.trim();
+
+        // Update lastTypedTextInInput early so mouseout during DOM updates below doesn't overwrite the input
+        lastTypedTextInInput = searchValueTrimmed || '';
         
         // Hide Gmail when typing so typed text replaces it as first suggestion
         const gmailItem = suggestionsContent.querySelector('.gmail-item');
@@ -1809,12 +2108,30 @@ document.addEventListener('DOMContentLoaded', () => {
         existingItems.forEach(item => item.remove());
         suggestionsContent.querySelectorAll('.firefox-suggest-section-heading').forEach(h => h.remove());
         
-        // Always put typed text first, then local/AI suggestions (prioritise what user typed)
-        let suggestionsToShow = searchValueTrimmed
-            ? [searchValueTrimmed, ...suggestions.filter(s => s.toLowerCase() !== searchValueTrimmed.toLowerCase())]
-            : suggestions;
+        // For @ query: don't add typed text as first suggestion; use suggestions as-is
+        // For firefoxSuggestionsOnly (local source mode): only Firefox Suggest items, no heading
+        // Otherwise: put typed text first, then local/AI suggestions
+        const firefoxSuggestions = suggestions._firefoxSuggestions || [];
+        let suggestionsToShow;
+        if (firefoxSuggestionsOnly) {
+            suggestionsToShow = firefoxSuggestions.length > 0
+                ? firefoxSuggestions
+                    .map(fs => (typeof fs === 'string' ? fs : (fs?.title || '')))
+                    .filter(Boolean)
+                    .filter(title => title.toLowerCase().trim() !== searchValueTrimmed.toLowerCase())
+                : [];
+        } else if (isAtQuery) {
+            suggestionsToShow = suggestions;
+        } else if (searchValueTrimmed) {
+            suggestionsToShow = [searchValueTrimmed, ...(Array.isArray(suggestions) ? suggestions : []).filter(s => {
+                if (typeof s === 'object' && s._localSource) return false;
+                return (typeof s === 'string' ? s : '').toLowerCase() !== searchValueTrimmed.toLowerCase();
+            })];
+        } else {
+            suggestionsToShow = Array.isArray(suggestions) ? suggestions : [];
+        }
         
-        if (looksLikeUrl(searchValueTrimmed) && suggestionsToShow.length > 0) {
+        if (!firefoxSuggestionsOnly && looksLikeUrl(searchValueTrimmed) && suggestionsToShow.length > 0) {
             const first = suggestionsToShow[0];
             const firstText = typeof first === 'object' && first._visitSite ? first._text : first;
             suggestionsToShow = [{ _visitSite: true, _text: firstText }, ...suggestionsToShow];
@@ -1823,14 +2140,14 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('[UPDATE] Typed text:', searchValueTrimmed, '| Total suggestions:', suggestionsToShow.length);
         console.log('[UPDATE] Total suggestions to show:', suggestionsToShow.length);
         
-        // Get Firefox suggestions metadata
-        const firefoxSuggestions = suggestions._firefoxSuggestions || [];
+        // Get Firefox suggestions metadata (already extracted above)
         console.log('[UPDATE] Firefox suggestions:', firefoxSuggestions.length);
         
-        // Track AI suggestions for icon assignment
+        // Track AI suggestions for icon assignment (skip _localSource objects)
         if (suggestions.length > 0) {
             suggestions.forEach(suggestion => {
-                const suggestionLower = suggestion.toLowerCase();
+                if (typeof suggestion === 'object' && suggestion._localSource) return;
+                const suggestionLower = (typeof suggestion === 'string' ? suggestion : '').toLowerCase();
                 // Don't track if it's a Firefox suggestion
                 const isFirefox = firefoxSuggestions.some(fs => 
                     (typeof fs === 'string' && fs.toLowerCase() === suggestionLower) ||
@@ -1858,8 +2175,60 @@ document.addEventListener('DOMContentLoaded', () => {
         const firefoxTypeIcons = {
             tab: 'icons/tabs.svg',
             bookmark: 'icons/star.svg',
-            history: 'icons/clock.svg'
+            history: 'icons/clock.svg',
+            actions: 'icons/actions.svg'
         };
+        
+        function addFirefoxSuggestHeading() {
+            const headingLi = document.createElement('li');
+            headingLi.className = 'firefox-suggest-section-heading';
+            const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            iconSvg.setAttribute('class', 'firefox-suggest-heading-info-icon');
+            iconSvg.setAttribute('width', '14');
+            iconSvg.setAttribute('height', '14');
+            iconSvg.setAttribute('viewBox', '0 0 24 24');
+            iconSvg.setAttribute('fill', 'none');
+            iconSvg.setAttribute('stroke', 'currentColor');
+            iconSvg.setAttribute('stroke-width', '2');
+            iconSvg.setAttribute('stroke-linecap', 'round');
+            iconSvg.setAttribute('stroke-linejoin', 'round');
+            iconSvg.setAttribute('aria-hidden', 'true');
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', '12');
+            circle.setAttribute('cy', '12');
+            circle.setAttribute('r', '10');
+            const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line1.setAttribute('x1', '12');
+            line1.setAttribute('y1', '16');
+            line1.setAttribute('x2', '12');
+            line1.setAttribute('y2', '12');
+            const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line2.setAttribute('x1', '12');
+            line2.setAttribute('y1', '8');
+            line2.setAttribute('x2', '12.01');
+            line2.setAttribute('y2', '8');
+            iconSvg.appendChild(circle);
+            iconSvg.appendChild(line1);
+            iconSvg.appendChild(line2);
+            const iconWrap = document.createElement('span');
+            iconWrap.className = 'info-icon-tooltip info-icon-tooltip-html tooltip-trigger';
+            iconWrap.setAttribute('data-tooltip-position', 'top-right');
+            const tooltipPop = document.createElement('span');
+            tooltipPop.className = 'tooltip-popup';
+            tooltipPop.innerHTML = 'History, bookmarks, and tab suggestions, plus relevant links from trusted sources and the occasional sponsored suggestion (relevant without us selling your data! <a href="https://support.mozilla.org/en-US/kb/firefox-suggest" target="_blank" rel="noopener">Learn how</a>)';
+            iconWrap.appendChild(iconSvg);
+            iconWrap.appendChild(tooltipPop);
+            const span = document.createElement('span');
+            span.textContent = 'From Firefox';
+            headingLi.appendChild(span);
+            headingLi.appendChild(iconWrap);
+            suggestionsContent.appendChild(headingLi);
+        }
+        
+        // Add 'From Firefox' heading above skeletons when in local source mode (empty suggestions, skeletons added separately)
+        if (firefoxSuggestionsOnly && suggestionsToShow.length === 0) {
+            addFirefoxSuggestHeading();
+        }
         
         // Add suggestions
         if (suggestionsToShow && suggestionsToShow.length > 0) {
@@ -1869,56 +2238,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             suggestionsToShow.forEach((suggestionOrObj, index) => {
                 const isVisitSite = typeof suggestionOrObj === 'object' && suggestionOrObj._visitSite;
-                const suggestion = isVisitSite ? suggestionOrObj._text : suggestionOrObj;
+                const isLocalSource = typeof suggestionOrObj === 'object' && suggestionOrObj._localSource;
+                const suggestion = isVisitSite ? suggestionOrObj._text : (isLocalSource ? suggestionOrObj.label : suggestionOrObj);
                 const typedTextIndex = suggestionsToShow[0]?._visitSite ? 1 : 0;
                 const isTypedText = !isVisitSite && index === typedTextIndex && searchValueTrimmed && (suggestion || '').toLowerCase() === searchValueTrimmed.toLowerCase();
                 const isFirefoxSuggest = firefoxTitlesSet.has((suggestion || '').toLowerCase().trim());
                 
-                // Add 'Firefox Suggest' heading before first Firefox item
+                // Add 'From Firefox' heading before first Firefox item
                 if (isFirefoxSuggest && !firefoxHeadingAdded) {
-                    const headingLi = document.createElement('li');
-                    headingLi.className = 'firefox-suggest-section-heading';
-                    const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    iconSvg.setAttribute('class', 'firefox-suggest-heading-info-icon');
-                    iconSvg.setAttribute('width', '14');
-                    iconSvg.setAttribute('height', '14');
-                    iconSvg.setAttribute('viewBox', '0 0 24 24');
-                    iconSvg.setAttribute('fill', 'none');
-                    iconSvg.setAttribute('stroke', 'currentColor');
-                    iconSvg.setAttribute('stroke-width', '2');
-                    iconSvg.setAttribute('stroke-linecap', 'round');
-                    iconSvg.setAttribute('stroke-linejoin', 'round');
-                    iconSvg.setAttribute('aria-hidden', 'true');
-                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('cx', '12');
-                    circle.setAttribute('cy', '12');
-                    circle.setAttribute('r', '10');
-                    const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    line1.setAttribute('x1', '12');
-                    line1.setAttribute('y1', '16');
-                    line1.setAttribute('x2', '12');
-                    line1.setAttribute('y2', '12');
-                    const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    line2.setAttribute('x1', '12');
-                    line2.setAttribute('y1', '8');
-                    line2.setAttribute('x2', '12.01');
-                    line2.setAttribute('y2', '8');
-                    iconSvg.appendChild(circle);
-                    iconSvg.appendChild(line1);
-                    iconSvg.appendChild(line2);
-                    const iconWrap = document.createElement('span');
-                    iconWrap.className = 'info-icon-tooltip info-icon-tooltip-html tooltip-trigger';
-                    iconWrap.setAttribute('data-tooltip-position', 'top-right');
-                    const tooltipPop = document.createElement('span');
-                    tooltipPop.className = 'tooltip-popup';
-                    tooltipPop.innerHTML = 'History, bookmarks, and tab suggestions, plus relevant links from trusted sources and the occasional sponsored suggestion (relevant without us selling your data! <a href="https://support.mozilla.org/en-US/kb/firefox-suggest" target="_blank" rel="noopener">Learn how</a>)';
-                    iconWrap.appendChild(iconSvg);
-                    iconWrap.appendChild(tooltipPop);
-                    const span = document.createElement('span');
-                    span.textContent = 'From Firefox';
-                    headingLi.appendChild(span);
-                    headingLi.appendChild(iconWrap);
-                    suggestionsContent.appendChild(headingLi);
+                    addFirefoxSuggestHeading();
                     firefoxHeadingAdded = true;
                 }
                 
@@ -1926,16 +2254,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hasVisitSite = !!suggestionsToShow[0]?._visitSite;
                 const isTopTwoWithHints = hasVisitSite && (index === 0 || index === 1);
                 const li = document.createElement('li');
-                li.className = 'suggestion-item' + (isFirefoxSuggest ? ' firefox-suggest-item' : '') + (isVisitSite ? ' visit-site-suggestion' : '') + (isTopTwoWithHints ? ' hint-always-visible' : '');
+                li.className = 'suggestion-item' + (isFirefoxSuggest ? ' firefox-suggest-item' : '') + (isVisitSite ? ' visit-site-suggestion' : '') + (isLocalSource ? ' local-source-suggestion' : '') + (isTopTwoWithHints ? ' hint-always-visible' : '');
                 if (isTypedText) {
                     li.setAttribute('data-typed-text', 'true');
                 }
                 
-                // Get appropriate icon (Firefox items: history=clock, bookmark=star, tab=tabs)
+                // Get appropriate icon (Firefox items: history=clock, bookmark=star, tab=tabs, actions)
                 let iconEl;
                 if (isFirefoxSuggest) {
                     const firefoxData = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
-                    const firefoxType = (firefoxData && firefoxData.type) ? firefoxData.type : 'history';
+                    const firefoxType = displayType || (firefoxData && firefoxData.type) || 'history';
                     const iconSrc = firefoxTypeIcons[firefoxType] || 'icons/clock.svg';
                     iconEl = document.createElement('img');
                     iconEl.src = iconSrc;
@@ -1944,6 +2272,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (isVisitSite) {
                     iconEl = document.createElement('img');
                     iconEl.src = 'icons/globe.svg';
+                    iconEl.alt = '';
+                    iconEl.className = 'suggestion-icon';
+                } else if (isLocalSource) {
+                    iconEl = document.createElement('img');
+                    iconEl.src = suggestionOrObj.icon || 'icons/star.svg';
                     iconEl.alt = '';
                     iconEl.className = 'suggestion-icon';
                 } else {
@@ -1959,8 +2292,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 label.className = 'suggestion-label';
                 
                 const isGmailSuggestion = false; // Gmail item is separate
-                const highlightedText = highlightMatchingText(suggestion, searchValueTrimmed, isTypedText, isGmailSuggestion);
-                label.innerHTML = highlightedText;
+                if (isLocalSource) {
+                    label.textContent = suggestion;
+                } else {
+                    const highlightedText = highlightMatchingText(suggestion, searchValueTrimmed, isTypedText, isGmailSuggestion);
+                    label.innerHTML = highlightedText;
+                }
                 
                 // Add separator and hint (wrap in hint-area for Firefox to allow truncate+fade)
                 const separator = document.createElement('span');
@@ -1972,12 +2309,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isFirefoxSuggest) {
                     const firefoxData = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
                     const dateIso = firefoxData && firefoxData.date;
-                    const firefoxType = (firefoxData && firefoxData.type) ? firefoxData.type : 'history';
+                    const firefoxType = displayType || (firefoxData && firefoxData.type) || 'history';
                     const urlDisplay = firefoxData && firefoxData.url
                         ? (firefoxData.url || '').replace(/^www\./i, '').toLowerCase()
                         : '';
                     const isTab = firefoxType === 'tab';
-                    const defaultContent = isTab ? 'switch-to-tab' : (urlDisplay || '');
+                    const isActions = firefoxType === 'actions';
+                    const defaultContent = isTab ? 'switch-to-tab' : (isActions ? 'open-link' : (urlDisplay || ''));
                     if (dateIso && (defaultContent || urlDisplay)) {
                         const fullStr = getRelativeDateString(dateIso, firefoxType);
                         const prefixes = { history: 'You visited this page ', bookmark: 'You bookmarked this page ', tab: 'You opened this page ' };
@@ -1993,6 +2331,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             switchBtn.textContent = 'Switch to Tab';
                             switchBtn.addEventListener('mousedown', (e) => e.preventDefault());
                             defaultPart.appendChild(switchBtn);
+                        } else if (isActions) {
+                            defaultPart.textContent = urlDisplay || 'Open';
                         } else {
                             defaultPart.textContent = urlDisplay;
                         }
@@ -2037,7 +2377,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     moreIcon.setAttribute('aria-hidden', 'true');
                     li.appendChild(moreIcon);
                 } else {
-                    if (!isVisitSite) {
+                    if (isLocalSource) {
+                        hintText.dataset.searchHint = 'Search in ' + suggestion;
+                    } else if (!isVisitSite) {
                         hintText.dataset.searchHint = 'Search with ' + getCurrentSearchEngineLabel();
                     }
                     li.appendChild(separator);
@@ -2046,7 +2388,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Add click handler
                 li.addEventListener('click', () => {
-                    if (isVisitSite && looksLikeUrl(suggestion)) {
+                    if (isLocalSource) {
+                        const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+                        const item = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')).find(el => el.textContent.trim() === suggestion) : null;
+                        if (item) {
+                            applySelectedSearchSource(item);
+                            if (searchInput) {
+                                searchInput.value = '';
+                                suggestionsList?.classList.add('suggestions-suppress-until-typed');
+                                updateSuggestions([]);
+                                searchInput.focus();
+                            }
+                        }
+                    } else if (isVisitSite && looksLikeUrl(suggestion)) {
                         const url = suggestion.trim();
                         const toOpen = /^https?:\/\//i.test(url) ? url : 'https://' + url;
                         window.open(toOpen, '_blank');
@@ -2183,12 +2537,79 @@ document.addEventListener('DOMContentLoaded', () => {
             const valueLower = value.toLowerCase().trim();
             console.log('[INPUT] Raw value:', value, '| Trimmed lower:', valueLower, '| Length:', valueLower.length);
             
-            // Handle empty field - show default suggestions
+            // Handle empty field
             if (valueLower.length === 0) {
+                const label = searchSwitcherButton?.querySelector('.switcher-button-label');
+                const inLocalSourceMode = label && !label.hidden;
+                if (inLocalSourceMode) {
+                    console.log('[INPUT] Empty field, in local source mode - suppress suggestions');
+                    suggestionsList?.classList.add('suggestions-suppress-until-typed');
+                    updateSuggestions([]);
+                    currentDisplayedSuggestions = [];
+                    return;
+                }
                 console.log('[INPUT] Empty field, showing default suggestions');
+                suggestionsList?.classList.remove('suggestions-suppress-until-typed');
                 const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
                 updateSuggestions(defaultSuggestions);
                 currentDisplayedSuggestions = defaultSuggestions;
+                return;
+            }
+
+            suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+            if (!suggestionsList?.classList.contains('suggestions-revealed')) {
+                suggestionsList?.classList.add('suggestions-revealed');
+            }
+
+            const label = searchSwitcherButton?.querySelector('.switcher-button-label');
+            const inLocalSourceMode = label && !label.hidden;
+
+            // In local source mode: only show Firefox Suggestions (AI results), no search suggestions, no typed-text-as-first
+            if (inLocalSourceMode) {
+                if (valueLower.length < 1) {
+                    updateSuggestions([], { firefoxSuggestionsOnly: true });
+                    showSkeletonLoaders(4);
+                    return;
+                }
+                const hasExistingSuggestions = currentDisplayedSuggestions.length > 0;
+                if (!hasExistingSuggestions) {
+                    updateSuggestions([], { firefoxSuggestionsOnly: true });
+                    showSkeletonLoaders(4);
+                }
+                lastApiQuery = valueLower;
+                try {
+                    const aiSuggestions = await fetchAISuggestions(valueLower);
+                    const finalQuery = searchInput.value.toLowerCase().trim();
+                    if (finalQuery === valueLower) {
+                        if (aiSuggestions && Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
+                            const localSourceLabel = label?.textContent?.trim();
+                            updateSuggestions(aiSuggestions, { firefoxSuggestionsOnly: true, suppressHover: true, localSourceMode: localSourceLabel });
+                            currentDisplayedSuggestions = aiSuggestions;
+                        } else {
+                            updateSuggestions([], { firefoxSuggestionsOnly: true });
+                        }
+                    }
+                } catch (error) {
+                    console.error('[AI] Error fetching suggestions:', error);
+                    updateSuggestions([], { firefoxSuggestionsOnly: true });
+                }
+                return;
+            }
+
+            // Handle @ query - show only local sources (Bookmarks, Tabs, History, Actions)
+            if (valueLower.startsWith('@')) {
+                const afterAt = valueLower.slice(1).trim();
+                const localSources = [
+                    { _localSource: true, label: 'Bookmarks', icon: 'icons/star.svg' },
+                    { _localSource: true, label: 'Tabs', icon: 'icons/tabs.svg' },
+                    { _localSource: true, label: 'History', icon: 'icons/history.svg' },
+                    { _localSource: true, label: 'Actions', icon: 'icons/actions.svg' }
+                ];
+                const matching = afterAt
+                    ? localSources.filter(s => s.label.toLowerCase().startsWith(afterAt))
+                    : localSources;
+                updateSuggestions(matching, { isAtQuery: true });
+                currentDisplayedSuggestions = matching;
                 return;
             }
             
@@ -2314,6 +2735,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // Reset first hover flag
             firstHoverDone = false;
             
+            const label = searchSwitcherButton?.querySelector('.switcher-button-label');
+            const inLocalSourceMode = label && !label.hidden;
+            const inputEmpty = !searchInput?.value?.trim();
+            if (inLocalSourceMode && inputEmpty) {
+                suggestionsList?.classList.add('suggestions-suppress-until-typed');
+                updateSuggestions([]);
+                return;
+            }
+            suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+            
             // Disable hover states during transition
             if (suggestionsList) {
                 suggestionsList.classList.add('transitioning');
@@ -2408,7 +2839,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                     switcherHighlightedIndex = -1;
                     dropdownItems.forEach(i => i.classList.remove('highlighted'));
-                    if (searchContainer?.classList.contains('focused')) searchInput?.focus();
+                    searchInput?.focus();
                     console.log('[SWITCHER KEYBOARD] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
                 }
             } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -2428,6 +2859,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // Backspace/Delete at start in local source mode → return to default search engine (only when cursor at start, not when text is selected)
+    if (searchInput && searchSwitcherButton) {
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+            const label = searchSwitcherButton?.querySelector('.switcher-button-label');
+            if (!label || label.hidden) return;
+            const selStart = searchInput.selectionStart ?? 0;
+            const selEnd = searchInput.selectionEnd ?? 0;
+            if (selStart !== 0 || selStart !== selEnd) return;
+            event.preventDefault();
+            const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+            const pinnedItem = enginesContainer?.querySelector('.dropdown-item-pinned');
+            if (pinnedItem) applySelectedSearchSource(pinnedItem);
+        });
+    }
+
+    // @bookmarks, @history, @tabs, @actions - switch search type on space (only when search engine selected)
+    if (searchInput && searchSwitcherButton) {
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key !== ' ') return;
+            const label = searchSwitcherButton?.querySelector('.switcher-button-label');
+            if (label && !label.hidden) return;
+            const value = searchInput.value;
+            const atKeywords = ['@bookmarks', '@history', '@tabs', '@actions'];
+            const lower = value.toLowerCase();
+            for (const kw of atKeywords) {
+                if (lower.endsWith(kw)) {
+                    event.preventDefault();
+                    const newValue = value.slice(0, -kw.length).trim();
+                    searchInput.value = newValue;
+                    searchInput.setSelectionRange(newValue.length, newValue.length);
+                    const labelMap = { '@bookmarks': 'Bookmarks', '@history': 'History', '@tabs': 'Tabs', '@actions': 'Actions' };
+                    const targetLabel = labelMap[kw];
+                    const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                    const item = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')).find(el => el.textContent.trim() === targetLabel) : null;
+                    if (item) {
+                        applySelectedSearchSource(item);
+                        if (!newValue) {
+                            suggestionsList?.classList.add('suggestions-suppress-until-typed');
+                            updateSuggestions([]);
+                        }
+                    }
+                    return;
+                }
+            }
+        });
+    }
+
     // Keyboard navigation (ArrowUp, ArrowDown, Enter); Alt+ArrowUp/Down opens search engine switcher
     if (searchInput && suggestionsList) {
         searchInput.addEventListener('keydown', (event) => {
@@ -2438,6 +2917,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 if (searchSwitcherButton) {
                     searchSwitcherButton.classList.add('open', 'switcher-suppress-hover');
+                    const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+                    if (enginesContainer) enginesContainer.scrollTop = 0;
                     searchInput.blur();
                     searchSwitcherButton.focus();
                     switcherHighlightedIndex = -1;
@@ -2475,10 +2956,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateSelectedSuggestion(true);
             } else if (event.key === 'Enter' && selectedSuggestionIndex >= 0) {
                 event.preventDefault();
-                const searchText = searchInput.value.trim();
-                if (searchText) {
-                    saveToSearchHistory(searchText);
-                    window.open('https://www.google.com/search?q=' + encodeURIComponent(searchText), '_blank');
+                const selectedItem = navigableItems[selectedSuggestionIndex];
+                if (selectedItem && selectedItem.classList.contains('local-source-suggestion')) {
+                    const label = selectedItem.querySelector('.suggestion-label')?.textContent?.trim();
+                    if (label) {
+                        const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+                        const item = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')).find(el => el.textContent.trim() === label) : null;
+                        if (item) {
+                            applySelectedSearchSource(item);
+                            if (searchInput) {
+                                searchInput.value = '';
+                                suggestionsList?.classList.add('suggestions-suppress-until-typed');
+                                updateSuggestions([]);
+                                searchInput.focus();
+                            }
+                        }
+                    }
+                } else {
+                    const searchText = searchInput.value.trim();
+                    if (searchText) {
+                        saveToSearchHistory(searchText);
+                        window.open('https://www.google.com/search?q=' + encodeURIComponent(searchText), '_blank');
+                    }
                 }
             }
         });

@@ -267,6 +267,20 @@ body.reduced-motion .search-box-wrapper-outer::before {
     text-decoration: underline;
 }
 
+#global-tooltip ul {
+    margin: 0;
+    padding-left: 1.2em;
+}
+
+#global-tooltip li {
+    margin-bottom: 0.35em;
+}
+
+#global-tooltip li:last-child {
+    margin-bottom: 0;
+}
+
+.tooltip-trigger .tooltip-popup,
 .info-icon-tooltip-html .tooltip-popup {
     display: none;
 }
@@ -277,9 +291,43 @@ body.reduced-motion .search-box-wrapper-outer::before {
     margin: 4px 0;
 }
 
+.engines-sort-section {
+    flex-shrink: 0;
+    padding: 8px 12px;
+}
+
+.engines-sort-section[hidden] {
+    display: none;
+}
+
+.engines-sort-alphabetically {
+    display: block;
+    width: 100%;
+    padding: 8px 16px;
+    margin: 0;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    text-align: center;
+}
+
+.engines-sort-alphabetically:hover {
+    background: #E5E7EB;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
 .dropdown-search-engines {
     max-height: 182px;
     overflow-y: auto;
+    scroll-behavior: smooth;
+}
+
+body.reduced-motion .dropdown-search-engines {
+    scroll-behavior: auto;
 }
 
 .dropdown-item {
@@ -372,6 +420,46 @@ body.reduced-motion .search-box-wrapper-outer::before {
 
 .dropdown-item-pin-empty:hover .pin-filled {
     opacity: 0.7;
+}
+
+body > .dropdown-item.dragging {
+    position: fixed;
+    transform: scale(1.06) rotate(-8deg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.08);
+    z-index: 10001;
+    opacity: 0.95;
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+    pointer-events: none;
+    user-select: none;
+    background-color: #F3F4F6;
+    border-radius: 6px;
+}
+
+.dropdown-search-engines.engines-dragging .dropdown-item:hover {
+    background-color: transparent;
+}
+
+.dropdown-search-engines.engines-dragging .dropdown-item-pin-empty {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.dropdown-search-engines.engines-dragging .dropdown-item.highlighted {
+    background-color: var(--color-suggestion-hover);
+}
+
+body.reduced-motion .dropdown-item.dragging {
+    transform: scale(1.04);
+}
+
+.dropdown-drop-marker {
+    height: 0;
+    border: none;
+    border-top: 2px solid var(--color-accent, #0060df);
+    margin: 2px 12px;
+    border-radius: 1px;
+    flex-shrink: 0;
+    pointer-events: none;
 }
 
 .search-box-wrapper:has(.search-input:focus) .search-switcher-button {
@@ -485,6 +573,13 @@ body.reduced-motion .search-box-wrapper-outer::before {
     width: 16px;
     height: 16px;
     margin: 2px;
+}
+
+.switcher-button-label {
+    font-size: 14px;
+    color: var(--color-text-primary);
+    font-weight: 500;
+    margin-right: 4px;
 }
 
 .chevron {
@@ -615,6 +710,15 @@ body.reduced-motion:has(.search-container.focused) .firefox-logo {
 .search-container.focused .suggestions-list {
     max-height: 600px;
     transition: max-height 0.42s ease-out;
+}
+
+.search-container.focused .suggestions-list.suggestions-suppress-until-typed {
+    max-height: 0;
+}
+
+.search-container.focused .suggestions-list.suggestions-suppress-until-typed .gmail-item,
+.search-container.focused .suggestions-list.suggestions-suppress-until-typed .suggestions-heading {
+    display: none;
 }
 
 .suggestion-item {
