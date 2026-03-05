@@ -975,6 +975,117 @@ console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[DOM] DOMContentLoaded fired');
+
+    // Mouse-positioned tooltips
+    const tooltipEl = document.createElement('div');
+    tooltipEl.id = 'global-tooltip';
+    document.body.appendChild(tooltipEl);
+    let tooltipHideTimer = null;
+    let activeTrigger = null;
+    let tooltipPinned = false;
+
+    const positionTooltip = (trigger, position) => {
+        const rect = trigger.getBoundingClientRect();
+        const gap = 6;
+        tooltipEl.style.left = '';
+        tooltipEl.style.right = '';
+        tooltipEl.style.top = '';
+        tooltipEl.style.bottom = '';
+        tooltipEl.classList.add('tooltip-visible');
+        tooltipEl.offsetHeight; // force reflow
+        const w = tooltipEl.offsetWidth;
+        const h = tooltipEl.offsetHeight;
+        const pos = position || 'bottom-right';
+        if (pos === 'bottom-right') {
+            tooltipEl.style.left = rect.right + gap + 'px';
+            tooltipEl.style.top = rect.bottom + gap + 'px';
+        } else if (pos === 'bottom-left') {
+            tooltipEl.style.left = (rect.left - w - gap) + 'px';
+            tooltipEl.style.top = rect.bottom + gap + 'px';
+        } else if (pos === 'top-right') {
+            tooltipEl.style.left = rect.right + gap + 'px';
+            tooltipEl.style.top = (rect.top - h - gap) + 'px';
+        } else if (pos === 'top-left') {
+            tooltipEl.style.left = (rect.left - w - gap) + 'px';
+            tooltipEl.style.top = (rect.top - h - gap) + 'px';
+        }
+    };
+
+    const showTooltip = (trigger) => {
+        const popup = trigger.querySelector('.tooltip-popup');
+        const text = trigger.getAttribute('data-tooltip');
+        const position = trigger.getAttribute('data-tooltip-position') || 'bottom-right';
+        const content = popup ? popup.innerHTML : (text || '');
+        if (!content) return;
+        tooltipEl.innerHTML = '<button type="button" class="tooltip-close" aria-label="Close">×</button><span class="tooltip-body"></span>';
+        tooltipEl.querySelector('.tooltip-body').innerHTML = content;
+        tooltipEl.querySelector('.tooltip-close').addEventListener('click', hideTooltip);
+        activeTrigger = trigger;
+        positionTooltip(trigger, position);
+    };
+
+    const hideTooltip = () => {
+        tooltipEl.classList.remove('tooltip-visible', 'tooltip-pinned');
+        tooltipEl.innerHTML = '';
+        activeTrigger = null;
+        tooltipPinned = false;
+    };
+
+    const scheduleHide = () => {
+        if (tooltipPinned) return;
+        tooltipHideTimer = setTimeout(hideTooltip, 150);
+    };
+
+    document.addEventListener('mouseover', (e) => {
+        const trigger = e.target.closest('.tooltip-trigger');
+        if (trigger) {
+            if (tooltipHideTimer) {
+                clearTimeout(tooltipHideTimer);
+                tooltipHideTimer = null;
+            }
+            showTooltip(trigger);
+        }
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        const trigger = e.target.closest('.tooltip-trigger');
+        const toTooltip = e.relatedTarget?.closest('#global-tooltip');
+        if (trigger && !toTooltip && e.relatedTarget && !trigger.contains(e.relatedTarget)) {
+            scheduleHide();
+        }
+    });
+
+    document.addEventListener('mousedown', (e) => {
+        const trigger = e.target.closest('.tooltip-trigger');
+        const inTooltip = e.target.closest('#global-tooltip');
+        if (trigger || inTooltip) {
+            tooltipPinned = true;
+            tooltipEl.classList.add('tooltip-pinned');
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        const trigger = e.target.closest('.tooltip-trigger');
+        const inTooltip = e.target.closest('#global-tooltip');
+        if (trigger || inTooltip) {
+            tooltipPinned = true;
+            tooltipEl.classList.add('tooltip-pinned');
+        } else if (activeTrigger || tooltipEl.classList.contains('tooltip-visible')) {
+            hideTooltip();
+        }
+    });
+
+    tooltipEl.addEventListener('mouseenter', () => {
+        if (tooltipHideTimer) {
+            clearTimeout(tooltipHideTimer);
+            tooltipHideTimer = null;
+        }
+    });
+
+    tooltipEl.addEventListener('mouseleave', () => {
+        if (!tooltipPinned) hideTooltip();
+    });
+
     console.log('[DOM] Body has reduced-motion class?', document.body.classList.contains('reduced-motion'));
     const searchInput = document.querySelector('.search-input');
     
@@ -1083,8 +1194,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Delegate to handle both existing items and any future items
         suggestionsList.addEventListener('mouseover', (e) => {
             const target = e.target.closest('.suggestion-item, .suggestions-heading');
-            if (target && searchSwitcherButton.classList.contains('open')) {
+            const switcherTooltipPinned = tooltipPinned && activeTrigger?.closest('.search-switcher-dropdown');
+            if (target && searchSwitcherButton.classList.contains('open') && !switcherTooltipPinned) {
                 console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
+                searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
@@ -1109,10 +1222,20 @@ document.addEventListener('DOMContentLoaded', () => {
             searchSwitcherButton.classList.toggle('open');
             const isNowOpen = searchSwitcherButton.classList.contains('open');
             if (wasOpen && !isNowOpen) {
+                searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.classList.remove('switcher-suppress-hover');
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
             } else if (!wasOpen && isNowOpen) {
+                searchSwitcherDropdown?.classList.remove('dropdown-revealed');
+                const onRevealed = (e) => {
+                    if (e.propertyName !== 'max-height') return;
+                    searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
+                    if (searchSwitcherButton.classList.contains('open')) {
+                        searchSwitcherDropdown.classList.add('dropdown-revealed');
+                    }
+                };
+                searchSwitcherDropdown?.addEventListener('transitionend', onRevealed);
                 searchInput.blur();
                 searchSwitcherButton.focus();
                 searchSwitcherButton.classList.add('switcher-suppress-hover');
@@ -1129,6 +1252,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
                 if (wasOpen) {
+                    searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
@@ -1168,6 +1292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const label = getEngineLabel(item);
                         if (label) localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, label);
                         setPinnedEngine(item);
+                        searchSwitcherDropdown.classList.remove('dropdown-revealed');
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                         switcherHighlightedIndex = -1;
                         searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
@@ -1181,6 +1306,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item.textContent.includes('Search Settings')) return;
                 console.log('[SWITCHER MOUSE] Dropdown item clicked, applying selection and closing');
                 applySelectedSearchSource(item);
+                searchSwitcherDropdown.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
@@ -1781,9 +1907,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconSvg.appendChild(line1);
                     iconSvg.appendChild(line2);
                     const iconWrap = document.createElement('span');
-                    iconWrap.className = 'info-icon-tooltip';
-                    iconWrap.setAttribute('data-tooltip', 'Suggestions from your Firefox history, bookmarks, and open tabs. Also includes relevant links from partners, and the occasional privacy-preserving sponsored suggestion.');
+                    iconWrap.className = 'info-icon-tooltip info-icon-tooltip-html tooltip-trigger';
+                    iconWrap.setAttribute('data-tooltip-position', 'top-right');
+                    const tooltipPop = document.createElement('span');
+                    tooltipPop.className = 'tooltip-popup';
+                    tooltipPop.innerHTML = 'History, bookmarks, and tab suggestions, plus relevant links from trusted sources and the occasional sponsored suggestion (relevant without us selling your data! <a href="https://support.mozilla.org/en-US/kb/firefox-suggest" target="_blank" rel="noopener">Learn how</a>)';
                     iconWrap.appendChild(iconSvg);
+                    iconWrap.appendChild(tooltipPop);
                     const span = document.createElement('span');
                     span.textContent = 'From Firefox';
                     headingLi.appendChild(span);
@@ -2179,6 +2309,7 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('focus', () => {
             // Add focused class to expand width
             searchContainer.classList.add('focused');
+            suggestionsList?.classList.remove('suggestions-revealed');
             
             // Reset first hover flag
             firstHoverDone = false;
@@ -2186,7 +2317,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Disable hover states during transition
             if (suggestionsList) {
                 suggestionsList.classList.add('transitioning');
-                
+                const onRevealed = (e) => {
+                    if (e.propertyName !== 'max-height') return;
+                    suggestionsList.removeEventListener('transitionend', onRevealed);
+                    if (searchContainer.classList.contains('focused')) {
+                        suggestionsList.classList.add('suggestions-revealed');
+                    }
+                };
+                suggestionsList.addEventListener('transitionend', onRevealed);
                 // Remove transitioning class and enable first-hover after transition completes (0.42s)
                 setTimeout(() => {
                     suggestionsList.classList.remove('transitioning');
@@ -2199,6 +2337,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (searchSwitcherButton?.classList.contains('open')) return;
             // Remove focused class
             searchContainer.classList.remove('focused');
+            suggestionsList?.classList.remove('suggestions-revealed');
             firstHoverDone = false;
             
             // Disable hover states during transition
@@ -2245,6 +2384,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.key === 'Escape') {
             const switcherOpen = searchSwitcherButton?.classList.contains('open');
             if (switcherOpen) {
+                searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 if (searchContainer?.classList.contains('focused')) searchInput?.focus();
                 return;
@@ -2264,6 +2404,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item.id !== 'quick-buttons-toggle' && !item.textContent.includes('Search Settings')) {
                     console.log('[SWITCHER KEYBOARD] Enter pressed on highlighted item, applying selection and closing');
                     applySelectedSearchSource(item);
+                    dropdown?.classList.remove('dropdown-revealed');
                     searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                     switcherHighlightedIndex = -1;
                     dropdownItems.forEach(i => i.classList.remove('highlighted'));
