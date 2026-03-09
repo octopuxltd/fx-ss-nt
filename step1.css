@@ -177,7 +177,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
 }
 
 .dropdown-content {
-    padding: 8px 0;
+    padding: 6px 0;
 }
 
 .search-switcher-button.open .search-switcher-dropdown {
@@ -194,7 +194,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    padding: 6px 12px;
+    padding: 5px 12px;
     font-size: 12px;
     color: var(--color-text-secondary);
     font-weight: 500;
@@ -336,11 +336,27 @@ body.reduced-motion .dropdown-search-engines {
     scroll-behavior: auto;
 }
 
+.dropdown-firefox-suggestions {
+    max-height: 149px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.dropdown-firefox-suggestions::-webkit-scrollbar {
+    display: none;
+}
+
+body.reduced-motion .dropdown-firefox-suggestions {
+    scroll-behavior: auto;
+}
+
 .dropdown-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 6px 12px;
     font-size: 14px;
     color: var(--color-text-primary);
     cursor: pointer;
@@ -456,6 +472,54 @@ body > .dropdown-item.dragging {
 
 body.reduced-motion .dropdown-item.dragging {
     transform: scale(1.04);
+}
+
+.dropdown-item-firefox-suggestion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dropdown-firefox-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    border-radius: 3px;
+    border: 1px solid transparent;
+}
+
+.dropdown-item-firefox-suggestion:hover .dropdown-firefox-toggle {
+    border-color: rgba(0, 0, 0, 0.3);
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.dropdown-firefox-toggle:hover {
+    border-color: rgba(0, 0, 0, 0.4);
+    background-color: rgba(255, 255, 255, 0.7);
+}
+
+.dropdown-firefox-toggle svg {
+    width: 12px;
+    height: 12px;
+    opacity: 0.8;
+    color: #9CA3AF;
+}
+
+.dropdown-item-firefox-suggestion:hover .dropdown-firefox-toggle svg,
+.dropdown-firefox-toggle:hover svg {
+    color: inherit;
+}
+
+.dropdown-firefox-toggle:hover svg {
+    stroke-width: 3.5;
+}
+
+.dropdown-firefox-toggle:not(.checked) svg {
+    visibility: hidden;
 }
 
 .dropdown-drop-marker {

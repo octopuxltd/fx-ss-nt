@@ -969,6 +969,7 @@ async function fetchAISuggestions(query, retryCount = 0) {
 
 const DEFAULT_SEARCH_ENGINE_KEY = 'default_search_engine';
 const SEARCH_ENGINE_ORDER_KEY = 'search_engine_order';
+const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
@@ -1167,6 +1168,55 @@ document.addEventListener('DOMContentLoaded', () => {
         return saved || 'Google';
     }
 
+    function getFirefoxSuggestionsState() {
+        try {
+            const raw = localStorage.getItem(FIREFOX_SUGGESTIONS_ENABLED_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                return {
+                    bookmarks: parsed.bookmarks !== false,
+                    tabs: parsed.tabs !== false,
+                    history: parsed.history !== false,
+                    actions: parsed.actions !== false,
+                    recommendations: parsed.recommendations !== false,
+                    partners: parsed.partners !== false
+                };
+            }
+        } catch (_) {}
+        return { bookmarks: true, tabs: true, history: true, actions: true, recommendations: true, partners: true };
+    }
+
+    function setFirefoxSuggestionState(type, enabled) {
+        const state = getFirefoxSuggestionsState();
+        state[type] = enabled;
+        localStorage.setItem(FIREFOX_SUGGESTIONS_ENABLED_KEY, JSON.stringify(state));
+    }
+
+    function toggleFirefoxSuggestionCheckbox(el) {
+        if (!el) return;
+        el.classList.toggle('checked');
+        const isChecked = el.classList.contains('checked');
+        el.setAttribute('aria-pressed', isChecked);
+        el.title = isChecked ? 'Include in suggestions' : 'Exclude from suggestions';
+        const item = el.closest('.dropdown-item-firefox-suggestion');
+        const type = item?.getAttribute('data-suggestion-type');
+        if (type) setFirefoxSuggestionState(type, isChecked);
+    }
+
+    function restoreFirefoxSuggestionsState() {
+        const state = getFirefoxSuggestionsState();
+        document.querySelectorAll('.dropdown-item-firefox-suggestion').forEach(item => {
+            const type = item?.getAttribute('data-suggestion-type');
+            if (!type) return;
+            const toggle = item.querySelector('.dropdown-firefox-toggle');
+            if (!toggle) return;
+            const enabled = state[type] !== false;
+            toggle.classList.toggle('checked', enabled);
+            toggle.setAttribute('aria-pressed', enabled);
+            toggle.title = enabled ? 'Include in suggestions' : 'Exclude from suggestions';
+        });
+    }
+
     function setPinnedEngine(pinnedItem) {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
@@ -1247,6 +1297,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
                 if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
+                const firefoxSuggestionsContainer = searchSwitcherButton?.querySelector('.dropdown-firefox-suggestions');
+                if (firefoxSuggestionsContainer) firefoxSuggestionsContainer.scrollTo({ top: 0, behavior: 'instant' });
                 const onRevealed = (e) => {
                     if (e.propertyName !== 'max-height') return;
                     searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
@@ -1310,6 +1362,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     window._searchEngineDragOccurred = false;
                     return;
                 }
+                const firefoxToggleEl = e.target.closest('.dropdown-firefox-toggle');
+                if (firefoxToggleEl) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleFirefoxSuggestionCheckbox(firefoxToggleEl);
+                    return;
+                }
+                const item = e.target.closest('.dropdown-item');
                 const pinEl = e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin');
                 if (pinEl) {
                     const item = pinEl.closest('.dropdown-item');
@@ -1326,7 +1386,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                 }
-                const item = e.target.closest('.dropdown-item');
                 if (!item) return;
                 if (item.id === 'quick-buttons-toggle') return;
                 if (item.textContent.includes('Search Settings')) return;
@@ -1339,6 +1398,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchInput?.focus();
                 console.log('[SWITCHER MOUSE] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
             });
+            restoreFirefoxSuggestionsState();
         }
 
         // Drag-and-drop reorder for search engines
@@ -2823,6 +2883,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const switcherOpen = searchSwitcherButton?.classList.contains('open');
         if (switcherOpen && !event.altKey) {
+            const firefoxToggle = document.activeElement?.closest?.('.dropdown-firefox-toggle');
+            if (firefoxToggle && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault();
+                toggleFirefoxSuggestionCheckbox(firefoxToggle);
+                return;
+            }
             const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
             const dropdownItems = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')) : [];
             const count = dropdownItems.length;
@@ -2916,6 +2982,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchSwitcherButton.classList.add('open', 'switcher-suppress-hover');
                     const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
                     if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
+                    const firefoxSuggestionsContainer = searchSwitcherButton?.querySelector('.dropdown-firefox-suggestions');
+                    if (firefoxSuggestionsContainer) firefoxSuggestionsContainer.scrollTo({ top: 0, behavior: 'instant' });
                     searchInput.blur();
                     searchSwitcherButton.focus();
                     switcherHighlightedIndex = -1;
