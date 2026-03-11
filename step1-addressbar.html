@@ -5,15 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Tab Search (phase 1)</title>
     <link rel="stylesheet" href="step1.css">
+    <link rel="stylesheet" href="step1-addressbar.css">
     <script src="config.js" onerror="console.warn('config.js not found. Using example config.'); window.API_CONFIG = window.API_CONFIG || { OPENROUTER_API_KEY: '', OPENAI_API_KEY: '', PEXELS_API_KEY: '' };"></script>
     <script src="suggestion-words.js"></script>
 </head>
-<body>
-    <div class="addressbar-band" aria-hidden="true"></div>
-    <div class="addressbar-area">
-        <iframe src="step1-addressbar.html" class="addressbar-iframe" title="Address bar"></iframe>
-        <iframe src="step1-standalonesearchbox.html" class="standalone-search-box-iframe" title="Standalone search box"></iframe>
-    </div>
+<body class="addressbar">
     <script>
         // Apply reduced motion class immediately to body before any rendering
         if (localStorage.getItem('reduced_motion_enabled') === 'true') {
@@ -30,14 +26,21 @@
             <input type="checkbox" class="pin-default-checkbox">
             <span>Pin a default search engine</span>
         </label>
-        <label class="standalone-search-box-control">
-            <input type="checkbox" class="standalone-search-box-checkbox">
-            <span>Show standalone search box</span>
-        </label>
     </div>
     
-    <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="Firefox" class="firefox-logo">
-    
+    <div class="addressbar-row">
+        <div class="addressbar-nav">
+            <button type="button" class="addressbar-back" aria-label="Back" title="Back">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <button type="button" class="addressbar-next" aria-label="Next" title="Next">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
     <div class="search-container">
         <div class="search-box-wrapper-outer">
             <div class="search-box-wrapper">
@@ -99,7 +102,7 @@
                         </div>
                     </div>
                 </div>
-                <input type="text" class="search-input" placeholder="Search with Google">
+                <input type="text" class="search-input" placeholder="Search with Google or enter address">
                 <button type="button" class="search-url-button" aria-label="Search for URL" title="Search for URL" style="display: none;">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -160,6 +163,7 @@
             </ul>
         </div>
         <div class="search-container-drag-handle"></div>
+    </div>
     </div>
     
     <script src="step1.js"></script>

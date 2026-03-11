@@ -971,6 +971,7 @@ const DEFAULT_SEARCH_ENGINE_KEY = 'default_search_engine';
 const SEARCH_ENGINE_ORDER_KEY = 'search_engine_order';
 const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
+const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
 
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
@@ -978,6 +979,66 @@ console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[DOM] DOMContentLoaded fired');
+
+    // Address bar iframe: parent sets width (matches search bar 57.6% / 576px); iframe reports height (including dropdown)
+    if (window !== window.top) {
+        const reportAddressbarHeight = () => {
+            const container = document.querySelector('.search-container');
+            if (container) {
+                const rect = container.getBoundingClientRect();
+                const h = rect.height + 4;
+                window.parent.postMessage({ type: 'addressbar-height', height: h }, '*');
+            }
+        };
+        reportAddressbarHeight();
+        window.addEventListener('resize', reportAddressbarHeight);
+        const container = document.querySelector('.search-container');
+        if (container && typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(reportAddressbarHeight).observe(container);
+        }
+    } else {
+        const iframe = document.querySelector('.addressbar-iframe');
+        if (iframe) {
+            let bandHeightSet = false;
+            const updateBandHeight = (h) => {
+                if (!bandHeightSet) {
+                    bandHeightSet = true;
+                    document.documentElement.style.setProperty('--addressbar-band-bar-height', h + 'px');
+                }
+            };
+            const updateIframeSize = () => {
+                const w = Math.min(window.innerWidth * 0.576, 576);
+                iframe.style.width = w + 'px';
+                const standaloneIframe = document.querySelector('.standalone-search-box-iframe');
+                if (standaloneIframe) {
+                    standaloneIframe.style.width = Math.round(w / 2) + 'px';
+                }
+            };
+            const setHeight = (e) => {
+                if (e.data?.type === 'addressbar-height' && typeof e.data.height === 'number' && e.source === iframe.contentWindow) {
+                    const h = e.data.height;
+                    iframe.style.height = h + 'px';
+                    updateBandHeight(h);
+                }
+            };
+            updateIframeSize();
+            document.documentElement.style.setProperty('--addressbar-band-bar-height', '58px');
+            window.addEventListener('resize', updateIframeSize);
+            window.addEventListener('message', setHeight);
+            iframe.addEventListener('load', () => {
+                updateIframeSize();
+                try {
+                    const doc = iframe.contentDocument;
+                    const container = doc?.querySelector('.search-container');
+                    if (container) {
+                        const h = container.getBoundingClientRect().height + 4;
+                        iframe.style.height = h + 'px';
+                        updateBandHeight(h);
+                    }
+                } catch (_) { /* cross-origin */ }
+            });
+        }
+    }
 
     // Mouse-positioned tooltips
     const tooltipEl = document.createElement('div');
@@ -1213,7 +1274,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             const preposition = localSources.includes(label) ? 'in' : 'with';
-            if (searchInput) searchInput.placeholder = 'Search ' + preposition + ' ' + label;
+            if (searchInput) {
+                const isAddressbar = document.body.classList.contains('addressbar');
+                const isStandalone = document.body.classList.contains('standalone-search-box');
+                searchInput.placeholder = isAddressbar && !isStandalone
+                    ? 'Search ' + preposition + ' ' + label + ' or enter address'
+                    : 'Search ' + preposition + ' ' + label;
+            }
             // Update "Search with X" hints on existing suggestion items
             const hint = 'Search with ' + label;
             document.querySelectorAll('.suggestion-item:not(.gmail-item):not(.firefox-suggest-item):not(.visit-site-suggestion) .suggestion-hint-text').forEach(el => {
@@ -1770,6 +1837,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     applySelectedSearchSource(match);
                     setPinnedEngine(match);
                 }
+            } else {
+                const pinnedItem = enginesContainerForRestore.querySelector('.dropdown-item-pinned');
+                if (pinnedItem) applySelectedSearchSource(pinnedItem);
             }
 
             ensureDragHandles();
@@ -1853,6 +1923,25 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 document.body.classList.remove('pin-default-enabled');
                 localStorage.setItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY, 'false');
+            }
+        });
+    }
+
+    // Handle standalone search box checkbox
+    const standaloneSearchBoxCheckbox = document.querySelector('.standalone-search-box-checkbox');
+    if (standaloneSearchBoxCheckbox) {
+        const savedStandaloneVisible = localStorage.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY);
+        if (savedStandaloneVisible === 'true') {
+            standaloneSearchBoxCheckbox.checked = true;
+            document.body.classList.add('standalone-search-box-visible');
+        }
+        standaloneSearchBoxCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                document.body.classList.add('standalone-search-box-visible');
+                localStorage.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, 'true');
+            } else {
+                document.body.classList.remove('standalone-search-box-visible');
+                localStorage.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, 'false');
             }
         });
     }
@@ -2960,7 +3049,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (searchSwitcherButton?.classList.contains('open')) return;
             // Remove focused class
             searchContainer.classList.remove('focused');
-            requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
+            let logoUpdateDone = false;
+            const runLogoUpdate = () => {
+                if (!logoUpdateDone) {
+                    logoUpdateDone = true;
+                    searchContainer.removeEventListener('transitionend', onTransitionEnd);
+                    updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true });
+                }
+            };
+            const onTransitionEnd = (e) => {
+                if (e.target === searchContainer && (e.propertyName === 'top' || e.propertyName === 'transform')) {
+                    runLogoUpdate();
+                }
+            };
+            searchContainer.addEventListener('transitionend', onTransitionEnd);
+            const blurTransitionMs = document.body.classList.contains('reduced-motion') ? 350 : 250;
+            setTimeout(runLogoUpdate, blurTransitionMs + 50);
             suggestionsList?.classList.remove('suggestions-revealed');
             firstHoverDone = false;
             
@@ -2969,10 +3073,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 suggestionsList.classList.add('transitioning');
                 suggestionsList.classList.remove('first-hover-fade');
                 
-                // Remove transitioning class after transition completes (0.25s)
+                const closeDuration = document.body.classList.contains('addressbar') ? 320 : 250;
                 setTimeout(() => {
                     suggestionsList.classList.remove('transitioning');
-                }, 250);
+                }, closeDuration);
             }
         });
         

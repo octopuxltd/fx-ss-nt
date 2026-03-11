@@ -1,0 +1,284 @@
+/* Overrides for step1-addressbar.html */
+body.addressbar .bottom-left-controls {
+    display: none; /* Temporarily hidden */
+}
+
+body.addressbar .addressbar-row {
+    position: fixed;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    z-index: 10;
+}
+
+body.addressbar .addressbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+body.addressbar .addressbar-back,
+body.addressbar .addressbar-next {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Match address bar height: 8px padding + ~24px content + 8px padding ≈ 40px */
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+body.addressbar .addressbar-back:hover,
+body.addressbar .addressbar-next:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+body.addressbar .addressbar-back svg,
+body.addressbar .addressbar-next svg {
+    width: 14px;
+    height: 14px;
+    stroke: rgba(0, 0, 0, 0.6);
+}
+
+body.addressbar .addressbar-row .search-container {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+}
+
+html:has(body.addressbar),
+body.addressbar {
+    background: transparent;
+    background-image: none;
+}
+
+body.addressbar .addressbar-row .search-container {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    width: auto;
+    transform: none;
+    max-width: none;
+    transition: none;
+}
+
+body.addressbar .addressbar-row .search-container.focused {
+    top: auto;
+    left: auto;
+    right: auto;
+    width: auto;
+    transform: none;
+    max-width: none;
+    transition: none;
+}
+
+body.addressbar .suggestions-list {
+    transition: max-height 0.3s ease-out;
+}
+
+body.addressbar .search-box-wrapper-outer {
+    box-shadow: none;
+}
+
+body.addressbar .search-box-wrapper-outer {
+    transition: none;
+}
+
+body.addressbar .search-box-wrapper-outer:has(.search-input:focus),
+body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning) {
+    box-shadow: none;
+    background-color: #fff;
+}
+
+body.addressbar .search-box-wrapper-outer::before {
+    transition: opacity 0.15s linear 0.3s;
+}
+
+body.addressbar .search-box-wrapper-outer:has(.search-input:focus)::before {
+    transition: none;
+}
+
+body.addressbar .search-box-wrapper:has(.search-input:focus) {
+    background-color: #fff;
+}
+
+body.addressbar .search-box-wrapper {
+    transition: none;
+}
+
+body.addressbar .search-input {
+    font-size: 13px;
+}
+
+/* Scale down search engine switcher and dropdown */
+body.addressbar .search-switcher-button .google-icon {
+    width: 12px;
+    height: 12px;
+}
+
+body.addressbar .search-switcher-button .chevron {
+    width: 7px;
+    height: 7px;
+}
+
+body.addressbar .search-switcher-button {
+    padding: 5px 6px 5px 5px;
+    gap: 3px;
+}
+
+body.addressbar .search-switcher-dropdown {
+    min-width: 130px;
+    transform-origin: top left;
+}
+
+body.addressbar .dropdown-content {
+    padding: 5px 0;
+}
+
+body.addressbar .dropdown-label {
+    padding: 4px 10px;
+    font-size: 9px;
+}
+
+body.addressbar .dropdown-label-info-icon {
+    width: 10px;
+    height: 10px;
+}
+
+body.addressbar .dropdown-divider {
+    margin: 3px 0;
+}
+
+body.addressbar .dropdown-item {
+    padding: 5px 10px;
+    gap: 6px;
+    font-size: 10px;
+}
+
+body.addressbar .dropdown-icon,
+body.addressbar .dropdown-engine-icon {
+    width: 12px;
+    height: 12px;
+}
+
+body.addressbar .dropdown-item-pin,
+body.addressbar .dropdown-item-pin-empty img {
+    width: 11px;
+    height: 11px;
+}
+
+body.addressbar .dropdown-firefox-toggle svg {
+    width: 9px;
+    height: 9px;
+}
+
+body.addressbar .engines-sort-section {
+    padding: 6px 10px;
+}
+
+body.addressbar .engines-sort-alphabetically {
+    padding: 6px 12px;
+    font-size: 9px;
+}
+
+body.addressbar .dropdown-search-engines {
+    max-height: 120px;
+}
+
+body.addressbar .dropdown-firefox-suggestions {
+    max-height: 95px;
+}
+
+/* Scale down right-hand buttons (search, clear, URL) */
+body.addressbar .search-button,
+body.addressbar .search-clear-button,
+body.addressbar .search-url-button {
+    width: 26px;
+    height: 26px;
+}
+
+body.addressbar .search-button svg,
+body.addressbar .search-clear-button svg,
+body.addressbar .search-url-button svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Scale down suggestions dropdown */
+body.addressbar .suggestions-content {
+    padding: 5px 7px;
+}
+
+body.addressbar .suggestion-item {
+    gap: 8px;
+    padding: 5px 5px;
+}
+
+body.addressbar .suggestion-item .suggestion-separator,
+body.addressbar .suggestion-item .suggestion-hint-text {
+    font-size: 8px;
+    padding: 0 2px;
+}
+
+body.addressbar .suggestions-heading,
+body.addressbar .firefox-suggest-section-heading {
+    font-size: 8px;
+    padding: 5px 7px 3px 7px;
+    margin: 1px 0;
+}
+
+body.addressbar .firefox-suggest-section-heading {
+    gap: 4px;
+}
+
+body.addressbar .firefox-suggest-heading-info-icon {
+    width: 10px;
+    height: 10px;
+}
+
+body.addressbar .suggestion-icon,
+body.addressbar .suggestion-icon-wrapper .firefox-suggest-type-icon {
+    width: 11px;
+    height: 11px;
+}
+
+body.addressbar .suggestion-label {
+    font-size: 10px;
+}
+
+body.addressbar .firefox-suggest-more-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 10px;
+}
+
+body.addressbar .suggestion-hint-area {
+    gap: 8px;
+}
+
+body.addressbar .suggestion-item.gmail-item {
+    margin-bottom: 5px;
+}
+
+body.addressbar .skeleton-icon {
+    width: 11px;
+    height: 11px;
+}
+
+body.addressbar .skeleton-text {
+    height: 10px;
+}
+
+body.addressbar .search-container.focused .suggestions-list {
+    max-height: 360px;
+}

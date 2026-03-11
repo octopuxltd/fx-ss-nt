@@ -34,6 +34,49 @@ body {
     background-attachment: fixed;
 }
 
+.addressbar-band {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(10px + var(--addressbar-band-bar-height, 58px));
+    background-color: #E7E7EA;
+    z-index: 0;
+}
+
+.addressbar-area {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 5px;
+    margin-left: 20px;
+    margin-right: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+.addressbar-iframe {
+    display: block;
+    width: 100%;
+    height: 56px; /* Set by JS from iframe content; fallback until loaded */
+    border: none;
+    flex-shrink: 0;
+}
+
+.standalone-search-box-iframe {
+    display: none;
+    width: 288px;
+    max-width: 28.8vw;
+    height: 200px;
+    border: none;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+body.standalone-search-box-visible .standalone-search-box-iframe {
+    display: block;
+}
+
 .firefox-logo {
     width: 96px;
     height: auto;
