@@ -1106,6 +1106,65 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const searchContainer = document.querySelector('.search-container');
     const firefoxLogo = document.querySelector('.firefox-logo');
+
+    // Repositionable search bar (testing)
+    const searchDragHandle = document.querySelector('.search-container-drag-handle');
+    const LOGO_NEAR_TOP_THRESHOLD = 280;
+    function updateLogoPositionForSearchBar(opts = {}) {
+        if (!searchContainer || !firefoxLogo) return;
+        if (opts.skipWhenLogoOnLeft && document.body.classList.contains('search-bar-near-top')) return;
+        const rect = searchContainer.getBoundingClientRect();
+        const searchCenterY = rect.top + rect.height / 2;
+        const logoHeight = firefoxLogo.getBoundingClientRect().height;
+        if (rect.top < LOGO_NEAR_TOP_THRESHOLD) {
+            document.body.classList.add('search-bar-near-top');
+            document.documentElement.style.setProperty('--logo-near-top-y', (searchCenterY - logoHeight / 2 + 45) + 'px');
+        } else {
+            document.body.classList.remove('search-bar-near-top');
+        }
+    }
+    if (searchDragHandle && searchContainer) {
+        let searchDragOffsetY = 0;
+        const updateDraggedClasses = () => {
+            document.body.classList.toggle('search-bar-dragged-down', searchDragOffsetY > 0);
+            document.body.classList.toggle('search-bar-dragged-up', searchDragOffsetY < 0);
+        };
+        const onPointerMove = (e) => {
+            searchDragOffsetY += e.movementY;
+            document.documentElement.style.setProperty('--search-drag-offset-y', searchDragOffsetY + 'px');
+            updateDraggedClasses();
+        };
+        const onPointerUp = () => {
+            try { searchDragHandle.releasePointerCapture(pointerId); } catch (_) {}
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+            document.removeEventListener('pointercancel', onPointerUp);
+            searchContainer.style.transition = '';
+            const wasNearTop = document.body.classList.contains('search-bar-near-top');
+            if (wasNearTop && firefoxLogo) {
+                firefoxLogo.style.transition = 'none';
+            }
+            updateLogoPositionForSearchBar();
+            if (wasNearTop && firefoxLogo) {
+                firefoxLogo.offsetHeight;
+                requestAnimationFrame(() => {
+                    firefoxLogo.style.transition = '';
+                });
+            }
+        };
+        let pointerId;
+        searchDragHandle.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            pointerId = e.pointerId;
+            searchDragHandle.setPointerCapture(pointerId);
+            searchContainer.style.transition = 'none';
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+            document.addEventListener('pointercancel', onPointerUp);
+        });
+    }
+    updateLogoPositionForSearchBar();
+    window.addEventListener('resize', updateLogoPositionForSearchBar);
     const searchBoxWrapper = document.querySelector('.search-box-wrapper');
     const searchBoxWrapperOuter = document.querySelector('.search-box-wrapper-outer');
     const reducedMotionCheckbox = document.querySelector('.reduced-motion-checkbox');
@@ -2862,6 +2921,7 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('focus', () => {
             // Add focused class to expand width
             searchContainer.classList.add('focused');
+            requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
             suggestionsList?.classList.remove('suggestions-revealed');
             
             // Reset first hover flag
@@ -2900,6 +2960,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (searchSwitcherButton?.classList.contains('open')) return;
             // Remove focused class
             searchContainer.classList.remove('focused');
+            requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
             suggestionsList?.classList.remove('suggestions-revealed');
             firstHoverDone = false;
             

@@ -40,14 +40,30 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, calc(-50% - 120px));
+    transform: translate(-50%, calc(-50% - 120px + var(--search-drag-offset-y, 0px)));
     opacity: 1;
-    transition: transform 0.42s ease-out;
+    transition: transform 0.42s ease-out, opacity 0.42s linear;
     /* transition: opacity 0.1s linear 0.25s; */
 }
 
 body:has(.search-container.focused) .firefox-logo {
-    transform: translate(-50%, calc(-50% - 110px)) scale(0.8);
+    transform: translate(-50%, calc(-50% - 110px + var(--search-drag-offset-y, 0px))) scale(0.8);
+}
+
+body.search-bar-dragged-down:has(.search-container.focused) .firefox-logo {
+    opacity: 0;
+}
+
+body.search-bar-near-top .firefox-logo {
+    left: 40px;
+    top: var(--logo-near-top-y, 0);
+    transform: translateY(-50%) scale(1);
+    transition: none;
+}
+
+body.search-bar-near-top:has(.search-container.focused) .firefox-logo {
+    transform: translateY(-50%) scale(1);
+    transition: none;
 }
 
 /* body:has(.search-input:focus) .firefox-logo {
@@ -57,25 +73,48 @@ body:has(.search-container.focused) .firefox-logo {
 
 .search-container {
     position: fixed;
-    top: calc(50% - 60px);
+    top: calc(50% - 60px + var(--search-drag-offset-y, 0px));
     left: 50%;
     transform: translateX(-50%);
     width: 57.6%;
     max-width: 576px;
-    transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.25s ease-out;
+    transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.25s ease-out, top 0.25s ease-out;
+}
+
+.search-container-drag-handle {
+    position: absolute;
+    left: 100%;
+    margin-left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    z-index: 100;
 }
 
 .search-container.focused {
+    top: calc(50% - 60px);
     width: 69.12%;
     max-width: 691.2px;
     transform: translate(-50%, -55px);
 }
 
+body.search-bar-dragged-up .search-container.focused {
+    top: calc(50% - 60px + var(--search-drag-offset-y, 0px));
+    transform: translateX(-50%);
+}
+
 body.reduced-motion .search-container {
-    transition: width 0.35s ease-out, max-width 0.35s ease-out;
+    transition: width 0.35s ease-out, max-width 0.35s ease-out, top 0.35s ease-out;
 }
 
 body.reduced-motion .search-container.focused {
+    top: calc(50% - 60px);
+    transform: translateX(-50%);
+}
+
+body.reduced-motion.search-bar-dragged-up .search-container.focused {
+    top: calc(50% - 60px + var(--search-drag-offset-y, 0px));
     transform: translateX(-50%);
 }
 
@@ -857,7 +896,19 @@ body.reduced-motion .firefox-logo {
 }
 
 body.reduced-motion:has(.search-container.focused) .firefox-logo {
-    transform: translate(-50%, calc(-50% - 120px));
+    transform: translate(-50%, calc(-50% - 120px + var(--search-drag-offset-y, 0px)));
+}
+
+body.reduced-motion.search-bar-near-top .firefox-logo {
+    left: 40px;
+    top: var(--logo-near-top-y, 0);
+    transform: translateY(-50%) scale(1);
+    transition: none;
+}
+
+body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-logo {
+    transform: translateY(-50%) scale(1);
+    transition: none;
 }
 
 .suggestions-list {
