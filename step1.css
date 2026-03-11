@@ -321,7 +321,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
 }
 
 .dropdown-search-engines {
-    max-height: 182px;
+    max-height: 162px;
     overflow-y: auto;
     scroll-behavior: smooth;
     scrollbar-width: none;
@@ -337,7 +337,7 @@ body.reduced-motion .dropdown-search-engines {
 }
 
 .dropdown-firefox-suggestions {
-    max-height: 149px;
+    max-height: 129px;
     overflow-y: auto;
     scroll-behavior: smooth;
     scrollbar-width: none;
@@ -463,6 +463,18 @@ body > .dropdown-item.dragging {
 
 .dropdown-search-engines.engines-dragging .dropdown-item-pin-empty {
     opacity: 0;
+    pointer-events: none;
+}
+
+/* Keep drag handles visible during drag at faded state (avoids flicker when cursor passes over drop marker) */
+body:not(.pin-default-enabled) .dropdown-search-engines.engines-dragging .dropdown-item-drag-handle {
+    opacity: 0.2;
+    pointer-events: auto;
+}
+
+/* Show drag handle on the item being dragged */
+body:not(.pin-default-enabled) > .dropdown-item.dragging .dropdown-item-drag-handle {
+    opacity: 0.2;
     pointer-events: none;
 }
 
@@ -683,14 +695,17 @@ body.reduced-motion .dropdown-item.dragging {
     font-weight: 300;
 }
 
-.reduced-motion-control {
+.bottom-left-controls {
     position: fixed;
     bottom: 20px;
     left: 20px;
     z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.reduced-motion-control label {
+.bottom-left-controls label {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -700,8 +715,94 @@ body.reduced-motion .dropdown-item.dragging {
     user-select: none;
 }
 
-.reduced-motion-checkbox {
+.reduced-motion-checkbox,
+.pin-default-checkbox {
     cursor: pointer;
+}
+
+/* Hide pin UI when pin-default flag is off */
+body:not(.pin-default-enabled) .dropdown-item-pin-empty,
+body:not(.pin-default-enabled) .dropdown-item-pin {
+    display: none !important;
+}
+
+/* Fix layout when pins are hidden: keep labels left-aligned */
+body:not(.pin-default-enabled) .dropdown-item-pinned,
+body:not(.pin-default-enabled) .dropdown-item-search-engine {
+    justify-content: flex-start;
+}
+
+/* Drag handles: visible when pin flag is OFF */
+body:not(.pin-default-enabled) .dropdown-item-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    opacity: 0;
+    pointer-events: none;
+    cursor: grab;
+}
+
+body:not(.pin-default-enabled) .dropdown-item-drag-handle img {
+    width: 14px;
+    height: 14px;
+    opacity: 0.8;
+}
+
+body:not(.pin-default-enabled) .dropdown-item:hover .dropdown-item-drag-handle {
+    opacity: 0.6;
+    pointer-events: auto;
+}
+
+/* When hovering over any handle, show all handles */
+body:not(.pin-default-enabled) .dropdown-search-engines:has(.dropdown-item-drag-handle:hover) .dropdown-item-drag-handle {
+    opacity: 0.2;
+    pointer-events: auto;
+}
+
+/* Hide drag handles when pin flag is ON */
+body.pin-default-enabled .dropdown-item-drag-handle {
+    display: none !important;
+}
+
+/* Keyboard numbers: shown instead of drag handle when opened via Alt+Arrow */
+body:not(.pin-default-enabled) .dropdown-item-keyboard-num {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    height: 12px;
+    font-size: 9px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-radius: 2px;
+}
+
+body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-drag-handle {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+/* In keyboard mode, numbers stay static (no opacity change on hover) */
+body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-search-engines:has(.dropdown-item-drag-handle:hover) .dropdown-item-drag-handle {
+    opacity: 1;
+}
+
+body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-drag-handle img {
+    display: none;
+}
+
+body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-keyboard-num {
+    display: flex;
+    margin-right: 2px;
+}
+
+/* Hide number box entirely for items 10+ (empty = no number) */
+body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-drag-handle:has(.dropdown-item-keyboard-num:empty) {
+    display: none;
 }
 
 body.reduced-motion .search-container {

@@ -970,6 +970,7 @@ async function fetchAISuggestions(query, retryCount = 0) {
 const DEFAULT_SEARCH_ENGINE_KEY = 'default_search_engine';
 const SEARCH_ENGINE_ORDER_KEY = 'search_engine_order';
 const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
+const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
 
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
@@ -1069,9 +1070,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', (e) => {
         const trigger = e.target.closest('.tooltip-trigger');
         const inTooltip = e.target.closest('#global-tooltip');
-        if (trigger || inTooltip) {
+        if (inTooltip) {
             tooltipPinned = true;
             tooltipEl.classList.add('tooltip-pinned');
+        } else if (trigger) {
+            if (tooltipPinned && activeTrigger === trigger) {
+                hideTooltip();
+            } else {
+                tooltipPinned = true;
+                tooltipEl.classList.add('tooltip-pinned');
+            }
         } else if (activeTrigger || tooltipEl.classList.contains('tooltip-visible')) {
             hideTooltip();
         }
@@ -1217,9 +1225,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function ensureDragHandles() {
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const engineItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
+            el => el.querySelector('.dropdown-engine-label')
+        );
+        const dragHandleHtml = '<span class="dropdown-item-drag-handle" title="Drag to reorder" aria-hidden="true"><span class="dropdown-item-keyboard-num" aria-hidden="true"></span><img src="icons/drag-handle.svg" alt=""></span>';
+        engineItems.forEach(item => {
+            if (!item.querySelector('.dropdown-item-drag-handle')) {
+                const pin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
+                if (pin) pin.insertAdjacentHTML('beforebegin', dragHandleHtml);
+            } else if (!item.querySelector('.dropdown-item-keyboard-num')) {
+                const handle = item.querySelector('.dropdown-item-drag-handle');
+                if (handle && !handle.querySelector('.dropdown-item-keyboard-num')) {
+                    handle.insertAdjacentHTML('afterbegin', '<span class="dropdown-item-keyboard-num" aria-hidden="true"></span>');
+                }
+            }
+        });
+    }
+
+    function updateKeyboardNumbers() {
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const engineItems = Array.from(enginesContainer.children).filter(
+            c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        );
+        engineItems.forEach((item, i) => {
+            const numEl = item.querySelector('.dropdown-item-keyboard-num');
+            if (numEl) numEl.textContent = i < 9 ? String(i + 1) : '';
+        });
+    }
+
     function setPinnedEngine(pinnedItem) {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
+        ensureDragHandles();
         const engineItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
             el => el.querySelector('.dropdown-engine-label')
         );
@@ -1230,16 +1271,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isPinned) {
                 item.classList.remove('dropdown-item-search-engine');
                 item.classList.add('dropdown-item-pinned');
-                const oldPin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
-                if (oldPin) {
-                    oldPin.replaceWith(document.createRange().createContextualFragment(pinHtml));
+                const pin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
+                if (pin) {
+                    pin.replaceWith(document.createRange().createContextualFragment(pinHtml));
                 }
             } else {
                 item.classList.remove('dropdown-item-pinned');
                 item.classList.add('dropdown-item-search-engine');
-                const oldPin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
-                if (oldPin) {
-                    oldPin.replaceWith(document.createRange().createContextualFragment(pinEmptyHtml));
+                const pin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
+                if (pin) {
+                    pin.replaceWith(document.createRange().createContextualFragment(pinEmptyHtml));
                 }
             }
         });
@@ -1294,6 +1335,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchSwitcherButton.classList.remove('switcher-suppress-hover');
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
             } else if (!wasOpen && isNowOpen) {
+                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
                 if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
@@ -1327,6 +1369,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
                 if (wasOpen) {
+                    searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                     searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
@@ -1373,7 +1416,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pinEl = e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin');
                 if (pinEl) {
                     const item = pinEl.closest('.dropdown-item');
-                    if (item && item.querySelector('.dropdown-engine-label')) {
+                    if (item && item.querySelector('.dropdown-engine-label') && document.body.classList.contains('pin-default-enabled')) {
                         e.stopPropagation();
                         applySelectedSearchSource(item);
                         const label = getEngineLabel(item);
@@ -1548,14 +1591,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
 
                 const rect = item.getBoundingClientRect();
-                const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
-                if (iconEl) {
-                    const iconRect = iconEl.getBoundingClientRect();
-                    dragOffsetX = (iconRect.left - rect.left) + iconRect.width / 2;
-                    dragOffsetY = (iconRect.top - rect.top) + iconRect.height / 2;
+                const anchorEl = ['.dropdown-item-drag-handle', '.dropdown-item-pin-empty', '.dropdown-item-pin']
+                    .map(sel => item.querySelector(sel))
+                    .find(el => el && el.getBoundingClientRect().width > 0);
+                if (anchorEl) {
+                    const anchorRect = anchorEl.getBoundingClientRect();
+                    dragOffsetX = (anchorRect.left - rect.left) - 20;
+                    dragOffsetY = (anchorRect.top - rect.top) + anchorRect.height / 2;
                 } else {
-                    dragOffsetX = e.clientX - rect.left;
-                    dragOffsetY = e.clientY - rect.top;
+                    const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+                    if (iconEl) {
+                        const iconRect = iconEl.getBoundingClientRect();
+                        dragOffsetX = (iconRect.left - rect.left) + iconRect.width / 2;
+                        dragOffsetY = (iconRect.top - rect.top) + iconRect.height / 2;
+                    } else {
+                        dragOffsetX = e.clientX - rect.left;
+                        dragOffsetY = e.clientY - rect.top;
+                    }
                 }
 
                 dragHoldTimer = setTimeout(() => {
@@ -1610,6 +1662,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sorted = [...labels].sort((a, b) => a.localeCompare(b));
                 sortSection.hidden = labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
             }
+            updateKeyboardNumbers();
         }
         
         // Quick buttons visibility toggle
@@ -1660,6 +1713,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            ensureDragHandles();
+
             const getEngineItemsForSort = () => Array.from(enginesContainerForRestore.children).filter(
                 c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
             );
@@ -1688,6 +1743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const order = sorted.map(item => getEngineLabel(item));
                 if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
                 updateSortButtonVisibility();
+                updateKeyboardNumbers();
                 requestAnimationFrame(() => {
                     requestAnimationFrame(() => {
                         const smooth = !document.body.classList.contains('reduced-motion');
@@ -1722,7 +1778,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
+
+    // Handle pin default search engine checkbox
+    const pinDefaultCheckbox = document.querySelector('.pin-default-checkbox');
+    if (pinDefaultCheckbox) {
+        const savedPinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY);
+        if (savedPinDefault === 'true') {
+            pinDefaultCheckbox.checked = true;
+            document.body.classList.add('pin-default-enabled');
+        }
+        pinDefaultCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                document.body.classList.add('pin-default-enabled');
+                localStorage.setItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY, 'true');
+            } else {
+                document.body.classList.remove('pin-default-enabled');
+                localStorage.setItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY, 'false');
+            }
+        });
+    }
+
     // Calculate and set border radius based on wrapper height
     const updateBorderRadius = () => {
         console.log('[BORDER-RADIUS] Calculating border radiuses...');
@@ -2872,6 +2947,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.key === 'Escape') {
             const switcherOpen = searchSwitcherButton?.classList.contains('open');
             if (switcherOpen) {
+                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 if (searchContainer?.classList.contains('focused')) searchInput?.focus();
@@ -2882,7 +2958,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         const switcherOpen = searchSwitcherButton?.classList.contains('open');
+        const switcherKeyboardMode = searchSwitcherButton?.classList.contains('switcher-opened-by-keyboard');
         if (switcherOpen && !event.altKey) {
+            if (switcherKeyboardMode && /^[1-9]$/.test(event.key)) {
+                const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+                const engineItems = enginesContainer ? Array.from(enginesContainer.children).filter(
+                    c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+                ) : [];
+                const index = parseInt(event.key, 10) - 1;
+                if (index >= 0 && index < engineItems.length) {
+                    event.preventDefault();
+                    const item = engineItems[index];
+                    applySelectedSearchSource(item);
+                    searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
+                    switcherHighlightedIndex = -1;
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
+                    searchInput?.focus();
+                    return;
+                }
+            }
             const firefoxToggle = document.activeElement?.closest?.('.dropdown-firefox-toggle');
             if (firefoxToggle && (event.key === 'Enter' || event.key === ' ')) {
                 event.preventDefault();
@@ -2979,7 +3074,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
                 event.preventDefault();
                 if (searchSwitcherButton) {
-                    searchSwitcherButton.classList.add('open', 'switcher-suppress-hover');
+                    searchSwitcherButton.classList.add('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
                     const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
                     if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
                     const firefoxSuggestionsContainer = searchSwitcherButton?.querySelector('.dropdown-firefox-suggestions');
@@ -2988,6 +3083,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchSwitcherButton.focus();
                     switcherHighlightedIndex = -1;
                     dropdownItems.forEach((item) => item.classList.remove('highlighted'));
+                    updateKeyboardNumbers();
                 }
                 return;
             }
@@ -3093,6 +3189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Maintain focus state when switching apps
     let wasFocusedBeforeBlur = false;
+    let wasSwitcherFocusedBeforeBlur = false;
     let isRestoringFocus = false;
     
     if (searchInput && searchContainer) {
@@ -3115,7 +3212,11 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('blur', () => {
             console.log('[BLUR] Search input blurred');
             console.log('[BLUR] Suggestions panel will hide');
-            wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
+            if (searchSwitcherButton?.classList.contains('open')) {
+                wasFocusedBeforeBlur = false;
+            } else {
+                wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
+            }
             console.log('[BLUR] Was in focused state:', wasFocusedBeforeBlur);
             
             // Stop gradient animation
@@ -3133,15 +3234,24 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('[WINDOW BLUR] Window lost focus');
             if (document.activeElement === searchInput) {
                 wasFocusedBeforeBlur = true;
+                wasSwitcherFocusedBeforeBlur = false;
                 console.log('[WINDOW BLUR] Search was focused, remembering state');
+            } else if (searchSwitcherButton && searchSwitcherButton.contains(document.activeElement)) {
+                wasSwitcherFocusedBeforeBlur = true;
+                wasFocusedBeforeBlur = false;
+                console.log('[WINDOW BLUR] Switcher was focused, remembering state');
             }
         });
         
         window.addEventListener('focus', () => {
-            console.log('[WINDOW FOCUS] Window gained focus, was focused before?', wasFocusedBeforeBlur);
+            console.log('[WINDOW FOCUS] Window gained focus, was focused before?', wasFocusedBeforeBlur, 'was switcher?', wasSwitcherFocusedBeforeBlur);
             
-            if (wasFocusedBeforeBlur) {
-                console.log('[WINDOW FOCUS] Suppressing transitions and restoring focus');
+            if (wasSwitcherFocusedBeforeBlur && searchSwitcherButton?.classList.contains('open')) {
+                console.log('[WINDOW FOCUS] Restoring focus to switcher');
+                searchSwitcherButton.focus();
+                wasSwitcherFocusedBeforeBlur = false;
+            } else if (wasFocusedBeforeBlur) {
+                console.log('[WINDOW FOCUS] Suppressing transitions and restoring focus to search');
                 isRestoringFocus = true;
                 
                 // Suppress transitions
