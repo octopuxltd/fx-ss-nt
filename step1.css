@@ -254,7 +254,7 @@ body.reduced-motion .search-box-wrapper-outer::before {
 }
 
 body.gradient-search-border-off .search-box-wrapper-outer::before {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.15);
 }
 
 .search-box-wrapper-outer:has(.search-input:focus) {
@@ -336,15 +336,6 @@ body.gradient-search-border-off .search-box-wrapper-outer::before {
 .search-switcher-button.open .search-switcher-dropdown.dropdown-revealed,
 .search-container.focused .suggestions-list.suggestions-revealed {
     overflow: visible;
-}
-
-/* Dim suggestions when switcher is open (input doesn't have focus); fade to full opacity when focus returns */
-.search-container.focused:not(:has(.search-input:focus)) .suggestions-list.suggestions-revealed {
-    opacity: 0.65;
-}
-
-.search-container.focused:has(.search-input:focus) .suggestions-list.suggestions-revealed {
-    opacity: 1;
 }
 
 .dropdown-label {
@@ -1167,7 +1158,7 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-
 
 .search-container.focused .suggestions-list {
     max-height: 600px;
-    transition: max-height 0.42s ease-out, opacity 0.42s ease-out;
+    transition: max-height 0.42s ease-out;
 }
 
 .search-container.focused .suggestions-list.suggestions-suppress-until-typed {
@@ -1474,6 +1465,10 @@ body.reduced-motion .one-off-buttons {
     font-size: 14px;
     color: #1F2933;
     text-transform: lowercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .suggestion-item.gmail-item .suggestion-label,
@@ -1511,8 +1506,8 @@ body.reduced-motion .one-off-buttons {
 }
 
 .suggestion-item.firefox-suggest-item .suggestion-label {
-    white-space: nowrap;
-    flex-shrink: 0;
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .suggestion-hint-area {

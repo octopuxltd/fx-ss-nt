@@ -1014,7 +1014,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const btn = document.querySelector('.search-switcher-button');
                 const dropdown = btn?.querySelector('.search-switcher-dropdown');
                 const container = document.querySelector('.search-container');
-                if (typeof logPanelState === 'function') logPanelState('close-switcher MESSAGE received');
                 if (btn?.classList.contains('open')) {
                     dropdown?.classList.remove('dropdown-revealed');
                     btn.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
@@ -1026,7 +1025,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (typeof restoreFocusAndOpaqueSuggestions === 'function') {
                         restoreFocusAndOpaqueSuggestions();
                     }
-                    if (typeof logPanelState === 'function') logPanelState('close-switcher MESSAGE handled');
                 }
             }
         });
@@ -1363,53 +1361,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let switcherHoveredIndex = -1;
     let restoringFocusFromSwitcher = false;
 
-    function logPanelState(label) {
-        if (!searchContainer) return;
-        const ctx = document.body.classList.contains('standalone-search-box') ? 'standalone' :
-            document.body.classList.contains('addressbar') ? 'addressbar' : 'main';
-        const switcherOpen = searchSwitcherButton?.classList.contains('open');
-        const containerFocused = searchContainer?.classList.contains('focused');
-        const suggestionsRevealed = suggestionsList?.classList.contains('suggestions-revealed');
-        const transitioning = suggestionsList?.classList.contains('transitioning');
-        const firstHoverFade = suggestionsList?.classList.contains('first-hover-fade');
-        const inputFocused = document.activeElement === searchInput;
-        let opacity = '';
-        let transition = '';
-        if (suggestionsList) {
-            const cs = getComputedStyle(suggestionsList);
-            opacity = cs.opacity;
-            transition = cs.transition;
-        }
-        console.log(`[PANEL ${ctx}] ${label}:`, {
-            switcherOpen,
-            containerFocused,
-            suggestionsRevealed,
-            transitioning,
-            firstHoverFade,
-            inputFocused,
-            restoringFocusFromSwitcher,
-            suggestionsOpacity: opacity,
-            suggestionsTransition: transition
-        });
-    }
-
     function restoreFocusAndOpaqueSuggestions() {
-        logPanelState('restoreFocusAndOpaqueSuggestions START');
         restoringFocusFromSwitcher = true;
-        const isAddressbar = document.body.classList.contains('addressbar');
-        if (isAddressbar) {
-            requestAnimationFrame(() => {
-                logPanelState('restoreFocus rAF 1 (before focus)');
-                requestAnimationFrame(() => {
-                    logPanelState('restoreFocus rAF 2 (about to focus)');
-                    searchInput?.focus();
-                    logPanelState('restoreFocus rAF 2 (after focus)');
-                });
-            });
-        } else {
-            searchInput?.focus();
-            logPanelState('restoreFocusAndOpaqueSuggestions AFTER focus (main)');
-        }
+        searchInput?.focus();
         if (suggestionsList) {
             suggestionsList.classList.remove('first-hover-fade', 'transitioning');
         }
@@ -1634,14 +1588,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target.closest('.suggestion-item, .suggestions-heading');
             const switcherTooltipPinned = tooltipPinned && activeTrigger?.closest('.search-switcher-dropdown');
             if (target && searchSwitcherButton.classList.contains('open') && !switcherTooltipPinned && !window._searchEngineDragging) {
-                logPanelState('SWITCHER CLOSING (suggestion hover)');
                 console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
                 restoreFocusAndOpaqueSuggestions();
-                logPanelState('SWITCHER CLOSED (suggestion hover)');
             }
         });
     }
@@ -1663,7 +1615,6 @@ document.addEventListener('DOMContentLoaded', () => {
             searchSwitcherButton.classList.toggle('open');
             const isNowOpen = searchSwitcherButton.classList.contains('open');
             if (wasOpen && !isNowOpen) {
-                logPanelState('SWITCHER CLOSING (toggle)');
                 searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.classList.remove('switcher-suppress-hover');
@@ -1671,9 +1622,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (searchContainer?.classList.contains('focused')) {
                     restoreFocusAndOpaqueSuggestions();
                 }
-                logPanelState('SWITCHER CLOSED (toggle)');
             } else if (!wasOpen && isNowOpen) {
-                logPanelState('SWITCHER OPENING');
                 searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
@@ -1686,12 +1635,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (searchSwitcherButton.classList.contains('open')) {
                         searchSwitcherDropdown.classList.add('dropdown-revealed');
                     }
-                    logPanelState('SWITCHER dropdown transitionend');
                 };
                 searchSwitcherDropdown?.addEventListener('transitionend', onRevealed);
                 searchInput.blur();
                 searchSwitcherButton.focus();
-                logPanelState('SWITCHER OPENED (after blur+focus)');
                 searchSwitcherButton.classList.add('switcher-suppress-hover');
             }
             
@@ -1720,7 +1667,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
                 if (wasOpen) {
-                    logPanelState('SWITCHER CLOSING (click outside)');
                     searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                     searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                     switcherHighlightedIndex = -1;
@@ -1735,7 +1681,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     restoringFocusFromSwitcher = false;
-                    logPanelState('SWITCHER CLOSED (click outside)');
                 }
                 searchSwitcherButton.classList.remove('open');
             }
@@ -1795,7 +1740,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!item) return;
                 if (item.id === 'quick-buttons-toggle') return;
                 if (item.textContent.includes('Search Settings')) return;
-                logPanelState('SWITCHER CLOSING (dropdown item click)');
                 console.log('[SWITCHER MOUSE] Dropdown item clicked, applying selection and closing');
                 applySelectedSearchSource(item);
                 searchSwitcherDropdown.classList.remove('dropdown-revealed');
@@ -1807,7 +1751,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     searchInput?.focus();
                 }
-                logPanelState('SWITCHER CLOSED (dropdown item click)');
                 console.log('[SWITCHER MOUSE] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
             });
             restoreFirefoxSuggestionsState();
@@ -3367,16 +3310,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (searchInput && searchContainer) {
         searchInput.addEventListener('focus', () => {
-            logPanelState('INPUT FOCUS handler');
             if (restoringFocusFromSwitcher) {
-                logPanelState('INPUT FOCUS restoringFromSwitcher path');
                 restoringFocusFromSwitcher = false;
                 searchContainer.classList.add('focused');
                 if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
-                requestAnimationFrame(() => {
-                    logPanelState('INPUT FOCUS after rAF (state updated)');
-                    requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true }));
-                });
+                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
                 return;
             }
             // Add focused class to expand width
@@ -3417,20 +3355,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         searchInput.addEventListener('blur', () => {
-            logPanelState('INPUT BLUR handler');
             if (inspectSuggestions) return;
-            if (searchSwitcherButton?.classList.contains('open')) {
-                logPanelState('INPUT BLUR (switcher open, skipping close)');
-                return;
-            }
+            if (searchSwitcherButton?.classList.contains('open')) return;
             closeSuggestionsPanel();
         });
-
-        if (suggestionsList) {
-            suggestionsList.addEventListener('transitionend', (e) => {
-                logPanelState(`SUGGESTIONS transitionend property=${e.propertyName}`);
-            });
-        }
         
         // Track first hover
         suggestionItems.forEach(item => {
@@ -3473,7 +3401,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.key === 'Escape') {
             const switcherOpen = searchSwitcherButton?.classList.contains('open');
             if (switcherOpen) {
-                logPanelState('SWITCHER CLOSING (ESC)');
                 searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
@@ -3482,7 +3409,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     restoreFocusAndOpaqueSuggestions();
                 }
-                logPanelState('SWITCHER CLOSED (ESC)');
                 return;
             }
             if (searchInput && document.activeElement === searchInput) {
@@ -3532,14 +3458,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     dropdown?.classList.remove('dropdown-revealed');
                     searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                     switcherHighlightedIndex = -1;
-                    logPanelState('SWITCHER CLOSING (keyboard num)');
                     dropdownItems.forEach(i => i.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) {
                         restoreFocusAndOpaqueSuggestions();
                     } else {
                         searchInput?.focus();
                     }
-                    logPanelState('SWITCHER CLOSED (keyboard num)');
                     console.log('[SWITCHER KEYBOARD] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
                 }
             } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {

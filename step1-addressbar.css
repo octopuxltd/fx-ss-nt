@@ -79,7 +79,7 @@ body.addressbar .addressbar-row .search-container.focused {
 }
 
 body.addressbar .suggestions-list {
-    transition: max-height 0.3s ease-out, opacity 0.42s ease-out;
+    transition: max-height 0.3s ease-out;
 }
 
 body.addressbar.reduced-motion .suggestions-list {
