@@ -34,6 +34,21 @@ body {
     background-attachment: fixed;
 }
 
+body[data-background="grey"] {
+    background-image: none;
+    background-color: #D1D5DB;
+}
+
+body[data-background="blue"] {
+    background-image: none;
+    background-color: #C8E4F8;
+}
+
+body[data-background="beige"] {
+    background-image: none;
+    background-color: #F0E6D8;
+}
+
 .addressbar-band {
     position: fixed;
     top: 0;
@@ -75,6 +90,48 @@ body {
 
 body.standalone-search-box-visible .standalone-search-box-iframe {
     display: block;
+}
+
+.addressbar-toolbar-icons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.addressbar-toolbar-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.addressbar-toolbar-icon:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.addressbar-toolbar-icon {
+    color: rgba(0, 0, 0, 0.6);
+}
+
+.addressbar-toolbar-icon svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+}
+
+.addressbar-toolbar-icon svg[fill="currentColor"] {
+    fill: currentColor;
+    stroke: none;
 }
 
 .firefox-logo {
@@ -196,9 +253,17 @@ body.reduced-motion .search-box-wrapper-outer::before {
     background: conic-gradient(from 0deg, #FF00FF 0%, #FFA500 50%, #FF00FF 100%);
 }
 
+body.gradient-search-border-off .search-box-wrapper-outer::before {
+    background: rgba(0, 0, 0, 0.3);
+}
+
 .search-box-wrapper-outer:has(.search-input:focus) {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     background-color: rgba(255, 255, 255, 0.66);
+}
+
+.search-container.search-has-typed-input .search-box-wrapper-outer {
+    background-color: #fff;
 }
 
 .search-box-wrapper-outer:has(.search-input:focus)::before {
@@ -211,6 +276,8 @@ body.reduced-motion .search-box-wrapper-outer::before {
     gap: 10px;
     background-color: rgba(255, 255, 255, 0.35);
     border-radius: 15px;
+    position: relative;
+    z-index: 1;
     padding: 8px 10px 8px 10px;
     width: 100%;
     transition: background-color 0.25s linear;
@@ -269,6 +336,15 @@ body.reduced-motion .search-box-wrapper-outer::before {
 .search-switcher-button.open .search-switcher-dropdown.dropdown-revealed,
 .search-container.focused .suggestions-list.suggestions-revealed {
     overflow: visible;
+}
+
+/* Dim suggestions when switcher is open (input doesn't have focus); fade to full opacity when focus returns */
+.search-container.focused:not(:has(.search-input:focus)) .suggestions-list.suggestions-revealed {
+    opacity: 0.65;
+}
+
+.search-container.focused:has(.search-input:focus) .suggestions-list.suggestions-revealed {
+    opacity: 1;
 }
 
 .dropdown-label {
@@ -777,20 +853,63 @@ body.reduced-motion .dropdown-item.dragging {
     font-weight: 300;
 }
 
-.bottom-left-controls {
+.bottom-left-panel {
     position: fixed;
-    bottom: 20px;
-    left: 20px;
+    bottom: 0;
+    left: 0;
     z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 40px;
+    min-width: 120px;
+}
+
+.bottom-left-panel-heading {
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0 0 12px 0;
+}
+
+.bottom-left-panel-content {
+    transform: translateY(calc(100% - 42px));
+    transition: transform 0.3s ease-out;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 12px 12px 0 0;
+    padding: 16px 20px 20px 20px;
+    margin-left: 20px;
+}
+
+.bottom-left-panel:hover .bottom-left-panel-content {
+    transform: translateY(0);
+}
+
+body.reduced-motion .bottom-left-panel-content {
+    transition: none;
+}
+
+.bottom-left-controls {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
+.bottom-left-panel-divider {
+    width: 100%;
+    margin: 0;
+    border: none;
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
 .bottom-left-controls label {
     display: flex;
+    flex-direction: row-reverse;
+    justify-content: space-between;
     align-items: center;
     gap: 8px;
+    width: 100%;
     font-size: 14px;
     color: rgba(255, 255, 255, 0.9);
     cursor: pointer;
@@ -798,8 +917,63 @@ body.reduced-motion .dropdown-item.dragging {
 }
 
 .reduced-motion-checkbox,
-.pin-default-checkbox {
+.pin-default-checkbox,
+.standalone-search-box-checkbox,
+.gradient-search-border-checkbox {
     cursor: pointer;
+}
+
+.background-swatches-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.background-swatches-label {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.background-swatches {
+    display: flex;
+    gap: 6px;
+}
+
+.background-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.15s, transform 0.15s;
+}
+
+.background-swatch:hover {
+    border-color: rgba(255, 255, 255, 0.9);
+    transform: scale(1.08);
+}
+
+.background-swatch[aria-pressed="true"] {
+    border-color: white;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.background-swatch[data-background="gradient"] {
+    background: linear-gradient(135deg, #E06BA8 0%, #9B6BCC 40%, #6B4C9E 70%, #4A3572 100%);
+}
+
+.background-swatch[data-background="grey"] {
+    background-color: #D1D5DB;
+}
+
+.background-swatch[data-background="blue"] {
+    background-color: #C8E4F8;
+}
+
+.background-swatch[data-background="beige"] {
+    background-color: #F0E6D8;
 }
 
 /* Hide pin UI when pin-default flag is off */
@@ -970,11 +1144,30 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-
     padding: 8px 10px;
     display: flex;
     flex-direction: column;
+    position: relative;
+}
+
+/* Shadow from search bar when typing – clipped to suggestions panel only. Extends up; search bar's rounded bottom corners clip into it (bar has higher z-index). */
+.search-container.search-has-typed-input .suggestions-list.suggestions-revealed .suggestions-content::before {
+    content: '';
+    position: absolute;
+    top: -24px;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 0%, transparent 100%);
+    pointer-events: none;
+}
+
+/* Search bar paints on top so its rounded bottom corners clip the shadow above */
+.search-container.search-has-typed-input .search-box-wrapper {
+    position: relative;
+    z-index: 1;
 }
 
 .search-container.focused .suggestions-list {
     max-height: 600px;
-    transition: max-height 0.42s ease-out;
+    transition: max-height 0.42s ease-out, opacity 0.42s ease-out;
 }
 
 .search-container.focused .suggestions-list.suggestions-suppress-until-typed {
@@ -984,6 +1177,29 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-
 .search-container.focused .suggestions-list.suggestions-suppress-until-typed .gmail-item,
 .search-container.focused .suggestions-list.suggestions-suppress-until-typed .suggestions-heading {
     display: none;
+}
+
+.one-off-buttons {
+    position: relative;
+    z-index: 5;
+    max-height: 0;
+    overflow: hidden;
+    margin-top: -16px;
+    padding: 0 10px;
+    background-color: #fff;
+    color: rgba(0, 0, 0, 0.5);
+    font-size: 14px;
+    border-radius: 0 0 15px 15px;
+    transition: max-height 0.25s ease-out;
+}
+
+.search-container.focused.search-has-typed-input:has(.suggestions-list.suggestions-revealed):has(#quick-buttons-toggle[data-visibility="shown"]) .one-off-buttons {
+    max-height: 105px;
+    padding: 25px 10px 12px 10px;
+}
+
+body.reduced-motion .one-off-buttons {
+    transition: none;
 }
 
 .suggestion-item {
@@ -1250,6 +1466,8 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-
 .suggestion-item.gmail-item .suggestion-icon {
     opacity: 1;
     background-color: white;
+    padding: 3px;
+    box-sizing: border-box;
 }
 
 .suggestion-label {

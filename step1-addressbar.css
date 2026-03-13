@@ -1,8 +1,4 @@
 /* Overrides for step1-addressbar.html */
-body.addressbar .bottom-left-controls {
-    display: none; /* Temporarily hidden */
-}
-
 body.addressbar .addressbar-row {
     position: fixed;
     top: 2px;
@@ -83,7 +79,11 @@ body.addressbar .addressbar-row .search-container.focused {
 }
 
 body.addressbar .suggestions-list {
-    transition: max-height 0.3s ease-out;
+    transition: max-height 0.3s ease-out, opacity 0.42s ease-out;
+}
+
+body.addressbar.reduced-motion .suggestions-list {
+    transition: none;
 }
 
 body.addressbar .search-box-wrapper-outer {
@@ -102,6 +102,14 @@ body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning) {
 
 body.addressbar .search-box-wrapper-outer::before {
     transition: opacity 0.15s linear 0.3s;
+}
+
+body.addressbar .search-container:has(.search-switcher-button.open) .search-box-wrapper-outer::before {
+    transition: opacity 0.15s linear 0s;
+}
+
+body.addressbar.reduced-motion .search-box-wrapper-outer::before {
+    transition: none;
 }
 
 body.addressbar .search-box-wrapper-outer:has(.search-input:focus)::before {

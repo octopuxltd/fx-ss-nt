@@ -11,23 +11,17 @@
 </head>
 <body class="addressbar">
     <script>
-        // Apply reduced motion class immediately to body before any rendering
+        // Apply main page prototype options from localStorage (iframes are controlled by main page)
         if (localStorage.getItem('reduced_motion_enabled') === 'true') {
-            console.log('[BODY SCRIPT] Adding reduced-motion class immediately');
             document.body.classList.add('reduced-motion');
         }
+        if (localStorage.getItem('gradient_search_border_enabled') === 'false') {
+            document.body.classList.add('gradient-search-border-off');
+        }
+        if (localStorage.getItem('pin_default_search_engine_enabled') === 'true') {
+            document.body.classList.add('pin-default-enabled');
+        }
     </script>
-    <div class="bottom-left-controls">
-        <label class="reduced-motion-control">
-            <input type="checkbox" class="reduced-motion-checkbox">
-            <span>Reduced motion</span>
-        </label>
-        <label class="pin-default-control">
-            <input type="checkbox" class="pin-default-checkbox">
-            <span>Pin a default search engine</span>
-        </label>
-    </div>
-    
     <div class="addressbar-row">
         <div class="addressbar-nav">
             <button type="button" class="addressbar-back" aria-label="Back" title="Back">

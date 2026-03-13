@@ -972,6 +972,9 @@ const SEARCH_ENGINE_ORDER_KEY = 'search_engine_order';
 const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
 const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
+const BACKGROUND_SWATCH_KEY = 'background_swatch';
+const GRADIENT_SEARCH_BORDER_ENABLED_KEY = 'gradient_search_border_enabled';
+const QUICK_BUTTONS_VISIBLE_KEY = 'quick_buttons_visible';
 
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
@@ -982,22 +985,117 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Address bar iframe: parent sets width (matches search bar 57.6% / 576px); iframe reports height (including dropdown)
     if (window !== window.top) {
+        window.addEventListener('message', (e) => {
+            if (e.data?.type === 'gradient-search-border-off') {
+                if (e.data.off) {
+                    document.body.classList.add('gradient-search-border-off');
+                    if (gradientAnimationId) {
+                        cancelAnimationFrame(gradientAnimationId);
+                        gradientAnimationId = null;
+                    }
+                    const existingStyle = document.getElementById('gradient-animation-style');
+                    if (existingStyle) existingStyle.remove();
+                } else {
+                    document.body.classList.remove('gradient-search-border-off');
+                }
+            } else if (e.data?.type === 'reduced-motion') {
+                if (e.data.enabled) {
+                    document.body.classList.add('reduced-motion');
+                } else {
+                    document.body.classList.remove('reduced-motion');
+                }
+            } else if (e.data?.type === 'pin-default') {
+                if (e.data.enabled) {
+                    document.body.classList.add('pin-default-enabled');
+                } else {
+                    document.body.classList.remove('pin-default-enabled');
+                }
+            } else if (e.data?.type === 'close-switcher') {
+                const btn = document.querySelector('.search-switcher-button');
+                const dropdown = btn?.querySelector('.search-switcher-dropdown');
+                const container = document.querySelector('.search-container');
+                if (typeof logPanelState === 'function') logPanelState('close-switcher MESSAGE received');
+                if (btn?.classList.contains('open')) {
+                    dropdown?.classList.remove('dropdown-revealed');
+                    btn.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                    btn.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                    if (container?.classList.contains('focused')) {
+                        if (typeof closeSuggestionsPanel === 'function') {
+                            closeSuggestionsPanel();
+                        }
+                    } else if (typeof restoreFocusAndOpaqueSuggestions === 'function') {
+                        restoreFocusAndOpaqueSuggestions();
+                    }
+                    if (typeof logPanelState === 'function') logPanelState('close-switcher MESSAGE handled');
+                }
+            }
+        });
         const reportAddressbarHeight = () => {
             const container = document.querySelector('.search-container');
-            if (container) {
-                const rect = container.getBoundingClientRect();
-                const h = rect.height + 4;
-                window.parent.postMessage({ type: 'addressbar-height', height: h }, '*');
+            if (!container) return;
+            const rect = container.getBoundingClientRect();
+            let bottom = rect.bottom;
+            const switcherButton = container.querySelector('.search-switcher-button');
+            const dropdown = switcherButton?.querySelector('.search-switcher-dropdown');
+            if (switcherButton?.classList.contains('open') && dropdown) {
+                const dropdownRect = dropdown.getBoundingClientRect();
+                const fullDropdownBottom = dropdownRect.top + dropdown.scrollHeight;
+                bottom = Math.max(bottom, fullDropdownBottom);
             }
+            const h = bottom + 4;
+            window.parent.postMessage({ type: 'addressbar-height', height: h }, '*');
+        };
+        const scheduleHeightReports = () => {
+            reportAddressbarHeight();
+            requestAnimationFrame(() => {
+                reportAddressbarHeight();
+                requestAnimationFrame(reportAddressbarHeight);
+            });
         };
         reportAddressbarHeight();
         window.addEventListener('resize', reportAddressbarHeight);
         const container = document.querySelector('.search-container');
         if (container && typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(reportAddressbarHeight).observe(container);
+            new ResizeObserver(scheduleHeightReports).observe(container);
+        }
+        if (container) {
+            const containerObserver = new MutationObserver((mutations) => {
+                if (mutations.some(m => m.attributeName === 'class')) {
+                    scheduleHeightReports();
+                }
+            });
+            containerObserver.observe(container, { attributes: true, attributeFilter: ['class'] });
+        }
+        const switcherButton = container?.querySelector('.search-switcher-button');
+        if (switcherButton) {
+            const switcherObserver = new MutationObserver(() => {
+                if (switcherButton.classList.contains('open')) {
+                    scheduleHeightReports();
+                } else {
+                    const closeDelay = document.body.classList.contains('reduced-motion') ? 0 : 250;
+                    setTimeout(scheduleHeightReports, closeDelay);
+                }
+            });
+            switcherObserver.observe(switcherButton, { attributes: true, attributeFilter: ['class'] });
         }
     } else {
         const iframe = document.querySelector('.addressbar-iframe');
+        const standaloneIframe = document.querySelector('.standalone-search-box-iframe');
+        const iframes = [iframe, standaloneIframe].filter(Boolean);
+
+        const sendPrototypeOptionsToIframes = () => {
+            const gradientOff = localStorage.getItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY) === 'false';
+            const reducedMotion = localStorage.getItem('reduced_motion_enabled') === 'true';
+            const pinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY) === 'true';
+            iframes.forEach(f => {
+                try {
+                    f.contentWindow?.postMessage({ type: 'gradient-search-border-off', off: gradientOff }, '*');
+                    f.contentWindow?.postMessage({ type: 'reduced-motion', enabled: reducedMotion }, '*');
+                    f.contentWindow?.postMessage({ type: 'pin-default', enabled: pinDefault }, '*');
+                } catch (_) {}
+            });
+        };
+
         if (iframe) {
             let bandHeightSet = false;
             const updateBandHeight = (h) => {
@@ -1009,16 +1107,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const updateIframeSize = () => {
                 const w = Math.min(window.innerWidth * 0.576, 576);
                 iframe.style.width = w + 'px';
-                const standaloneIframe = document.querySelector('.standalone-search-box-iframe');
                 if (standaloneIframe) {
                     standaloneIframe.style.width = Math.round(w / 2) + 'px';
                 }
             };
             const setHeight = (e) => {
-                if (e.data?.type === 'addressbar-height' && typeof e.data.height === 'number' && e.source === iframe.contentWindow) {
+                if (e.data?.type === 'addressbar-height' && typeof e.data.height === 'number') {
                     const h = e.data.height;
-                    iframe.style.height = h + 'px';
-                    updateBandHeight(h);
+                    if (e.source === iframe.contentWindow) {
+                        iframe.style.height = h + 'px';
+                        updateBandHeight(h);
+                    } else if (standaloneIframe && e.source === standaloneIframe.contentWindow) {
+                        standaloneIframe.style.height = h + 'px';
+                    }
                 }
             };
             updateIframeSize();
@@ -1027,6 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('message', setHeight);
             iframe.addEventListener('load', () => {
                 updateIframeSize();
+                sendPrototypeOptionsToIframes();
                 try {
                     const doc = iframe.contentDocument;
                     const container = doc?.querySelector('.search-container');
@@ -1038,6 +1140,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (_) { /* cross-origin */ }
             });
         }
+        if (standaloneIframe) {
+            standaloneIframe.addEventListener('load', sendPrototypeOptionsToIframes);
+        }
+        if (iframes.some(f => f.contentDocument?.readyState === 'complete')) {
+            sendPrototypeOptionsToIframes();
+        }
+        document.addEventListener('click', () => {
+            iframes.forEach(f => {
+                try {
+                    f.contentWindow?.postMessage({ type: 'close-switcher' }, '*');
+                } catch (_) {}
+            });
+        });
     }
 
     // Mouse-positioned tooltips
@@ -1103,6 +1218,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('mouseover', (e) => {
         const trigger = e.target.closest('.tooltip-trigger');
         if (trigger) {
+            const inSwitcherDropdown = trigger.closest('.search-switcher-dropdown');
+            const switcherSuppressing = document.querySelector('.search-switcher-button.switcher-suppress-hover');
+            if (inSwitcherDropdown && switcherSuppressing) return;
             if (tooltipHideTimer) {
                 clearTimeout(tooltipHideTimer);
                 tooltipHideTimer = null;
@@ -1159,7 +1277,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log('[DOM] Body has reduced-motion class?', document.body.classList.contains('reduced-motion'));
     const searchInput = document.querySelector('.search-input');
-    
+    const inspectSuggestions = new URLSearchParams(location.search).get('inspect') === '1' || localStorage.getItem('inspectSuggestions') === 'true';
+
     // Clear search input on page load
     if (searchInput) {
         searchInput.value = '';
@@ -1170,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Repositionable search bar (testing)
     const searchDragHandle = document.querySelector('.search-container-drag-handle');
-    const LOGO_NEAR_TOP_THRESHOLD = 280;
+    const LOGO_NEAR_TOP_THRESHOLD = 250;
     function updateLogoPositionForSearchBar(opts = {}) {
         if (!searchContainer || !firefoxLogo) return;
         if (opts.skipWhenLogoOnLeft && document.body.classList.contains('search-bar-near-top')) return;
@@ -1242,7 +1361,92 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchButton = document.querySelector('.search-button');
     let switcherHighlightedIndex = -1;
     let switcherHoveredIndex = -1;
-    
+    let restoringFocusFromSwitcher = false;
+
+    function logPanelState(label) {
+        if (!searchContainer) return;
+        const ctx = document.body.classList.contains('standalone-search-box') ? 'standalone' :
+            document.body.classList.contains('addressbar') ? 'addressbar' : 'main';
+        const switcherOpen = searchSwitcherButton?.classList.contains('open');
+        const containerFocused = searchContainer?.classList.contains('focused');
+        const suggestionsRevealed = suggestionsList?.classList.contains('suggestions-revealed');
+        const transitioning = suggestionsList?.classList.contains('transitioning');
+        const firstHoverFade = suggestionsList?.classList.contains('first-hover-fade');
+        const inputFocused = document.activeElement === searchInput;
+        let opacity = '';
+        let transition = '';
+        if (suggestionsList) {
+            const cs = getComputedStyle(suggestionsList);
+            opacity = cs.opacity;
+            transition = cs.transition;
+        }
+        console.log(`[PANEL ${ctx}] ${label}:`, {
+            switcherOpen,
+            containerFocused,
+            suggestionsRevealed,
+            transitioning,
+            firstHoverFade,
+            inputFocused,
+            restoringFocusFromSwitcher,
+            suggestionsOpacity: opacity,
+            suggestionsTransition: transition
+        });
+    }
+
+    function restoreFocusAndOpaqueSuggestions() {
+        logPanelState('restoreFocusAndOpaqueSuggestions START');
+        restoringFocusFromSwitcher = true;
+        const isAddressbar = document.body.classList.contains('addressbar');
+        if (isAddressbar) {
+            requestAnimationFrame(() => {
+                logPanelState('restoreFocus rAF 1 (before focus)');
+                requestAnimationFrame(() => {
+                    logPanelState('restoreFocus rAF 2 (about to focus)');
+                    searchInput?.focus();
+                    logPanelState('restoreFocus rAF 2 (after focus)');
+                });
+            });
+        } else {
+            searchInput?.focus();
+            logPanelState('restoreFocusAndOpaqueSuggestions AFTER focus (main)');
+        }
+        if (suggestionsList) {
+            suggestionsList.classList.remove('first-hover-fade', 'transitioning');
+        }
+        firstHoverDone = true;
+    }
+
+    function closeSuggestionsPanel() {
+        if (!searchContainer) return;
+        searchContainer.classList.remove('focused');
+        let logoUpdateDone = false;
+        const runLogoUpdate = () => {
+            if (!logoUpdateDone) {
+                logoUpdateDone = true;
+                searchContainer.removeEventListener('transitionend', onTransitionEnd);
+                updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true });
+            }
+        };
+        const onTransitionEnd = (e) => {
+            if (e.target === searchContainer && (e.propertyName === 'top' || e.propertyName === 'transform')) {
+                runLogoUpdate();
+            }
+        };
+        searchContainer.addEventListener('transitionend', onTransitionEnd);
+        const blurTransitionMs = document.body.classList.contains('reduced-motion') ? 350 : 250;
+        setTimeout(runLogoUpdate, blurTransitionMs + 50);
+        suggestionsList?.classList.remove('suggestions-revealed');
+        firstHoverDone = false;
+        if (suggestionsList) {
+            suggestionsList.classList.add('transitioning');
+            suggestionsList.classList.remove('first-hover-fade');
+            const closeDuration = document.body.classList.contains('addressbar') ? 320 : 250;
+            setTimeout(() => {
+                suggestionsList.classList.remove('transitioning');
+            }, closeDuration);
+        }
+    }
+
     function applySelectedSearchSource(item) {
         if (!item) return;
         if (item.id === 'quick-buttons-toggle') return;
@@ -1430,11 +1634,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target.closest('.suggestion-item, .suggestions-heading');
             const switcherTooltipPinned = tooltipPinned && activeTrigger?.closest('.search-switcher-dropdown');
             if (target && searchSwitcherButton.classList.contains('open') && !switcherTooltipPinned && !window._searchEngineDragging) {
+                logPanelState('SWITCHER CLOSING (suggestion hover)');
                 console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                restoreFocusAndOpaqueSuggestions();
+                logPanelState('SWITCHER CLOSED (suggestion hover)');
             }
         });
     }
@@ -1456,11 +1663,17 @@ document.addEventListener('DOMContentLoaded', () => {
             searchSwitcherButton.classList.toggle('open');
             const isNowOpen = searchSwitcherButton.classList.contains('open');
             if (wasOpen && !isNowOpen) {
+                logPanelState('SWITCHER CLOSING (toggle)');
                 searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.classList.remove('switcher-suppress-hover');
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                if (searchContainer?.classList.contains('focused')) {
+                    restoreFocusAndOpaqueSuggestions();
+                }
+                logPanelState('SWITCHER CLOSED (toggle)');
             } else if (!wasOpen && isNowOpen) {
+                logPanelState('SWITCHER OPENING');
                 searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
@@ -1473,10 +1686,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (searchSwitcherButton.classList.contains('open')) {
                         searchSwitcherDropdown.classList.add('dropdown-revealed');
                     }
+                    logPanelState('SWITCHER dropdown transitionend');
                 };
                 searchSwitcherDropdown?.addEventListener('transitionend', onRevealed);
                 searchInput.blur();
                 searchSwitcherButton.focus();
+                logPanelState('SWITCHER OPENED (after blur+focus)');
                 searchSwitcherButton.classList.add('switcher-suppress-hover');
             }
             
@@ -1486,6 +1701,16 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('[SWITCHER CLICK] Suggestions visible?', searchContainer?.classList.contains('focused'));
         });
         
+        // When mousedown on search container (not switcher) with switcher open, focus will move to input
+        // Set flag so the focus handler keeps suggestions open
+        document.addEventListener('mousedown', (e) => {
+            if (searchSwitcherButton?.classList.contains('open') &&
+                e.target.closest('.search-container') &&
+                !e.target.closest('.search-switcher-button')) {
+                restoringFocusFromSwitcher = true;
+            }
+        });
+
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             if (window._searchEngineDragOccurred) {
@@ -1495,11 +1720,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
                 if (wasOpen) {
+                    logPanelState('SWITCHER CLOSING (click outside)');
                     searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                     searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                    if (searchContainer?.classList.contains('focused')) {
+                        const clickInsideSearch = e.target.closest('.search-container');
+                        if (clickInsideSearch) {
+                            restoreFocusAndOpaqueSuggestions();
+                        } else {
+                            closeSuggestionsPanel();
+                        }
+                    }
+                    restoringFocusFromSwitcher = false;
+                    logPanelState('SWITCHER CLOSED (click outside)');
                 }
                 searchSwitcherButton.classList.remove('open');
             }
@@ -1552,19 +1788,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                         switcherHighlightedIndex = -1;
                         searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
+                        if (searchContainer?.classList.contains('focused')) restoreFocusAndOpaqueSuggestions();
                         return;
                     }
                 }
                 if (!item) return;
                 if (item.id === 'quick-buttons-toggle') return;
                 if (item.textContent.includes('Search Settings')) return;
+                logPanelState('SWITCHER CLOSING (dropdown item click)');
                 console.log('[SWITCHER MOUSE] Dropdown item clicked, applying selection and closing');
                 applySelectedSearchSource(item);
                 searchSwitcherDropdown.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
-                searchInput?.focus();
+                if (searchContainer?.classList.contains('focused')) {
+                    restoreFocusAndOpaqueSuggestions();
+                } else {
+                    searchInput?.focus();
+                }
+                logPanelState('SWITCHER CLOSED (dropdown item click)');
                 console.log('[SWITCHER MOUSE] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
             });
             restoreFirefoxSuggestionsState();
@@ -1794,20 +2037,31 @@ document.addEventListener('DOMContentLoaded', () => {
         // Quick buttons visibility toggle
         const quickButtonsToggle = document.getElementById('quick-buttons-toggle');
         if (quickButtonsToggle) {
-            quickButtonsToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
+            const applyQuickButtonsState = (visible) => {
                 const icon = quickButtonsToggle.querySelector('.quick-buttons-icon');
                 const label = quickButtonsToggle.querySelector('.quick-buttons-label');
-                const isShown = quickButtonsToggle.dataset.visibility === 'shown';
-                if (isShown) {
-                    quickButtonsToggle.dataset.visibility = 'hidden';
-                    icon.src = 'icons/eye-off.svg';
-                    label.textContent = 'Hide Quick Buttons';
-                } else {
+                if (visible) {
                     quickButtonsToggle.dataset.visibility = 'shown';
                     icon.src = 'icons/eye.svg';
+                    label.textContent = 'Hide Quick Buttons';
+                } else {
+                    quickButtonsToggle.dataset.visibility = 'hidden';
+                    icon.src = 'icons/eye-off.svg';
                     label.textContent = 'Show Quick Buttons';
                 }
+            };
+            const savedQuickButtons = localStorage.getItem(QUICK_BUTTONS_VISIBLE_KEY);
+            if (savedQuickButtons === 'false') {
+                applyQuickButtonsState(false);
+            } else {
+                applyQuickButtonsState(true);
+            }
+            quickButtonsToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isShown = quickButtonsToggle.dataset.visibility === 'shown';
+                const willBeShown = !isShown;
+                applyQuickButtonsState(willBeShown);
+                localStorage.setItem(QUICK_BUTTONS_VISIBLE_KEY, String(willBeShown));
             });
         }
 
@@ -1885,55 +2139,109 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // Handle reduced motion checkbox
+    // Handle reduced motion checkbox (default: off)
     if (reducedMotionCheckbox) {
-        // Load saved state from localStorage
         const savedReducedMotion = localStorage.getItem('reduced_motion_enabled');
-        console.log('[CHECKBOX] Saved reduced motion:', savedReducedMotion);
         if (savedReducedMotion === 'true') {
-            console.log('[CHECKBOX] Adding reduced-motion class to body');
             reducedMotionCheckbox.checked = true;
             document.body.classList.add('reduced-motion');
-            console.log('[CHECKBOX] Body classes after add:', document.body.className);
+        } else {
+            reducedMotionCheckbox.checked = false;
         }
-        
         reducedMotionCheckbox.addEventListener('change', (e) => {
-            if (e.target.checked) {
+            const enabled = e.target.checked;
+            if (enabled) {
                 document.body.classList.add('reduced-motion');
                 localStorage.setItem('reduced_motion_enabled', 'true');
             } else {
                 document.body.classList.remove('reduced-motion');
                 localStorage.setItem('reduced_motion_enabled', 'false');
             }
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'reduced-motion', enabled }, '*');
+                    } catch (_) {}
+                });
         });
     }
 
-    // Handle pin default search engine checkbox
+    // Handle gradient search border checkbox (default: on)
+    const gradientSearchBorderCheckbox = document.querySelector('.gradient-search-border-checkbox');
+    if (gradientSearchBorderCheckbox) {
+        const saved = localStorage.getItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY);
+        if (saved === 'false') {
+            gradientSearchBorderCheckbox.checked = false;
+            document.body.classList.add('gradient-search-border-off');
+        } else {
+            gradientSearchBorderCheckbox.checked = true;
+            document.body.classList.remove('gradient-search-border-off');
+        }
+        gradientSearchBorderCheckbox.addEventListener('change', (e) => {
+            const off = !e.target.checked;
+            if (e.target.checked) {
+                document.body.classList.remove('gradient-search-border-off');
+                localStorage.setItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY, 'true');
+            } else {
+                document.body.classList.add('gradient-search-border-off');
+                localStorage.setItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY, 'false');
+                // Stop gradient animation and remove injected style so solid border shows immediately
+                if (gradientAnimationId) {
+                    cancelAnimationFrame(gradientAnimationId);
+                    gradientAnimationId = null;
+                }
+                const existingStyle = document.getElementById('gradient-animation-style');
+                if (existingStyle) existingStyle.remove();
+            }
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'gradient-search-border-off', off }, '*');
+                    } catch (_) {}
+                });
+        });
+    }
+
+    // Handle pin default search engine checkbox (default: off)
     const pinDefaultCheckbox = document.querySelector('.pin-default-checkbox');
     if (pinDefaultCheckbox) {
         const savedPinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY);
         if (savedPinDefault === 'true') {
             pinDefaultCheckbox.checked = true;
             document.body.classList.add('pin-default-enabled');
+        } else {
+            pinDefaultCheckbox.checked = false;
         }
         pinDefaultCheckbox.addEventListener('change', (e) => {
-            if (e.target.checked) {
+            const enabled = e.target.checked;
+            if (enabled) {
                 document.body.classList.add('pin-default-enabled');
                 localStorage.setItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY, 'true');
             } else {
                 document.body.classList.remove('pin-default-enabled');
                 localStorage.setItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY, 'false');
             }
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'pin-default', enabled }, '*');
+                    } catch (_) {}
+                });
         });
     }
 
-    // Handle standalone search box checkbox
+    // Handle standalone search box checkbox (default: off)
     const standaloneSearchBoxCheckbox = document.querySelector('.standalone-search-box-checkbox');
     if (standaloneSearchBoxCheckbox) {
         const savedStandaloneVisible = localStorage.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY);
         if (savedStandaloneVisible === 'true') {
             standaloneSearchBoxCheckbox.checked = true;
             document.body.classList.add('standalone-search-box-visible');
+        } else {
+            standaloneSearchBoxCheckbox.checked = false;
         }
         standaloneSearchBoxCheckbox.addEventListener('change', (e) => {
             if (e.target.checked) {
@@ -1943,6 +2251,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.remove('standalone-search-box-visible');
                 localStorage.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, 'false');
             }
+        });
+    }
+
+    // Handle background colour swatches
+    const backgroundSwatches = document.querySelectorAll('.background-swatch');
+    if (backgroundSwatches.length) {
+        const updateSwatchPressed = () => {
+            const current = document.body.dataset.background || 'gradient';
+            backgroundSwatches.forEach(btn => {
+                btn.setAttribute('aria-pressed', btn.dataset.background === current ? 'true' : 'false');
+            });
+        };
+        const savedBg = localStorage.getItem(BACKGROUND_SWATCH_KEY);
+        const hadPaleGrey = localStorage.getItem('pale_grey_background_enabled') === 'true';
+        if (savedBg) {
+            if (savedBg === 'gradient') {
+                delete document.body.dataset.background;
+            } else {
+                document.body.dataset.background = savedBg;
+            }
+        } else if (hadPaleGrey) {
+            document.body.dataset.background = 'grey';
+            localStorage.setItem(BACKGROUND_SWATCH_KEY, 'grey');
+        }
+        updateSwatchPressed();
+        backgroundSwatches.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const bg = btn.dataset.background;
+                localStorage.setItem(BACKGROUND_SWATCH_KEY, bg);
+                if (bg === 'gradient') {
+                    delete document.body.dataset.background;
+                } else {
+                    document.body.dataset.background = bg;
+                }
+                updateSwatchPressed();
+            });
         });
     }
 
@@ -1957,7 +2301,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             searchBoxWrapper.style.borderRadius = `${borderRadius}px`;
             searchBoxWrapperOuter.style.borderRadius = `${borderRadius}px`;
-            
+            document.documentElement.style.setProperty('--search-box-wrapper-radius', `${borderRadius}px`);
+
             const outerComputedRadius = getComputedStyle(searchBoxWrapperOuter).borderRadius;
             const innerComputedRadius = getComputedStyle(searchBoxWrapper).borderRadius;
             
@@ -2743,6 +3088,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
+    function updateTypedState() {
+        if (searchContainer && searchInput) {
+            searchContainer.classList.toggle('search-has-typed-input', searchInput.value.trim().length > 0);
+        }
+    }
     
     function updateSearchUrlButton() {
         if (searchUrlButton && searchInput) {
@@ -2769,6 +3120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             searchInput.value = '';
             updateSearchUrlButton();
+            updateTypedState();
             const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
             updateSuggestions(defaultSuggestions);
             currentDisplayedSuggestions = defaultSuggestions;
@@ -2811,6 +3163,7 @@ document.addEventListener('DOMContentLoaded', () => {
             originalTypedText = ''; // Reset so next keyboard nav captures current typed text
             updateClearButton();
             updateSearchUrlButton();
+            updateTypedState();
             console.log('[INPUT] ===== INPUT EVENT STARTED =====');
             
             const value = (event.target.value || '').toString();
@@ -2990,8 +3343,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Animate gradient border
+    // Animate gradient border (skipped when gradient-search-border-off or reduced-motion)
     const animateGradient = () => {
+        if (document.body.classList.contains('gradient-search-border-off') || document.body.classList.contains('reduced-motion')) {
+            gradientAnimationId = null;
+            const existingStyle = document.getElementById('gradient-animation-style');
+            if (existingStyle) existingStyle.remove();
+            return;
+        }
         gradientAngle = (gradientAngle + 1) % 360;
         
         let style = document.getElementById('gradient-animation-style');
@@ -3008,6 +3367,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (searchInput && searchContainer) {
         searchInput.addEventListener('focus', () => {
+            logPanelState('INPUT FOCUS handler');
+            if (restoringFocusFromSwitcher) {
+                logPanelState('INPUT FOCUS restoringFromSwitcher path');
+                restoringFocusFromSwitcher = false;
+                searchContainer.classList.add('focused');
+                if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
+                requestAnimationFrame(() => {
+                    logPanelState('INPUT FOCUS after rAF (state updated)');
+                    requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true }));
+                });
+                return;
+            }
             // Add focused class to expand width
             searchContainer.classList.add('focused');
             requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
@@ -3046,39 +3417,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         searchInput.addEventListener('blur', () => {
-            if (searchSwitcherButton?.classList.contains('open')) return;
-            // Remove focused class
-            searchContainer.classList.remove('focused');
-            let logoUpdateDone = false;
-            const runLogoUpdate = () => {
-                if (!logoUpdateDone) {
-                    logoUpdateDone = true;
-                    searchContainer.removeEventListener('transitionend', onTransitionEnd);
-                    updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true });
-                }
-            };
-            const onTransitionEnd = (e) => {
-                if (e.target === searchContainer && (e.propertyName === 'top' || e.propertyName === 'transform')) {
-                    runLogoUpdate();
-                }
-            };
-            searchContainer.addEventListener('transitionend', onTransitionEnd);
-            const blurTransitionMs = document.body.classList.contains('reduced-motion') ? 350 : 250;
-            setTimeout(runLogoUpdate, blurTransitionMs + 50);
-            suggestionsList?.classList.remove('suggestions-revealed');
-            firstHoverDone = false;
-            
-            // Disable hover states during transition
-            if (suggestionsList) {
-                suggestionsList.classList.add('transitioning');
-                suggestionsList.classList.remove('first-hover-fade');
-                
-                const closeDuration = document.body.classList.contains('addressbar') ? 320 : 250;
-                setTimeout(() => {
-                    suggestionsList.classList.remove('transitioning');
-                }, closeDuration);
+            logPanelState('INPUT BLUR handler');
+            if (inspectSuggestions) return;
+            if (searchSwitcherButton?.classList.contains('open')) {
+                logPanelState('INPUT BLUR (switcher open, skipping close)');
+                return;
             }
+            closeSuggestionsPanel();
         });
+
+        if (suggestionsList) {
+            suggestionsList.addEventListener('transitionend', (e) => {
+                logPanelState(`SUGGESTIONS transitionend property=${e.propertyName}`);
+            });
+        }
         
         // Track first hover
         suggestionItems.forEach(item => {
@@ -3089,6 +3441,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, { once: false });
         });
+
+        // Inspect mode: keep suggestions panel open for HTML inspection (blur is skipped above)
+        if (inspectSuggestions) {
+            searchContainer.classList.add('focused');
+            suggestionsList?.classList.add('suggestions-revealed');
+            suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+            searchInput.value = 'x';
+            searchContainer.classList.add('search-has-typed-input');
+        }
     }
     
     // Shift key toggles 'Switch to Tab' / 'Open in a New Tab' on visible buttons
@@ -3107,15 +3468,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Handle Escape key: close switcher and refocus input, or deselect search input
+    // Handle Escape key: close switcher and suggestions together, or deselect search input
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             const switcherOpen = searchSwitcherButton?.classList.contains('open');
             if (switcherOpen) {
+                logPanelState('SWITCHER CLOSING (ESC)');
                 searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
-                if (searchContainer?.classList.contains('focused')) searchInput?.focus();
+                if (searchContainer?.classList.contains('focused')) {
+                    closeSuggestionsPanel();
+                } else {
+                    restoreFocusAndOpaqueSuggestions();
+                }
+                logPanelState('SWITCHER CLOSED (ESC)');
                 return;
             }
             if (searchInput && document.activeElement === searchInput) {
@@ -3139,7 +3506,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
-                    searchInput?.focus();
+                    if (searchContainer?.classList.contains('focused')) {
+                        restoreFocusAndOpaqueSuggestions();
+                    } else {
+                        searchInput?.focus();
+                    }
                     return;
                 }
             }
@@ -3161,8 +3532,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     dropdown?.classList.remove('dropdown-revealed');
                     searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                     switcherHighlightedIndex = -1;
+                    logPanelState('SWITCHER CLOSING (keyboard num)');
                     dropdownItems.forEach(i => i.classList.remove('highlighted'));
-                    searchInput?.focus();
+                    if (searchContainer?.classList.contains('focused')) {
+                        restoreFocusAndOpaqueSuggestions();
+                    } else {
+                        searchInput?.focus();
+                    }
+                    logPanelState('SWITCHER CLOSED (keyboard num)');
                     console.log('[SWITCHER KEYBOARD] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
                 }
             } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -3368,8 +3745,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 isRestoringFocus = false;
             }
             
-            // Start gradient animation (unless reduced motion is enabled)
-            if (!gradientAnimationId && !document.body.classList.contains('reduced-motion')) {
+            // Start gradient animation (unless reduced motion or gradient border is off)
+            if (!gradientAnimationId && !document.body.classList.contains('reduced-motion') && !document.body.classList.contains('gradient-search-border-off')) {
                 animateGradient();
             }
         });

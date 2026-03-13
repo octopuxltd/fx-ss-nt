@@ -13,6 +13,17 @@
     <div class="addressbar-area">
         <iframe src="step1-addressbar.html" class="addressbar-iframe" title="Address bar"></iframe>
         <iframe src="step1-standalonesearchbox.html" class="standalone-search-box-iframe" title="Standalone search box"></iframe>
+        <div class="addressbar-toolbar-icons">
+            <button type="button" class="addressbar-toolbar-icon" aria-label="Account" title="Account">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9" r="2.5"/><path d="M6.5 19.5c.6-2 2.4-3.5 5-3.5s4.4 1.5 5 3.5"/></svg>
+            </button>
+            <button type="button" class="addressbar-toolbar-icon" aria-label="Extensions" title="Extensions">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 8c-.971 0-1 1-1.75 1a.765.765 0 0 1-.75-.75V5a1 1 0 0 0-1-1H7.75A.765.765 0 0 1 7 3.25c0-.75 1-.779 1-1.75C8 .635 7.1 0 6 0S4 .635 4 1.5c0 .971 1 1 1 1.75a.765.765 0 0 1-.75.75H1a1 1 0 0 0-1 1v2.25A.765.765 0 0 0 .75 8c.75 0 .779-1 1.75-1C3.365 7 4 7.9 4 9s-.635 2-1.5 2c-.971 0-1-1-1.75-1a.765.765 0 0 0-.75.75V15a1 1 0 0 0 1 1h3.25a.765.765 0 0 0 .75-.75c0-.75-1-.779-1-1.75 0-.865.9-1.5 2-1.5s2 .635 2 1.5c0 .971-1 1-1 1.75a.765.765 0 0 0 .75.75H11a1 1 0 0 0 1-1v-3.25a.765.765 0 0 1 .75-.75c.75 0 .779 1 1.75 1 .865 0 1.5-.9 1.5-2s-.635-2-1.5-2z"/></svg>
+            </button>
+            <button type="button" class="addressbar-toolbar-icon" aria-label="Menu" title="Menu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 6.75h16.5"/><path d="M3.75 12h16.5"/><path d="M3.75 17.25h16.5"/></svg>
+            </button>
+        </div>
     </div>
     <script>
         // Apply reduced motion class immediately to body before any rendering
@@ -20,20 +31,50 @@
             console.log('[BODY SCRIPT] Adding reduced-motion class immediately');
             document.body.classList.add('reduced-motion');
         }
+        const savedBg = localStorage.getItem('background_swatch');
+        const hadPaleGrey = localStorage.getItem('pale_grey_background_enabled') === 'true';
+        if (savedBg && savedBg !== 'gradient') {
+            document.body.dataset.background = savedBg;
+        } else if (hadPaleGrey) {
+            document.body.dataset.background = 'grey';
+        }
+        if (localStorage.getItem('gradient_search_border_enabled') === 'false') {
+            document.body.classList.add('gradient-search-border-off');
+        }
     </script>
-    <div class="bottom-left-controls">
-        <label class="reduced-motion-control">
-            <input type="checkbox" class="reduced-motion-checkbox">
-            <span>Reduced motion</span>
-        </label>
-        <label class="pin-default-control">
-            <input type="checkbox" class="pin-default-checkbox">
-            <span>Pin a default search engine</span>
-        </label>
-        <label class="standalone-search-box-control">
-            <input type="checkbox" class="standalone-search-box-checkbox">
-            <span>Show standalone search box</span>
-        </label>
+    <div class="bottom-left-panel">
+        <div class="bottom-left-panel-content">
+            <h2 class="bottom-left-panel-heading">Prototype options</h2>
+            <div class="bottom-left-controls">
+                <hr class="bottom-left-panel-divider">
+                <div class="background-swatches-control">
+                    <span class="background-swatches-label">Background</span>
+                    <div class="background-swatches" role="group" aria-label="Background colour">
+                        <button type="button" class="background-swatch" data-background="gradient" title="Purple gradient" aria-pressed="true"></button>
+                        <button type="button" class="background-swatch" data-background="grey" title="Pale grey"></button>
+                        <button type="button" class="background-swatch" data-background="blue" title="Light blue"></button>
+                        <button type="button" class="background-swatch" data-background="beige" title="Warm beige"></button>
+                    </div>
+                </div>
+                <label class="reduced-motion-control">
+                    <input type="checkbox" class="reduced-motion-checkbox">
+                    <span>Reduced motion</span>
+                </label>
+                <label class="gradient-search-border-control">
+                    <input type="checkbox" class="gradient-search-border-checkbox">
+                    <span>Gradient search border</span>
+                </label>
+                <hr class="bottom-left-panel-divider">
+                <label class="standalone-search-box-control">
+                    <input type="checkbox" class="standalone-search-box-checkbox">
+                    <span>Separate search in toolbar</span>
+                </label>
+                <label class="pin-default-control">
+                    <input type="checkbox" class="pin-default-checkbox">
+                    <span>Pin search engine</span>
+                </label>
+            </div>
+        </div>
     </div>
     
     <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="Firefox" class="firefox-logo">
@@ -94,7 +135,7 @@
                             </div>
                             <div class="dropdown-item" id="quick-buttons-toggle" data-visibility="shown">
                                 <img src="icons/eye.svg" alt="" class="dropdown-icon quick-buttons-icon">
-                                <span class="quick-buttons-label">Show Quick Buttons</span>
+                                <span class="quick-buttons-label">Hide Quick Buttons</span>
                             </div>
                         </div>
                     </div>
@@ -159,6 +200,7 @@
                 </div>
             </ul>
         </div>
+        <div class="one-off-buttons">placeholder text</div>
         <div class="search-container-drag-handle"></div>
     </div>
     
