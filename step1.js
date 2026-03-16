@@ -1022,8 +1022,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (typeof closeSuggestionsPanel === 'function') {
                             closeSuggestionsPanel();
                         }
-                    } else if (typeof restoreFocusAndOpaqueSuggestions === 'function') {
-                        restoreFocusAndOpaqueSuggestions();
                     }
                 }
             }
@@ -1360,6 +1358,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let switcherHighlightedIndex = -1;
     let switcherHoveredIndex = -1;
     let restoringFocusFromSwitcher = false;
+    let closingSwitcherWithoutSuggestions = false;
 
     function restoreFocusAndOpaqueSuggestions() {
         restoringFocusFromSwitcher = true;
@@ -1649,12 +1648,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         // When mousedown on search container (not switcher) with switcher open, focus will move to input
-        // Set flag so the focus handler keeps suggestions open
         document.addEventListener('mousedown', (e) => {
             if (searchSwitcherButton?.classList.contains('open') &&
                 e.target.closest('.search-container') &&
                 !e.target.closest('.search-switcher-button')) {
-                restoringFocusFromSwitcher = true;
+                if (searchContainer?.classList.contains('focused')) {
+                    restoringFocusFromSwitcher = true;
+                } else {
+                    closingSwitcherWithoutSuggestions = true;
+                }
             }
         });
 
@@ -1681,6 +1683,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     restoringFocusFromSwitcher = false;
+                    closingSwitcherWithoutSuggestions = false;
                 }
                 searchSwitcherButton.classList.remove('open');
             }
@@ -1748,8 +1751,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                 if (searchContainer?.classList.contains('focused')) {
                     restoreFocusAndOpaqueSuggestions();
-                } else {
-                    searchInput?.focus();
+                } else if (searchSwitcherButton?.contains(document.activeElement)) {
+                    document.activeElement?.blur?.();
                 }
                 console.log('[SWITCHER MOUSE] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
             });
@@ -3317,6 +3320,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
                 return;
             }
+            if (closingSwitcherWithoutSuggestions) {
+                closingSwitcherWithoutSuggestions = false;
+                searchInput?.blur();
+                return;
+            }
             // Add focused class to expand width
             searchContainer.classList.add('focused');
             requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
@@ -3406,8 +3414,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 if (searchContainer?.classList.contains('focused')) {
                     closeSuggestionsPanel();
-                } else {
-                    restoreFocusAndOpaqueSuggestions();
+                } else if (searchSwitcherButton?.contains(document.activeElement)) {
+                    document.activeElement?.blur?.();
                 }
                 return;
             }
@@ -3434,8 +3442,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) {
                         restoreFocusAndOpaqueSuggestions();
-                    } else {
-                        searchInput?.focus();
+                    } else if (searchSwitcherButton?.contains(document.activeElement)) {
+                        document.activeElement?.blur?.();
                     }
                     return;
                 }
@@ -3461,8 +3469,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     dropdownItems.forEach(i => i.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) {
                         restoreFocusAndOpaqueSuggestions();
-                    } else {
-                        searchInput?.focus();
+                    } else if (searchSwitcherButton?.contains(document.activeElement)) {
+                        document.activeElement?.blur?.();
                     }
                     console.log('[SWITCHER KEYBOARD] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
                 }
