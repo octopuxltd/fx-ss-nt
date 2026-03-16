@@ -101,6 +101,8 @@ body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning) {
 }
 
 body.addressbar .search-box-wrapper-outer::before {
+    inset: -1px;
+    padding: 1px;
     transition: opacity 0.15s linear 0.3s;
 }
 
@@ -230,6 +232,13 @@ body.addressbar .suggestions-content {
 body.addressbar .suggestion-item {
     gap: 8px;
     padding: 5px 5px;
+    border-radius: var(--suggestion-item-radius, 10px);
+}
+
+body.addressbar .suggestion-item::before,
+body.addressbar .suggestion-item:hover::after,
+body.addressbar .suggestion-item.is-selected::after {
+    border-radius: var(--suggestion-item-radius, 10px);
 }
 
 body.addressbar .suggestion-item .suggestion-separator,

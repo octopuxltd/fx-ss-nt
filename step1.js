@@ -1459,6 +1459,34 @@ document.addEventListener('DOMContentLoaded', () => {
         return saved || 'Google';
     }
 
+    const ENGINE_SEARCH_URLS = {
+        'Google': 'https://www.google.com/search?q=',
+        'Bing': 'https://www.bing.com/search?q=',
+        'DuckDuckGo': 'https://duckduckgo.com/?q=',
+        'Ecosia': 'https://www.ecosia.org/search?q=',
+        'Yahoo': 'https://search.yahoo.com/search?p=',
+        'Wikipedia (en)': 'https://en.wikipedia.org/w/index.php?search=',
+        'Amazon': 'https://www.amazon.com/s?k=',
+        'IMDb': 'https://www.imdb.com/find?q=',
+        'Reddit': 'https://www.reddit.com/search?q=',
+        'Startpage': 'https://www.startpage.com/sp/search?query=',
+        'YouTube': 'https://www.youtube.com/results?search_query='
+    };
+
+    function runSearchWithSelectedEngine(query, sameTab = true) {
+        const q = (query || '').trim();
+        if (!q) return;
+        const label = getCurrentSearchEngineLabel();
+        const baseUrl = ENGINE_SEARCH_URLS[label] || ENGINE_SEARCH_URLS['Google'];
+        const url = baseUrl + encodeURIComponent(q);
+        const target = window.top;
+        if (sameTab) {
+            target.location.href = url;
+        } else {
+            target.open(url, '_blank');
+        }
+    }
+
     function getFirefoxSuggestionsState() {
         try {
             const raw = localStorage.getItem(FIREFOX_SUGGESTIONS_ENABLED_KEY);
@@ -1580,6 +1608,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Delegated click handler for suggestion items (handles static defaults + dynamic items)
+    const suggestionsContent = document.querySelector('.suggestions-content');
+    if (suggestionsContent) {
+        suggestionsContent.addEventListener('click', (e) => {
+            const item = e.target.closest('.suggestion-item:not(.skeleton)');
+            if (!item || item.classList.contains('gmail-item-hidden')) return;
+            if (item.classList.contains('gmail-item')) return; // Gmail has its own handling
+            const suggestion = item.querySelector('.suggestion-label')?.textContent?.trim() || '';
+            if (!suggestion) return;
+            if (item.classList.contains('firefox-suggest-item')) {
+                const ffType = item.getAttribute('data-firefox-type') || '';
+                if (ffType === 'recommendations' || ffType === 'partners') return;
+            }
+            if (item.classList.contains('local-source-suggestion')) {
+                const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+                const engineItem = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')).find(el => el.textContent.trim() === suggestion) : null;
+                if (engineItem) {
+                    applySelectedSearchSource(engineItem);
+                    if (searchInput) {
+                        searchInput.value = '';
+                        suggestionsList?.classList.add('suggestions-suppress-until-typed');
+                        updateSuggestions([]);
+                        searchInput.focus();
+                    }
+                }
+                return;
+            }
+            if (item.classList.contains('visit-site-suggestion') && looksLikeUrl(suggestion)) {
+                const url = suggestion.trim();
+                const toOpen = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+                window.top.open(toOpen, '_blank');
+                return;
+            }
+            if (!item.classList.contains('firefox-suggest-item')) {
+                saveToSearchHistory(suggestion);
+                runSearchWithSelectedEngine(suggestion);
+            }
+        });
+    }
+
     // Close switcher dropdown when hovering over suggestion items or headings
     if (suggestionsList && searchSwitcherButton) {
         // Delegate to handle both existing items and any future items
@@ -2282,7 +2350,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const firstSuggestionItem = document.querySelector('.suggestion-item');
         if (firstSuggestionItem) {
             const itemHeight = firstSuggestionItem.offsetHeight;
-            const itemBorderRadius = itemHeight / 2;
+            const isAddressbar = document.body.classList.contains('addressbar');
+            const minRadius = isAddressbar ? 10 : 15;
+            const itemBorderRadius = itemHeight > 0 ? itemHeight / 2 : minRadius;
             document.documentElement.style.setProperty('--suggestion-item-radius', `${itemBorderRadius}px`);
             
             console.log('[BORDER-RADIUS] Suggestion items:', {
@@ -2831,6 +2901,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isTypedText) {
                     li.setAttribute('data-typed-text', 'true');
                 }
+                if (isFirefoxSuggest) {
+                    const firefoxDataForType = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
+                    const firefoxTypeForItem = displayType || (firefoxDataForType && firefoxDataForType.type) || 'history';
+                    li.setAttribute('data-firefox-type', firefoxTypeForItem);
+                }
                 
                 // Get appropriate icon (Firefox items: history=clock, bookmark=star, tab=tabs, actions)
                 let iconEl;
@@ -2959,29 +3034,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.appendChild(hintText);
                 }
                 
-                // Add click handler
-                li.addEventListener('click', () => {
-                    if (isLocalSource) {
-                        const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
-                        const item = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')).find(el => el.textContent.trim() === suggestion) : null;
-                        if (item) {
-                            applySelectedSearchSource(item);
-                            if (searchInput) {
-                                searchInput.value = '';
-                                suggestionsList?.classList.add('suggestions-suppress-until-typed');
-                                updateSuggestions([]);
-                                searchInput.focus();
-                            }
-                        }
-                    } else if (isVisitSite && looksLikeUrl(suggestion)) {
-                        const url = suggestion.trim();
-                        const toOpen = /^https?:\/\//i.test(url) ? url : 'https://' + url;
-                        window.open(toOpen, '_blank');
-                    } else {
-                        console.log('[CLICK] Suggestion clicked:', suggestion);
-                        saveToSearchHistory(suggestion);
-                    }
-                });
+                // Click is handled by delegated handler on suggestionsContent (handles static + dynamic items)
                 
                 // Append to content
                 suggestionsContent.appendChild(li);
@@ -3014,6 +3067,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (suggestionsList) {
             suggestionsList.classList.remove('suggestions-suppress-hover');
         }
+        // Recalculate suggestion item radius when suggestions change (items may now be visible)
+        requestAnimationFrame(() => updateBorderRadius());
     }
     
     // ===== CLEAR BUTTON =====
@@ -3608,10 +3663,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 } else {
-                    const searchText = searchInput.value.trim();
+                    const isFirefoxArticle = selectedItem?.classList.contains('firefox-suggest-item') &&
+                        ['recommendations', 'partners'].includes(selectedItem?.dataset?.firefoxType || '');
+                    if (isFirefoxArticle) return;
+                    const searchText = selectedItem?.querySelector('.suggestion-label')?.textContent?.trim() || searchInput?.value?.trim();
                     if (searchText) {
-                        saveToSearchHistory(searchText);
-                        window.open('https://www.google.com/search?q=' + encodeURIComponent(searchText), '_blank');
+                        if (selectedItem?.classList.contains('visit-site-suggestion') && looksLikeUrl(searchText)) {
+                            const toOpen = /^https?:\/\//i.test(searchText) ? searchText : 'https://' + searchText;
+                            window.open(toOpen, '_blank');
+                        } else {
+                            saveToSearchHistory(searchText);
+                            runSearchWithSelectedEngine(searchText);
+                        }
                     }
                 }
             }
