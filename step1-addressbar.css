@@ -100,7 +100,7 @@ body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning) {
     background-color: #fff;
 }
 
-body.addressbar .search-box-wrapper-outer::before {
+body.addressbar:not(.standalone-search-box) .search-box-wrapper-outer::before {
     inset: -1px;
     padding: 1px;
     transition: opacity 0.15s linear 0.3s;

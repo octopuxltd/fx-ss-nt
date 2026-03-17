@@ -1474,10 +1474,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function runSearchWithSelectedEngine(query, sameTab = true) {
+        runSearchWithEngine(query, getCurrentSearchEngineLabel(), sameTab);
+    }
+
+    function runSearchWithEngine(query, engineLabel, sameTab = true) {
         const q = (query || '').trim();
         if (!q) return;
-        const label = getCurrentSearchEngineLabel();
-        const baseUrl = ENGINE_SEARCH_URLS[label] || ENGINE_SEARCH_URLS['Google'];
+        const baseUrl = ENGINE_SEARCH_URLS[engineLabel] || ENGINE_SEARCH_URLS['Google'];
         const url = baseUrl + encodeURIComponent(q);
         const target = window.top;
         if (sameTab) {
@@ -1536,21 +1539,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function ensureDragHandles() {
+    function ensureRowActions() {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
         const engineItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
             el => el.querySelector('.dropdown-engine-label')
         );
-        const dragHandleHtml = '<span class="dropdown-item-drag-handle" title="Drag to reorder" aria-hidden="true"><span class="dropdown-item-keyboard-num" aria-hidden="true"></span><img src="icons/drag-handle.svg" alt=""></span>';
+        const openNewWindowHtml = '<span class="dropdown-item-row-action" aria-hidden="true"><span class="dropdown-item-keyboard-num" aria-hidden="true"></span><button type="button" class="dropdown-item-open-new-window" title="Open in a new tab" aria-label="Open in a new tab"><img src="icons/open-in-new-window.svg" alt=""></button></span>';
         engineItems.forEach(item => {
-            if (!item.querySelector('.dropdown-item-drag-handle')) {
+            if (!item.querySelector('.dropdown-item-row-action')) {
                 const pin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
-                if (pin) pin.insertAdjacentHTML('beforebegin', dragHandleHtml);
+                if (pin) pin.insertAdjacentHTML('beforebegin', openNewWindowHtml);
             } else if (!item.querySelector('.dropdown-item-keyboard-num')) {
-                const handle = item.querySelector('.dropdown-item-drag-handle');
-                if (handle && !handle.querySelector('.dropdown-item-keyboard-num')) {
-                    handle.insertAdjacentHTML('afterbegin', '<span class="dropdown-item-keyboard-num" aria-hidden="true"></span>');
+                const action = item.querySelector('.dropdown-item-row-action');
+                if (action && !action.querySelector('.dropdown-item-keyboard-num')) {
+                    action.insertAdjacentHTML('afterbegin', '<span class="dropdown-item-keyboard-num" aria-hidden="true"></span>');
                 }
             }
         });
@@ -1571,7 +1574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setPinnedEngine(pinnedItem) {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
-        ensureDragHandles();
+        ensureRowActions();
         const engineItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
             el => el.querySelector('.dropdown-engine-label')
         );
@@ -1790,6 +1793,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     toggleFirefoxSuggestionCheckbox(firefoxToggleEl);
                     return;
                 }
+                const openNewTabBtn = e.target.closest('.dropdown-item-open-new-window');
+                if (openNewTabBtn) {
+                    const item = openNewTabBtn.closest('.dropdown-item');
+                    const label = item ? getEngineLabel(item) : '';
+                    const query = (searchInput?.value || '').trim();
+                    if (label && query) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        runSearchWithEngine(query, label, false);
+                    }
+                    searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                    switcherHighlightedIndex = -1;
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
+                    if (searchContainer?.classList.contains('focused')) restoreFocusAndOpaqueSuggestions();
+                    return;
+                }
                 const item = e.target.closest('.dropdown-item');
                 const pinEl = e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin');
                 if (pinEl) {
@@ -1813,6 +1833,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item.textContent.includes('Search Settings')) return;
                 console.log('[SWITCHER MOUSE] Dropdown item clicked, applying selection and closing');
                 applySelectedSearchSource(item);
+                const query = (searchInput?.value || '').trim();
+                if (item.querySelector('.dropdown-engine-label') && query) {
+                    runSearchWithEngine(query, getEngineLabel(item), true);
+                }
                 searchSwitcherDropdown.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
@@ -1970,7 +1994,7 @@ document.addEventListener('DOMContentLoaded', () => {
             enginesContainer.addEventListener('mousedown', (e) => {
                 const item = e.target.closest('.dropdown-item');
                 if (!item || !item.querySelector('.dropdown-engine-label')) return;
-                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin')) return;
+                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin, .dropdown-item-open-new-window, .dropdown-item-row-action')) return;
                 e.preventDefault();
 
                 const rect = item.getBoundingClientRect();
@@ -2110,7 +2134,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pinnedItem) applySelectedSearchSource(pinnedItem);
             }
 
-            ensureDragHandles();
+            ensureRowActions();
 
             const getEngineItemsForSort = () => Array.from(enginesContainerForRestore.children).filter(
                 c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
@@ -3344,7 +3368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Animate gradient border (skipped when gradient-search-border-off or reduced-motion)
+    // Apply gradient border (static, no rotation; skipped when gradient-search-border-off or reduced-motion)
     const animateGradient = () => {
         if (document.body.classList.contains('gradient-search-border-off') || document.body.classList.contains('reduced-motion')) {
             gradientAnimationId = null;
@@ -3352,18 +3376,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (existingStyle) existingStyle.remove();
             return;
         }
-        gradientAngle = (gradientAngle + 1) % 360;
-        
         let style = document.getElementById('gradient-animation-style');
         if (!style) {
             style = document.createElement('style');
             style.id = 'gradient-animation-style';
         }
-        style.textContent = `.search-box-wrapper-outer:has(.search-input:focus)::before { background: conic-gradient(from ${gradientAngle}deg, #FF00FF 0%, #FFA500 35%, #FFFFFF 50%, #FFA500 65%, #FF00FF 100%); }`;
+        style.textContent = `.search-box-wrapper-outer:has(.search-input:focus)::before { background: conic-gradient(from 0deg, #FF00FF 0%, #FFA500 35%, #FFFFFF 50%, #FFA500 65%, #FF00FF 100%); }`;
         if (!document.head.contains(style)) {
             document.head.appendChild(style);
         }
-        gradientAnimationId = requestAnimationFrame(animateGradient);
     };
     
     if (searchInput && searchContainer) {
@@ -3378,6 +3399,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (closingSwitcherWithoutSuggestions) {
                 closingSwitcherWithoutSuggestions = false;
                 searchInput?.blur();
+                return;
+            }
+            if (isRestoringFocus) {
+                isRestoringFocus = false;
+                searchContainer.classList.add('focused');
+                if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
+                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
                 return;
             }
             // Add focused class to expand width
@@ -3420,6 +3448,8 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('blur', () => {
             if (inspectSuggestions) return;
             if (searchSwitcherButton?.classList.contains('open')) return;
+            // Capture focused state before closeSuggestionsPanel removes it (for window blur restore)
+            wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
             closeSuggestionsPanel();
         });
         
@@ -3518,6 +3548,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item.id !== 'quick-buttons-toggle' && !item.textContent.includes('Search Settings')) {
                     console.log('[SWITCHER KEYBOARD] Enter pressed on highlighted item, applying selection and closing');
                     applySelectedSearchSource(item);
+                    const query = (searchInput?.value || '').trim();
+                    if (item.querySelector('.dropdown-engine-label') && query) {
+                        runSearchWithEngine(query, getEngineLabel(item), true);
+                    }
                     dropdown?.classList.remove('dropdown-revealed');
                     searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                     switcherHighlightedIndex = -1;
@@ -3751,9 +3785,8 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('[BLUR] Suggestions panel will hide');
             if (searchSwitcherButton?.classList.contains('open')) {
                 wasFocusedBeforeBlur = false;
-            } else {
-                wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
             }
+            // else: first blur handler already captured wasFocusedBeforeBlur before closeSuggestionsPanel
             console.log('[BLUR] Was in focused state:', wasFocusedBeforeBlur);
             
             // Stop gradient animation
@@ -3791,21 +3824,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[WINDOW FOCUS] Suppressing transitions and restoring focus to search');
                 isRestoringFocus = true;
                 
-                // Suppress transitions
+                // Suppress transitions (class + inline for reliability)
+                searchContainer.classList.add('restoring-focus');
                 searchContainer.style.transition = 'none';
                 if (suggestionsList) suggestionsList.style.transition = 'none';
                 const logo = document.querySelector('.firefox-logo');
                 if (logo) logo.style.transition = 'none';
+                const oneOffButtons = document.querySelector('.one-off-buttons');
+                if (oneOffButtons) oneOffButtons.style.transition = 'none';
+                // Force reflow so transition:none is applied before state change
+                void searchContainer.offsetHeight;
                 
-                // Restore focus
-                searchInput.focus();
+                // Defer focus until next frame so browser applies transition:none before state change
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        searchInput.focus();
+                    });
+                });
                 
                 // Re-enable transitions after state is restored
                 setTimeout(() => {
                     console.log('[WINDOW FOCUS] Re-enabling transitions');
+                    searchContainer.classList.remove('restoring-focus');
                     searchContainer.style.transition = '';
                     if (suggestionsList) suggestionsList.style.transition = '';
                     if (logo) logo.style.transition = '';
+                    if (oneOffButtons) oneOffButtons.style.transition = '';
                 }, 100);
                 
                 wasFocusedBeforeBlur = false;

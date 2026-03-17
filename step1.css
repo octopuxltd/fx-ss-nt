@@ -315,7 +315,7 @@ body.gradient-search-border-off .search-box-wrapper-outer::before {
     position: absolute;
     top: calc(100%);
     left: 0;
-    background-color: #F3F4F6;
+    background-color: #fff;
     border-radius: 0 var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px);
     min-width: 180px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -934,21 +934,24 @@ body.reduced-motion .bottom-left-panel-content {
     width: 24px;
     height: 24px;
     border-radius: 6px;
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    border: none;
+    outline: none;
     padding: 0;
     cursor: pointer;
     flex-shrink: 0;
-    transition: border-color 0.15s, transform 0.15s;
+    transition: transform 0.15s;
 }
 
 .background-swatch:hover {
-    border-color: rgba(255, 255, 255, 0.9);
     transform: scale(1.08);
 }
 
+.background-swatch:focus {
+    outline: none;
+}
+
 .background-swatch[aria-pressed="true"] {
-    border-color: white;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
 .background-swatch[data-background="gradient"] {
@@ -979,7 +982,44 @@ body:not(.pin-default-enabled) .dropdown-item-search-engine {
     justify-content: flex-start;
 }
 
-/* Drag handles: visible when pin flag is OFF */
+/* Open in New Window icon: visible when pin flag is OFF, only on hovered row */
+body:not(.pin-default-enabled) .dropdown-item-row-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    opacity: 0;
+    pointer-events: none;
+}
+
+body:not(.pin-default-enabled) .dropdown-item-open-new-window {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+body:not(.pin-default-enabled) .dropdown-item-open-new-window:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+body:not(.pin-default-enabled) .dropdown-item-open-new-window img {
+    width: 14px;
+    height: 14px;
+    opacity: 0.8;
+    display: block;
+}
+
+body:not(.pin-default-enabled) .dropdown-item:hover .dropdown-item-row-action {
+    opacity: 0.6;
+    pointer-events: auto;
+}
+
+/* Legacy drag handles: visible when pin flag is OFF (kept for reference, no longer used) */
 body:not(.pin-default-enabled) .dropdown-item-drag-handle {
     display: flex;
     align-items: center;
@@ -1010,6 +1050,47 @@ body:not(.pin-default-enabled) .dropdown-search-engines:has(.dropdown-item-drag-
 /* Hide drag handles when pin flag is ON */
 body.pin-default-enabled .dropdown-item-drag-handle {
     display: none !important;
+}
+
+/* Open in new window icon (replaces drag handle) - visible only on hovered row when input has text */
+.search-container:not(.search-has-typed-input) .dropdown-item-row-action {
+    display: none !important;
+}
+
+body:not(.pin-default-enabled) .search-container.search-has-typed-input .dropdown-item-row-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: -4px; /* Align with info icon above */
+    opacity: 0;
+    pointer-events: none;
+}
+
+body:not(.pin-default-enabled) .dropdown-item:hover .dropdown-item-row-action {
+    opacity: 0.8;
+    pointer-events: auto;
+}
+
+body:not(.pin-default-enabled) .dropdown-item-open-new-window {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+body:not(.pin-default-enabled) .dropdown-item-open-new-window:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+body:not(.pin-default-enabled) .dropdown-item-open-new-window img {
+    width: 14px;
+    height: 14px;
+    display: block;
 }
 
 /* Keyboard numbers: shown instead of drag handle when opened via Alt+Arrow */
@@ -1185,12 +1266,70 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-
 }
 
 .search-container.focused.search-has-typed-input:has(.suggestions-list.suggestions-revealed):has(#quick-buttons-toggle[data-visibility="shown"]) .one-off-buttons {
-    max-height: 105px;
-    padding: 25px 10px 12px 10px;
+    max-height: 200px; /* Taller to fit multiple rows of engines (simulating 31) */
+    overflow-y: auto; /* Scroll if many rows - overrides overflow:hidden when expanded */
+    padding: 25px 10px 8px 18px;
 }
 
 body.reduced-motion .one-off-buttons {
     transition: none;
+}
+
+/* Disable transitions when restoring focus after window blur (one-off buttons already open) */
+.search-container.restoring-focus .suggestions-list,
+.search-container.restoring-focus .one-off-buttons {
+    transition: none !important;
+}
+
+.one-off-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.one-off-buttons-label {
+    color: #6B7280;
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-right: auto; /* Pin label to left; buttons stay right-aligned */
+}
+
+.one-off-engine-icons {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 0;
+    min-width: 0; /* Allow shrinking so wrapping occurs */
+    flex: 1; /* Take remaining space, constraining width so icons wrap */
+}
+
+.one-off-engine-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s, opacity 0.15s;
+}
+
+.one-off-engine-icon:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+    opacity: 0.9;
+}
+
+.one-off-engine-icon img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
 }
 
 .suggestion-item {
