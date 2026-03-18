@@ -18,7 +18,7 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }
         .search-page-wrapper {
-            max-width: 1400px;
+            max-width: 1340px;
             width: 100%;
             margin: 0 auto;
             padding: 0 16px;
@@ -71,6 +71,20 @@
             color: #5f6368;
         }
         .search-box-center.search-mode-only .search-input {
+            padding-left: 77px;
+        }
+        body[data-phase="2"] .search-box-center .search-engine-switcher-btn {
+            left: 8px;
+            background: #f1f3f4;
+            border-radius: 8px;
+            padding: 6px 10px;
+        }
+        body[data-phase="2"] .search-box-center .search-chevron {
+            display: flex;
+            align-items: center;
+            color: #5f6368;
+        }
+        body[data-phase="2"] .search-box-center .search-input {
             padding-left: 77px;
         }
         .search-input {
@@ -175,6 +189,27 @@
         .search-box-menu-dropdown.closing {
             pointer-events: none;
         }
+        body[data-phase="1"] .search-box-menu-dropdown button:first-child {
+            display: none;
+        }
+        body[data-phase="2"] .search-box-menu-dropdown button:first-child {
+            display: none;
+        }
+        body[data-phase="2"] .search-box-menu-dropdown.open {
+            display: flex;
+            flex-direction: column;
+        }
+        body[data-phase="2"] .search-box-menu-dropdown button.menu-item-search-nav {
+            order: -1;
+        }
+        body[data-phase="2"] .search-box-menu-dropdown button.menu-item-search-nav {
+            display: flex;
+            pointer-events: auto;
+            cursor: pointer;
+            opacity: 1;
+            color: #333;
+            -webkit-text-fill-color: #333;
+        }
         .search-box-menu-dropdown button.menu-item-flash-on {
             background-color: rgba(0, 0, 0, 0.08);
         }
@@ -248,6 +283,12 @@
         }
         .simulated-handoff.visible {
             display: block;
+        }
+        body[data-phase="2"] .simulated-handoff {
+            display: none !important;
+        }
+        body[data-phase="2"] .coming-soon-hint {
+            display: none;
         }
         .simulated-handoff .subheading {
             margin: 0 0 8px 0;
@@ -359,10 +400,19 @@
             padding: 4px 0;
         }
         .search-suggestions-list li {
-            padding: 10px 44px 10px 44px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 44px 10px 16px;
             font-size: 16px;
             color: #333;
             cursor: default;
+        }
+        .search-suggestions-list li .suggestion-search-icon {
+            width: 12px;
+            height: 12px;
+            flex-shrink: 0;
+            color: #5f6368;
         }
         .search-suggestions-list li:hover {
             background: rgba(0, 0, 0, 0.06);
@@ -402,6 +452,14 @@
             border-radius: 6px;
             cursor: pointer;
             text-align: left;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1px;
+        }
+        .phase-toggle .phase-subtitle {
+            font-size: 10px;
+            opacity: 0.85;
         }
         .phase-toggle button:hover {
             background: #f5f5f5;
@@ -415,9 +473,9 @@
 </head>
 <body>
     <div class="phase-toggle" role="group" aria-label="Phase">
-        <button type="button" class="active" data-phase="1">Phase 1</button>
-        <button type="button" data-phase="2">Phase 2</button>
-        <button type="button" data-phase="3">Phase 3</button>
+        <button type="button" data-phase="0"><span class="phase-label">Phase 1a</span><span class="phase-subtitle">(suggested mitigation)</span></button>
+        <button type="button" data-phase="1"><span class="phase-label">Phase 1b</span><span class="phase-subtitle">(engineering estimate)</span></button>
+        <button type="button" class="active" data-phase="2"><span class="phase-label">Phase 2</span><span class="phase-subtitle">(ideal for launch)</span></button>
     </div>
     <div class="simulated-handoff" id="simulated-handoff" aria-hidden="true">
         <h2 class="subheading">Simulated handoff</h2>
@@ -460,11 +518,11 @@
             </button>
             <button type="button" role="menuitemradio" aria-checked="false">
                 <span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 5l3 3 7-7"/></svg></span>
-                <span>This input box can be used for searching only</span>
+                <span>This input box can be used for <strong>searching only</strong></span>
             </button>
-            <button type="button" class="menu-item-disabled" aria-disabled="true" tabindex="-1">
-                <span class="check" aria-hidden="true"></span>
-                <span>This input box can be used for searching and navigating (coming soon)</span>
+            <button type="button" class="menu-item-disabled menu-item-search-nav" role="menuitemradio" aria-disabled="true" tabindex="-1" aria-checked="false">
+                <span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 5l3 3 7-7"/></svg></span>
+                <span>This input box can be used for <strong>searching and navigating</strong><span class="coming-soon-hint"> (coming soon)</span></span>
             </button>
         </div>
         <div class="menu-dropdown-caret" aria-hidden="true"></div>
@@ -480,23 +538,49 @@
             const searchBarHandoff = document.querySelector('.search-bar-handoff');
             const centerSuggestions = document.getElementById('center-suggestions');
             const handoffSuggestions = document.getElementById('handoff-suggestions');
-            const SUGGESTION_SUFFIXES = ['', ' meaning', ' synonym', ' definition', ' calculator'];
+            const SUGGESTION_POOL = [
+                ' meaning and definition', ' synonyms and antonyms', ' definition in simple terms', ' calculator online',
+                ' how much does it cost', ' near me', ' when were they born',
+                ' opening hours', ' phone number', ' street address', ' reviews and ratings',
+                ' vs comparison', ' reddit discussion', ' images and photos', ' video tutorial',
+                ' today\'s date', ' for kids', ' for beginners', ' DIY guide', ' easy recipe',
+                ' alternatives to', ' examples and usage', ' full list', ' map directions',
+                ' weather forecast', ' lyrics and chords', ' translate to spanish', ' pronunciation audio',
+                ' history timeline', ' jobs hiring'
+            ];
             const SEARCH_HINT = ' – search with Google';
+            const storedSuffixes = new Map();
+            function escapeHtml(s) {
+                return String(s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+            function pickRandom(arr, n) {
+                const shuffled = [...arr].sort(() => Math.random() - 0.5);
+                return shuffled.slice(0, n);
+            }
             function updateSuggestions(inputEl, suggestionsEl, searchBar) {
                 if (!suggestionsEl || !searchBar) return;
                 const query = (inputEl?.value || '').trim();
                 const list = suggestionsEl.querySelector('.search-suggestions-list');
                 if (!list) return;
                 if (query.length === 0) {
+                    storedSuffixes.delete(inputEl);
                     suggestionsEl.classList.remove('visible');
                     suggestionsEl.setAttribute('aria-hidden', 'true');
                     searchBar.classList.remove('has-suggestions');
                     list.innerHTML = '';
                     return;
                 }
-                list.innerHTML = SUGGESTION_SUFFIXES.map(suffix => {
-                    const baseText = query + suffix;
-                    return `<li role="option">${baseText}<span class="search-hint">${SEARCH_HINT}</span></li>`;
+                let suffixes = storedSuffixes.get(inputEl);
+                if (!suffixes) {
+                    suffixes = pickRandom(SUGGESTION_POOL, 6);
+                    storedSuffixes.set(inputEl, suffixes);
+                }
+                list.innerHTML = suffixes.map(suffix => {
+                    return `<li role="option"><img src="icons/search.svg" alt="" class="suggestion-search-icon"><span><strong>${escapeHtml(query)}</strong>${escapeHtml(suffix)}<span class="search-hint">${SEARCH_HINT}</span></span></li>`;
                 }).join('');
                 suggestionsEl.classList.add('visible');
                 suggestionsEl.setAttribute('aria-hidden', 'false');
@@ -523,7 +607,8 @@
             centerInput.addEventListener('input', () => {
                 const menuItems = document.querySelectorAll('.search-box-menu-dropdown button');
                 const isSearchOnlyMode = menuItems[1]?.getAttribute('aria-checked') === 'true';
-                if (!isSearchOnlyMode && centerInput.value.length >= 1) {
+                const isPhase2 = document.body.getAttribute('data-phase') === '2';
+                if (!isPhase2 && !isSearchOnlyMode && centerInput.value.length >= 1) {
                     handoffInput.value = centerInput.value;
                     centerInput.value = '';
                     simulatedHandoff.classList.add('visible');
@@ -539,6 +624,21 @@
             handoffInput.addEventListener('input', () => {
                 updateSuggestions(handoffInput, handoffSuggestions, searchBarHandoff);
             });
+            function clearSearchInputs() {
+                centerInput.value = '';
+                handoffInput.value = '';
+                storedSuffixes.clear();
+                centerSuggestions?.classList.remove('visible');
+                centerSuggestions?.setAttribute('aria-hidden', 'true');
+                searchBarCenter?.classList.remove('has-suggestions');
+                handoffSuggestions?.classList.remove('visible');
+                handoffSuggestions?.setAttribute('aria-hidden', 'true');
+                searchBarHandoff?.classList.remove('has-suggestions');
+                simulatedHandoff.classList.remove('visible');
+                simulatedHandoff.setAttribute('aria-hidden', 'true');
+                updateSearchButtonState();
+            }
+            document.addEventListener('phase-change', clearSearchInputs);
             document.addEventListener('click', (e) => {
                 if (e.target.closest('.search-bar-center')) return;
                 if (e.target.closest('.search-box-menu-btn') || e.target.closest('.search-box-menu-dropdown')) return;
@@ -574,6 +674,7 @@
             const menuItems = document.querySelectorAll('.search-box-menu-dropdown button');
             const centerInput = document.querySelector('.search-input-center');
             const searchBoxCenter = document.querySelector('.search-box-center');
+            const searchNavItem = document.querySelector('.menu-item-search-nav');
             function updatePlaceholder() {
                 if (!centerInput) return;
                 const isSearchOnly = menuItems[1]?.getAttribute('aria-checked') === 'true';
@@ -584,9 +685,37 @@
                 const isSearchOnly = menuItems[1]?.getAttribute('aria-checked') === 'true';
                 searchBoxCenter.classList.toggle('search-mode-only', isSearchOnly);
             }
+            function applyPhaseDefaults(phase) {
+                if (!menuItems.length) return;
+                const searchNavBtn = searchNavItem;
+                if (phase === '2') {
+                    menuItems.forEach((b, i) => {
+                        b.setAttribute('aria-checked', b === searchNavBtn ? 'true' : 'false');
+                    });
+                    if (searchNavBtn) {
+                        searchNavBtn.classList.remove('menu-item-disabled');
+                        searchNavBtn.removeAttribute('aria-disabled');
+                        searchNavBtn.removeAttribute('tabindex');
+                    }
+                } else {
+                    menuItems.forEach((b, i) => {
+                        b.setAttribute('aria-checked', i === (phase === '1' ? 1 : 0) ? 'true' : 'false');
+                    });
+                    if (searchNavBtn) {
+                        searchNavBtn.classList.add('menu-item-disabled');
+                        searchNavBtn.setAttribute('aria-disabled', 'true');
+                        searchNavBtn.setAttribute('tabindex', '-1');
+                    }
+                }
+                updatePlaceholder();
+                updateSearchModeUI();
+            }
             if (menuBtn && menuDropdown) {
                 updatePlaceholder();
                 updateSearchModeUI();
+                document.addEventListener('phase-change', (e) => {
+                    applyPhaseDefaults(e.detail?.phase ?? '0');
+                });
                 menuBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const isOpen = menuDropdown.classList.toggle('open');
@@ -645,13 +774,20 @@
         (function() {
             const phaseToggle = document.querySelector('.phase-toggle');
             if (!phaseToggle) return;
+            function notifyPhaseChange() {
+                const activeBtn = phaseToggle.querySelector('button.active');
+                const phase = activeBtn?.getAttribute('data-phase') ?? '0';
+                document.body.setAttribute('data-phase', phase);
+                document.dispatchEvent(new CustomEvent('phase-change', { detail: { phase } }));
+            }
             phaseToggle.querySelectorAll('button').forEach(btn => {
                 btn.addEventListener('click', () => {
                     phaseToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    document.body.setAttribute('data-phase', btn.getAttribute('data-phase') || '1');
+                    notifyPhaseChange();
                 });
             });
+            notifyPhaseChange();
         })();
     </script>
 </body>
