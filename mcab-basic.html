@@ -6,7 +6,7 @@
     <title>mcab-basic</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
@@ -14,8 +14,21 @@
             display: flex;
             align-items: flex-start;
             justify-content: center;
-            padding-top: 180px;
+            padding-top: 140px;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #FFF5E6;
+        }
+        .center-search-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+        .center-search-area .firefox-logo {
+            width: 64px;
+            height: 64px;
+            display: block;
+            flex-shrink: 0;
         }
         .search-page-wrapper {
             max-width: 1340px;
@@ -103,12 +116,21 @@
             border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
         }
-        .search-box-menu-btn {
+        .search-box-center.focused .search-input,
+        .search-box-center.has-text .search-input {
+            padding-right: 76px;
+        }
+        .search-box-right-buttons {
             position: absolute;
             right: 8px;
             top: 0;
             bottom: 0;
             margin: auto 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .search-box-menu-btn {
             width: 32px;
             height: 32px;
             display: flex;
@@ -117,7 +139,7 @@
             border: none;
             background: transparent;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 10px;
             line-height: 1;
             color: #555;
             border-radius: 50%;
@@ -125,25 +147,28 @@
         .search-box-menu-btn:hover {
             background: rgba(0, 0, 0, 0.06);
         }
-        .search-box-menu-btn .menu-btn-dots {
-            display: block;
-            font-size: 10px;
-        }
-        .search-box-menu-btn .menu-btn-arrow {
+        .search-box-arrow-btn {
+            width: 32px;
+            height: 32px;
             display: none;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: #555;
+            border-radius: 50%;
         }
-        .search-box-menu-btn .menu-btn-arrow svg {
+        .search-box-arrow-btn:hover {
+            background: rgba(0, 0, 0, 0.06);
+        }
+        .search-box-arrow-btn svg {
             width: 16px;
             height: 16px;
-            display: block;
         }
-        .search-box-center.focused .search-box-menu-btn .menu-btn-dots,
-        .search-box-center.has-text .search-box-menu-btn .menu-btn-dots {
-            display: none;
-        }
-        .search-box-center.focused .search-box-menu-btn .menu-btn-arrow,
-        .search-box-center.has-text .search-box-menu-btn .menu-btn-arrow {
-            display: block;
+        .search-box-center.focused .search-box-arrow-btn,
+        .search-box-center.has-text .search-box-arrow-btn {
+            display: flex;
         }
         .search-box-menu-dropdown {
             position: absolute;
@@ -163,6 +188,14 @@
         .search-box-menu-dropdown.open {
             display: block;
             transition: opacity 0.2s linear;
+        }
+        .center-search-area:has(.search-box-center.focused) .search-box-menu-dropdown.open,
+        .center-search-area:has(.search-box-center.has-text) .search-box-menu-dropdown.open {
+            right: 61px;
+        }
+        .center-search-area:has(.search-box-center.focused) .search-box-menu-dropdown.open ~ .menu-dropdown-caret,
+        .center-search-area:has(.search-box-center.has-text) .search-box-menu-dropdown.open ~ .menu-dropdown-caret {
+            right: calc(50% - 227px);
         }
         .search-box-menu-dropdown.open ~ .menu-dropdown-caret {
             display: block;
@@ -189,8 +222,28 @@
         .search-box-menu-dropdown.closing {
             pointer-events: none;
         }
+        body[data-phase="0"] .search-box-menu-dropdown.open {
+            display: flex;
+            flex-direction: column;
+        }
+        body[data-phase="0"] .search-box-menu-dropdown button:first-child {
+            order: 2;
+        }
+        body[data-phase="0"] .search-box-menu-dropdown button:nth-child(2) {
+            order: 1;
+        }
+        body[data-phase="0"] .search-box-menu-dropdown button.menu-item-search-nav {
+            order: -1;
+        }
         body[data-phase="1"] .search-box-menu-dropdown button:first-child {
             display: none;
+        }
+        body[data-phase="1"] .search-box-menu-dropdown.open {
+            display: flex;
+            flex-direction: column;
+        }
+        body[data-phase="1"] .search-box-menu-dropdown button.menu-item-search-nav {
+            order: -1;
         }
         body[data-phase="2"] .search-box-menu-dropdown button:first-child {
             display: none;
@@ -211,7 +264,8 @@
             -webkit-text-fill-color: #333;
         }
         .search-box-menu-dropdown button.menu-item-flash-on {
-            background-color: rgba(0, 0, 0, 0.08);
+            background: rgba(0, 200, 255, 0.25) !important;
+            background-color: rgba(0, 200, 255, 0.25) !important;
         }
         .search-box-menu-dropdown button {
             transition: none;
@@ -273,31 +327,134 @@
         }
         .simulated-handoff {
             position: fixed;
-            top: 16px;
-            left: 16px;
+            top: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
             z-index: 2000;
-            display: none;
-            background-color: #E7E7EA;
-            padding: 12px 16px;
-            border-radius: 10px;
-        }
-        .simulated-handoff.visible {
             display: block;
+            background-color: #F8F8FA;
+            padding: 12px 0 12px 0;
+            border-radius: 0;
+            border-bottom: 1px solid #CDCDCD;
         }
-        body[data-phase="2"] .simulated-handoff {
-            display: none !important;
+        .simulated-handoff-inner {
+            width: 60%;
+            margin: 0 auto;
+            padding: 0 16px;
         }
         body[data-phase="2"] .coming-soon-hint {
             display: none;
         }
         .simulated-handoff .subheading {
-            margin: 0 0 8px 0;
+            margin: 0 0 6px 0;
             font-family: sans-serif;
-            font-size: 10px;
+            font-size: 8px;
             font-weight: 400;
             color: #555;
             text-transform: uppercase;
             letter-spacing: 0.08em;
+        }
+        .addressbar-toolbar-row {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            width: 100%;
+            padding-left: 20px;
+            padding-right: 20px;
+            box-sizing: border-box;
+        }
+        .addressbar-left {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        .addressbar-right {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+        .addressbar-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .addressbar-back,
+        .addressbar-next {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .addressbar-back:hover,
+        .addressbar-next:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        .addressbar-back svg,
+        .addressbar-next svg {
+            width: 18px;
+            height: 18px;
+            stroke: rgba(0, 0, 0, 0.6);
+        }
+        .addressbar-input-wrapper {
+            flex: 0 0 60%;
+            width: 60%;
+            min-width: 0;
+        }
+        .addressbar-input-wrapper .search-bar-handoff {
+            flex: 1;
+            min-width: 0;
+        }
+        .addressbar-toolbar-row .handoff-search-box {
+            width: 100%;
+        }
+        .addressbar-toolbar-row .handoff-search-box .search-input {
+            width: 100%;
+            min-width: 0;
+        }
+        .addressbar-toolbar-icons {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .addressbar-toolbar-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            cursor: pointer;
+            color: rgba(0, 0, 0, 0.6);
+        }
+        .addressbar-toolbar-icon:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        .addressbar-toolbar-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+        }
+        .addressbar-toolbar-icon svg[fill="currentColor"] {
+            fill: currentColor;
+            stroke: none;
         }
         .handoff-search-box {
             display: inline-flex;
@@ -382,29 +539,58 @@
         .search-bar-center:not(.has-suggestions) .search-box-center .search-input {
             border-radius: 10px;
         }
+        .search-bar-center {
+            position: relative;
+            overflow: visible;
+        }
+        .search-bar-center .search-suggestions.visible {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 100%;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            border-radius: 0 0 10px 10px;
+        }
         .search-suggestions {
             display: none;
             padding: 0;
         }
         .search-suggestions.visible {
             display: block;
+            overflow: hidden;
+            min-width: 0;
         }
         .search-suggestions-divider {
             height: 1px;
             background: #e8eaed;
             margin: 0;
         }
+        .suggestions-subheading {
+            margin: 0;
+            padding: 4px 44px 2px 16px;
+            font-size: 11px;
+            font-weight: 400;
+            color: #5f6368;
+            text-transform: none;
+            letter-spacing: 0.5px;
+        }
+        .suggestion-site-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
         .search-suggestions-list {
             list-style: none;
             margin: 0;
-            padding: 4px 0;
+            padding: 2px 0;
         }
         .search-suggestions-list li {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 10px 44px 10px 16px;
-            font-size: 16px;
+            padding: 6px 44px 6px 16px;
+            font-size: 14px;
             color: #333;
             cursor: default;
         }
@@ -414,16 +600,63 @@
             flex-shrink: 0;
             color: #5f6368;
         }
-        .search-suggestions-list li:hover {
+        .search-suggestions-list li:hover,
+        .search-suggestions-list li.suggestion-selected {
             background: rgba(0, 0, 0, 0.06);
+        }
+        .search-suggestions-list li.suggestion-selected-dimmed {
+            background: rgba(0, 0, 0, 0.03);
         }
         .search-suggestions-list li .search-hint {
             display: none;
         }
-        .search-suggestions-list li:hover .search-hint {
+        .search-suggestions-list li:hover .search-hint,
+        .search-suggestions-list li.suggestion-selected .search-hint,
+        .search-suggestions-list li.suggestion-selected-dimmed .search-hint {
             display: inline;
-            font-size: 11px;
+            font-size: 10px;
             opacity: 0.45;
+        }
+        .suggestion-url {
+            font-size: 10px;
+            opacity: 0.45;
+        }
+        .handoff-websites-list li,
+        .center-websites-list li {
+            min-width: 0;
+        }
+        .handoff-websites-list li > span,
+        .center-websites-list li > span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .center-firefox-suggest-section {
+            display: none;
+        }
+        .search-bar-center.has-firefox-suggest .center-firefox-suggest-section {
+            display: block;
+        }
+        .search-bar-handoff {
+            position: relative;
+            overflow: visible;
+        }
+        .search-bar-handoff:not(.has-suggestions):not(:focus-within) {
+            background-color: #EBEBED;
+            box-shadow: none;
+        }
+        .search-bar-handoff:not(.has-suggestions):not(:focus-within) .handoff-search-box .search-engine-switcher-btn {
+            background-color: #fff;
+        }
+        .search-bar-handoff:not(.has-suggestions):not(:focus-within) .handoff-search-box .search-input {
+            background-color: #EBEBED;
+        }
+        .search-bar-handoff .handoff-search-box .search-input {
+            font-weight: 300;
+        }
+        .search-bar-handoff.has-suggestions {
+            border-radius: 10px 10px 0 0;
         }
         .search-bar-handoff .handoff-search-box .search-input {
             box-shadow: none;
@@ -434,14 +667,19 @@
         .search-bar-handoff:not(.has-suggestions) .handoff-search-box .search-input {
             border-radius: 10px;
         }
+        .search-bar-handoff .search-suggestions.visible {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            border-radius: 0 0 10px 10px;
+        }
         .phase-toggle {
-            position: fixed;
-            top: 16px;
-            right: 16px;
             display: flex;
             flex-direction: column;
             gap: 2px;
-            z-index: 50;
         }
         .phase-toggle button {
             padding: 6px 12px;
@@ -468,17 +706,108 @@
             background: #1a73e8;
             color: #fff;
             border-color: #1a73e8;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+            margin-right: -12px;
+            padding-right: 24px;
+        }
+        .phase-controls {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            z-index: 50;
+        }
+        .phase-toggle {
+            position: static;
+            bottom: auto;
+            right: auto;
+        }
+        .phase-explanation {
+            width: 200px;
+            background: #fff;
+            border: 2px solid #1a73e8;
+            border-radius: 6px;
+            padding: 12px 14px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #333;
+        }
+        .phase-explanation p {
+            margin: 0 0 0.75em 0;
+            display: none;
+        }
+        .phase-explanation p:last-child {
+            margin-bottom: 0;
+        }
+        .phase-explanation .menu-dots-inline {
+            font-size: 0.65em;
+            vertical-align: 0.1em;
+        }
+        .phase-explanation-list {
+            margin: 0.25em 0 0.75em 1.2em;
+            padding: 0;
+            list-style: disc;
+        }
+        .phase-explanation-list li {
+            margin-bottom: 0.25em;
+        }
+        .phase-explanation-tick {
+            display: inline-flex;
+            vertical-align: -0.15em;
+            color: #1a73e8;
+        }
+        .phase-explanation ul[data-phase] {
+            display: none;
+        }
+        body[data-phase="0"] .phase-explanation {
+            border-bottom-left-radius: 0;
+        }
+        body[data-phase="0"] .phase-explanation p[data-phase="0"],
+        body[data-phase="1"] .phase-explanation p[data-phase="1"],
+        body[data-phase="2"] .phase-explanation p[data-phase="2"],
+        body[data-phase="2"] .phase-explanation ul[data-phase="2"] {
+            display: block;
         }
     </style>
 </head>
 <body>
-    <div class="phase-toggle" role="group" aria-label="Phase">
-        <button type="button" data-phase="0"><span class="phase-label">Phase 1a</span><span class="phase-subtitle">(suggested mitigation)</span></button>
-        <button type="button" data-phase="1"><span class="phase-label">Phase 1b</span><span class="phase-subtitle">(engineering estimate)</span></button>
-        <button type="button" class="active" data-phase="2"><span class="phase-label">Phase 2</span><span class="phase-subtitle">(ideal for launch)</span></button>
+    <div class="phase-controls">
+        <div class="phase-toggle" role="group" aria-label="Phase">
+            <button type="button" class="active" data-phase="2"><span class="phase-label">Perfect for launch</span></button>
+            <button type="button" data-phase="1"><span class="phase-label">Timeline reality</span></button>
+            <button type="button" data-phase="0"><span class="phase-label">Suggested mitigation</span></button>
+        </div>
+        <div class="phase-explanation" aria-live="polite">
+            <p data-phase="0">If we want to give users the option of searching directly in the New Tab search box as soon as possible, then we can do that whilst leaving the handoff as the default state. This means that the search bar will continue to support both navigation and search, as we continue work.</p>
+            <p data-phase="0">Click the <span class="menu-dots-inline">•••</span> to see how this could be shown to users.</p>
+            <p data-phase="1">The engineering timeline only allows us to complete 'searching only' mode before the New Tab redesign launches.</p>
+            <p data-phase="1">Clicking <span class="menu-dots-inline">•••</span> just shows that navigating is coming soon.</p>
+            <p data-phase="1">This <strong>will be perceived by users as a regression</strong> because they will no longer be able to navigate from this input field.</p>
+            <p data-phase="2">The handoff is gone.</p>
+            <p data-phase="2">Click <span class="menu-dots-inline">•••</span> to switch between:</p>
+            <ul data-phase="2" class="phase-explanation-list">
+                <li>Searching and navigating <span class="phase-explanation-tick" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 5l3 3 7-7"/></svg></span></li>
+                <li>Searching only</li>
+            </ul>
+            <p data-phase="2">This maintains the default that users can both navigate and search from this box, and adds 'searching only' as an option.</p>
+        </div>
     </div>
-    <div class="simulated-handoff" id="simulated-handoff" aria-hidden="true">
-        <h2 class="subheading">Simulated handoff</h2>
+    <div class="simulated-handoff" id="simulated-handoff" aria-hidden="false">
+        <div class="addressbar-toolbar-row">
+            <div class="addressbar-left">
+            <div class="addressbar-nav">
+                <button type="button" class="addressbar-back" aria-label="Back" title="Back">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button type="button" class="addressbar-next" aria-label="Next" title="Next">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </div>
+            </div>
+        <div class="addressbar-input-wrapper">
         <div class="search-bar search-bar-handoff">
             <div class="search-box handoff-search-box">
                 <div class="search-engine-switcher-btn" aria-label="Search engine switcher">
@@ -492,11 +821,30 @@
             </div>
             <div class="search-suggestions" id="handoff-suggestions" aria-hidden="true">
                 <div class="search-suggestions-divider"></div>
-                <ul class="search-suggestions-list" role="listbox"></ul>
+                <ul class="search-suggestions-list handoff-query-list" role="listbox"></ul>
+                <h3 class="suggestions-subheading">Firefox Suggest</h3>
+                <ul class="search-suggestions-list handoff-websites-list" role="listbox"></ul>
             </div>
+        </div>
+        </div>
+        <div class="addressbar-right">
+        <div class="addressbar-toolbar-icons">
+                <button type="button" class="addressbar-toolbar-icon" aria-label="Account" title="Account">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9" r="2.5"/><path d="M6.5 19.5c.6-2 2.4-3.5 5-3.5s4.4 1.5 5 3.5"/></svg>
+                </button>
+                <button type="button" class="addressbar-toolbar-icon" aria-label="Extensions" title="Extensions">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 8c-.971 0-1 1-1.75 1a.765.765 0 0 1-.75-.75V5a1 1 0 0 0-1-1H7.75A.765.765 0 0 1 7 3.25c0-.75 1-.779 1-1.75C8 .635 7.1 0 6 0S4 .635 4 1.5c0 .971 1 1 1 1.75a.765.765 0 0 1-.75.75H1a1 1 0 0 0-1 1v2.25A.765.765 0 0 0 .75 8c.75 0 .779-1 1.75-1C3.365 7 4 7.9 4 9s-.635 2-1.5 2c-.971 0-1-1-1.75-1a.765.765 0 0 0-.75.75V15a1 1 0 0 0 1 1h3.25a.765.765 0 0 0 .75-.75c0-.75-1-.779-1-1.75 0-.865.9-1.5 2-1.5s2 .635 2 1.5c0 .971-1 1-1 1.75a.765.765 0 0 0 .75.75H11a1 1 0 0 0 1-1v-3.25a.765.765 0 0 1 .75-.75c.75 0 .779 1 1.75 1 .865 0 1.5-.9 1.5-2s-.635-2-1.5-2z"/></svg>
+                </button>
+                <button type="button" class="addressbar-toolbar-icon" aria-label="Menu" title="Menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 6.75h16.5"/><path d="M3.75 12h16.5"/><path d="M3.75 17.25h16.5"/></svg>
+                </button>
+            </div>
+        </div>
         </div>
     </div>
     <div class="search-page-wrapper">
+        <div class="center-search-area">
+            <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
         <div class="search-bar search-bar-center">
             <div class="search-box search-box-center">
                 <div class="search-engine-switcher-btn" aria-label="Search engine switcher">
@@ -504,11 +852,18 @@
                     <span class="search-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
                 </div>
                 <input type="search" class="search-input search-input-center" placeholder="Search with Google or enter address" aria-label="Search">
-                <button type="button" class="search-box-menu-btn" aria-label="Options" aria-expanded="false" aria-haspopup="true"><span class="menu-btn-dots">•••</span><span class="menu-btn-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+                <div class="search-box-right-buttons">
+                    <button type="button" class="search-box-menu-btn" aria-label="Options" aria-expanded="false" aria-haspopup="true"><span class="menu-btn-dots">•••</span></button>
+                    <button type="button" class="search-box-arrow-btn" aria-label="Navigate" title="Navigate"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                </div>
             </div>
             <div class="search-suggestions" id="center-suggestions" aria-hidden="true">
                 <div class="search-suggestions-divider"></div>
-                <ul class="search-suggestions-list" role="listbox"></ul>
+                <ul class="search-suggestions-list center-query-list" role="listbox"></ul>
+                <div class="center-firefox-suggest-section" aria-hidden="true">
+                    <h3 class="suggestions-subheading">Firefox Suggest</h3>
+                    <ul class="search-suggestions-list center-websites-list" role="listbox"></ul>
+                </div>
             </div>
         </div>
         <div class="search-box-menu-dropdown" role="menu">
@@ -526,6 +881,7 @@
             </button>
         </div>
         <div class="menu-dropdown-caret" aria-hidden="true"></div>
+        </div>
     </div>
     <script>
         (function() {
@@ -548,8 +904,63 @@
                 ' weather forecast', ' lyrics and chords', ' translate to spanish', ' pronunciation audio',
                 ' history timeline', ' jobs hiring'
             ];
-            const SEARCH_HINT = ' – search with Google';
+            const SEARCH_HINT = ' – Search with Google';
+            const VISIT_HINT = ' – Visit site';
+            function looksLikeDomain(query) {
+                return /[\w.-]+\.(com|org|net|edu|gov|io|co|uk|info|biz|tv|me)(\s*)$/i.test((query || '').trim());
+            }
+            function getTypedHint(inputEl, query, suggestionsEl) {
+                const isSearchOnly = document.querySelector('.search-box-menu-dropdown button:nth-child(2)')?.getAttribute('aria-checked') === 'true';
+                const isCenter = suggestionsEl?.id === 'center-suggestions';
+                if (isCenter && isSearchOnly) return SEARCH_HINT;
+                if (looksLikeDomain(query)) return VISIT_HINT;
+                return SEARCH_HINT;
+            }
+            function slugFromTerm(term) {
+                return term.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '');
+            }
+            function idFromTerm(term, salt, len, charset = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_', randomSeed = 0) {
+                const str = salt + (term || '') + String(randomSeed);
+                let id = '';
+                for (let i = 0; i < len; i++) {
+                    let h = (i * 31) ^ str.length;
+                    for (let j = 0; j < str.length; j++) h = ((h << 5) - h + str.charCodeAt(j) + (j * 7)) | 0;
+                    id += charset[Math.abs(h) % charset.length];
+                }
+                return id;
+            }
+            const SUBREDDIT_MAP = { python: 'learnpython', cooking: 'Cooking', recipe: 'recipes', travel: 'travel', javascript: 'javascript', react: 'reactjs', photography: 'photography', fitness: 'Fitness', guitar: 'guitar', music: 'Music', movie: 'movies', book: 'books', linux: 'linux', windows: 'windows', mac: 'mac', android: 'Android', iphone: 'iphone', budget: 'personalfinance', invest: 'investing', weight: 'loseit', run: 'running', garden: 'gardening', dog: 'dogs', cat: 'cats' };
+            function subredditFromTerm(term) {
+                const key = term.trim().toLowerCase().split(/\s+/)[0];
+                if (SUBREDDIT_MAP[key]) return SUBREDDIT_MAP[key];
+                const words = term.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+                return words.join('').slice(0, 20) || 'AskReddit';
+            }
+            const FIREFOX_SUGGEST_WEBSITES = [
+                { getParts: (term) => ({ before: '', after: ' – Wikipedia' }), getUrl: (term, seed = 0) => `en.wikipedia.org/wiki/${encodeURIComponent(term).replace(/%20/g, '_')}`, icon: 'icons/Wikipedia.svg' },
+                { getParts: (term) => ({ before: 'Amazon: ', after: ' – product page' }), getUrl: (term, seed = 0) => {
+                    const slug = slugFromTerm(term).replace(/_/g, '-') || 'product';
+                    const words = term.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+                    const productTitle = (words.join('-') || slug).slice(0, 35);
+                    return `amazon.com/${productTitle}/dp/B0${idFromTerm(term, 'amzn', 8, undefined, seed)}`;
+                }, icon: 'icons/Amazon - Light.svg' },
+                { getParts: (term) => ({ before: 'How to ', after: ' – YouTube' }), getUrl: (term, seed = 0) => {
+                    const ytChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+                    return `youtube.com/watch?v=${idFromTerm(term, 'ytvid', 11, ytChars, seed)}`;
+                }, icon: 'icons/YouTube.svg' },
+                { getParts: (term) => ({ before: 'Discussion: ', after: ' – Reddit' }), getUrl: (term, seed = 0) => `reddit.com/r/${subredditFromTerm(term)}/comments/${idFromTerm(term, 'rdt', 6, '0123456789abcdefghijklmnopqrstuvwxyz', seed)}/${slugFromTerm(term).slice(0, 50) || 'discussion'}/`, icon: 'icons/Reddit.svg' }
+            ];
             const storedSuffixes = new Map();
+            const storedFirefoxUrls = new Map();
+            function getFirefoxUrls(inputEl, query) {
+                let cached = storedFirefoxUrls.get(inputEl);
+                if (!cached) {
+                    const seed = Date.now() + Math.random() * 1e9;
+                    cached = FIREFOX_SUGGEST_WEBSITES.map(site => site.getUrl(query, seed));
+                    storedFirefoxUrls.set(inputEl, cached);
+                }
+                return cached;
+            }
             function escapeHtml(s) {
                 return String(s)
                     .replace(/&/g, '&amp;')
@@ -564,14 +975,18 @@
             function updateSuggestions(inputEl, suggestionsEl, searchBar) {
                 if (!suggestionsEl || !searchBar) return;
                 const query = (inputEl?.value || '').trim();
-                const list = suggestionsEl.querySelector('.search-suggestions-list');
-                if (!list) return;
+                const queryList = suggestionsEl.querySelector('.center-query-list') || suggestionsEl.querySelector('.search-suggestions-list');
+                if (!queryList) return;
+                const hasFirefoxSuggest = searchBar.classList.contains('has-firefox-suggest');
+                const websitesList = hasFirefoxSuggest ? suggestionsEl.querySelector('.center-websites-list') : null;
                 if (query.length === 0) {
                     storedSuffixes.delete(inputEl);
+                    storedFirefoxUrls.delete(inputEl);
                     suggestionsEl.classList.remove('visible');
                     suggestionsEl.setAttribute('aria-hidden', 'true');
                     searchBar.classList.remove('has-suggestions');
-                    list.innerHTML = '';
+                    queryList.innerHTML = '';
+                    if (websitesList) websitesList.innerHTML = '';
                     return;
                 }
                 let suffixes = storedSuffixes.get(inputEl);
@@ -579,12 +994,96 @@
                     suffixes = pickRandom(SUGGESTION_POOL, 6);
                     storedSuffixes.set(inputEl, suffixes);
                 }
-                list.innerHTML = suffixes.map(suffix => {
+                const typedHint = getTypedHint(inputEl, query, suggestionsEl);
+                let topItems = `<li role="option" class="typed-text-suggestion suggestion-selected"><img src="icons/search.svg" alt="" class="suggestion-search-icon"><span><strong>${escapeHtml(query)}</strong><span class="search-hint">${typedHint}</span></span></li>`;
+                if (typedHint === VISIT_HINT) {
+                    topItems += `<li role="option" class="typed-text-search-suggestion suggestion-selected"><img src="icons/search.svg" alt="" class="suggestion-search-icon"><span><strong>${escapeHtml(query)}</strong><span class="search-hint">${SEARCH_HINT}</span></span></li>`;
+                }
+                const suffixItems = suffixes.map(suffix => {
                     return `<li role="option"><img src="icons/search.svg" alt="" class="suggestion-search-icon"><span><strong>${escapeHtml(query)}</strong>${escapeHtml(suffix)}<span class="search-hint">${SEARCH_HINT}</span></span></li>`;
                 }).join('');
+                queryList.innerHTML = topItems + suffixItems;
+                if (websitesList) {
+                    const urls = getFirefoxUrls(inputEl, query);
+                    websitesList.innerHTML = FIREFOX_SUGGEST_WEBSITES.map((site, i) => {
+                        const { before, after } = site.getParts(query);
+                        const url = urls[i];
+                        return `<li role="option"><img src="${escapeHtml(site.icon)}" alt="" class="suggestion-site-icon"><span>${escapeHtml(before)}<strong>${escapeHtml(query)}</strong>${escapeHtml(after)}<span class="suggestion-url"> – ${escapeHtml(url)}</span></span></li>`;
+                    }).join('');
+                }
                 suggestionsEl.classList.add('visible');
                 suggestionsEl.setAttribute('aria-hidden', 'false');
                 searchBar.classList.add('has-suggestions');
+                setupSuggestionHover(suggestionsEl);
+            }
+            function setupSuggestionHover(suggestionsEl) {
+                if (!suggestionsEl) return;
+                const defaultItems = suggestionsEl.querySelectorAll('.typed-text-suggestion, .typed-text-search-suggestion');
+                if (!defaultItems.length) return;
+                function clearSelected() {
+                    suggestionsEl.querySelectorAll('.suggestion-selected').forEach(el => el.classList.remove('suggestion-selected'));
+                    suggestionsEl.querySelectorAll('.suggestion-selected-dimmed').forEach(el => el.classList.remove('suggestion-selected-dimmed'));
+                }
+                function setDefaultSelected() {
+                    clearSelected();
+                    defaultItems.forEach(el => el.classList.add('suggestion-selected'));
+                }
+                suggestionsEl.addEventListener('mouseleave', (e) => {
+                    if (!suggestionsEl.contains(e.relatedTarget)) {
+                        setDefaultSelected();
+                    }
+                });
+                suggestionsEl.querySelectorAll('li[role="option"]').forEach(li => {
+                    li.addEventListener('mouseenter', () => {
+                        clearSelected();
+                        li.classList.add('suggestion-selected');
+                        if (defaultItems.length === 2 && (li.classList.contains('typed-text-suggestion') || li.classList.contains('typed-text-search-suggestion'))) {
+                            const other = Array.from(defaultItems).find(el => el !== li);
+                            other?.classList.add('suggestion-selected-dimmed');
+                        }
+                    });
+                });
+            }
+            function updateHandoffSuggestions() {
+                if (!handoffSuggestions || !searchBarHandoff) return;
+                const query = (handoffInput?.value || '').trim();
+                const queryList = handoffSuggestions.querySelector('.handoff-query-list');
+                const websitesList = handoffSuggestions.querySelector('.handoff-websites-list');
+                if (!queryList || !websitesList) return;
+                if (query.length === 0) {
+                    storedSuffixes.delete(handoffInput);
+                    storedFirefoxUrls.delete(handoffInput);
+                    handoffSuggestions.classList.remove('visible');
+                    handoffSuggestions.setAttribute('aria-hidden', 'true');
+                    searchBarHandoff.classList.remove('has-suggestions');
+                    queryList.innerHTML = '';
+                    websitesList.innerHTML = '';
+                    return;
+                }
+                let suffixes = storedSuffixes.get(handoffInput);
+                if (!suffixes) {
+                    suffixes = pickRandom(SUGGESTION_POOL, 6);
+                    storedSuffixes.set(handoffInput, suffixes);
+                }
+                const typedHint = getTypedHint(handoffInput, query, handoffSuggestions);
+                let topItems = `<li role="option" class="typed-text-suggestion suggestion-selected"><img src="icons/search.svg" alt="" class="suggestion-search-icon"><span><strong>${escapeHtml(query)}</strong><span class="search-hint">${typedHint}</span></span></li>`;
+                if (typedHint === VISIT_HINT) {
+                    topItems += `<li role="option" class="typed-text-search-suggestion suggestion-selected"><img src="icons/search.svg" alt="" class="suggestion-search-icon"><span><strong>${escapeHtml(query)}</strong><span class="search-hint">${SEARCH_HINT}</span></span></li>`;
+                }
+                const suffixItems = suffixes.map(suffix => {
+                    return `<li role="option"><img src="icons/search.svg" alt="" class="suggestion-search-icon"><span><strong>${escapeHtml(query)}</strong>${escapeHtml(suffix)}<span class="search-hint">${SEARCH_HINT}</span></span></li>`;
+                }).join('');
+                queryList.innerHTML = topItems + suffixItems;
+                const urls = getFirefoxUrls(handoffInput, query);
+                websitesList.innerHTML = FIREFOX_SUGGEST_WEBSITES.map((site, i) => {
+                    const { before, after } = site.getParts(query);
+                    const url = urls[i];
+                    return `<li role="option"><img src="${escapeHtml(site.icon)}" alt="" class="suggestion-site-icon"><span>${escapeHtml(before)}<strong>${escapeHtml(query)}</strong>${escapeHtml(after)}<span class="suggestion-url"> – ${escapeHtml(url)}</span></span></li>`;
+                }).join('');
+                handoffSuggestions.classList.add('visible');
+                handoffSuggestions.setAttribute('aria-hidden', 'false');
+                searchBarHandoff.classList.add('has-suggestions');
+                setupSuggestionHover(handoffSuggestions);
             }
             function updateSearchButtonState() {
                 if (!searchBoxCenter) return;
@@ -600,7 +1099,17 @@
                 updateSuggestions(centerInput, centerSuggestions, searchBarCenter);
             });
             centerInput.addEventListener('blur', () => {
-                searchBoxCenter?.classList.remove('focused');
+                requestAnimationFrame(() => {
+                    const active = document.activeElement;
+                    const staysFocused = active && (
+                        active.closest('.search-box-menu-btn') ||
+                        active.closest('.search-box-arrow-btn') ||
+                        active.closest('.search-box-menu-dropdown')
+                    );
+                    if (!staysFocused) {
+                        searchBoxCenter?.classList.remove('focused');
+                    }
+                });
                 updateSearchButtonState();
                 updateSuggestions(centerInput, centerSuggestions, searchBarCenter);
             });
@@ -611,37 +1120,45 @@
                 if (!isPhase2 && !isSearchOnlyMode && centerInput.value.length >= 1) {
                     handoffInput.value = centerInput.value;
                     centerInput.value = '';
-                    simulatedHandoff.classList.add('visible');
-                    simulatedHandoff.setAttribute('aria-hidden', 'false');
                     handoffInput.focus();
                     handoffInput.setSelectionRange(handoffInput.value.length, handoffInput.value.length);
                     updateSuggestions(centerInput, centerSuggestions, searchBarCenter);
-                    updateSuggestions(handoffInput, handoffSuggestions, searchBarHandoff);
+                    updateHandoffSuggestions();
                 }
                 updateSearchButtonState();
                 updateSuggestions(centerInput, centerSuggestions, searchBarCenter);
             });
+            handoffInput.addEventListener('focus', () => {
+                updateHandoffSuggestions();
+            });
             handoffInput.addEventListener('input', () => {
-                updateSuggestions(handoffInput, handoffSuggestions, searchBarHandoff);
+                updateHandoffSuggestions();
             });
             function clearSearchInputs() {
                 centerInput.value = '';
                 handoffInput.value = '';
                 storedSuffixes.clear();
+                storedFirefoxUrls.clear();
                 centerSuggestions?.classList.remove('visible');
                 centerSuggestions?.setAttribute('aria-hidden', 'true');
                 searchBarCenter?.classList.remove('has-suggestions');
                 handoffSuggestions?.classList.remove('visible');
                 handoffSuggestions?.setAttribute('aria-hidden', 'true');
                 searchBarHandoff?.classList.remove('has-suggestions');
-                simulatedHandoff.classList.remove('visible');
-                simulatedHandoff.setAttribute('aria-hidden', 'true');
                 updateSearchButtonState();
             }
             document.addEventListener('phase-change', clearSearchInputs);
+            document.addEventListener('search-input-cleared', () => {
+                storedSuffixes.delete(centerInput);
+                storedFirefoxUrls.delete(centerInput);
+                centerSuggestions?.classList.remove('visible');
+                centerSuggestions?.setAttribute('aria-hidden', 'true');
+                searchBarCenter?.classList.remove('has-suggestions');
+                updateSearchButtonState();
+            });
             document.addEventListener('click', (e) => {
                 if (e.target.closest('.search-bar-center')) return;
-                if (e.target.closest('.search-box-menu-btn') || e.target.closest('.search-box-menu-dropdown')) return;
+                if (e.target.closest('.search-box-menu-btn') || e.target.closest('.search-box-menu-dropdown') || e.target.closest('.search-box-arrow-btn')) return;
                 if (centerInput?.value.trim().length > 0) {
                     centerSuggestions?.classList.remove('visible');
                     centerSuggestions?.setAttribute('aria-hidden', 'true');
@@ -649,17 +1166,14 @@
                 }
             });
             document.addEventListener('click', (e) => {
-                if (!simulatedHandoff.classList.contains('visible')) return;
                 if (e.target.closest('.simulated-handoff')) return;
-                simulatedHandoff.classList.remove('visible');
-                simulatedHandoff.setAttribute('aria-hidden', 'true');
                 handoffInput.value = '';
-                updateSuggestions(handoffInput, handoffSuggestions, searchBarHandoff);
+                updateHandoffSuggestions();
             });
 
             document.addEventListener('click', (e) => {
                 if (e.target.closest('.search-bar-center')) return;
-                if (e.target.closest('.search-box-menu-btn') || e.target.closest('.search-box-menu-dropdown')) return;
+                if (e.target.closest('.search-box-menu-btn') || e.target.closest('.search-box-menu-dropdown') || e.target.closest('.search-box-arrow-btn')) return;
                 if (centerInput.value.trim().length > 0) {
                     centerSuggestions?.classList.remove('visible');
                     centerSuggestions?.setAttribute('aria-hidden', 'true');
@@ -683,7 +1197,10 @@
             function updateSearchModeUI() {
                 if (!searchBoxCenter) return;
                 const isSearchOnly = menuItems[1]?.getAttribute('aria-checked') === 'true';
+                const isSearchNav = searchNavItem?.getAttribute('aria-checked') === 'true';
+                const isPhase2 = document.body.getAttribute('data-phase') === '2';
                 searchBoxCenter.classList.toggle('search-mode-only', isSearchOnly);
+                searchBoxCenter.closest('.search-bar-center')?.classList.toggle('has-firefox-suggest', isPhase2 && isSearchNav);
             }
             function applyPhaseDefaults(phase) {
                 if (!menuItems.length) return;
@@ -726,9 +1243,12 @@
                 });
                 document.addEventListener('click', (e) => {
                     if (menuDropdown.classList.contains('fade-out')) return;
-                    if (e.target.closest('.search-box-menu-btn') || e.target.closest('.search-box-menu-dropdown')) return;
+                    if (e.target.closest('.search-box-menu-btn') || e.target.closest('.search-box-menu-dropdown') || e.target.closest('.search-box-arrow-btn')) return;
                     menuDropdown.classList.remove('open');
                     menuBtn.setAttribute('aria-expanded', 'false');
+                    if (!e.target.closest('.search-bar-center')) {
+                        searchBoxCenter?.classList.remove('focused');
+                    }
                 });
                 menuItems.forEach((btn, i) => {
                     btn.addEventListener('click', (e) => {
@@ -743,21 +1263,24 @@
                         if (wasChecked) {
                             menuDropdown.classList.remove('open');
                             menuBtn.setAttribute('aria-expanded', 'false');
+                            centerInput?.focus();
                             return;
                         }
+                        if (centerInput?.value.trim()) {
+                            centerInput.value = '';
+                            document.dispatchEvent(new CustomEvent('search-input-cleared'));
+                        }
                         menuDropdown.classList.add('closing');
-                        const FLASH_MS = 200;
-                        btn.classList.remove('menu-item-flash-on');
-                        setTimeout(() => { btn.classList.add('menu-item-flash-on'); }, FLASH_MS);
-                        setTimeout(() => { btn.classList.remove('menu-item-flash-on'); }, FLASH_MS * 2);
-                        setTimeout(() => { btn.classList.add('menu-item-flash-on'); }, FLASH_MS * 3);
+                        btn.classList.add('menu-item-flash-on');
+                        const HIGHLIGHT_MS = 250;
                         setTimeout(() => {
-                            btn.classList.remove('menu-item-flash-on');
                             menuDropdown.classList.add('fade-out');
                             function cleanup() {
+                                btn.classList.remove('menu-item-flash-on');
                                 menuDropdown.classList.remove('open', 'fade-out', 'closing');
                                 menuDropdown.removeAttribute('style');
                                 menuBtn.setAttribute('aria-expanded', 'false');
+                                centerInput?.focus();
                             }
                             const cleanupTimeout = setTimeout(cleanup, 250);
                             menuDropdown.addEventListener('transitionend', function onFadeEnd() {
@@ -765,7 +1288,7 @@
                                 clearTimeout(cleanupTimeout);
                                 cleanup();
                             }, { once: true });
-                        }, FLASH_MS * 4);
+                        }, HIGHLIGHT_MS);
                     });
                 });
             }
