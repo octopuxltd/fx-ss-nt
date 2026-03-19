@@ -975,6 +975,8 @@ const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
 const BACKGROUND_SWATCH_KEY = 'background_swatch';
 const GRADIENT_SEARCH_BORDER_ENABLED_KEY = 'gradient_search_border_enabled';
 const QUICK_BUTTONS_VISIBLE_KEY = 'quick_buttons_visible';
+const UNDERLINE_SEARCH_ENGINES_ENABLED_KEY = 'underline_search_engines_enabled';
+const KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY = 'keyboard_switcher_numbers_enabled';
 
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
@@ -982,6 +984,14 @@ console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[DOM] DOMContentLoaded fired');
+    let underlineSearchEnginesEnabled = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
+    const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
+    document.body.classList.toggle('keyboard-switcher-numbers-enabled', keyboardSwitcherNumbersEnabled);
+    const isUnderlineSearchEnginesEnabled = () => {
+        const checkbox = document.querySelector('.underline-search-engines-checkbox');
+        if (checkbox) return checkbox.checked;
+        return underlineSearchEnginesEnabled;
+    };
 
     // Address bar iframe: parent sets width (matches search bar 57.6% / 576px); iframe reports height (including dropdown)
     if (window !== window.top) {
@@ -1010,6 +1020,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     document.body.classList.remove('pin-default-enabled');
                 }
+            } else if (e.data?.type === 'underline-search-engines') {
+                underlineSearchEnginesEnabled = !!e.data.enabled;
+                if (e.data.enabled) {
+                    applyEngineInitialUnderlines();
+                } else {
+                    clearEngineInitialUnderlines();
+                }
+            } else if (e.data?.type === 'switcher-keyboard-numbers') {
+                document.body.classList.toggle('keyboard-switcher-numbers-enabled', !!e.data.enabled);
             } else if (e.data?.type === 'close-switcher') {
                 const btn = document.querySelector('.search-switcher-button');
                 const dropdown = btn?.querySelector('.search-switcher-dropdown');
@@ -1083,11 +1102,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const gradientOff = localStorage.getItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY) === 'false';
             const reducedMotion = localStorage.getItem('reduced_motion_enabled') === 'true';
             const pinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY) === 'true';
+            const underlineSearchEngines = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
+            const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
             iframes.forEach(f => {
                 try {
                     f.contentWindow?.postMessage({ type: 'gradient-search-border-off', off: gradientOff }, '*');
                     f.contentWindow?.postMessage({ type: 'reduced-motion', enabled: reducedMotion }, '*');
                     f.contentWindow?.postMessage({ type: 'pin-default', enabled: pinDefault }, '*');
+                    f.contentWindow?.postMessage({ type: 'underline-search-engines', enabled: underlineSearchEngines }, '*');
+                    f.contentWindow?.postMessage({ type: 'switcher-keyboard-numbers', enabled: keyboardSwitcherNumbersEnabled }, '*');
                 } catch (_) {}
             });
         };
@@ -1355,6 +1378,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchClearButton = document.querySelector('.search-clear-button');
     const searchUrlButton = document.querySelector('.search-url-button');
     const searchButton = document.querySelector('.search-button');
+    const clearCacheButton = document.getElementById('clear-cache-button');
+    if (clearCacheButton) {
+        clearCacheButton.addEventListener('click', async () => {
+            clearCacheButton.disabled = true;
+            const originalText = clearCacheButton.textContent;
+            clearCacheButton.textContent = 'Clearing...';
+            try {
+                // Prototype stores settings + suggestions in localStorage; wipe everything to reset.
+                localStorage.clear();
+                console.log('[CACHE] Cleared all localStorage');
+
+                // Clear Cache Storage entries as well (if the environment supports it).
+                if ('caches' in window && typeof window.caches?.keys === 'function') {
+                    try {
+                        const cacheKeys = await window.caches.keys();
+                        await Promise.all(cacheKeys.map((k) => window.caches.delete(k)));
+                        console.log('[CACHE] Cleared Cache Storage entries:', cacheKeys.length);
+                    } catch (e) {
+                        console.warn('[CACHE] Cache Storage clear failed:', e);
+                    }
+                }
+
+                window.location.reload();
+            } catch (e) {
+                console.error('[CACHE] Clear cache failed:', e);
+                clearCacheButton.textContent = originalText;
+                clearCacheButton.disabled = false;
+            }
+        });
+    }
     let switcherHighlightedIndex = -1;
     let switcherHoveredIndex = -1;
     let restoringFocusFromSwitcher = false;
@@ -1452,6 +1505,70 @@ document.addEventListener('DOMContentLoaded', () => {
         return labelEl ? labelEl.textContent.trim() : '';
     }
 
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, (c) => {
+            if (c === '&') return '&amp;';
+            if (c === '<') return '&lt;';
+            if (c === '>') return '&gt;';
+            if (c === '"') return '&quot;';
+            return '&#39;';
+        });
+    }
+
+    function applyEngineInitialUnderlines() {
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const items = Array.from(enginesContainer.children).filter(
+            c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        );
+
+        const firstSeen = new Set();
+        items.forEach((item) => {
+            const labelEl = item.querySelector('.dropdown-engine-label');
+            if (!labelEl) return;
+
+            if (!labelEl.dataset.originalLabel) {
+                labelEl.dataset.originalLabel = labelEl.textContent || '';
+            }
+
+            const original = labelEl.dataset.originalLabel;
+            const trimmed = (original || '').trim();
+            if (!trimmed) {
+                labelEl.textContent = '';
+                return;
+            }
+
+            const firstChar = trimmed[0];
+            const key = /^[a-z]/i.test(firstChar) ? firstChar.toUpperCase() : '';
+            const shouldUnderline = key && !firstSeen.has(key);
+            if (key) firstSeen.add(key);
+
+            if (!shouldUnderline) {
+                labelEl.textContent = trimmed;
+                return;
+            }
+
+            labelEl.innerHTML = `<span class="engine-initial-underline">${escapeHtml(firstChar)}</span>${escapeHtml(trimmed.slice(1))}`;
+        });
+    }
+
+    function clearEngineInitialUnderlines() {
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const items = Array.from(enginesContainer.children).filter(
+            c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        );
+        items.forEach((item) => {
+            const labelEl = item.querySelector('.dropdown-engine-label');
+            if (!labelEl) return;
+            if (labelEl.dataset.originalLabel) {
+                labelEl.textContent = labelEl.dataset.originalLabel;
+            } else {
+                labelEl.textContent = labelEl.textContent || '';
+            }
+        });
+    }
+
     function getCurrentSearchEngineLabel() {
         const icon = searchSwitcherButton?.querySelector('.google-icon');
         if (icon?.alt) return icon.alt;
@@ -1464,6 +1581,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'Bing': 'https://www.bing.com/search?q=',
         'DuckDuckGo': 'https://duckduckgo.com/?q=',
         'Ecosia': 'https://www.ecosia.org/search?q=',
+        'eBay': 'https://www.ebay.com/sch/i.html?_nkw=',
         'Yahoo': 'https://search.yahoo.com/search?p=',
         'Wikipedia (en)': 'https://en.wikipedia.org/w/index.php?search=',
         'Amazon': 'https://www.amazon.com/s?k=',
@@ -2070,6 +2188,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 sortSection.hidden = labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
             }
             updateKeyboardNumbers();
+            const underlineEnabled = isUnderlineSearchEnginesEnabled();
+            if (underlineEnabled) applyEngineInitialUnderlines();
+            else clearEngineInitialUnderlines();
         }
         
         // Quick buttons visibility toggle
@@ -2135,6 +2256,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             ensureRowActions();
+            const underlineEnabled = isUnderlineSearchEnginesEnabled();
+            if (underlineEnabled) applyEngineInitialUnderlines();
+            else clearEngineInitialUnderlines();
 
             const getEngineItemsForSort = () => Array.from(enginesContainerForRestore.children).filter(
                 c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
@@ -2325,6 +2449,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 updateSwatchPressed();
             });
+        });
+    }
+
+    // Handle underline first letter of search engines checkbox (default: off)
+    const underlineSearchEnginesCheckbox = document.querySelector('.underline-search-engines-checkbox');
+    if (underlineSearchEnginesCheckbox) {
+        const saved = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY);
+        const enabled = saved === 'true';
+        underlineSearchEnginesEnabled = enabled;
+        underlineSearchEnginesCheckbox.checked = enabled;
+        if (enabled) applyEngineInitialUnderlines();
+        else clearEngineInitialUnderlines();
+
+        underlineSearchEnginesCheckbox.addEventListener('change', (e) => {
+            const on = e.target.checked;
+            underlineSearchEnginesEnabled = on;
+            localStorage.setItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY, on ? 'true' : 'false');
+            if (on) applyEngineInitialUnderlines();
+            else clearEngineInitialUnderlines();
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'underline-search-engines', enabled: on }, '*');
+                    } catch (_) {}
+                });
+        });
+    }
+
+    // Handle keyboard switcher numbers checkbox (default: on)
+    const keyboardSwitcherNumbersCheckbox = document.querySelector('.keyboard-switcher-numbers-checkbox');
+    if (keyboardSwitcherNumbersCheckbox) {
+        const enabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
+        keyboardSwitcherNumbersCheckbox.checked = enabled;
+        document.body.classList.toggle('keyboard-switcher-numbers-enabled', enabled);
+        keyboardSwitcherNumbersCheckbox.addEventListener('change', (e) => {
+            const on = e.target.checked;
+            localStorage.setItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY, on ? 'true' : 'false');
+            document.body.classList.toggle('keyboard-switcher-numbers-enabled', on);
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'switcher-keyboard-numbers', enabled: on }, '*');
+                    } catch (_) {}
+                });
         });
     }
 
@@ -2654,6 +2824,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function updateSearchInputForItem(item, typedText) {
         if (!searchInput) return;
+        // In '@' mode we don't want hover/keyboard navigation to overwrite the input,
+        // otherwise it removes the '@...' the user typed.
+        if (typeof typedText === 'string' && typedText.trim().startsWith('@')) {
+            return;
+        }
         const isGmailItem = item.classList.contains('gmail-item');
         const labelEl = item.querySelector('.suggestion-label');
         const suggestionText = labelEl ? labelEl.textContent.trim() : '';
@@ -2788,7 +2963,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     .filter(title => title.toLowerCase().trim() !== searchValueTrimmed.toLowerCase())
                 : [];
         } else if (isAtQuery) {
-            suggestionsToShow = suggestions;
+            // For '@' mode, show only the matching options (engines + firefox sources),
+            // not an extra "echo" of what the user is already typing.
+            suggestionsToShow = Array.isArray(suggestions) ? suggestions : [];
         } else if (searchValueTrimmed) {
             suggestionsToShow = [searchValueTrimmed, ...(Array.isArray(suggestions) ? suggestions : []).filter(s => {
                 if (typeof s === 'object' && s._localSource) return false;
@@ -2906,6 +3083,7 @@ document.addEventListener('DOMContentLoaded', () => {
             suggestionsToShow.forEach((suggestionOrObj, index) => {
                 const isVisitSite = typeof suggestionOrObj === 'object' && suggestionOrObj._visitSite;
                 const isLocalSource = typeof suggestionOrObj === 'object' && suggestionOrObj._localSource;
+                const isSearchEngineSuggestion = typeof suggestionOrObj === 'object' && suggestionOrObj._searchEngine;
                 const suggestion = isVisitSite ? suggestionOrObj._text : (isLocalSource ? suggestionOrObj.label : suggestionOrObj);
                 const typedTextIndex = suggestionsToShow[0]?._visitSite ? 1 : 0;
                 const isTypedText = !isVisitSite && index === typedTextIndex && searchValueTrimmed && (suggestion || '').toLowerCase() === searchValueTrimmed.toLowerCase();
@@ -3050,7 +3228,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.appendChild(moreIcon);
                 } else {
                     if (isLocalSource) {
-                        hintText.dataset.searchHint = 'Search in ' + suggestion;
+                        hintText.dataset.searchHint = isSearchEngineSuggestion
+                            ? 'Search with ' + suggestion
+                            : 'Search in ' + suggestion;
                     } else if (!isVisitSite) {
                         hintText.dataset.searchHint = 'Search with ' + getCurrentSearchEngineLabel();
                     }
@@ -3080,7 +3260,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         // Set keyboard selection index when suggestions change
-        selectedSuggestionIndex = searchValueTrimmed ? 0 : -1;
+        // In '@' mode, we don't want to auto-highlight the top row.
+        selectedSuggestionIndex = isAtQuery ? -1 : (searchValueTrimmed ? 0 : -1);
         lastTypedTextInInput = searchValueTrimmed || '';
         lastHoveredItemForInput = null;
         updateSelectedSuggestion(false);
@@ -3254,15 +3435,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Handle @ query - show only local sources (Bookmarks, Tabs, History, Actions)
+            // Handle @ query - show search engines + Firefox sources from the switcher
             if (valueLower.startsWith('@')) {
                 const afterAt = valueLower.slice(1).trim();
-                const localSources = [
-                    { _localSource: true, label: 'Bookmarks', icon: 'icons/star.svg' },
-                    { _localSource: true, label: 'Tabs', icon: 'icons/tabs.svg' },
-                    { _localSource: true, label: 'History', icon: 'icons/history.svg' },
-                    { _localSource: true, label: 'Actions', icon: 'icons/actions.svg' }
-                ];
+                const switcherDropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+                const engineItems = switcherDropdown
+                    ? Array.from(switcherDropdown.querySelectorAll('.dropdown-search-engines .dropdown-item')).filter(
+                        el => el.querySelector('.dropdown-engine-label')
+                    )
+                    : [];
+                const firefoxItems = switcherDropdown
+                    ? Array.from(switcherDropdown.querySelectorAll('.dropdown-firefox-suggestions .dropdown-item'))
+                    : [];
+                const localSources = engineItems
+                    .map((item) => {
+                        const label = getEngineLabel(item);
+                        const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+                        const icon = iconEl?.getAttribute('src') || '';
+                        if (!label) return null;
+                        return { _localSource: true, _searchEngine: true, label, icon };
+                    })
+                    .filter(Boolean)
+                    .concat(
+                        firefoxItems
+                            .map((item) => {
+                                const label = item.querySelector('span')?.textContent?.trim() || '';
+                                const iconEl = item.querySelector('.dropdown-icon, .dropdown-engine-icon');
+                                const icon = iconEl?.getAttribute('src') || '';
+                                if (!label) return null;
+                                return { _localSource: true, label, icon };
+                            })
+                            .filter(Boolean)
+                    );
                 const matching = afterAt
                     ? localSources.filter(s => s.label.toLowerCase().startsWith(afterAt))
                     : localSources;
@@ -3511,6 +3715,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const switcherOpen = searchSwitcherButton?.classList.contains('open');
         const switcherKeyboardMode = searchSwitcherButton?.classList.contains('switcher-opened-by-keyboard');
         if (switcherOpen && !event.altKey) {
+            const isPlainLetterKey = /^[a-z]$/i.test(event.key) && !event.ctrlKey && !event.metaKey;
+            if (isPlainLetterKey) {
+                const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+                const engineItems = enginesContainer ? Array.from(enginesContainer.children).filter(
+                    c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+                ) : [];
+                const keyLetter = event.key.toUpperCase();
+                const match = engineItems.find((item) => {
+                    const label = getEngineLabel(item);
+                    return label && label.trim().charAt(0).toUpperCase() === keyLetter;
+                });
+                if (match) {
+                    event.preventDefault();
+                    applySelectedSearchSource(match);
+                    const query = (searchInput?.value || '').trim();
+                    if (query) {
+                        runSearchWithEngine(query, getEngineLabel(match), true);
+                    }
+                    searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
+                    switcherHighlightedIndex = -1;
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
+                    if (searchContainer?.classList.contains('focused')) {
+                        restoreFocusAndOpaqueSuggestions();
+                    } else if (searchSwitcherButton?.contains(document.activeElement)) {
+                        document.activeElement?.blur?.();
+                    }
+                    return;
+                }
+            }
             if (switcherKeyboardMode && /^[1-9]$/.test(event.key)) {
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
                 const engineItems = enginesContainer ? Array.from(enginesContainer.children).filter(
@@ -3521,6 +3755,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     event.preventDefault();
                     const item = engineItems[index];
                     applySelectedSearchSource(item);
+                    const query = (searchInput?.value || '').trim();
+                    if (query) {
+                        runSearchWithEngine(query, getEngineLabel(item), true);
+                    }
                     searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                     searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
                     switcherHighlightedIndex = -1;

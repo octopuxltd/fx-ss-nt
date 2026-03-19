@@ -368,12 +368,13 @@ body.gradient-search-border-off .search-box-wrapper-outer::before {
     font-weight: 400;
     line-height: 1.4;
     color: #1F2933;
-    background: #fff;
+    background: #FFF7CC; /* pale yellow */
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     white-space: normal;
-    max-width: 280px;
-    width: max-content;
+    max-width: calc(100vw - 24px);
+    width: 360px;
     z-index: 10000;
     pointer-events: auto;
 }
@@ -501,6 +502,34 @@ body.reduced-motion .dropdown-firefox-suggestions {
     scroll-behavior: auto;
 }
 
+/* Combined scroll area for engines + Firefox sources (single scrollbar) */
+.dropdown-engines-firefox-scroll {
+    max-height: 300px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.dropdown-engines-firefox-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+body.reduced-motion .dropdown-engines-firefox-scroll {
+    scroll-behavior: auto;
+}
+
+/* Disable per-section scrolling now handled by the wrapper */
+.dropdown-engines-firefox-scroll .dropdown-search-engines {
+    max-height: none;
+    overflow-y: visible;
+}
+
+.dropdown-engines-firefox-scroll .dropdown-firefox-suggestions {
+    max-height: none;
+    overflow-y: visible;
+}
+
 .dropdown-item {
     display: flex;
     align-items: center;
@@ -534,6 +563,12 @@ body.reduced-motion .dropdown-firefox-suggestions {
     height: 16px;
     flex-shrink: 0;
     opacity: 1;
+}
+
+.engine-initial-underline {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
 }
 
 .dropdown-item-pinned {
@@ -637,7 +672,7 @@ body.reduced-motion .dropdown-item.dragging {
 
 .dropdown-item-firefox-suggestion {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
 }
 
@@ -678,6 +713,11 @@ body.reduced-motion .dropdown-item.dragging {
 
 .dropdown-firefox-toggle:hover svg {
     stroke-width: 3.5;
+}
+
+/* Hide Firefox source include toggles/checkboxes in the switcher */
+.dropdown-item-firefox-suggestion .dropdown-firefox-toggle {
+    display: none !important;
 }
 
 .dropdown-firefox-toggle:not(.checked) svg {
@@ -858,18 +898,18 @@ body.reduced-motion .dropdown-item.dragging {
 }
 
 .bottom-left-panel-heading {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 400;
     color: rgba(255, 255, 255, 0.9);
-    margin: 0 0 12px 0;
+    margin: 0 0 10px 0;
 }
 
 .bottom-left-panel-content {
-    transform: translateY(calc(100% - 42px));
+    transform: translateY(calc(100% - 38px));
     transition: transform 0.3s ease-out;
     background: rgba(0, 0, 0, 0.25);
     border-radius: 12px 12px 0 0;
-    padding: 16px 20px 20px 20px;
+    padding: 12px 16px 16px 16px;
     margin-left: 20px;
 }
 
@@ -884,7 +924,7 @@ body.reduced-motion .bottom-left-panel-content {
 .bottom-left-controls {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .bottom-left-panel-divider {
@@ -895,14 +935,21 @@ body.reduced-motion .bottom-left-panel-content {
     background-color: rgba(255, 255, 255, 0.25);
 }
 
+.prototype-options-section-heading {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.75);
+    letter-spacing: 0.01em;
+}
+
 .bottom-left-controls label {
     display: flex;
     flex-direction: row-reverse;
     justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
-    font-size: 14px;
+    font-size: 12px;
     color: rgba(255, 255, 255, 0.9);
     cursor: pointer;
     user-select: none;
@@ -911,30 +958,63 @@ body.reduced-motion .bottom-left-panel-content {
 .reduced-motion-checkbox,
 .pin-default-checkbox,
 .standalone-search-box-checkbox,
-.gradient-search-border-checkbox {
+.gradient-search-border-checkbox,
+.underline-search-engines-checkbox,
+.keyboard-switcher-numbers-checkbox {
     cursor: pointer;
+}
+
+.clear-cache-button {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.92);
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease-out, transform 0.05s ease-out;
+    text-align: center;
+}
+
+.clear-cache-button:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.clear-cache-button:active {
+    transform: translateY(1px);
+}
+
+.clear-cache-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
 }
 
 .background-swatches-control {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
+    width: 100%;
 }
 
 .background-swatches-label {
-    font-size: 14px;
+    font-size: 12px;
     color: rgba(255, 255, 255, 0.9);
 }
 
 .background-swatches {
     display: flex;
     gap: 6px;
+    margin-left: auto;
+    justify-content: flex-end;
 }
 
 .background-swatch {
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
     border: none;
     outline: none;
     padding: 0;
@@ -944,7 +1024,7 @@ body.reduced-motion .bottom-left-panel-content {
 }
 
 .background-swatch:hover {
-    transform: scale(1.08);
+    transform: scale(1.1);
 }
 
 .background-swatch:focus {
@@ -1053,12 +1133,27 @@ body.pin-default-enabled .dropdown-item-drag-handle {
     display: none !important;
 }
 
+/* When pin-default mode is enabled, hide keyboard numbers outside keyboard-opened mode */
+body.pin-default-enabled .search-switcher-button:not(.switcher-opened-by-keyboard) .dropdown-item-keyboard-num {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* In pin-default mode, hide pin controls once query text exists */
+body.pin-default-enabled .search-container.search-has-typed-input .dropdown-item-pin-empty,
+body.pin-default-enabled .search-container.search-has-typed-input .dropdown-item-pin {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
 /* Open in new window icon (replaces drag handle) - visible only on hovered row when input has text */
 .search-container:not(.search-has-typed-input) .dropdown-item-row-action {
     display: none !important;
 }
 
-body:not(.pin-default-enabled) .search-container.search-has-typed-input .dropdown-item-row-action {
+.search-container.search-has-typed-input .dropdown-item-row-action {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1068,12 +1163,12 @@ body:not(.pin-default-enabled) .search-container.search-has-typed-input .dropdow
     pointer-events: none;
 }
 
-body:not(.pin-default-enabled) .dropdown-item:hover .dropdown-item-row-action {
+.dropdown-item:hover .dropdown-item-row-action {
     opacity: 0.8;
     pointer-events: auto;
 }
 
-body:not(.pin-default-enabled) .dropdown-item-open-new-window {
+.dropdown-item-open-new-window {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1084,18 +1179,18 @@ body:not(.pin-default-enabled) .dropdown-item-open-new-window {
     border-radius: 4px;
 }
 
-body:not(.pin-default-enabled) .dropdown-item-open-new-window:hover {
+.dropdown-item-open-new-window:hover {
     background-color: rgba(0, 0, 0, 0.06);
 }
 
-body:not(.pin-default-enabled) .dropdown-item-open-new-window img {
+.dropdown-item-open-new-window img {
     width: 14px;
     height: 14px;
     display: block;
 }
 
-/* Keyboard numbers: shown instead of drag handle when opened via Alt+Arrow */
-body:not(.pin-default-enabled) .dropdown-item-keyboard-num {
+/* Keyboard numbers: shown instead of pins when opened via Alt+Arrow */
+.dropdown-item-keyboard-num {
     display: none;
     align-items: center;
     justify-content: center;
@@ -1124,13 +1219,47 @@ body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboa
     display: none;
 }
 
-body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-keyboard-num {
+.search-switcher-button.switcher-opened-by-keyboard .dropdown-item-keyboard-num {
     display: flex;
     margin-right: 2px;
 }
 
+/* In keyboard mode, row action stays visible so number badges can be seen without hover */
+.search-switcher-button.switcher-opened-by-keyboard .dropdown-item-row-action {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto;
+    margin-left: auto !important;
+    margin-right: -2px !important;
+}
+
+/* Keep labels left-aligned when keyboard mode swaps pins for numbers */
+.search-switcher-button.switcher-opened-by-keyboard .dropdown-item-pinned,
+.search-switcher-button.switcher-opened-by-keyboard .dropdown-item-search-engine {
+    justify-content: flex-start;
+}
+
+/* In keyboard mode, hide pin icons so numbers are shown instead */
+.search-switcher-button.switcher-opened-by-keyboard .dropdown-item-pin-empty,
+.search-switcher-button.switcher-opened-by-keyboard .dropdown-item-pin {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* In keyboard mode show number badges only, not open-in-new icon */
+.search-switcher-button.switcher-opened-by-keyboard .dropdown-item-open-new-window {
+    display: none !important;
+}
+
+/* Optional prototype setting: hide keyboard numbers in switcher */
+body:not(.keyboard-switcher-numbers-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-row-action,
+body:not(.keyboard-switcher-numbers-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-keyboard-num {
+    display: none !important;
+}
+
 /* Hide number box entirely for items 10+ (empty = no number) */
-body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-drag-handle:has(.dropdown-item-keyboard-num:empty) {
+.search-switcher-button.switcher-opened-by-keyboard .dropdown-item-row-action:has(.dropdown-item-keyboard-num:empty) .dropdown-item-keyboard-num {
     display: none;
 }
 

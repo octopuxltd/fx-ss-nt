@@ -147,7 +147,7 @@ body.addressbar .search-switcher-button {
 }
 
 body.addressbar .search-switcher-dropdown {
-    min-width: 130px;
+    min-width: 146px;
     transform-origin: top left;
 }
 
@@ -201,12 +201,25 @@ body.addressbar .engines-sort-alphabetically {
     font-size: 9px;
 }
 
+body.addressbar .dropdown-engines-firefox-scroll {
+    max-height: 215px; /* 120px + 95px combined */
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+body.addressbar .dropdown-engines-firefox-scroll::-webkit-scrollbar {
+    display: none;
+}
+
 body.addressbar .dropdown-search-engines {
-    max-height: 120px;
+    max-height: none;
+    overflow-y: visible;
 }
 
 body.addressbar .dropdown-firefox-suggestions {
-    max-height: 95px;
+    max-height: none;
+    overflow-y: visible;
 }
 
 /* Scale down right-hand buttons (search, clear, URL) */

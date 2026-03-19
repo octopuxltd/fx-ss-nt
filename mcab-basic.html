@@ -226,6 +226,22 @@
             display: flex;
             flex-direction: column;
         }
+        body[data-phase="3"] .search-box-menu-dropdown.open {
+            display: flex;
+            flex-direction: column;
+        }
+        body[data-phase="3"] .search-box-menu-dropdown button:first-child {
+            order: 2;
+        }
+        body[data-phase="3"] .search-box-menu-dropdown button:nth-child(2) {
+            order: 1;
+        }
+        body[data-phase="3"] .search-box-menu-dropdown button.menu-item-search-nav {
+            order: -1;
+        }
+        body[data-phase="3"] .search-box-menu-btn {
+            display: none;
+        }
         body[data-phase="0"] .search-box-menu-dropdown button:first-child {
             order: 2;
         }
@@ -412,6 +428,7 @@
             flex: 0 0 60%;
             width: 60%;
             min-width: 0;
+            position: relative;
         }
         .addressbar-input-wrapper .search-bar-handoff {
             flex: 1;
@@ -490,7 +507,7 @@
         .handoff-search-box .search-input {
             border: none;
             width: 560px;
-            padding: 14px 56px 14px 77px;
+            padding: 14px 88px 14px 77px;
             border: none;
             border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
@@ -498,12 +515,34 @@
         .handoff-search-box .search-input:focus {
             border: none;
         }
-        .handoff-search-btn {
+        .handoff-right-buttons {
             position: absolute;
             right: 8px;
             top: 0;
             bottom: 0;
             margin: auto 0;
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+        .handoff-menu-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 10px;
+            line-height: 1;
+            color: #555;
+            border-radius: 50%;
+        }
+        .handoff-menu-btn:hover {
+            background: rgba(0, 0, 0, 0.06);
+        }
+        .handoff-search-btn {
             width: 32px;
             height: 32px;
             display: flex;
@@ -522,6 +561,49 @@
             width: 16px;
             height: 16px;
             display: block;
+        }
+        .handoff-menu-dropdown {
+            position: absolute;
+            right: 8px;
+            top: calc(100% + 6px);
+            width: max-content;
+            min-width: 200px;
+            max-width: calc(100% - 32px);
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 6px;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(-4px);
+            transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+        }
+        .handoff-menu-dropdown.open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .handoff-menu-dropdown button {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 10px 12px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+            font-size: 14px;
+            color: #202124;
+            border-radius: 6px;
+        }
+        .handoff-menu-dropdown button:hover {
+            background: rgba(0, 0, 0, 0.05);
         }
         .search-bar {
             background: #fff;
@@ -765,9 +847,13 @@
         body[data-phase="0"] .phase-explanation {
             border-bottom-left-radius: 0;
         }
+        body[data-phase="3"] .phase-explanation {
+            border-bottom-left-radius: 0;
+        }
         body[data-phase="0"] .phase-explanation p[data-phase="0"],
         body[data-phase="1"] .phase-explanation p[data-phase="1"],
         body[data-phase="2"] .phase-explanation p[data-phase="2"],
+        body[data-phase="3"] .phase-explanation p[data-phase="3"],
         body[data-phase="2"] .phase-explanation ul[data-phase="2"] {
             display: block;
         }
@@ -776,11 +862,13 @@
 <body>
     <div class="phase-controls">
         <div class="phase-toggle" role="group" aria-label="Phase">
+            <button type="button" data-phase="3"><span class="phase-label">Current handoff demo</span></button>
             <button type="button" class="active" data-phase="2"><span class="phase-label">Perfect for launch</span></button>
             <button type="button" data-phase="1"><span class="phase-label">Timeline reality</span></button>
-            <button type="button" data-phase="0"><span class="phase-label">Suggested mitigation</span></button>
+            <button type="button" data-phase="0"><span class="phase-label">Potential mitigation</span></button>
         </div>
         <div class="phase-explanation" aria-live="polite">
+            <p data-phase="3">This is just a demo of the existing hand-off. The UX has taught users that they can use the New Tab search box for both navigation and searching, so we <strong>must</strong> retain both of those features when we replace this.</p>
             <p data-phase="0">If we want to give users the option of searching directly in the New Tab search box as soon as possible, then we can do that whilst leaving the handoff as the default state. This means that the search bar will continue to support both navigation and search, as we continue work.</p>
             <p data-phase="0">Click the <span class="menu-dots-inline">•••</span> to see how this could be shown to users.</p>
             <p data-phase="1">The engineering timeline only allows us to complete 'searching only' mode before the New Tab redesign launches.</p>
@@ -815,9 +903,12 @@
                     <span class="search-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
                 </div>
                 <input type="search" class="search-input handoff-search-input" placeholder="Search with Google or enter address" aria-label="Search">
-                <button type="button" class="handoff-search-btn" aria-label="Search" title="Search">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </button>
+                <div class="handoff-right-buttons">
+                    <button type="button" class="handoff-menu-btn" aria-label="Options" aria-expanded="false" aria-haspopup="true"><span class="menu-btn-dots">•••</span></button>
+                    <button type="button" class="handoff-search-btn" aria-label="Search" title="Search">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                </div>
             </div>
             <div class="search-suggestions" id="handoff-suggestions" aria-hidden="true">
                 <div class="search-suggestions-divider"></div>
@@ -825,6 +916,11 @@
                 <h3 class="suggestions-subheading">Firefox Suggest</h3>
                 <ul class="search-suggestions-list handoff-websites-list" role="listbox"></ul>
             </div>
+        </div>
+        <div class="handoff-menu-dropdown" role="menu">
+            <button type="button" role="menuitem">Copy address</button>
+            <button type="button" role="menuitem">Paste and go</button>
+            <button type="button" role="menuitem">Add bookmark</button>
         </div>
         </div>
         <div class="addressbar-right">
@@ -1292,6 +1388,22 @@
                     });
                 });
             }
+        })();
+
+        (function() {
+            const handoffMenuBtn = document.querySelector('.handoff-menu-btn');
+            const handoffMenuDropdown = document.querySelector('.handoff-menu-dropdown');
+            if (!handoffMenuBtn || !handoffMenuDropdown) return;
+            handoffMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = handoffMenuDropdown.classList.toggle('open');
+                handoffMenuBtn.setAttribute('aria-expanded', isOpen);
+            });
+            document.addEventListener('click', (e) => {
+                if (e.target.closest('.handoff-menu-btn') || e.target.closest('.handoff-menu-dropdown') || e.target.closest('.handoff-search-btn')) return;
+                handoffMenuDropdown.classList.remove('open');
+                handoffMenuBtn.setAttribute('aria-expanded', 'false');
+            });
         })();
 
         (function() {
