@@ -2193,7 +2193,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else clearEngineInitialUnderlines();
         }
         
-        // Quick buttons visibility toggle
+        // One-off buttons visibility toggle
         const quickButtonsToggle = document.getElementById('quick-buttons-toggle');
         if (quickButtonsToggle) {
             const applyQuickButtonsState = (visible) => {
@@ -2201,19 +2201,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const label = quickButtonsToggle.querySelector('.quick-buttons-label');
                 if (visible) {
                     quickButtonsToggle.dataset.visibility = 'shown';
-                    icon.src = 'icons/eye.svg';
-                    label.textContent = 'Hide Quick Buttons';
+                    icon.src = 'icons/eye-off.svg';
+                    label.textContent = 'Hide one-off buttons';
                 } else {
                     quickButtonsToggle.dataset.visibility = 'hidden';
-                    icon.src = 'icons/eye-off.svg';
-                    label.textContent = 'Show Quick Buttons';
+                    icon.src = 'icons/eye.svg';
+                    label.textContent = 'Show one-off buttons';
                 }
             };
             const savedQuickButtons = localStorage.getItem(QUICK_BUTTONS_VISIBLE_KEY);
-            if (savedQuickButtons === 'false') {
-                applyQuickButtonsState(false);
-            } else {
+            if (savedQuickButtons === 'true') {
                 applyQuickButtonsState(true);
+            } else {
+                applyQuickButtonsState(false);
             }
             quickButtonsToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
