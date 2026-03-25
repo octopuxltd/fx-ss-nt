@@ -972,7 +972,7 @@ const GRADIENT_SEARCH_BORDER_ENABLED_KEY = 'gradient_search_border_enabled';
 const QUICK_BUTTONS_VISIBLE_KEY = 'quick_buttons_visible';
 const UNDERLINE_SEARCH_ENGINES_ENABLED_KEY = 'underline_search_engines_enabled';
 const KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY = 'keyboard_switcher_numbers_enabled';
-const SEARCH_ENGINES_DISPLAY_KEY = 'search_engines_display';
+const SEARCH_ENGINES_DISPLAY_KEY_PREFIX = 'search_engines_display';
 
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 
@@ -981,8 +981,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEBUG_IFRAME_SWITCHER = true;
     const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
     document.body.classList.toggle('keyboard-switcher-numbers-enabled', keyboardSwitcherNumbersEnabled);
+    const getSearchEnginesDisplayKey = () => {
+        // Per-search-bar preference:
+        // - main page search bar
+        // - address bar iframe
+        // - standalone search box iframe
+        const isAddressbar = document.body.classList.contains('addressbar');
+        const isStandalone = document.body.classList.contains('standalone-search-box');
+        const scope = isAddressbar && isStandalone ? 'standalone' : (isAddressbar ? 'addressbar' : 'main');
+        return `${SEARCH_ENGINES_DISPLAY_KEY_PREFIX}:${scope}`;
+    };
     const getSearchEnginesDisplayMode = () =>
-        localStorage.getItem(SEARCH_ENGINES_DISPLAY_KEY) === 'grid' ? 'grid' : 'list';
+        localStorage.getItem(getSearchEnginesDisplayKey()) === 'grid' ? 'grid' : 'list';
     let parentViewportInfo = null; // { viewportH: number, frameTop: number } sent by parent when in iframe
     const ensureGridIconTooltips = () => {
         if (!document.body.classList.contains('search-engines-display-grid')) return;
@@ -1069,9 +1079,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     clearEngineInitialUnderlines();
                 }
-            } else if (e.data?.type === 'search-engines-display') {
-                const mode = e.data.mode === 'grid' ? 'grid' : 'list';
-                applySearchEnginesDisplayMode(mode);
             } else if (e.data?.type === 'switcher-viewport') {
                 const vh = Number(e.data.viewportH);
                 const ft = Number(e.data.frameTop);
@@ -1167,7 +1174,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const pinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY) === 'true';
             const underlineSearchEngines = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
             const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
-            const searchEnginesDisplayMode = localStorage.getItem(SEARCH_ENGINES_DISPLAY_KEY) === 'grid' ? 'grid' : 'list';
             const sendViewportToIframe = (iframeEl) => {
                 if (!iframeEl?.contentWindow) return;
                 try {
@@ -1189,7 +1195,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     f.contentWindow?.postMessage({ type: 'pin-default', enabled: pinDefault }, '*');
                     f.contentWindow?.postMessage({ type: 'underline-search-engines', enabled: underlineSearchEngines }, '*');
                     f.contentWindow?.postMessage({ type: 'switcher-keyboard-numbers', enabled: keyboardSwitcherNumbersEnabled }, '*');
-                    f.contentWindow?.postMessage({ type: 'search-engines-display', mode: searchEnginesDisplayMode }, '*');
                 } catch (_) {}
             });
             if (iframe) sendViewportToIframe(iframe);
@@ -1250,10 +1255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         standaloneIframe.style.height = h + 'px';
                     }
                 } else if (e.data?.type === 'search-engines-display-changed') {
-                    const mode = e.data.mode === 'grid' ? 'grid' : 'list';
-                    localStorage.setItem(SEARCH_ENGINES_DISPLAY_KEY, mode);
-                    applySearchEnginesDisplayMode(mode);
-                    sendPrototypeOptionsToIframes();
+                    // no-op (display mode is per-search-bar now)
                 } else if (e.data?.type === 'switcher-request-viewport') {
                     if (DEBUG_IFRAME_SWITCHER) {
                         console.log('[IFRAME→PARENT REQUEST VIEWPORT]');
@@ -2785,20 +2787,10 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             const current = getSearchEnginesDisplayMode();
             const next = current === 'grid' ? 'list' : 'grid';
-            localStorage.setItem(SEARCH_ENGINES_DISPLAY_KEY, next);
+            localStorage.setItem(getSearchEnginesDisplayKey(), next);
             applySearchEnginesDisplayMode(next);
 
-            if (window !== window.top) {
-                window.parent.postMessage({ type: 'search-engines-display-changed', mode: next }, '*');
-            } else {
-                [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
-                    .filter(Boolean)
-                    .forEach(f => {
-                        try {
-                            f.contentWindow?.postMessage({ type: 'search-engines-display', mode: next }, '*');
-                        } catch (_) {}
-                    });
-            }
+            // Intentionally not synced across frames (per-search-bar preference).
         });
     }
 
