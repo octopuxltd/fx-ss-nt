@@ -17,11 +17,6 @@ const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const OPENAI_API_KEY = window.API_CONFIG?.OPENAI_API_KEY || '';
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
-console.log('[API CONFIG] Provider:', AI_PROVIDER);
-console.log('[API CONFIG] OpenRouter key present:', !!OPENROUTER_API_KEY);
-console.log('[API CONFIG] OpenAI key present:', !!OPENAI_API_KEY);
-console.log('[API CONFIG] Claude key present:', !!CLAUDE_API_KEY);
-
 // ===== FIREFOX HINT TEXT =====
 // Cache a date; compute relative string when rendering; show actual date on hover
 
@@ -979,17 +974,39 @@ const UNDERLINE_SEARCH_ENGINES_ENABLED_KEY = 'underline_search_engines_enabled';
 const KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY = 'keyboard_switcher_numbers_enabled';
 const SEARCH_ENGINES_DISPLAY_KEY = 'search_engines_display';
 
-console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
-console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('[DOM] DOMContentLoaded fired');
     let underlineSearchEnginesEnabled = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
+    const DEBUG_IFRAME_SWITCHER = true;
     const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
     document.body.classList.toggle('keyboard-switcher-numbers-enabled', keyboardSwitcherNumbersEnabled);
     const getSearchEnginesDisplayMode = () =>
         localStorage.getItem(SEARCH_ENGINES_DISPLAY_KEY) === 'grid' ? 'grid' : 'list';
+    let parentViewportInfo = null; // { viewportH: number, frameTop: number } sent by parent when in iframe
+    const ensureGridIconTooltips = () => {
+        if (!document.body.classList.contains('search-engines-display-grid')) return;
+        const container = document.querySelector('.search-switcher-button');
+        if (!container) return;
+
+        const enginesContainer = container.querySelector('.dropdown-search-engines');
+        if (enginesContainer) {
+            enginesContainer.querySelectorAll('.dropdown-item').forEach(item => {
+                if (!item.querySelector('.dropdown-engine-icon')) return;
+                const label = getEngineLabel(item);
+                if (label) item.title = label;
+            });
+        }
+
+        const firefoxContainer = container.querySelector('.dropdown-firefox-suggestions');
+        if (firefoxContainer) {
+            firefoxContainer.querySelectorAll('.dropdown-item-firefox-suggestion').forEach(item => {
+                const textEl = item.querySelector('span');
+                const label = (textEl?.textContent || '').trim();
+                if (label) item.title = label;
+            });
+        }
+    };
     const applySearchEnginesDisplayMode = (mode) => {
         const normalized = mode === 'grid' ? 'grid' : 'list';
         document.body.classList.toggle('search-engines-display-grid', normalized === 'grid');
@@ -1003,12 +1020,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = toggle.querySelector('.search-engines-display-toggle-label');
             if (normalized === 'grid') {
                 if (icon) icon.src = 'icons/view-list.svg';
-                if (label) label.textContent = 'Show as list';
+                if (label) label.textContent = 'Search Engines as list';
             } else {
                 if (icon) icon.src = 'icons/view-grid.svg';
-                if (label) label.textContent = 'Show as grid';
+                if (label) label.textContent = 'Search Engines as grid';
             }
         }
+        ensureGridIconTooltips();
     };
     applySearchEnginesDisplayMode(getSearchEnginesDisplayMode());
     const isUnderlineSearchEnginesEnabled = () => {
@@ -1054,6 +1072,15 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (e.data?.type === 'search-engines-display') {
                 const mode = e.data.mode === 'grid' ? 'grid' : 'list';
                 applySearchEnginesDisplayMode(mode);
+            } else if (e.data?.type === 'switcher-viewport') {
+                const vh = Number(e.data.viewportH);
+                const ft = Number(e.data.frameTop);
+                if (Number.isFinite(vh) && Number.isFinite(ft)) {
+                    parentViewportInfo = { viewportH: vh, frameTop: ft };
+                    if (DEBUG_IFRAME_SWITCHER) {
+                        console.log('[IFRAME SWITCHER VIEWPORT]', 'viewportH=', vh, 'frameTop=', Math.round(ft));
+                    }
+                }
             } else if (e.data?.type === 'switcher-keyboard-numbers') {
                 document.body.classList.toggle('keyboard-switcher-numbers-enabled', !!e.data.enabled);
             } else if (e.data?.type === 'close-switcher') {
@@ -1079,11 +1106,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let bottom = rect.bottom;
             const switcherButton = container.querySelector('.search-switcher-button');
             const dropdown = switcherButton?.querySelector('.search-switcher-dropdown');
-            if (switcherButton?.classList.contains('open') && dropdown) {
-                const dropdownRect = dropdown.getBoundingClientRect();
-                const fullDropdownBottom = dropdownRect.top + dropdown.scrollHeight;
+            const dropdownOpen = !!(switcherButton?.classList.contains('open'));
+            const dropdownRevealed = !!(dropdown?.classList.contains('dropdown-revealed'));
+            let dropdownRect = null;
+            let fullDropdownBottom = null;
+            if (dropdownOpen && dropdown) {
+                dropdownRect = dropdown.getBoundingClientRect();
+                fullDropdownBottom = dropdownRect.top + dropdown.scrollHeight;
                 bottom = Math.max(bottom, fullDropdownBottom);
             }
+
             const h = bottom + 4;
             window.parent.postMessage({ type: 'addressbar-height', height: h }, '*');
         };
@@ -1124,6 +1156,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const iframe = document.querySelector('.addressbar-iframe');
         const standaloneIframe = document.querySelector('.standalone-search-box-iframe');
         const iframes = [iframe, standaloneIframe].filter(Boolean);
+        let addressbarSwitcherOpen = false;
+        let standaloneSwitcherOpen = false;
+        let lastAddressbarReportedHeight = null;
+        let lastStandaloneReportedHeight = null;
 
         const sendPrototypeOptionsToIframes = () => {
             const gradientOff = localStorage.getItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY) === 'false';
@@ -1132,6 +1168,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const underlineSearchEngines = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
             const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
             const searchEnginesDisplayMode = localStorage.getItem(SEARCH_ENGINES_DISPLAY_KEY) === 'grid' ? 'grid' : 'list';
+            const sendViewportToIframe = (iframeEl) => {
+                if (!iframeEl?.contentWindow) return;
+                try {
+                    const r = iframeEl.getBoundingClientRect();
+                    iframeEl.contentWindow.postMessage({
+                        type: 'switcher-viewport',
+                        viewportH: window.innerHeight,
+                        frameTop: r.top
+                    }, '*');
+                    if (DEBUG_IFRAME_SWITCHER) {
+                        console.log('[PARENT→IFRAME VIEWPORT]', iframeEl.className, 'viewportH=', window.innerHeight, 'frameTop=', Math.round(r.top));
+                    }
+                } catch (_) {}
+            };
             iframes.forEach(f => {
                 try {
                     f.contentWindow?.postMessage({ type: 'gradient-search-border-off', off: gradientOff }, '*');
@@ -1142,6 +1192,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     f.contentWindow?.postMessage({ type: 'search-engines-display', mode: searchEnginesDisplayMode }, '*');
                 } catch (_) {}
             });
+            if (iframe) sendViewportToIframe(iframe);
+            if (standaloneIframe) sendViewportToIframe(standaloneIframe);
         };
 
         if (iframe) {
@@ -1161,11 +1213,40 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             const setHeight = (e) => {
                 if (e.data?.type === 'addressbar-height' && typeof e.data.height === 'number') {
-                    const h = e.data.height;
+                    let h = e.data.height;
                     if (e.source === iframe.contentWindow) {
+                        lastAddressbarReportedHeight = h;
+                        // Clamp to viewport bottom (top window knows its own viewport).
+                        try {
+                            const r = iframe.getBoundingClientRect();
+                            const bottomPadding = 8;
+                            const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
+                            if (addressbarSwitcherOpen) {
+                                h = maxAllowed;
+                            } else {
+                                h = Math.min(h, maxAllowed);
+                            }
+                            if (DEBUG_IFRAME_SWITCHER) {
+                                console.log('[PARENT IFRAME HEIGHT]', 'addressbar', 'incoming=', e.data.height, 'open=', addressbarSwitcherOpen, 'maxAllowed=', maxAllowed, 'applied=', h);
+                            }
+                        } catch (_) {}
                         iframe.style.height = h + 'px';
                         updateBandHeight(h);
                     } else if (standaloneIframe && e.source === standaloneIframe.contentWindow) {
+                        lastStandaloneReportedHeight = h;
+                        try {
+                            const r = standaloneIframe.getBoundingClientRect();
+                            const bottomPadding = 8;
+                            const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
+                            if (standaloneSwitcherOpen) {
+                                h = maxAllowed;
+                            } else {
+                                h = Math.min(h, maxAllowed);
+                            }
+                            if (DEBUG_IFRAME_SWITCHER) {
+                                console.log('[PARENT IFRAME HEIGHT]', 'standalone', 'incoming=', e.data.height, 'open=', standaloneSwitcherOpen, 'maxAllowed=', maxAllowed, 'applied=', h);
+                            }
+                        } catch (_) {}
                         standaloneIframe.style.height = h + 'px';
                     }
                 } else if (e.data?.type === 'search-engines-display-changed') {
@@ -1173,6 +1254,65 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem(SEARCH_ENGINES_DISPLAY_KEY, mode);
                     applySearchEnginesDisplayMode(mode);
                     sendPrototypeOptionsToIframes();
+                } else if (e.data?.type === 'switcher-request-viewport') {
+                    if (DEBUG_IFRAME_SWITCHER) {
+                        console.log('[IFRAME→PARENT REQUEST VIEWPORT]');
+                    }
+                    const sourceWin = e.source;
+                    const sourceIsAddressbar = iframe && sourceWin === iframe.contentWindow;
+                    const sourceIsStandalone = standaloneIframe && sourceWin === standaloneIframe.contentWindow;
+                    const targetIframe = sourceIsAddressbar ? iframe : (sourceIsStandalone ? standaloneIframe : null);
+                    if (targetIframe) {
+                        try {
+                            const r = targetIframe.getBoundingClientRect();
+                            targetIframe.contentWindow?.postMessage({
+                                type: 'switcher-viewport',
+                                viewportH: window.innerHeight,
+                                frameTop: r.top
+                            }, '*');
+                            if (DEBUG_IFRAME_SWITCHER) {
+                                console.log('[PARENT→IFRAME VIEWPORT (on request)]', targetIframe.className, 'viewportH=', window.innerHeight, 'frameTop=', Math.round(r.top));
+                            }
+                        } catch (_) {}
+                    }
+                } else if (e.data?.type === 'switcher-open-state') {
+                    const sourceWin = e.source;
+                    const sourceIsAddressbar = iframe && sourceWin === iframe.contentWindow;
+                    const sourceIsStandalone = standaloneIframe && sourceWin === standaloneIframe.contentWindow;
+                    const targetIframe = sourceIsAddressbar ? iframe : (sourceIsStandalone ? standaloneIframe : null);
+                    if (sourceIsAddressbar) addressbarSwitcherOpen = !!e.data?.open;
+                    if (sourceIsStandalone) standaloneSwitcherOpen = !!e.data?.open;
+
+                    if (targetIframe && e.data?.open === true) {
+                        try {
+                            const r = targetIframe.getBoundingClientRect();
+                            const bottomPadding = 8;
+                            const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
+                            targetIframe.style.height = maxAllowed + 'px';
+                            if (targetIframe === iframe) updateBandHeight(maxAllowed);
+                        } catch (_) {}
+                    }
+                    if (targetIframe && e.data?.open === false) {
+                        // Restore iframe height so it doesn't block the main page.
+                        try {
+                            const r = targetIframe.getBoundingClientRect();
+                            const bottomPadding = 8;
+                            const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
+                            let restoreH = null;
+                            if (targetIframe === iframe && typeof lastAddressbarReportedHeight === 'number') {
+                                restoreH = lastAddressbarReportedHeight;
+                            }
+                            if (targetIframe === standaloneIframe && typeof lastStandaloneReportedHeight === 'number') {
+                                restoreH = lastStandaloneReportedHeight;
+                            }
+                            if (typeof restoreH === 'number') {
+                                restoreH = Math.min(restoreH, maxAllowed);
+                                targetIframe.style.height = restoreH + 'px';
+                                if (targetIframe === iframe) updateBandHeight(restoreH);
+                            }
+                        } catch (_) {}
+                    }
+                    console.log('[IFRAME SWITCHER OPEN STATE]', sourceIsAddressbar ? 'addressbar' : (sourceIsStandalone ? 'standalone' : 'unknown'), 'open=', !!e.data?.open);
                 }
             };
             updateIframeSize();
@@ -1199,6 +1339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (iframes.some(f => f.contentDocument?.readyState === 'complete')) {
             sendPrototypeOptionsToIframes();
         }
+        window.addEventListener('resize', sendPrototypeOptionsToIframes);
         document.addEventListener('click', () => {
             iframes.forEach(f => {
                 try {
@@ -1328,14 +1469,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tooltipPinned) hideTooltip();
     });
 
-    console.log('[DOM] Body has reduced-motion class?', document.body.classList.contains('reduced-motion'));
     const searchInput = document.querySelector('.search-input');
     const inspectSuggestions = new URLSearchParams(location.search).get('inspect') === '1' || localStorage.getItem('inspectSuggestions') === 'true';
 
     // Clear search input on page load
     if (searchInput) {
         searchInput.value = '';
-        console.log('[DOM] Cleared search input on load');
     }
     const searchContainer = document.querySelector('.search-container');
     const firefoxLogo = document.querySelector('.firefox-logo');
@@ -1638,7 +1777,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sameTab) {
             target.location.href = url;
         } else {
-            target.open(url, '_blank');
+            // Best-effort "background tab": open then re-focus this window.
+            const w = target.open(url, '_blank', 'noopener,noreferrer');
+            try {
+                w?.blur?.();
+            } catch (_) {}
+            try {
+                window.focus();
+            } catch (_) {}
         }
     }
 
@@ -1754,15 +1900,184 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Click on search-box-wrapper focuses the input
     if (searchBoxWrapper && searchInput) {
+        let lastPrimaryUiClickAt = 0;
+
+        // If a primary click (search bar / switcher) shifts the suggestions under the cursor,
+        // suppress a rapid follow-up click that lands on the suggestions panel.
+        document.addEventListener('click', (e) => {
+            const now = Date.now();
+            const isRapidSecondClick = now - lastPrimaryUiClickAt < 275;
+            if (!isRapidSecondClick) return;
+            if (!e.target?.closest) return;
+            if (e.target.closest('.suggestions-list') || e.target.closest('.suggestion-item') || e.target.closest('.suggestions-heading')) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+
         searchBoxWrapper.addEventListener('click', (e) => {
+            const now = Date.now();
+            if (now - lastPrimaryUiClickAt < 275) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            lastPrimaryUiClickAt = now;
             // Don't focus if clicking on a button
             if (e.target.closest('.search-switcher-button') || e.target.closest('.search-button') || e.target.closest('.search-url-button')) {
                 return;
             }
             searchInput.focus();
         });
+
+        // Handle search switcher button dropdown
+        if (searchSwitcherButton) {
+        const searchSwitcherDropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        const setSwitcherDropdownMaxHeight = () => {
+            const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+            if (!dropdown) return;
+            const dropdownRect = dropdown.getBoundingClientRect();
+            const switcherRect = searchSwitcherButton.getBoundingClientRect();
+            const isInIframe = window !== window.top;
+            const viewportH = isInIframe && parentViewportInfo ? parentViewportInfo.viewportH : window.innerHeight;
+            const frameTop = isInIframe && parentViewportInfo ? parentViewportInfo.frameTop : 0;
+            const dropdownTopInViewport = isInIframe && parentViewportInfo ? (frameTop + dropdownRect.top) : dropdownRect.top;
+            const bottomPadding = 8;
+            const available = Math.floor(viewportH - dropdownTopInViewport - bottomPadding);
+            // Never allow the dropdown to extend past viewport bottom.
+            const clamped = Math.max(0, available);
+            dropdown.style.setProperty('--switcher-dropdown-max-height', clamped + 'px');
+            if (DEBUG_IFRAME_SWITCHER && isInIframe) {
+                console.log(
+                    '[IFRAME DROPDOWN MAXHEIGHT]',
+                    'parentInfo=', !!parentViewportInfo,
+                    'viewportH=', viewportH,
+                    'frameTop=', Math.round(frameTop),
+                    'dropdownTop=', Math.round(dropdownTopInViewport),
+                    'scrollH=', Math.round(dropdown.scrollHeight),
+                    'maxPx=', clamped
+                );
+            }
+        };
+
+        // Log/sync metrics even when the switcher opens via keyboard or other paths.
+        const switcherDropdownEl = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(() => {
+                if (searchSwitcherButton.classList.contains('open')) {
+                    setSwitcherDropdownMaxHeight();
+                }
+            }).observe(searchSwitcherButton, { attributes: true, attributeFilter: ['class'] });
+
+            // Keep parent iframe height in sync even when switcher closes via non-click paths
+            // (e.g. parent "close-switcher" message, outside click, keyboard close).
+            if (window !== window.top) {
+                new MutationObserver(() => {
+                    try {
+                        window.parent.postMessage(
+                            { type: 'switcher-open-state', open: searchSwitcherButton.classList.contains('open') },
+                            '*'
+                        );
+                    } catch (_) {}
+                }).observe(searchSwitcherButton, { attributes: true, attributeFilter: ['class'] });
+            }
+
+            if (switcherDropdownEl) {
+                new MutationObserver(() => {
+                    if (switcherDropdownEl.classList.contains('dropdown-revealed')) {
+                        setSwitcherDropdownMaxHeight();
+                    }
+                }).observe(switcherDropdownEl, { attributes: true, attributeFilter: ['class'] });
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            if (searchSwitcherButton.classList.contains('open')) {
+                setSwitcherDropdownMaxHeight();
+            }
+        });
+
+            searchSwitcherButton.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Prevent input from blurring
+            });
+            
+            searchSwitcherButton.addEventListener('click', (e) => {
+                const now = Date.now();
+                if (now - lastPrimaryUiClickAt < 275) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                lastPrimaryUiClickAt = now;
+                e.stopPropagation();
+                const clickedInsideDropdown = e.target.closest('.search-switcher-dropdown');
+                const wasOpen = searchSwitcherButton.classList.contains('open');
+                if (clickedInsideDropdown) {
+                    console.log('[SWITCHER BUTTON CLICK] Ignoring - click was inside dropdown (already handled by dropdown)');
+                    return;
+                }
+                searchSwitcherButton.classList.toggle('open');
+                const isNowOpen = searchSwitcherButton.classList.contains('open');
+                const isInIframe = window !== window.top;
+                if (isInIframe) {
+                    try {
+                        window.parent.postMessage({ type: 'switcher-open-state', open: isNowOpen }, '*');
+                    } catch (_) {}
+                }
+                if (wasOpen && !isNowOpen) {
+                    searchSwitcherDropdown?.classList.remove('dropdown-revealed');
+                    switcherHighlightedIndex = -1;
+                    searchSwitcherButton.classList.remove('switcher-suppress-hover');
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                    if (searchContainer?.classList.contains('focused')) {
+                        restoreFocusAndOpaqueSuggestions();
+                    }
+                } else if (!wasOpen && isNowOpen) {
+                    searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
+                    searchSwitcherDropdown?.classList.remove('dropdown-revealed');
+                    if (isInIframe) {
+                        try {
+                            window.parent.postMessage({ type: 'switcher-request-viewport' }, '*');
+                        } catch (_) {}
+                    }
+                    setSwitcherDropdownMaxHeight();
+                    setTimeout(setSwitcherDropdownMaxHeight, 0);
+                    requestAnimationFrame(setSwitcherDropdownMaxHeight);
+                    requestAnimationFrame(() => requestAnimationFrame(setSwitcherDropdownMaxHeight));
+                    const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+                    if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
+                    const firefoxSuggestionsContainer = searchSwitcherButton?.querySelector('.dropdown-firefox-suggestions');
+                    if (firefoxSuggestionsContainer) firefoxSuggestionsContainer.scrollTo({ top: 0, behavior: 'instant' });
+                    const onRevealed = (e) => {
+                        if (e.propertyName !== 'max-height') return;
+                        searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
+                        if (searchSwitcherButton.classList.contains('open')) {
+                            searchSwitcherDropdown.classList.add('dropdown-revealed');
+                        // Log final geometry once revealed (no expansion required in console).
+                        const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                        const dropdownRect = dropdown?.getBoundingClientRect();
+                        const isInIframe = window !== window.top;
+                        const viewportH = isInIframe && parentViewportInfo ? parentViewportInfo.viewportH : window.innerHeight;
+                        const frameTop = isInIframe && parentViewportInfo ? parentViewportInfo.frameTop : 0;
+                        const bottom = dropdownRect
+                            ? Math.round((isInIframe && parentViewportInfo ? (frameTop + dropdownRect.top) : dropdownRect.top) + dropdown.scrollHeight)
+                            : null;
+                        }
+                    };
+                    searchSwitcherDropdown?.addEventListener('transitionend', onRevealed);
+                    searchInput.blur();
+                    searchSwitcherButton.focus();
+                    searchSwitcherButton.classList.add('switcher-suppress-hover');
+                }
+                
+                console.log('[SWITCHER CLICK] Clicked search switcher button');
+                console.log('[SWITCHER CLICK] Was open:', wasOpen, '→ Now open:', isNowOpen);
+                console.log('[SWITCHER CLICK] Search input focused?', document.activeElement === searchInput);
+                console.log('[SWITCHER CLICK] Suggestions visible?', searchContainer?.classList.contains('focused'));
+            });
+        }
     }
-    
+
     // Delegated click handler for suggestion items (handles static defaults + dynamic items)
     const suggestionsContent = document.querySelector('.suggestions-content');
     if (suggestionsContent) {
@@ -1822,54 +2137,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Handle search switcher button dropdown
     if (searchSwitcherButton) {
-        searchSwitcherButton.addEventListener('mousedown', (e) => {
-            e.preventDefault(); // Prevent input from blurring
-        });
-        
-        searchSwitcherButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const clickedInsideDropdown = e.target.closest('.search-switcher-dropdown');
-            const wasOpen = searchSwitcherButton.classList.contains('open');
-            if (clickedInsideDropdown) {
-                console.log('[SWITCHER BUTTON CLICK] Ignoring - click was inside dropdown (already handled by dropdown)');
-                return;
-            }
-            searchSwitcherButton.classList.toggle('open');
-            const isNowOpen = searchSwitcherButton.classList.contains('open');
-            if (wasOpen && !isNowOpen) {
-                searchSwitcherDropdown?.classList.remove('dropdown-revealed');
-                switcherHighlightedIndex = -1;
-                searchSwitcherButton.classList.remove('switcher-suppress-hover');
-                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
-                if (searchContainer?.classList.contains('focused')) {
-                    restoreFocusAndOpaqueSuggestions();
-                }
-            } else if (!wasOpen && isNowOpen) {
-                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
-                searchSwitcherDropdown?.classList.remove('dropdown-revealed');
-                const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-                if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
-                const firefoxSuggestionsContainer = searchSwitcherButton?.querySelector('.dropdown-firefox-suggestions');
-                if (firefoxSuggestionsContainer) firefoxSuggestionsContainer.scrollTo({ top: 0, behavior: 'instant' });
-                const onRevealed = (e) => {
-                    if (e.propertyName !== 'max-height') return;
-                    searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
-                    if (searchSwitcherButton.classList.contains('open')) {
-                        searchSwitcherDropdown.classList.add('dropdown-revealed');
-                    }
-                };
-                searchSwitcherDropdown?.addEventListener('transitionend', onRevealed);
-                searchInput.blur();
-                searchSwitcherButton.focus();
-                searchSwitcherButton.classList.add('switcher-suppress-hover');
-            }
-            
-            console.log('[SWITCHER CLICK] Clicked search switcher button');
-            console.log('[SWITCHER CLICK] Was open:', wasOpen, '→ Now open:', isNowOpen);
-            console.log('[SWITCHER CLICK] Search input focused?', document.activeElement === searchInput);
-            console.log('[SWITCHER CLICK] Suggestions visible?', searchContainer?.classList.contains('focused'));
-        });
-        
         // When mousedown on search container (not switcher) with switcher open, focus will move to input
         document.addEventListener('mousedown', (e) => {
             if (searchSwitcherButton?.classList.contains('open') &&
@@ -1982,12 +2249,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (!item) return;
                 if (item.id === 'quick-buttons-toggle') return;
+                if (item.id === 'search-engines-display-toggle') return;
                 if (item.textContent.includes('Search Settings')) return;
                 console.log('[SWITCHER MOUSE] Dropdown item clicked, applying selection and closing');
-                applySelectedSearchSource(item);
                 const query = (searchInput?.value || '').trim();
-                if (item.querySelector('.dropdown-engine-label') && query) {
-                    runSearchWithEngine(query, getEngineLabel(item), true);
+                const isEngineItem = !!item.querySelector('.dropdown-engine-label');
+                const openInBackground = (e.metaKey || e.ctrlKey) && isEngineItem && !!query;
+                if (openInBackground) {
+                    runSearchWithEngine(query, getEngineLabel(item), false);
+                } else {
+                    applySelectedSearchSource(item);
+                    if (isEngineItem && query) {
+                        runSearchWithEngine(query, getEngineLabel(item), true);
+                    }
                 }
                 searchSwitcherDropdown.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
@@ -2504,25 +2778,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Handle "Show search engines as" select (default: list)
-    const searchEnginesDisplaySelect = document.getElementById('search-engines-display-select');
-    if (searchEnginesDisplaySelect) {
-        applySearchEnginesDisplayMode(getSearchEnginesDisplayMode());
-
-        searchEnginesDisplaySelect.addEventListener('change', (e) => {
-            const nextMode = e.target.value === 'grid' ? 'grid' : 'list';
-            localStorage.setItem(SEARCH_ENGINES_DISPLAY_KEY, nextMode);
-            applySearchEnginesDisplayMode(nextMode);
-            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
-                .filter(Boolean)
-                .forEach(f => {
-                    try {
-                        f.contentWindow?.postMessage({ type: 'search-engines-display', mode: nextMode }, '*');
-                    } catch (_) {}
-                });
-        });
-    }
-
     // Handle "Show as list / grid" toggle inside the switcher dropdown
     const searchEnginesDisplayToggle = document.getElementById('search-engines-display-toggle');
     if (searchEnginesDisplayToggle) {
@@ -2652,8 +2907,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Calculate and set border radius based on wrapper height
     const updateBorderRadius = () => {
-        console.log('[BORDER-RADIUS] Calculating border radiuses...');
-        
         if (searchBoxWrapper && searchBoxWrapperOuter) {
             const wrapperHeight = searchBoxWrapper.offsetHeight;
             const borderRadius = wrapperHeight / 2;
@@ -2666,15 +2919,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const outerComputedRadius = getComputedStyle(searchBoxWrapperOuter).borderRadius;
             const innerComputedRadius = getComputedStyle(searchBoxWrapper).borderRadius;
             
-            console.log('[BORDER-RADIUS] Search box wrapper:', {
-                wrapperHeight: wrapperHeight,
-                calculatedInnerRadius: borderRadius,
-                calculatedOuterRadius: borderRadius,
-                calculatedGradientRadius: gradientBorderRadius,
-                renderedInnerRadius: innerComputedRadius,
-                renderedOuterRadius: outerComputedRadius
-            });
-            
             // The ::before element needs extra radius since it extends outward by 2px
             document.documentElement.style.setProperty('--outer-border-radius', `${gradientBorderRadius}px`);
         }
@@ -2685,11 +2929,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const buttonHeight = searchSwitcherBtn.offsetHeight;
             const buttonBorderRadius = buttonHeight / 2;
             document.documentElement.style.setProperty('--switcher-button-radius', `${buttonBorderRadius}px`);
-            
-            console.log('[BORDER-RADIUS] Search switcher button:', {
-                height: buttonHeight,
-                radius: buttonBorderRadius
-            });
         }
 
         // Set suggestion items border radius to half the first item's height
@@ -2700,11 +2939,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const minRadius = isAddressbar ? 10 : 15;
             const itemBorderRadius = itemHeight > 0 ? itemHeight / 2 : minRadius;
             document.documentElement.style.setProperty('--suggestion-item-radius', `${itemBorderRadius}px`);
-            
-            console.log('[BORDER-RADIUS] Suggestion items:', {
-                height: itemHeight,
-                radius: itemBorderRadius
-            });
         }
     };
     

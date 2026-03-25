@@ -202,7 +202,8 @@ body.addressbar .engines-sort-alphabetically {
 }
 
 body.addressbar .dropdown-engines-firefox-scroll {
-    max-height: 215px; /* 120px + 95px combined */
+    /* Let the dropdown height be controlled by the viewport-clamped max-height. */
+    max-height: none;
     overflow-y: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;

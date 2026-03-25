@@ -323,19 +323,29 @@ body.gradient-search-border-off .search-box-wrapper-outer::before {
     overflow: hidden;
     z-index: 100;
     transition: max-height 0.25s ease-out;
+    display: flex;
+    flex-direction: column;
 }
 
 .dropdown-content {
     padding: 6px 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .search-switcher-button.open .search-switcher-dropdown {
-    max-height: 600px;
+    max-height: var(--switcher-dropdown-max-height, 600px);
 }
 
 .search-switcher-button.open .search-switcher-dropdown.dropdown-revealed,
 .search-container.focused .suggestions-list.suggestions-revealed {
     overflow: visible;
+}
+
+/* Keep switcher dropdown clipped to rounded corners (prevents hovered last row painting outside). */
+.search-switcher-button.open .search-switcher-dropdown.dropdown-revealed {
+    overflow: hidden;
 }
 
 .dropdown-label {
@@ -504,7 +514,9 @@ body.reduced-motion .dropdown-firefox-suggestions {
 
 /* Combined scroll area for engines + Firefox sources (single scrollbar) */
 .dropdown-engines-firefox-scroll {
-    max-height: 300px;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
     scroll-behavior: smooth;
     scrollbar-width: none;
@@ -527,7 +539,8 @@ body.reduced-motion .dropdown-engines-firefox-scroll {
 
 body.search-engines-display-grid .dropdown-search-engines {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, 28px);
+    justify-content: space-between;
     column-gap: 0;
     row-gap: 6px;
     padding: 6px 12px;
@@ -574,7 +587,37 @@ body.search-engines-display-grid .dropdown-search-engines .dropdown-engine-icon 
 
 body.search-engines-display-grid .dropdown-search-engines .dropdown-item:hover,
 body.search-engines-display-grid .dropdown-search-engines .dropdown-item.highlighted {
-    background-color: rgba(0, 0, 0, 0.06);
+    background-color: var(--color-suggestion-hover);
+}
+
+body.search-engines-display-grid .dropdown-firefox-suggestions {
+    display: grid;
+    grid-template-columns: repeat(5, 28px);
+    justify-content: space-between;
+    column-gap: 0;
+    row-gap: 6px;
+    padding: 6px 12px;
+    box-sizing: border-box;
+    justify-items: center;
+    align-items: center;
+}
+
+body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion {
+    justify-content: center;
+    gap: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 4px;
+}
+
+body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion > span {
+    display: none;
+}
+
+body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item:hover,
+body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.highlighted {
+    background-color: var(--color-suggestion-hover);
 }
 
 .dropdown-drop-marker.dropdown-drop-marker-grid {
@@ -1110,34 +1153,6 @@ body.reduced-motion .bottom-left-panel-content {
 
 .background-swatch[data-background="beige"] {
     background-color: #F0E6D8;
-}
-
-.search-engines-display-control {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    width: 100%;
-}
-
-.search-engines-display-label {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.9);
-}
-
-.search-engines-display-select {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.92);
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 10px;
-    padding: 6px 10px;
-    cursor: pointer;
-    outline: none;
-}
-
-.search-engines-display-select:focus {
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
 }
 
 /* Hide pin UI when pin-default flag is off */
