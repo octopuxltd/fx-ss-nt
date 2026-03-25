@@ -973,6 +973,7 @@ const QUICK_BUTTONS_VISIBLE_KEY = 'quick_buttons_visible';
 const UNDERLINE_SEARCH_ENGINES_ENABLED_KEY = 'underline_search_engines_enabled';
 const KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY = 'keyboard_switcher_numbers_enabled';
 const SEARCH_ENGINES_DISPLAY_KEY_PREFIX = 'search_engines_display';
+const TWELVE_SEARCH_ENGINES_ENABLED_KEY = 'twelve_search_engines_enabled';
 
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 
@@ -1017,6 +1018,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     };
+    const clearGridIconTooltips = () => {
+        const container = document.querySelector('.search-switcher-button');
+        if (!container) return;
+        container.querySelectorAll('.dropdown-search-engines .dropdown-item[title]').forEach(item => {
+            // Only clear tooltips that we add for icon-only grid.
+            item.removeAttribute('title');
+        });
+        container.querySelectorAll('.dropdown-firefox-suggestions .dropdown-item-firefox-suggestion[title]').forEach(item => {
+            item.removeAttribute('title');
+        });
+    };
     const applySearchEnginesDisplayMode = (mode) => {
         const normalized = mode === 'grid' ? 'grid' : 'list';
         document.body.classList.toggle('search-engines-display-grid', normalized === 'grid');
@@ -1036,7 +1048,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (label) label.textContent = 'Search Engines as grid';
             }
         }
-        ensureGridIconTooltips();
+        if (normalized === 'grid') {
+            ensureGridIconTooltips();
+        } else {
+            clearGridIconTooltips();
+        }
     };
     applySearchEnginesDisplayMode(getSearchEnginesDisplayMode());
     const isUnderlineSearchEnginesEnabled = () => {
@@ -1072,6 +1088,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     document.body.classList.remove('pin-default-enabled');
                 }
+                updateDefaultBadge();
+            } else if (e.data?.type === 'twelve-search-engines') {
+                applySearchEnginesCountMode(!!e.data.enabled);
             } else if (e.data?.type === 'underline-search-engines') {
                 underlineSearchEnginesEnabled = !!e.data.enabled;
                 if (e.data.enabled) {
@@ -1174,6 +1193,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY) === 'true';
             const underlineSearchEngines = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
             const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
+            const twelveSearchEnginesEnabled = localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false';
             const sendViewportToIframe = (iframeEl) => {
                 if (!iframeEl?.contentWindow) return;
                 try {
@@ -1195,6 +1215,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     f.contentWindow?.postMessage({ type: 'pin-default', enabled: pinDefault }, '*');
                     f.contentWindow?.postMessage({ type: 'underline-search-engines', enabled: underlineSearchEngines }, '*');
                     f.contentWindow?.postMessage({ type: 'switcher-keyboard-numbers', enabled: keyboardSwitcherNumbersEnabled }, '*');
+                    f.contentWindow?.postMessage({ type: 'twelve-search-engines', enabled: twelveSearchEnginesEnabled }, '*');
                 } catch (_) {}
             });
             if (iframe) sendViewportToIframe(iframe);
@@ -1757,6 +1778,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'DuckDuckGo': 'https://duckduckgo.com/?q=',
         'Ecosia': 'https://www.ecosia.org/search?q=',
         'eBay': 'https://www.ebay.com/sch/i.html?_nkw=',
+        'Perplexity': 'https://www.perplexity.ai/search?q=',
         'Yahoo': 'https://search.yahoo.com/search?p=',
         'Wikipedia (en)': 'https://en.wikipedia.org/w/index.php?search=',
         'Amazon': 'https://www.amazon.com/s?k=',
@@ -1898,6 +1920,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+        updateDefaultBadge();
+    }
+
+    function updateDefaultBadge() {
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        enginesContainer.querySelectorAll('.dropdown-default-badge').forEach(b => b.remove());
+        if (document.body.classList.contains('pin-default-enabled')) return;
+        const pinned = enginesContainer.querySelector('.dropdown-item-pinned');
+        if (!pinned) return;
+        const labelEl = pinned.querySelector('.dropdown-engine-label');
+        if (!labelEl) return;
+        const badge = document.createElement('span');
+        badge.className = 'dropdown-default-badge';
+        badge.textContent = 'DEFAULT';
+        badge.setAttribute('aria-hidden', 'true');
+        labelEl.insertAdjacentElement('afterend', badge);
+    }
+
+    function applySearchEnginesCountMode(showTwelve) {
+        const allowed = new Set(
+            (showTwelve
+                ? ['Amazon', 'Bing', 'DuckDuckGo', 'Ecosia', 'eBay', 'Google', 'IMDb', 'Perplexity', 'Reddit', 'Startpage', 'Wikipedia (en)', 'YouTube']
+                : ['Google', 'Bing', 'DuckDuckGo', 'eBay', 'Perplexity', 'Wikipedia (en)']
+            )
+        );
+
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (enginesContainer) {
+            enginesContainer.querySelectorAll('.dropdown-item').forEach(item => {
+                if (!item.querySelector('.dropdown-engine-label')) return;
+                const label = getEngineLabel(item);
+                item.style.display = allowed.has(label) ? '' : 'none';
+            });
+
+            const pinned = enginesContainer.querySelector('.dropdown-item-pinned');
+            const pinnedLabel = pinned ? getEngineLabel(pinned) : '';
+            if (pinned && pinnedLabel && !allowed.has(pinnedLabel)) {
+                const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
+                    el => el.querySelector('.dropdown-engine-label') && el.style.display !== 'none'
+                );
+                const google = items.find(i => getEngineLabel(i) === 'Google') || items[0];
+                if (google) {
+                    applySelectedSearchSource(google);
+                    localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, getEngineLabel(google));
+                    setPinnedEngine(google);
+                }
+            }
+        }
+
+        const oneOffContainer = document.querySelector('.one-off-engine-icons');
+        if (oneOffContainer) {
+            oneOffContainer.querySelectorAll('.one-off-engine-icon').forEach(btn => {
+                const img = btn.querySelector('img');
+                const label = img?.getAttribute('alt')?.trim() || '';
+                btn.style.display = allowed.has(label) ? '' : 'none';
+            });
+        }
     }
     
     // Click on search-box-wrapper focuses the input
@@ -2683,6 +2763,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             updateSortButtonVisibility();
+            applySearchEnginesCountMode(localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false');
         }
     }
     
@@ -2761,6 +2842,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             pinDefaultCheckbox.checked = false;
         }
+        updateDefaultBadge();
         pinDefaultCheckbox.addEventListener('change', (e) => {
             const enabled = e.target.checked;
             if (enabled) {
@@ -2770,11 +2852,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.remove('pin-default-enabled');
                 localStorage.setItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY, 'false');
             }
+            updateDefaultBadge();
             [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
                 .filter(Boolean)
                 .forEach(f => {
                     try {
                         f.contentWindow?.postMessage({ type: 'pin-default', enabled }, '*');
+                    } catch (_) {}
+                });
+        });
+    }
+
+    // Handle "12 search engines" checkbox (default: on)
+    const twelveSearchEnginesCheckbox = document.querySelector('.twelve-search-engines-checkbox');
+    if (twelveSearchEnginesCheckbox) {
+        const enabled = localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false';
+        twelveSearchEnginesCheckbox.checked = enabled;
+        applySearchEnginesCountMode(enabled);
+        twelveSearchEnginesCheckbox.addEventListener('change', (e) => {
+            const on = !!e.target.checked;
+            localStorage.setItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY, on ? 'true' : 'false');
+            applySearchEnginesCountMode(on);
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'twelve-search-engines', enabled: on }, '*');
                     } catch (_) {}
                 });
         });

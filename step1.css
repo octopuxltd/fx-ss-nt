@@ -320,6 +320,8 @@ body.gradient-search-border-off .search-box-wrapper-outer::before {
     background-color: #fff;
     border-radius: 0 var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px);
     min-width: 200px;
+    width: max-content;
+    max-width: calc(100vw - 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     max-height: 0;
     overflow: hidden;
@@ -644,6 +646,11 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
     font-size: 14px;
     color: var(--color-text-primary);
     cursor: pointer;
+    white-space: nowrap;
+}
+
+.dropdown-engine-label {
+    white-space: nowrap;
 }
 
 .dropdown-item:hover {
@@ -679,6 +686,27 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
 
 .dropdown-item-pinned {
     justify-content: space-between;
+}
+
+.dropdown-default-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 14px;
+    padding: 0 4px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.08);
+    color: rgba(0, 0, 0, 0.55);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    margin-left: 8px;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+body.search-engines-display-grid .dropdown-default-badge {
+    display: none;
 }
 
 .dropdown-item-pin {

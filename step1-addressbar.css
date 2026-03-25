@@ -148,6 +148,8 @@ body.addressbar .search-switcher-button {
 
 body.addressbar .search-switcher-dropdown {
     min-width: 160px;
+    width: max-content;
+    max-width: calc(100vw - 16px);
     transform-origin: top left;
 }
 
@@ -270,6 +272,15 @@ body.addressbar .firefox-suggest-section-heading {
 
 body.addressbar .one-off-buttons-label {
     font-size: 8px;
+}
+
+body.addressbar .dropdown-default-badge {
+    height: 12px;
+    padding: 0 4px;
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 0;
+    margin-left: 8px;
 }
 
 body.addressbar .firefox-suggest-section-heading {
