@@ -73,6 +73,13 @@
                     <input type="checkbox" class="pin-default-checkbox">
                     <span>Pin search engine</span>
                 </label>
+                <div class="search-engines-display-control">
+                    <span class="search-engines-display-label">Show search engines as</span>
+                    <select class="search-engines-display-select" id="search-engines-display-select">
+                        <option value="list" selected>List</option>
+                        <option value="grid">Grid</option>
+                    </select>
+                </div>
                 <hr class="bottom-left-panel-divider">
                 <div class="prototype-options-section-heading">Search engine switcher keyboard shortcuts</div>
                 <label class="underline-search-engines-control">
@@ -146,6 +153,10 @@
                             <div class="dropdown-item">
                                 <img src="icons/settings.svg" alt="" class="dropdown-icon">
                                 Search Settings
+                            </div>
+                            <div class="dropdown-item" id="search-engines-display-toggle">
+                                <img src="icons/view-grid.svg" alt="" class="dropdown-icon search-engines-display-icon">
+                                <span class="search-engines-display-toggle-label">Show as grid</span>
                             </div>
                             <div class="dropdown-item" id="quick-buttons-toggle" data-visibility="hidden">
                                 <img src="icons/eye.svg" alt="" class="dropdown-icon quick-buttons-icon">
@@ -221,35 +232,14 @@
                 <button type="button" class="one-off-engine-icon" title="Search with Bing"><img src="icons/Bing.svg" alt="Bing"></button>
                 <button type="button" class="one-off-engine-icon" title="Search with DuckDuckGo"><img src="icons/DuckDuckGo.svg" alt="DuckDuckGo"></button>
                 <button type="button" class="one-off-engine-icon" title="Search with Ecosia"><img src="icons/Ecosia.svg" alt="Ecosia"></button>
+                <button type="button" class="one-off-engine-icon" title="Search with eBay"><img src="icons/eBay.svg" alt="eBay"></button>
                 <button type="button" class="one-off-engine-icon" title="Search with Google"><img src="icons/Google.svg" alt="Google"></button>
                 <button type="button" class="one-off-engine-icon" title="Search with IMDb"><img src="icons/IMDb.svg" alt="IMDb"></button>
                 <button type="button" class="one-off-engine-icon" title="Search with Reddit"><img src="icons/Reddit.svg" alt="Reddit"></button>
                 <button type="button" class="one-off-engine-icon" title="Search with Startpage"><img src="icons/Startpage.svg" alt="Startpage"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Wikipedia"><img src="icons/Wikipedia.svg" alt="Wikipedia"></button>
+                <button type="button" class="one-off-engine-icon" title="Search with Wikipedia (en)"><img src="icons/Wikipedia.svg" alt="Wikipedia (en)"></button>
                 <button type="button" class="one-off-engine-icon" title="Search with Yahoo"><img src="icons/Yahoo.svg" alt="Yahoo"></button>
                 <button type="button" class="one-off-engine-icon" title="Search with YouTube"><img src="icons/YouTube.svg" alt="YouTube"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Amazon"><img src="icons/Amazon - Light.svg" alt="Amazon"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Bing"><img src="icons/Bing.svg" alt="Bing"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with DuckDuckGo"><img src="icons/DuckDuckGo.svg" alt="DuckDuckGo"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Ecosia"><img src="icons/Ecosia.svg" alt="Ecosia"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Google"><img src="icons/Google.svg" alt="Google"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with IMDb"><img src="icons/IMDb.svg" alt="IMDb"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Reddit"><img src="icons/Reddit.svg" alt="Reddit"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Startpage"><img src="icons/Startpage.svg" alt="Startpage"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Wikipedia"><img src="icons/Wikipedia.svg" alt="Wikipedia"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Yahoo"><img src="icons/Yahoo.svg" alt="Yahoo"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with YouTube"><img src="icons/YouTube.svg" alt="YouTube"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Amazon"><img src="icons/Amazon - Light.svg" alt="Amazon"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Bing"><img src="icons/Bing.svg" alt="Bing"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with DuckDuckGo"><img src="icons/DuckDuckGo.svg" alt="DuckDuckGo"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Ecosia"><img src="icons/Ecosia.svg" alt="Ecosia"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Google"><img src="icons/Google.svg" alt="Google"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with IMDb"><img src="icons/IMDb.svg" alt="IMDb"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Reddit"><img src="icons/Reddit.svg" alt="Reddit"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Startpage"><img src="icons/Startpage.svg" alt="Startpage"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Wikipedia"><img src="icons/Wikipedia.svg" alt="Wikipedia"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Amazon"><img src="icons/Amazon - Light.svg" alt="Amazon"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Bing"><img src="icons/Bing.svg" alt="Bing"></button>
             </div>
         </div>
         <div class="search-container-drag-handle"></div>

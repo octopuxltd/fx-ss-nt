@@ -317,7 +317,7 @@ body.gradient-search-border-off .search-box-wrapper-outer::before {
     left: 0;
     background-color: #fff;
     border-radius: 0 var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px);
-    min-width: 180px;
+    min-width: 200px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     max-height: 0;
     overflow: hidden;
@@ -523,6 +523,67 @@ body.reduced-motion .dropdown-engines-firefox-scroll {
 .dropdown-engines-firefox-scroll .dropdown-search-engines {
     max-height: none;
     overflow-y: visible;
+}
+
+body.search-engines-display-grid .dropdown-search-engines {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    column-gap: 0;
+    row-gap: 6px;
+    padding: 6px 12px;
+    box-sizing: border-box;
+    position: relative;
+    justify-items: center;
+    align-items: center;
+}
+
+body.search-engines-display-grid .dropdown-search-engines .dropdown-item {
+    width: auto;
+}
+
+body.search-engines-display-grid .dropdown-search-engines .engines-sort-section {
+    grid-column: 1 / -1;
+    width: 100%;
+}
+
+body.search-engines-display-grid .dropdown-search-engines .dropdown-engine-label {
+    display: none;
+}
+
+body.search-engines-display-grid .dropdown-search-engines .dropdown-item-search-engine,
+body.search-engines-display-grid .dropdown-search-engines .dropdown-item-pinned {
+    justify-content: center;
+    gap: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 4px;
+}
+
+body.search-engines-display-grid .dropdown-search-engines .dropdown-item-pin,
+body.search-engines-display-grid .dropdown-search-engines .dropdown-item-pin-empty,
+body.search-engines-display-grid .dropdown-search-engines .dropdown-item-row-action,
+body.search-engines-display-grid .dropdown-search-engines .dropdown-item-drag-handle {
+    display: none !important;
+}
+
+body.search-engines-display-grid .dropdown-search-engines .dropdown-engine-icon {
+    width: 18px;
+    height: 18px;
+}
+
+body.search-engines-display-grid .dropdown-search-engines .dropdown-item:hover,
+body.search-engines-display-grid .dropdown-search-engines .dropdown-item.highlighted {
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+.dropdown-drop-marker.dropdown-drop-marker-grid {
+    position: absolute;
+    width: 3px;
+    background: var(--color-accent, #0060df);
+    border-radius: 2px;
+    pointer-events: none;
+    margin: 0;
 }
 
 .dropdown-engines-firefox-scroll .dropdown-firefox-suggestions {
@@ -1051,6 +1112,34 @@ body.reduced-motion .bottom-left-panel-content {
     background-color: #F0E6D8;
 }
 
+.search-engines-display-control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+}
+
+.search-engines-display-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.search-engines-display-select {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 10px;
+    padding: 6px 10px;
+    cursor: pointer;
+    outline: none;
+}
+
+.search-engines-display-select:focus {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+
 /* Hide pin UI when pin-default flag is off */
 body:not(.pin-default-enabled) .dropdown-item-pin-empty,
 body:not(.pin-default-enabled) .dropdown-item-pin {
@@ -1386,7 +1475,7 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-
     z-index: 5;
     max-height: 0;
     overflow: hidden;
-    margin-top: -16px;
+    margin-top: 0;
     padding: 0 10px;
     background-color: #fff;
     color: rgba(0, 0, 0, 0.5);
@@ -1396,6 +1485,7 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-
 }
 
 .search-container.focused.search-has-typed-input:has(.suggestions-list.suggestions-revealed):has(#quick-buttons-toggle[data-visibility="shown"]) .one-off-buttons {
+    margin-top: -16px;
     max-height: 200px; /* Taller to fit multiple rows of engines (simulating 31) */
     overflow-y: auto; /* Scroll if many rows - overrides overflow:hidden when expanded */
     padding: 25px 10px 8px 18px;
@@ -1420,7 +1510,10 @@ body.reduced-motion .one-off-buttons {
 
 .one-off-buttons-label {
     color: #6B7280;
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: normal;
+    line-height: 1.2;
     flex-shrink: 0;
     margin-right: auto; /* Pin label to left; buttons stay right-aligned */
 }

@@ -21,6 +21,9 @@
         if (localStorage.getItem('pin_default_search_engine_enabled') === 'true') {
             document.body.classList.add('pin-default-enabled');
         }
+        if (localStorage.getItem('search_engines_display') === 'grid') {
+            document.body.classList.add('search-engines-display-grid');
+        }
     </script>
     <div class="addressbar-row">
     <div class="search-container">
@@ -78,6 +81,10 @@
                             <div class="dropdown-item">
                                 <img src="icons/settings.svg" alt="" class="dropdown-icon">
                                 Search Settings
+                            </div>
+                            <div class="dropdown-item" id="search-engines-display-toggle">
+                                <img src="icons/view-grid.svg" alt="" class="dropdown-icon search-engines-display-icon">
+                                <span class="search-engines-display-toggle-label">Show as grid</span>
                             </div>
                             <div class="dropdown-item" id="quick-buttons-toggle" data-visibility="hidden">
                                 <img src="icons/eye.svg" alt="" class="dropdown-icon quick-buttons-icon">

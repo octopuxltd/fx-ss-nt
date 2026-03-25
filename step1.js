@@ -977,6 +977,7 @@ const GRADIENT_SEARCH_BORDER_ENABLED_KEY = 'gradient_search_border_enabled';
 const QUICK_BUTTONS_VISIBLE_KEY = 'quick_buttons_visible';
 const UNDERLINE_SEARCH_ENGINES_ENABLED_KEY = 'underline_search_engines_enabled';
 const KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY = 'keyboard_switcher_numbers_enabled';
+const SEARCH_ENGINES_DISPLAY_KEY = 'search_engines_display';
 
 console.log('[INIT] Script loading, checking reduced motion in localStorage');
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
@@ -987,6 +988,29 @@ document.addEventListener('DOMContentLoaded', () => {
     let underlineSearchEnginesEnabled = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
     const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
     document.body.classList.toggle('keyboard-switcher-numbers-enabled', keyboardSwitcherNumbersEnabled);
+    const getSearchEnginesDisplayMode = () =>
+        localStorage.getItem(SEARCH_ENGINES_DISPLAY_KEY) === 'grid' ? 'grid' : 'list';
+    const applySearchEnginesDisplayMode = (mode) => {
+        const normalized = mode === 'grid' ? 'grid' : 'list';
+        document.body.classList.toggle('search-engines-display-grid', normalized === 'grid');
+
+        const select = document.getElementById('search-engines-display-select');
+        if (select) select.value = normalized;
+
+        const toggle = document.getElementById('search-engines-display-toggle');
+        if (toggle) {
+            const icon = toggle.querySelector('.search-engines-display-icon');
+            const label = toggle.querySelector('.search-engines-display-toggle-label');
+            if (normalized === 'grid') {
+                if (icon) icon.src = 'icons/view-list.svg';
+                if (label) label.textContent = 'Show as list';
+            } else {
+                if (icon) icon.src = 'icons/view-grid.svg';
+                if (label) label.textContent = 'Show as grid';
+            }
+        }
+    };
+    applySearchEnginesDisplayMode(getSearchEnginesDisplayMode());
     const isUnderlineSearchEnginesEnabled = () => {
         const checkbox = document.querySelector('.underline-search-engines-checkbox');
         if (checkbox) return checkbox.checked;
@@ -1027,6 +1051,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     clearEngineInitialUnderlines();
                 }
+            } else if (e.data?.type === 'search-engines-display') {
+                const mode = e.data.mode === 'grid' ? 'grid' : 'list';
+                applySearchEnginesDisplayMode(mode);
             } else if (e.data?.type === 'switcher-keyboard-numbers') {
                 document.body.classList.toggle('keyboard-switcher-numbers-enabled', !!e.data.enabled);
             } else if (e.data?.type === 'close-switcher') {
@@ -1104,6 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY) === 'true';
             const underlineSearchEngines = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
             const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
+            const searchEnginesDisplayMode = localStorage.getItem(SEARCH_ENGINES_DISPLAY_KEY) === 'grid' ? 'grid' : 'list';
             iframes.forEach(f => {
                 try {
                     f.contentWindow?.postMessage({ type: 'gradient-search-border-off', off: gradientOff }, '*');
@@ -1111,6 +1139,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     f.contentWindow?.postMessage({ type: 'pin-default', enabled: pinDefault }, '*');
                     f.contentWindow?.postMessage({ type: 'underline-search-engines', enabled: underlineSearchEngines }, '*');
                     f.contentWindow?.postMessage({ type: 'switcher-keyboard-numbers', enabled: keyboardSwitcherNumbersEnabled }, '*');
+                    f.contentWindow?.postMessage({ type: 'search-engines-display', mode: searchEnginesDisplayMode }, '*');
                 } catch (_) {}
             });
         };
@@ -1139,6 +1168,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else if (standaloneIframe && e.source === standaloneIframe.contentWindow) {
                         standaloneIframe.style.height = h + 'px';
                     }
+                } else if (e.data?.type === 'search-engines-display-changed') {
+                    const mode = e.data.mode === 'grid' ? 'grid' : 'list';
+                    localStorage.setItem(SEARCH_ENGINES_DISPLAY_KEY, mode);
+                    applySearchEnginesDisplayMode(mode);
+                    sendPrototypeOptionsToIframes();
                 }
             };
             updateIframeSize();
@@ -1984,6 +2018,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
             );
 
+            const isGridMode = () => document.body.classList.contains('search-engines-display-grid');
+
             const getDropIndexFromY = (clientY) => {
                 const items = getEngineItems();
                 if (items.length === 0) return 0;
@@ -2004,6 +2040,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 return items.length;
             };
 
+            const getGridDrop = (clientX, clientY) => {
+                const items = getEngineItems();
+                if (items.length === 0) return { index: 0, marker: null };
+
+                const containerRect = enginesContainer.getBoundingClientRect();
+                const visible = items
+                    .map((el, idx) => ({ el, idx, rect: el.getBoundingClientRect() }))
+                    .filter(r => r.rect.width > 0 && r.rect.height > 0);
+                if (!visible.length) return { index: 0, marker: null };
+
+                // Clamp point into the container bounds so we still get a stable target near edges.
+                const x = Math.min(Math.max(clientX, containerRect.left), containerRect.right);
+                const y = Math.min(Math.max(clientY, containerRect.top), containerRect.bottom);
+
+                let closest = visible[0];
+                let best = Infinity;
+                for (const v of visible) {
+                    const cx = v.rect.left + v.rect.width / 2;
+                    const cy = v.rect.top + v.rect.height / 2;
+                    const dx = x - cx;
+                    const dy = y - cy;
+                    const d = dx * dx + dy * dy;
+                    if (d < best) {
+                        best = d;
+                        closest = v;
+                    }
+                }
+
+                const midX = closest.rect.left + closest.rect.width / 2;
+                const insertAfter = x > midX;
+                const index = closest.idx + (insertAfter ? 1 : 0);
+
+                // Marker positioned between tiles, in container coordinates.
+                const markerX = (insertAfter ? closest.rect.right : closest.rect.left) - containerRect.left;
+                const markerY = closest.rect.top - containerRect.top;
+                const markerH = closest.rect.height;
+                return { index, marker: { x: markerX, y: markerY, h: markerH } };
+            };
+
             const updateDropMarker = (index) => {
                 const items = getEngineItems();
                 if (index < 0 || index > items.length) return;
@@ -2015,11 +2090,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dropIndex === index) return;
                 dropIndex = index;
                 const sortSectionForMarker = enginesContainer.querySelector('.engines-sort-section');
-                if (index >= items.length) {
-                    enginesContainer.insertBefore(dropMarker, sortSectionForMarker || null);
-                } else {
-                    enginesContainer.insertBefore(dropMarker, items[index]);
+                if (!isGridMode()) {
+                    dropMarker.className = 'dropdown-drop-marker';
+                    dropMarker.style.left = '';
+                    dropMarker.style.top = '';
+                    dropMarker.style.height = '';
+                    if (index >= items.length) {
+                        enginesContainer.insertBefore(dropMarker, sortSectionForMarker || null);
+                    } else {
+                        enginesContainer.insertBefore(dropMarker, items[index]);
+                    }
+                    return;
                 }
+
+                // Grid mode: overlay a vertical bar between icon tiles (don’t consume a grid cell).
+                dropMarker.className = 'dropdown-drop-marker dropdown-drop-marker-grid';
+                if (dropMarker.parentNode !== enginesContainer) {
+                    enginesContainer.appendChild(dropMarker);
+                }
+                // Position is set by onDragMove using getGridDrop().
             };
 
             const endDrag = () => {
@@ -2072,7 +2161,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!draggedItem) return;
                 draggedItem.style.left = (e.clientX - dragOffsetX) + 'px';
                 draggedItem.style.top = (e.clientY - dragOffsetY) + 'px';
-                updateDropMarker(getDropIndexFromY(e.clientY));
+                if (isGridMode()) {
+                    const grid = getGridDrop(e.clientX, e.clientY);
+                    updateDropMarker(grid.index);
+                    if (dropMarker && grid.marker) {
+                        dropMarker.style.left = grid.marker.x + 'px';
+                        dropMarker.style.top = grid.marker.y + 'px';
+                        dropMarker.style.height = grid.marker.h + 'px';
+                    }
+                } else {
+                    updateDropMarker(getDropIndexFromY(e.clientY));
+                }
 
                 const containerRect = enginesContainer.getBoundingClientRect();
                 const distFromTop = e.clientY - containerRect.top;
@@ -2148,7 +2247,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     draggedItem.style.width = rect.width + 'px';
                     draggedItem.style.left = (e.clientX - dragOffsetX) + 'px';
                     draggedItem.style.top = (e.clientY - dragOffsetY) + 'px';
-                    updateDropMarker(getDropIndexFromY(e.clientY));
+                    if (isGridMode()) {
+                        const grid = getGridDrop(e.clientX, e.clientY);
+                        updateDropMarker(grid.index);
+                        if (dropMarker && grid.marker) {
+                            dropMarker.style.left = grid.marker.x + 'px';
+                            dropMarker.style.top = grid.marker.y + 'px';
+                            dropMarker.style.height = grid.marker.h + 'px';
+                        }
+                    } else {
+                        updateDropMarker(getDropIndexFromY(e.clientY));
+                    }
                     document.addEventListener('mousemove', onDragMove);
                     document.addEventListener('mouseup', onDragEnd);
                     document.addEventListener('mouseleave', onDragEnd);
@@ -2392,6 +2501,49 @@ document.addEventListener('DOMContentLoaded', () => {
                         f.contentWindow?.postMessage({ type: 'pin-default', enabled }, '*');
                     } catch (_) {}
                 });
+        });
+    }
+
+    // Handle "Show search engines as" select (default: list)
+    const searchEnginesDisplaySelect = document.getElementById('search-engines-display-select');
+    if (searchEnginesDisplaySelect) {
+        applySearchEnginesDisplayMode(getSearchEnginesDisplayMode());
+
+        searchEnginesDisplaySelect.addEventListener('change', (e) => {
+            const nextMode = e.target.value === 'grid' ? 'grid' : 'list';
+            localStorage.setItem(SEARCH_ENGINES_DISPLAY_KEY, nextMode);
+            applySearchEnginesDisplayMode(nextMode);
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'search-engines-display', mode: nextMode }, '*');
+                    } catch (_) {}
+                });
+        });
+    }
+
+    // Handle "Show as list / grid" toggle inside the switcher dropdown
+    const searchEnginesDisplayToggle = document.getElementById('search-engines-display-toggle');
+    if (searchEnginesDisplayToggle) {
+        searchEnginesDisplayToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const current = getSearchEnginesDisplayMode();
+            const next = current === 'grid' ? 'list' : 'grid';
+            localStorage.setItem(SEARCH_ENGINES_DISPLAY_KEY, next);
+            applySearchEnginesDisplayMode(next);
+
+            if (window !== window.top) {
+                window.parent.postMessage({ type: 'search-engines-display-changed', mode: next }, '*');
+            } else {
+                [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                    .filter(Boolean)
+                    .forEach(f => {
+                        try {
+                            f.contentWindow?.postMessage({ type: 'search-engines-display', mode: next }, '*');
+                        } catch (_) {}
+                    });
+            }
         });
     }
 
