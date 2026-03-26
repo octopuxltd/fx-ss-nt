@@ -2301,10 +2301,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (document.body.classList.contains('switcher-outside-search-box-enabled')) {
-                // Keep switcher pinned open while searching (search box focused),
-                // but allow outside-click to close it when search isn't focused.
+                // When pinned, keep it open while interacting with the search UI,
+                // but clicking away from the search UI should close switcher + suggestions (blur input).
                 if (searchContainer?.classList.contains('focused')) {
-                    return;
+                    const clickInsideSearch = e.target.closest?.('.search-container');
+                    if (clickInsideSearch) {
+                        return;
+                    }
                 }
             }
             // Prototype options live only on the main page; keep switcher open while changing settings.
@@ -2343,6 +2346,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             restoreFocusAndOpaqueSuggestions();
                         } else {
                             closeSuggestionsPanel();
+                            try { searchInput?.blur?.(); } catch (_) {}
                         }
                     }
                     restoringFocusFromSwitcher = false;
@@ -3040,17 +3044,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Pin this menu (aka switcher outside of search box) (default: off)
     const pinMenuToggle = document.getElementById('pin-menu-toggle');
-    const applyPinnedMenuState = (on) => {
+    const applyPinnedMenuState = (on, opts = {}) => {
+        const { animate = false } = opts || {};
         const enabled = !!on;
-        document.body.classList.toggle('switcher-outside-search-box-enabled', enabled);
-        localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, enabled ? 'true' : 'false');
-        if (pinMenuToggle) {
-            pinMenuToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-            const icon = pinMenuToggle.querySelector('.pin-menu-toggle-icon');
-            const label = pinMenuToggle.querySelector('.pin-menu-toggle-label');
-            if (icon) icon.src = enabled ? 'icons/pin-filled.svg' : 'icons/pin.svg';
-            if (label) label.textContent = enabled ? 'Unpin this menu' : 'Pin this menu';
+        const transport = document.querySelector('.search-switcher-transport');
+        const doApply = () => {
+            document.body.classList.toggle('switcher-outside-search-box-enabled', enabled);
+            localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, enabled ? 'true' : 'false');
+            if (pinMenuToggle) {
+                pinMenuToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+                const icon = pinMenuToggle.querySelector('.pin-menu-toggle-icon');
+                const label = pinMenuToggle.querySelector('.pin-menu-toggle-label');
+                if (icon) icon.src = enabled ? 'icons/pin-filled.svg' : 'icons/pin.svg';
+                if (label) label.textContent = enabled ? 'Unpin this menu' : 'Pin this menu';
+            }
+        };
+        if (!animate || !transport) {
+            doApply();
+            return;
         }
+
+        // FLIP animate the transport between pinned/unpinned positions.
+        const first = transport.getBoundingClientRect();
+        doApply();
+        const last = transport.getBoundingClientRect();
+        const dx = first.left - last.left;
+        const dy = first.top - last.top;
+        transport.style.transition = 'none';
+        transport.style.transform = `translate(${dx}px, ${dy}px)`;
+        void transport.offsetHeight;
+        requestAnimationFrame(() => {
+            transport.style.transition = 'transform 0.25s ease-out';
+            transport.style.transform = '';
+            const cleanup = () => {
+                transport.removeEventListener('transitionend', onEnd);
+                transport.style.transition = '';
+            };
+            const onEnd = (e) => {
+                if (e.propertyName !== 'transform') return;
+                cleanup();
+            };
+            transport.addEventListener('transitionend', onEnd);
+            setTimeout(cleanup, 300);
+        });
     };
     if (pinMenuToggle && window === window.top && !document.body.classList.contains('addressbar')) {
         const enabled = localStorage.getItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY) === 'true';
@@ -3059,7 +3095,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             e.stopPropagation();
             const next = !document.body.classList.contains('switcher-outside-search-box-enabled');
-            applyPinnedMenuState(next);
+            applyPinnedMenuState(next, { animate: true });
         };
         pinMenuToggle.addEventListener('click', toggle);
         pinMenuToggle.addEventListener('keydown', (e) => {
