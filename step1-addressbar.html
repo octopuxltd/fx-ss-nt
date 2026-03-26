@@ -15,9 +15,24 @@
         if (localStorage.getItem('reduced_motion_enabled') === 'true') {
             document.body.classList.add('reduced-motion');
         }
-        if (localStorage.getItem('gradient_search_border_enabled') === 'false') {
-            document.body.classList.add('gradient-search-border-off');
-        }
+        (function () {
+            const BLACK20 = 'rgba(0, 0, 0, 0.2)';
+            const DEF = '#BBA0FF';
+            function canon(raw) {
+                const t = (raw || '').trim();
+                if (!t) return null;
+                const tl = t.toLowerCase();
+                if (tl === '#ebe8ee') return BLACK20;
+                if (tl.replace(/\s/g, '') === 'rgba(0,0,0,0.2)') return BLACK20;
+                if (tl === '#bba0ff') return '#BBA0FF';
+                if (tl === '#ff8d5b') return '#FF8D5B';
+                return null;
+            }
+            let c = canon(localStorage.getItem('search_border_color'));
+            if (!c && localStorage.getItem('gradient_search_border_enabled') === 'false') c = BLACK20;
+            if (!c) c = DEF;
+            document.documentElement.style.setProperty('--search-border-ring-color', c);
+        })();
         if (localStorage.getItem('pin_default_search_engine_enabled') === 'true') {
             document.body.classList.add('pin-default-enabled');
         }

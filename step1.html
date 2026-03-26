@@ -38,15 +38,39 @@
         } else if (hadPaleGrey) {
             document.body.dataset.background = 'grey';
         }
-        if (localStorage.getItem('gradient_search_border_enabled') === 'false') {
-            document.body.classList.add('gradient-search-border-off');
-        }
+        (function () {
+            const BLACK20 = 'rgba(0, 0, 0, 0.2)';
+            const DEF = '#BBA0FF';
+            function canon(raw) {
+                const t = (raw || '').trim();
+                if (!t) return null;
+                const tl = t.toLowerCase();
+                if (tl === '#ebe8ee') return BLACK20;
+                if (tl.replace(/\s/g, '') === 'rgba(0,0,0,0.2)') return BLACK20;
+                if (tl === '#bba0ff') return '#BBA0FF';
+                if (tl === '#ff8d5b') return '#FF8D5B';
+                return null;
+            }
+            let c = canon(localStorage.getItem('search_border_color'));
+            if (!c && localStorage.getItem('gradient_search_border_enabled') === 'false') c = BLACK20;
+            if (!c) c = DEF;
+            document.documentElement.style.setProperty('--search-border-ring-color', c);
+        })();
     </script>
     <div class="bottom-left-panel">
         <div class="bottom-left-panel-content">
-            <h2 class="bottom-left-panel-heading">Prototype options</h2>
+            <div class="bottom-left-panel-heading-row">
+                <h2 class="bottom-left-panel-heading">Prototype options</h2>
+                <button type="button" class="clear-cache-button clear-cache-button--heading" id="clear-cache-button">
+                    <span class="clear-cache-button-label">Reset prototype</span>
+                    <span class="clear-cache-button-tick" aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </span>
+                </button>
+            </div>
             <div class="bottom-left-controls">
-                <hr class="bottom-left-panel-divider">
                 <div class="background-swatches-control">
                     <span class="background-swatches-label">Background</span>
                     <div class="background-swatches" role="group" aria-label="Background colour">
@@ -56,29 +80,34 @@
                         <button type="button" class="background-swatch" data-background="beige" title="Warm beige"></button>
                     </div>
                 </div>
+                <div class="search-border-swatches-control">
+                    <span class="search-border-swatches-label">Search border</span>
+                    <div class="search-border-swatches" role="group" aria-label="Search border colour">
+                        <button type="button" class="search-border-swatch" data-border-color="#BBA0FF" title="Lilac" aria-pressed="true"></button>
+                        <button type="button" class="search-border-swatch" data-border-color="#FF8D5B" title="Coral" aria-pressed="false"></button>
+                        <button type="button" class="search-border-swatch search-border-swatch-black-20" data-border-color="rgba(0, 0, 0, 0.2)" title="20% black" aria-pressed="false"></button>
+                    </div>
+                </div>
                 <label class="reduced-motion-control">
                     <input type="checkbox" class="reduced-motion-checkbox">
                     <span>Reduced motion</span>
                 </label>
-                <label class="gradient-search-border-control">
-                    <input type="checkbox" class="gradient-search-border-checkbox">
-                    <span>Gradient search border</span>
-                </label>
-                <hr class="bottom-left-panel-divider">
                 <label class="standalone-search-box-control">
                     <input type="checkbox" class="standalone-search-box-checkbox">
                     <span>Stand-alone search box</span>
                 </label>
                 <label class="pin-default-control">
                     <input type="checkbox" class="pin-default-checkbox">
-                    <span>Pin search engine</span>
+                    <span>Pin default SE (list mode only)</span>
                 </label>
-                <label class="twelve-search-engines-control">
-                    <input type="checkbox" class="twelve-search-engines-checkbox">
-                    <span>12 search engines</span>
-                </label>
-                <hr class="bottom-left-panel-divider">
-                <div class="prototype-options-section-heading">Search engine switcher keyboard shortcuts</div>
+                <div class="search-engines-count-control" role="group" aria-labelledby="search-engines-count-label">
+                    <span id="search-engines-count-label" class="search-engines-count-heading">Number of SEs</span>
+                    <div class="search-engines-count-radios">
+                        <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="6"> 6</label>
+                        <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="12"> 12</label>
+                    </div>
+                </div>
+                <div class="prototype-options-section-heading">Keyboard shortcuts</div>
                 <label class="underline-search-engines-control">
                     <input type="checkbox" class="underline-search-engines-checkbox">
                     <span>Underline first letter of SEs</span>
@@ -87,8 +116,6 @@
                     <input type="checkbox" class="keyboard-switcher-numbers-checkbox">
                     <span>Numbers when switcher opened with opt-⬇️</span>
                 </label>
-                <hr class="bottom-left-panel-divider">
-                <button type="button" class="clear-cache-button" id="clear-cache-button">Clear local storage</button>
             </div>
         </div>
     </div>
@@ -153,6 +180,10 @@
                             <div class="dropdown-item" id="search-engines-display-toggle">
                                 <img src="icons/view-grid.svg" alt="" class="dropdown-icon search-engines-display-icon">
                                 <span class="search-engines-display-toggle-label">Search Engines as grid</span>
+                            </div>
+                            <div class="dropdown-item" id="pin-menu-toggle" role="button" tabindex="0" aria-pressed="false">
+                                <img src="icons/pin.svg" alt="" class="dropdown-icon pin-menu-toggle-icon">
+                                <span class="pin-menu-toggle-label">Pin this menu</span>
                             </div>
                             <div class="dropdown-item" id="quick-buttons-toggle" data-visibility="hidden">
                                 <img src="icons/eye.svg" alt="" class="dropdown-icon quick-buttons-icon">
@@ -221,6 +252,7 @@
                 </div>
             </ul>
         </div>
+
         <div class="one-off-buttons">
             <div class="one-off-engine-icons">
                 <span class="one-off-buttons-label">This time search with</span>

@@ -968,12 +968,52 @@ const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
 const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
 const BACKGROUND_SWATCH_KEY = 'background_swatch';
-const GRADIENT_SEARCH_BORDER_ENABLED_KEY = 'gradient_search_border_enabled';
+const SEARCH_BORDER_COLOR_KEY = 'search_border_color';
+const SEARCH_BORDER_COLOR_DEFAULT = '#BBA0FF';
+const SEARCH_BORDER_BLACK_20 = 'rgba(0, 0, 0, 0.2)';
+const SEARCH_BORDER_COLORS = ['#BBA0FF', '#FF8D5B', SEARCH_BORDER_BLACK_20];
+/** Matches `step1.html` default order (Google remains `.dropdown-item-pinned`). */
+const DEFAULT_MAIN_PAGE_ENGINE_ORDER = [
+    'Amazon', 'Bing', 'DuckDuckGo', 'Ecosia', 'eBay', 'Google',
+    'IMDb', 'Perplexity', 'Reddit', 'Startpage', 'Wikipedia (en)', 'YouTube'
+];
+
+function normalizeSearchBorderColorInput(raw) {
+    const t = (raw || '').trim();
+    if (!t) return null;
+    const tl = t.toLowerCase();
+    if (tl === '#ebe8ee') return SEARCH_BORDER_BLACK_20;
+    if (tl.replace(/\s/g, '') === 'rgba(0,0,0,0.2)') return SEARCH_BORDER_BLACK_20;
+    const hexHit = SEARCH_BORDER_COLORS.filter(c => c.startsWith('#')).find(c => c.toLowerCase() === tl);
+    if (hexHit) return hexHit;
+    return null;
+}
+
+function canonicalSearchBorderColor(raw) {
+    return normalizeSearchBorderColorInput(raw) || SEARCH_BORDER_COLOR_DEFAULT;
+}
+
+function getStoredSearchBorderColor() {
+    const raw = localStorage.getItem(SEARCH_BORDER_COLOR_KEY);
+    const fromStorage = raw ? normalizeSearchBorderColorInput(raw) : null;
+    if (fromStorage) return fromStorage;
+    if (localStorage.getItem('gradient_search_border_enabled') === 'false') {
+        return SEARCH_BORDER_BLACK_20;
+    }
+    return SEARCH_BORDER_COLOR_DEFAULT;
+}
+
+function applySearchBorderColorVariable(hex) {
+    const c = canonicalSearchBorderColor(hex);
+    document.documentElement.style.setProperty('--search-border-ring-color', c);
+    return c;
+}
 const QUICK_BUTTONS_VISIBLE_KEY = 'quick_buttons_visible';
 const UNDERLINE_SEARCH_ENGINES_ENABLED_KEY = 'underline_search_engines_enabled';
 const KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY = 'keyboard_switcher_numbers_enabled';
 const SEARCH_ENGINES_DISPLAY_KEY_PREFIX = 'search_engines_display';
 const TWELVE_SEARCH_ENGINES_ENABLED_KEY = 'twelve_search_engines_enabled';
+const SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY = 'switcher_outside_search_box_enabled';
 
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 
@@ -1064,18 +1104,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Address bar iframe: parent sets width (matches search bar 57.6% / 576px); iframe reports height (including dropdown)
     if (window !== window.top) {
         window.addEventListener('message', (e) => {
-            if (e.data?.type === 'gradient-search-border-off') {
-                if (e.data.off) {
-                    document.body.classList.add('gradient-search-border-off');
-                    if (gradientAnimationId) {
-                        cancelAnimationFrame(gradientAnimationId);
-                        gradientAnimationId = null;
-                    }
-                    const existingStyle = document.getElementById('gradient-animation-style');
-                    if (existingStyle) existingStyle.remove();
-                } else {
-                    document.body.classList.remove('gradient-search-border-off');
+            if (e.data?.type === 'search-border-color') {
+                const col = e.data.color;
+                if (typeof col === 'string' && normalizeSearchBorderColorInput(col)) {
+                    applySearchBorderColorVariable(col);
                 }
+            } else if (e.data?.type === 'prototype-panel-interaction') {
+                window.__prototypeOptionsBlurSuppressUntil = Date.now() + 800;
             } else if (e.data?.type === 'reduced-motion') {
                 if (e.data.enabled) {
                     document.body.classList.add('reduced-motion');
@@ -1188,7 +1223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let lastStandaloneReportedHeight = null;
 
         const sendPrototypeOptionsToIframes = () => {
-            const gradientOff = localStorage.getItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY) === 'false';
+            const searchBorderColor = getStoredSearchBorderColor();
             const reducedMotion = localStorage.getItem('reduced_motion_enabled') === 'true';
             const pinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY) === 'true';
             const underlineSearchEngines = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
@@ -1210,7 +1245,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             iframes.forEach(f => {
                 try {
-                    f.contentWindow?.postMessage({ type: 'gradient-search-border-off', off: gradientOff }, '*');
+                    f.contentWindow?.postMessage({ type: 'search-border-color', color: searchBorderColor }, '*');
                     f.contentWindow?.postMessage({ type: 'reduced-motion', enabled: reducedMotion }, '*');
                     f.contentWindow?.postMessage({ type: 'pin-default', enabled: pinDefault }, '*');
                     f.contentWindow?.postMessage({ type: 'underline-search-engines', enabled: underlineSearchEngines }, '*');
@@ -1363,13 +1398,31 @@ document.addEventListener('DOMContentLoaded', () => {
             sendPrototypeOptionsToIframes();
         }
         window.addEventListener('resize', sendPrototypeOptionsToIframes);
-        document.addEventListener('click', () => {
+        document.addEventListener('click', (e) => {
+            if (e.target.closest?.('.bottom-left-panel-content')) {
+                return;
+            }
             iframes.forEach(f => {
                 try {
                     f.contentWindow?.postMessage({ type: 'close-switcher' }, '*');
                 } catch (_) {}
             });
         });
+        const bumpPrototypeOptionsInteractionSuppress = () => {
+            window.__prototypeOptionsBlurSuppressUntil = Date.now() + 800;
+        };
+        document.querySelector('.bottom-left-panel')?.addEventListener(
+            'mousedown',
+            () => {
+                bumpPrototypeOptionsInteractionSuppress();
+                iframes.forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'prototype-panel-interaction' }, '*');
+                    } catch (_) {}
+                });
+            },
+            true
+        );
     }
 
     // Mouse-positioned tooltips
@@ -1575,35 +1628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchUrlButton = document.querySelector('.search-url-button');
     const searchButton = document.querySelector('.search-button');
     const clearCacheButton = document.getElementById('clear-cache-button');
-    if (clearCacheButton) {
-        clearCacheButton.addEventListener('click', async () => {
-            clearCacheButton.disabled = true;
-            const originalText = clearCacheButton.textContent;
-            clearCacheButton.textContent = 'Clearing...';
-            try {
-                // Prototype stores settings + suggestions in localStorage; wipe everything to reset.
-                localStorage.clear();
-                console.log('[CACHE] Cleared all localStorage');
-
-                // Clear Cache Storage entries as well (if the environment supports it).
-                if ('caches' in window && typeof window.caches?.keys === 'function') {
-                    try {
-                        const cacheKeys = await window.caches.keys();
-                        await Promise.all(cacheKeys.map((k) => window.caches.delete(k)));
-                        console.log('[CACHE] Cleared Cache Storage entries:', cacheKeys.length);
-                    } catch (e) {
-                        console.warn('[CACHE] Cache Storage clear failed:', e);
-                    }
-                }
-
-                window.location.reload();
-            } catch (e) {
-                console.error('[CACHE] Clear cache failed:', e);
-                clearCacheButton.textContent = originalText;
-                clearCacheButton.disabled = false;
-            }
-        });
-    }
+    let clearCacheSuccessTimer = null;
     let switcherHighlightedIndex = -1;
     let switcherHoveredIndex = -1;
     let restoringFocusFromSwitcher = false;
@@ -2015,6 +2040,25 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle search switcher button dropdown
         if (searchSwitcherButton) {
         const searchSwitcherDropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        const resetSwitcherScrollPositions = () => {
+            // The prototype now uses a single combined scrollbar container.
+            const scrollContainers = [
+                searchSwitcherButton.querySelector('.dropdown-engines-firefox-scroll'),
+                searchSwitcherButton.querySelector('.dropdown-search-engines'),
+                searchSwitcherButton.querySelector('.dropdown-firefox-suggestions')
+            ].filter(Boolean);
+            scrollContainers.forEach((el) => {
+                try {
+                    const prev = el.style.scrollBehavior;
+                    el.style.scrollBehavior = 'auto';
+                    el.scrollTop = 0;
+                    el.scrollLeft = 0;
+                    // Force style flush so we don't "animate back" when scroll-behavior is smooth in CSS.
+                    void el.offsetHeight;
+                    el.style.scrollBehavior = prev;
+                } catch (_) {}
+            });
+        };
         const setSwitcherDropdownMaxHeight = () => {
             const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
             if (!dropdown) return;
@@ -2041,6 +2085,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
             }
         };
+        // On load/reset we want the switcher scroll already at the top (no visible jump when opened).
+        resetSwitcherScrollPositions();
 
         // Log/sync metrics even when the switcher opens via keyboard or other paths.
         const switcherDropdownEl = searchSwitcherButton.querySelector('.search-switcher-dropdown');
@@ -2107,6 +2153,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (_) {}
                 }
                 if (wasOpen && !isNowOpen) {
+                    const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
+                    if (pinnedOutside) {
+                        const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                        searchSwitcherButton.classList.add('switcher-closing');
+                        let cleanedUp = false;
+                        const cleanup = () => {
+                            if (cleanedUp) return;
+                            cleanedUp = true;
+                            searchSwitcherButton.classList.remove('switcher-closing');
+                            if (dropdown) dropdown.removeEventListener('transitionend', onClosed);
+                        };
+                        const onClosed = (ev) => {
+                            if (ev.propertyName !== 'max-height') return;
+                            cleanup();
+                        };
+                        if (dropdown) dropdown.addEventListener('transitionend', onClosed);
+                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 280);
+                    }
                     searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
@@ -2126,10 +2190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setTimeout(setSwitcherDropdownMaxHeight, 0);
                     requestAnimationFrame(setSwitcherDropdownMaxHeight);
                     requestAnimationFrame(() => requestAnimationFrame(setSwitcherDropdownMaxHeight));
-                    const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-                    if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
-                    const firefoxSuggestionsContainer = searchSwitcherButton?.querySelector('.dropdown-firefox-suggestions');
-                    if (firefoxSuggestionsContainer) firefoxSuggestionsContainer.scrollTo({ top: 0, behavior: 'instant' });
+                    resetSwitcherScrollPositions();
                     const onRevealed = (e) => {
                         if (e.propertyName !== 'max-height') return;
                         searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
@@ -2204,6 +2265,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (suggestionsList && searchSwitcherButton) {
         // Delegate to handle both existing items and any future items
         suggestionsList.addEventListener('mouseover', (e) => {
+            if (document.body.classList.contains('switcher-outside-search-box-enabled')) return;
             const target = e.target.closest('.suggestion-item, .suggestions-heading');
             const switcherTooltipPinned = tooltipPinned && activeTrigger?.closest('.search-switcher-dropdown');
             if (target && searchSwitcherButton.classList.contains('open') && !switcherTooltipPinned && !window._searchEngineDragging) {
@@ -2238,9 +2300,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 window._searchEngineDragOccurred = false;
                 return;
             }
+            if (document.body.classList.contains('switcher-outside-search-box-enabled')) {
+                // Keep switcher pinned open while searching (search box focused),
+                // but allow outside-click to close it when search isn't focused.
+                if (searchContainer?.classList.contains('focused')) {
+                    return;
+                }
+            }
+            // Prototype options live only on the main page; keep switcher open while changing settings.
+            if (window === window.top && e.target.closest?.('.bottom-left-panel')) {
+                return;
+            }
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
                 if (wasOpen) {
+                    const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
+                    if (pinnedOutside) {
+                        const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                        searchSwitcherButton.classList.add('switcher-closing');
+                        let cleanedUp = false;
+                        const cleanup = () => {
+                            if (cleanedUp) return;
+                            cleanedUp = true;
+                            searchSwitcherButton.classList.remove('switcher-closing');
+                            if (dropdown) dropdown.removeEventListener('transitionend', onClosed);
+                        };
+                        const onClosed = (ev) => {
+                            if (ev.propertyName !== 'max-height') return;
+                            cleanup();
+                        };
+                        if (dropdown) dropdown.addEventListener('transitionend', onClosed);
+                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 280);
+                    }
                     searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                     searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                     switcherHighlightedIndex = -1;
@@ -2304,8 +2395,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         e.stopPropagation();
                         runSearchWithEngine(query, label, false);
                     }
-                    searchSwitcherDropdown.classList.remove('dropdown-revealed');
-                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                    const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
+                    if (!pinnedOpen) {
+                        searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                    }
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) restoreFocusAndOpaqueSuggestions();
@@ -2321,8 +2415,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const label = getEngineLabel(item);
                         if (label) localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, label);
                         setPinnedEngine(item);
-                        searchSwitcherDropdown.classList.remove('dropdown-revealed');
-                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                        const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
+                        if (!pinnedOpen) {
+                            searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                            searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                        }
                         switcherHighlightedIndex = -1;
                         searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                         if (searchContainer?.classList.contains('focused')) restoreFocusAndOpaqueSuggestions();
@@ -2345,8 +2442,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         runSearchWithEngine(query, getEngineLabel(item), true);
                     }
                 }
-                searchSwitcherDropdown.classList.remove('dropdown-revealed');
-                searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
+                if (!pinnedOpen) {
+                    searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                }
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                 if (searchContainer?.classList.contains('focused')) {
@@ -2795,41 +2895,56 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Handle gradient search border checkbox (default: on)
-    const gradientSearchBorderCheckbox = document.querySelector('.gradient-search-border-checkbox');
-    if (gradientSearchBorderCheckbox) {
-        const saved = localStorage.getItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY);
-        if (saved === 'false') {
-            gradientSearchBorderCheckbox.checked = false;
-            document.body.classList.add('gradient-search-border-off');
-        } else {
-            gradientSearchBorderCheckbox.checked = true;
-            document.body.classList.remove('gradient-search-border-off');
-        }
-        gradientSearchBorderCheckbox.addEventListener('change', (e) => {
-            const off = !e.target.checked;
-            if (e.target.checked) {
-                document.body.classList.remove('gradient-search-border-off');
-                localStorage.setItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY, 'true');
-            } else {
-                document.body.classList.add('gradient-search-border-off');
-                localStorage.setItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY, 'false');
-                // Stop gradient animation and remove injected style so solid border shows immediately
-                if (gradientAnimationId) {
-                    cancelAnimationFrame(gradientAnimationId);
-                    gradientAnimationId = null;
-                }
-                const existingStyle = document.getElementById('gradient-animation-style');
-                if (existingStyle) existingStyle.remove();
-            }
+    // Search border colour swatches (solid ring on focus)
+    const searchBorderSwatches = document.querySelectorAll('.search-border-swatch');
+    if (searchBorderSwatches.length) {
+        const persistAndApply = (hex) => {
+            const c = canonicalSearchBorderColor(hex);
+            localStorage.setItem(SEARCH_BORDER_COLOR_KEY, c);
+            applySearchBorderColorVariable(c);
+            searchBorderSwatches.forEach(btn => {
+                const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
+                btn.setAttribute('aria-pressed', bn === c ? 'true' : 'false');
+            });
             [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
                 .filter(Boolean)
                 .forEach(f => {
                     try {
-                        f.contentWindow?.postMessage({ type: 'gradient-search-border-off', off }, '*');
+                        f.contentWindow?.postMessage({ type: 'search-border-color', color: c }, '*');
                     } catch (_) {}
                 });
+            // Main page search bar only: focus search so the ring (:has(.search-input:focus)) stays visible.
+            // When suggestions are already open, use the same path as switcher restore so we do not remove
+            // suggestions-revealed and replay the open transition.
+            if (
+                window === window.top &&
+                searchInput &&
+                searchContainer &&
+                suggestionsList &&
+                !document.body.classList.contains('addressbar')
+            ) {
+                if (suggestionsList.classList.contains('suggestions-revealed')) {
+                    restoringFocusFromSwitcher = true;
+                }
+                requestAnimationFrame(() => {
+                    searchInput.focus({ preventScroll: true });
+                });
+            }
+        };
+        const initial = getStoredSearchBorderColor();
+        localStorage.setItem(SEARCH_BORDER_COLOR_KEY, initial);
+        applySearchBorderColorVariable(initial);
+        searchBorderSwatches.forEach(btn => {
+            const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
+            btn.setAttribute('aria-pressed', bn === initial ? 'true' : 'false');
+            btn.addEventListener('click', () => {
+                persistAndApply(btn.dataset.borderColor);
+            });
         });
+    } else if (window === window.top) {
+        const initial = getStoredSearchBorderColor();
+        localStorage.setItem(SEARCH_BORDER_COLOR_KEY, initial);
+        applySearchBorderColorVariable(initial);
     }
 
     // Handle pin default search engine checkbox (default: off)
@@ -2863,23 +2978,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Handle "12 search engines" checkbox (default: on)
-    const twelveSearchEnginesCheckbox = document.querySelector('.twelve-search-engines-checkbox');
-    if (twelveSearchEnginesCheckbox) {
-        const enabled = localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false';
-        twelveSearchEnginesCheckbox.checked = enabled;
-        applySearchEnginesCountMode(enabled);
-        twelveSearchEnginesCheckbox.addEventListener('change', (e) => {
-            const on = !!e.target.checked;
-            localStorage.setItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY, on ? 'true' : 'false');
-            applySearchEnginesCountMode(on);
-            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
-                .filter(Boolean)
-                .forEach(f => {
-                    try {
-                        f.contentWindow?.postMessage({ type: 'twelve-search-engines', enabled: on }, '*');
-                    } catch (_) {}
-                });
+    // Number of search engines: 6 vs 12 (default: 12)
+    const searchEnginesCountRadios = document.querySelectorAll('.search-engines-count-radio');
+    if (searchEnginesCountRadios.length) {
+        const twelveEnabled = localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false';
+        searchEnginesCountRadios.forEach((radio) => {
+            radio.checked = (radio.value === '12') === twelveEnabled;
+        });
+        applySearchEnginesCountMode(twelveEnabled);
+        searchEnginesCountRadios.forEach((radio) => {
+            radio.addEventListener('change', () => {
+                if (!radio.checked) return;
+                const on = radio.value === '12';
+                localStorage.setItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY, on ? 'true' : 'false');
+                applySearchEnginesCountMode(on);
+                [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                    .filter(Boolean)
+                    .forEach(f => {
+                        try {
+                            f.contentWindow?.postMessage({ type: 'twelve-search-engines', enabled: on }, '*');
+                        } catch (_) {}
+                    });
+            });
         });
     }
 
@@ -2915,6 +3035,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.remove('standalone-search-box-visible');
                 localStorage.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, 'false');
             }
+        });
+    }
+
+    // Pin this menu (aka switcher outside of search box) (default: off)
+    const pinMenuToggle = document.getElementById('pin-menu-toggle');
+    const applyPinnedMenuState = (on) => {
+        const enabled = !!on;
+        document.body.classList.toggle('switcher-outside-search-box-enabled', enabled);
+        localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, enabled ? 'true' : 'false');
+        if (pinMenuToggle) {
+            pinMenuToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+            const icon = pinMenuToggle.querySelector('.pin-menu-toggle-icon');
+            const label = pinMenuToggle.querySelector('.pin-menu-toggle-label');
+            if (icon) icon.src = enabled ? 'icons/pin-filled.svg' : 'icons/pin.svg';
+            if (label) label.textContent = enabled ? 'Unpin this menu' : 'Pin this menu';
+        }
+    };
+    if (pinMenuToggle && window === window.top && !document.body.classList.contains('addressbar')) {
+        const enabled = localStorage.getItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY) === 'true';
+        applyPinnedMenuState(enabled);
+        const toggle = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const next = !document.body.classList.contains('switcher-outside-search-box-enabled');
+            applyPinnedMenuState(next);
+        };
+        pinMenuToggle.addEventListener('click', toggle);
+        pinMenuToggle.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') toggle(e);
         });
     }
 
@@ -3044,8 +3193,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', updateBorderRadius);
     
     let firstHoverDone = false;
-    let gradientAnimationId = null;
-    let gradientAngle = 0;
     
     // Track state for input handler
     let lastApiQuery = '';
@@ -4053,26 +4200,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Apply gradient border (static, no rotation; skipped when gradient-search-border-off or reduced-motion)
-    const animateGradient = () => {
-        if (document.body.classList.contains('gradient-search-border-off') || document.body.classList.contains('reduced-motion')) {
-            gradientAnimationId = null;
-            const existingStyle = document.getElementById('gradient-animation-style');
-            if (existingStyle) existingStyle.remove();
-            return;
-        }
-        let style = document.getElementById('gradient-animation-style');
-        if (!style) {
-            style = document.createElement('style');
-            style.id = 'gradient-animation-style';
-        }
-        style.textContent = `.search-box-wrapper-outer:has(.search-input:focus)::before { background: conic-gradient(from 0deg, #FF00FF 0%, #FFA500 35%, #FFFFFF 50%, #FFA500 65%, #FF00FF 100%); }`;
-        if (!document.head.contains(style)) {
-            document.head.appendChild(style);
-        }
-    };
-    
     if (searchInput && searchContainer) {
+        let autoOpenedSwitcherOnFocus = false;
         searchInput.addEventListener('focus', () => {
             if (restoringFocusFromSwitcher) {
                 restoringFocusFromSwitcher = false;
@@ -4128,14 +4257,73 @@ document.addEventListener('DOMContentLoaded', () => {
                     suggestionsList.classList.add('first-hover-fade');
                 }, 420);
             }
+
+            // If the switcher is positioned outside the search box, open it alongside the focus expansion.
+            if (document.body.classList.contains('switcher-outside-search-box-enabled') && searchSwitcherButton) {
+                const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                autoOpenedSwitcherOnFocus = true;
+                searchSwitcherButton.classList.add('open');
+                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
+                dropdown?.classList.remove('dropdown-revealed');
+                try {
+                    // Ensure it starts from the top before the user sees it.
+                    const scrollEl = searchSwitcherButton.querySelector('.dropdown-engines-firefox-scroll');
+                    if (scrollEl) {
+                        const prev = scrollEl.style.scrollBehavior;
+                        scrollEl.style.scrollBehavior = 'auto';
+                        scrollEl.scrollTop = 0;
+                        scrollEl.scrollLeft = 0;
+                        void scrollEl.offsetHeight;
+                        scrollEl.style.scrollBehavior = prev;
+                    }
+                } catch (_) {}
+                try {
+                    // Best-effort: reuse the same CSS max-height variable the dropdown uses.
+                    const rect = dropdown?.getBoundingClientRect?.();
+                    if (rect && dropdown) {
+                        const bottomPadding = 8;
+                        const available = Math.floor(window.innerHeight - rect.top - bottomPadding);
+                        dropdown.style.setProperty('--switcher-dropdown-max-height', Math.max(0, available) + 'px');
+                    }
+                } catch (_) {}
+                if (dropdown) {
+                    const onDropRevealed = (ev) => {
+                        if (ev.propertyName !== 'max-height') return;
+                        dropdown.removeEventListener('transitionend', onDropRevealed);
+                        if (searchSwitcherButton.classList.contains('open')) {
+                            dropdown.classList.add('dropdown-revealed');
+                        }
+                    };
+                    dropdown.addEventListener('transitionend', onDropRevealed);
+                }
+            } else {
+                autoOpenedSwitcherOnFocus = false;
+            }
         });
         
         searchInput.addEventListener('blur', () => {
             if (inspectSuggestions) return;
-            if (searchSwitcherButton?.classList.contains('open')) return;
+            // If the switcher was auto-opened for the outside-of-box mode, close it on blur.
+            if (autoOpenedSwitcherOnFocus && searchSwitcherButton?.classList.contains('open')) {
+                const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                dropdown?.classList.remove('dropdown-revealed');
+                searchSwitcherButton.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                autoOpenedSwitcherOnFocus = false;
+            } else if (searchSwitcherButton?.classList.contains('open')) {
+                return;
+            }
             // Capture focused state before closeSuggestionsPanel removes it (for window blur restore)
             wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
-            closeSuggestionsPanel();
+            setTimeout(() => {
+                if (window.__prototypeOptionsBlurSuppressUntil && Date.now() < window.__prototypeOptionsBlurSuppressUntil) {
+                    return;
+                }
+                if (document.activeElement?.closest?.('.bottom-left-panel')) {
+                    return;
+                }
+                closeSuggestionsPanel();
+            }, 0);
         });
         
         // Track first hover
@@ -4147,6 +4335,247 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, { once: false });
         });
+
+        if (clearCacheButton && window === window.top && !document.body.classList.contains('addressbar')) {
+            clearCacheButton.addEventListener('click', async () => {
+                clearCacheButton.disabled = true;
+                try {
+                    // Reset prototype settings, but preserve "recent searches" to simulate an in-use browser.
+                    const preservedSearchHistory = localStorage.getItem('search_history');
+
+                    const keysToRemove = [
+                        'ai_provider',
+                        'reduced_motion_enabled',
+                        BACKGROUND_SWATCH_KEY,
+                        'pale_grey_background_enabled',
+                        SEARCH_BORDER_COLOR_KEY,
+                        'gradient_search_border_enabled',
+                        PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY,
+                        UNDERLINE_SEARCH_ENGINES_ENABLED_KEY,
+                        KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY,
+                        TWELVE_SEARCH_ENGINES_ENABLED_KEY,
+                        STANDALONE_SEARCH_BOX_VISIBLE_KEY,
+                        QUICK_BUTTONS_VISIBLE_KEY,
+                        DEFAULT_SEARCH_ENGINE_KEY,
+                        SEARCH_ENGINE_ORDER_KEY,
+                        FIREFOX_SUGGESTIONS_ENABLED_KEY,
+                        'inspectSuggestions'
+                    ];
+                    keysToRemove.forEach((k) => {
+                        try { localStorage.removeItem(k); } catch (_) {}
+                    });
+
+                    // Clear cached suggestion blobs, keep history.
+                    const prefixKeys = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (!k) continue;
+                        if (k.startsWith('ai_suggestions_') || k.startsWith('firefox_suggestions_')) {
+                            prefixKeys.push(k);
+                        }
+                    }
+                    prefixKeys.forEach((k) => {
+                        try { localStorage.removeItem(k); } catch (_) {}
+                    });
+
+                    if (preservedSearchHistory != null) {
+                        localStorage.setItem('search_history', preservedSearchHistory);
+                    }
+                    console.log('[CACHE] Reset prototype settings (preserved search_history)');
+
+                    if ('caches' in window && typeof window.caches?.keys === 'function') {
+                        try {
+                            const cacheKeys = await window.caches.keys();
+                            await Promise.all(cacheKeys.map((k) => window.caches.delete(k)));
+                            console.log('[CACHE] Cleared Cache Storage entries:', cacheKeys.length);
+                        } catch (e) {
+                            console.warn('[CACHE] Cache Storage clear failed:', e);
+                        }
+                    }
+
+                    AI_PROVIDER = 'openai';
+                    underlineSearchEnginesEnabled = false;
+
+                    const enginesContainerReset = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+                    if (enginesContainerReset) {
+                        const sortSection = enginesContainerReset.querySelector('.engines-sort-section');
+                        const anchor = sortSection || null;
+                        const byLabel = new Map();
+                        enginesContainerReset.querySelectorAll('.dropdown-item').forEach((item) => {
+                            const label = getEngineLabel(item);
+                            if (label) byLabel.set(label, item);
+                        });
+                        DEFAULT_MAIN_PAGE_ENGINE_ORDER.forEach((label) => {
+                            const item = byLabel.get(label);
+                            if (item) enginesContainerReset.insertBefore(item, anchor);
+                        });
+                        if (sortSection) {
+                            const items = Array.from(enginesContainerReset.children).filter(
+                                (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+                            );
+                            const labels = items.map((i) => getEngineLabel(i));
+                            const sorted = [...labels].sort((a, b) => a.localeCompare(b));
+                            sortSection.hidden = labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
+                        }
+                        const googlePinned = enginesContainerReset.querySelector('.dropdown-item-pinned');
+                        if (googlePinned) {
+                            applySelectedSearchSource(googlePinned);
+                            setPinnedEngine(googlePinned);
+                        }
+                        ensureRowActions();
+                        updateKeyboardNumbers();
+                    }
+
+                    if (reducedMotionCheckbox) {
+                        reducedMotionCheckbox.checked = false;
+                        document.body.classList.remove('reduced-motion');
+                    }
+                    if (pinDefaultCheckbox) {
+                        pinDefaultCheckbox.checked = false;
+                        document.body.classList.remove('pin-default-enabled');
+                    }
+                    updateDefaultBadge();
+
+                    document.querySelectorAll('.search-engines-count-radio').forEach((radio) => {
+                        radio.checked = radio.value === '12';
+                    });
+                    applySearchEnginesCountMode(true);
+
+                    applySearchEnginesDisplayMode('list');
+
+                    const standaloneCbReset = document.querySelector('.standalone-search-box-checkbox');
+                    if (standaloneCbReset) {
+                        standaloneCbReset.checked = false;
+                        document.body.classList.remove('standalone-search-box-visible');
+                    }
+
+                    delete document.body.dataset.background;
+                    document.querySelectorAll('.background-swatch').forEach((btn) => {
+                        const current = document.body.dataset.background || 'gradient';
+                        btn.setAttribute('aria-pressed', btn.dataset.background === current ? 'true' : 'false');
+                    });
+
+                    const borderCleared = applySearchBorderColorVariable(SEARCH_BORDER_COLOR_DEFAULT);
+                    document.querySelectorAll('.search-border-swatch').forEach((btn) => {
+                        const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
+                        btn.setAttribute('aria-pressed', bn === borderCleared ? 'true' : 'false');
+                    });
+
+                    const underlineCbReset = document.querySelector('.underline-search-engines-checkbox');
+                    if (underlineCbReset) underlineCbReset.checked = false;
+                    clearEngineInitialUnderlines();
+
+                    const kbdCbReset = document.querySelector('.keyboard-switcher-numbers-checkbox');
+                    if (kbdCbReset) {
+                        kbdCbReset.checked = true;
+                        document.body.classList.add('keyboard-switcher-numbers-enabled');
+                    }
+
+                    document.body.classList.remove('switcher-outside-search-box-enabled');
+                    try { localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false'); } catch (_) {}
+                    if (typeof applyPinnedMenuState === 'function') {
+                        applyPinnedMenuState(false);
+                    } else {
+                        const pinMenuToggle = document.getElementById('pin-menu-toggle');
+                        if (pinMenuToggle) {
+                            pinMenuToggle.setAttribute('aria-pressed', 'false');
+                            const icon = pinMenuToggle.querySelector('.pin-menu-toggle-icon');
+                            const label = pinMenuToggle.querySelector('.pin-menu-toggle-label');
+                            if (icon) icon.src = 'icons/pin.svg';
+                            if (label) label.textContent = 'Pin this menu';
+                        }
+                    }
+
+                    const qbtReset = document.getElementById('quick-buttons-toggle');
+                    if (qbtReset) {
+                        const icon = qbtReset.querySelector('.quick-buttons-icon');
+                        const labelEl = qbtReset.querySelector('.quick-buttons-label');
+                        qbtReset.dataset.visibility = 'hidden';
+                        if (icon) icon.src = 'icons/eye.svg';
+                        if (labelEl) labelEl.textContent = 'Show one-off buttons';
+                    }
+
+                    restoreFirefoxSuggestionsState();
+
+                    searchSwitcherButton?.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                    searchSwitcherButton?.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+                    searchSwitcherButton?.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+
+                    selectedSuggestionIndex = -1;
+                    hoveredSuggestionIndex = -1;
+                    originalTypedText = '';
+                    lastTypedTextInInput = '';
+                    lastHoveredItemForInput = null;
+                    lastApiQuery = '';
+                    aiSuggestionsSet = new Set();
+                    firstHoverDone = false;
+
+                    if (inspectSuggestions) {
+                        searchContainer.classList.add('focused');
+                        suggestionsList?.classList.add('suggestions-revealed');
+                        suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+                        searchInput.value = 'x';
+                        searchContainer.classList.add('search-has-typed-input');
+                        updateClearButton();
+                        updateSearchUrlButton();
+                    } else {
+                        searchInput.value = '';
+                        updateClearButton();
+                        updateSearchUrlButton();
+                        updateTypedState();
+                        // Keep the panel open and re-render the "recent searches" after reset.
+                        searchContainer?.classList.add('focused');
+                        suggestionsList?.classList.add('suggestions-revealed');
+                        suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+
+                        restoringFocusFromSwitcher = true;
+                        requestAnimationFrame(() => searchInput?.focus({ preventScroll: true }));
+
+                        const history = getSearchHistory();
+                        const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
+                        const suggestionsToShow = history.length ? history.slice(0, 8) : defaultSuggestions;
+                        updateSuggestions(suggestionsToShow);
+                        currentDisplayedSuggestions = suggestionsToShow;
+                    }
+
+                    // Ensure switcher scroll is already at top after a reset (no visible jump on open).
+                    try {
+                        const scrollEl = searchSwitcherButton?.querySelector('.dropdown-engines-firefox-scroll');
+                        if (scrollEl) {
+                            const prev = scrollEl.style.scrollBehavior;
+                            scrollEl.style.scrollBehavior = 'auto';
+                            scrollEl.scrollTop = 0;
+                            scrollEl.scrollLeft = 0;
+                            void scrollEl.offsetHeight;
+                            scrollEl.style.scrollBehavior = prev;
+                        }
+                    } catch (_) {}
+
+                    const iframeReset = document.querySelector('.addressbar-iframe');
+                    const standaloneIframeReset = document.querySelector('.standalone-search-box-iframe');
+                    [iframeReset, standaloneIframeReset].filter(Boolean).forEach((f) => {
+                        const src = f.getAttribute('src');
+                        if (src) f.src = src;
+                    });
+
+                    requestAnimationFrame(() => updateLogoPositionForSearchBar());
+
+                    if (clearCacheSuccessTimer) {
+                        clearTimeout(clearCacheSuccessTimer);
+                        clearCacheSuccessTimer = null;
+                    }
+                    clearCacheButton.classList.add('clear-cache-button--success');
+                    clearCacheSuccessTimer = setTimeout(() => {
+                        clearCacheButton.classList.remove('clear-cache-button--success');
+                        clearCacheButton.disabled = false;
+                        clearCacheSuccessTimer = null;
+                    }, 2500);
+                } catch (e) {
+                    console.error('[CACHE] Clear cache failed:', e);
+                    clearCacheButton.disabled = false;
+                }
+            });
+        }
 
         // Inspect mode: keep suggestions panel open for HTML inspection (blur is skipped above)
         if (inspectSuggestions) {
@@ -4179,6 +4608,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.key === 'Escape') {
             const switcherOpen = searchSwitcherButton?.classList.contains('open');
             if (switcherOpen) {
+                if (document.body.classList.contains('switcher-outside-search-box-enabled')) {
+                    // In outside mode, the switcher is pinned open during search.
+                    return;
+                }
                 searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
@@ -4196,8 +4629,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const switcherOpen = searchSwitcherButton?.classList.contains('open');
         const switcherKeyboardMode = searchSwitcherButton?.classList.contains('switcher-opened-by-keyboard');
         if (switcherOpen && !event.altKey) {
+            const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
             const isPlainLetterKey = /^[a-z]$/i.test(event.key) && !event.ctrlKey && !event.metaKey;
-            if (isPlainLetterKey) {
+            if (!pinnedOpen && isPlainLetterKey) {
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
                 const engineItems = enginesContainer ? Array.from(enginesContainer.children).filter(
                     c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
@@ -4214,8 +4648,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (query) {
                         runSearchWithEngine(query, getEngineLabel(match), true);
                     }
-                    searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
-                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
+                    if (!pinnedOpen) {
+                        searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
+                    }
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) {
@@ -4226,7 +4662,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
             }
-            if (switcherKeyboardMode && /^[1-9]$/.test(event.key)) {
+            if (!pinnedOpen && switcherKeyboardMode && /^[1-9]$/.test(event.key)) {
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
                 const engineItems = enginesContainer ? Array.from(enginesContainer.children).filter(
                     c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
@@ -4240,8 +4676,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (query) {
                         runSearchWithEngine(query, getEngineLabel(item), true);
                     }
-                    searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
-                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
+                    if (!pinnedOpen) {
+                        searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
+                    }
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) {
@@ -4271,8 +4709,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (item.querySelector('.dropdown-engine-label') && query) {
                         runSearchWithEngine(query, getEngineLabel(item), true);
                     }
-                    dropdown?.classList.remove('dropdown-revealed');
-                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                    if (!pinnedOpen) {
+                        dropdown?.classList.remove('dropdown-revealed');
+                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                    }
                     switcherHighlightedIndex = -1;
                     dropdownItems.forEach(i => i.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) {
@@ -4357,10 +4797,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 if (searchSwitcherButton) {
                     searchSwitcherButton.classList.add('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
-                    const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-                    if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
-                    const firefoxSuggestionsContainer = searchSwitcherButton?.querySelector('.dropdown-firefox-suggestions');
-                    if (firefoxSuggestionsContainer) firefoxSuggestionsContainer.scrollTo({ top: 0, behavior: 'instant' });
+                    resetSwitcherScrollPositions();
                     searchInput.blur();
                     searchSwitcherButton.focus();
                     switcherHighlightedIndex = -1;
@@ -4492,11 +4929,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Don't add focused class, it's already there
                 isRestoringFocus = false;
             }
-            
-            // Start gradient animation (unless reduced motion or gradient border is off)
-            if (!gradientAnimationId && !document.body.classList.contains('reduced-motion') && !document.body.classList.contains('gradient-search-border-off')) {
-                animateGradient();
-            }
         });
         
         searchInput.addEventListener('blur', () => {
@@ -4507,16 +4939,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // else: first blur handler already captured wasFocusedBeforeBlur before closeSuggestionsPanel
             console.log('[BLUR] Was in focused state:', wasFocusedBeforeBlur);
-            
-            // Stop gradient animation
-            if (gradientAnimationId) {
-                cancelAnimationFrame(gradientAnimationId);
-                gradientAnimationId = null;
-            }
-            const existingStyle = document.getElementById('gradient-animation-style');
-            if (existingStyle) {
-                existingStyle.remove();
-            }
         });
         
         window.addEventListener('blur', () => {
@@ -4551,6 +4973,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (logo) logo.style.transition = 'none';
                 const oneOffButtons = document.querySelector('.one-off-buttons');
                 if (oneOffButtons) oneOffButtons.style.transition = 'none';
+
+                // Outside-of-search-box mode: keep the switcher visible when returning to the app.
+                // Ensure it is already open without animating max-height on restore.
+                const switcherDropdownForRestore = document.body.classList.contains('switcher-outside-search-box-enabled')
+                    ? searchSwitcherButton?.querySelector('.search-switcher-dropdown')
+                    : null;
+                if (switcherDropdownForRestore) {
+                    switcherDropdownForRestore.style.transition = 'none';
+                    searchSwitcherButton.classList.add('open');
+                    searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
+                    switcherDropdownForRestore.classList.add('dropdown-revealed');
+                    try {
+                        const rect = switcherDropdownForRestore.getBoundingClientRect();
+                        const bottomPadding = 8;
+                        const available = Math.floor(window.innerHeight - rect.top - bottomPadding);
+                        switcherDropdownForRestore.style.setProperty('--switcher-dropdown-max-height', Math.max(0, available) + 'px');
+                    } catch (_) {}
+                    try {
+                        const scrollEl = searchSwitcherButton.querySelector('.dropdown-engines-firefox-scroll');
+                        if (scrollEl) {
+                            const prev = scrollEl.style.scrollBehavior;
+                            scrollEl.style.scrollBehavior = 'auto';
+                            scrollEl.scrollTop = 0;
+                            scrollEl.scrollLeft = 0;
+                            void scrollEl.offsetHeight;
+                            scrollEl.style.scrollBehavior = prev;
+                        }
+                    } catch (_) {}
+                }
                 // Force reflow so transition:none is applied before state change
                 void searchContainer.offsetHeight;
                 
@@ -4569,6 +5020,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (suggestionsList) suggestionsList.style.transition = '';
                     if (logo) logo.style.transition = '';
                     if (oneOffButtons) oneOffButtons.style.transition = '';
+                    if (switcherDropdownForRestore) switcherDropdownForRestore.style.transition = '';
                 }, 100);
                 
                 wasFocusedBeforeBlur = false;
