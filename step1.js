@@ -3044,58 +3044,217 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Pin this menu (aka switcher outside of search box) (default: off)
     const pinMenuToggle = document.getElementById('pin-menu-toggle');
-    const applyPinnedMenuState = (on, opts = {}) => {
-        const { animate = false } = opts || {};
+    let cancelPinMenuFlip = null;
+    let pinMenuFlipSeq = 0;
+    const pinMenuRectStr = (r) =>
+        `L${Math.round(r.left)} T${Math.round(r.top)} W${Math.round(r.width)} H${Math.round(r.height)}`;
+    const DEBUG_PIN_MENU =
+        typeof localStorage !== 'undefined' && localStorage.getItem('debug_pin_menu') === 'true';
+    const logPinMenu = (msg, detail = {}) => {
+        if (!DEBUG_PIN_MENU) return;
+        const t = typeof performance !== 'undefined' ? performance.now().toFixed(1) : String(Date.now());
+        console.log(`[pin-menu +${t}ms]`, msg, detail);
+    };
+    const applyPinnedMenuState = (on, options = {}) => {
         const enabled = !!on;
-        const transport = document.querySelector('.search-switcher-transport');
-        const doApply = () => {
-            document.body.classList.toggle('switcher-outside-search-box-enabled', enabled);
-            localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, enabled ? 'true' : 'false');
-            if (pinMenuToggle) {
-                pinMenuToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-                const icon = pinMenuToggle.querySelector('.pin-menu-toggle-icon');
-                const label = pinMenuToggle.querySelector('.pin-menu-toggle-label');
-                if (icon) icon.src = enabled ? 'icons/pin-filled.svg' : 'icons/pin.svg';
-                if (label) label.textContent = enabled ? 'Unpin this menu' : 'Pin this menu';
+        const wantFlip = options.animate !== false && !document.body.classList.contains('reduced-motion');
+        const btn = searchSwitcherButton;
+        let firstBtnRect = null;
+        let firstInputRect = null;
+        const seq = ++pinMenuFlipSeq;
+        const searchFocused = !!searchContainer?.classList.contains('focused');
+        logPinMenu('applyPinnedMenuState', {
+            seq,
+            enabled,
+            animate: options.animate !== false,
+            wantFlip,
+            reducedMotion: document.body.classList.contains('reduced-motion'),
+            outsideBefore: document.body.classList.contains('switcher-outside-search-box-enabled'),
+            searchFocused,
+        });
+        if (wantFlip && btn) {
+            if (cancelPinMenuFlip) {
+                logPinMenu('cancel in-flight FLIP', { seq });
+                cancelPinMenuFlip();
+                cancelPinMenuFlip = null;
             }
-        };
-        if (!animate || !transport) {
-            doApply();
+            firstBtnRect = btn.getBoundingClientRect();
+            if (searchInput) firstInputRect = searchInput.getBoundingClientRect();
+            logPinMenu('pre-toggle switcher rect', { seq, rect: pinMenuRectStr(firstBtnRect), computedTransform: getComputedStyle(btn).transform });
+            if (firstInputRect) {
+                logPinMenu('pre-toggle search-input rect', { seq, rect: pinMenuRectStr(firstInputRect) });
+            }
+        }
+        document.body.classList.toggle('switcher-outside-search-box-enabled', enabled);
+        localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, enabled ? 'true' : 'false');
+        if (pinMenuToggle) {
+            pinMenuToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+            const icon = pinMenuToggle.querySelector('.pin-menu-toggle-icon');
+            const label = pinMenuToggle.querySelector('.pin-menu-toggle-label');
+            if (icon) icon.src = enabled ? 'icons/pin-filled.svg' : 'icons/pin.svg';
+            if (label) label.textContent = enabled ? 'Unpin this menu' : 'Pin this menu';
+        }
+        if (!wantFlip || !btn || !firstBtnRect) {
+            if (btn) {
+                const reason = !wantFlip
+                    ? 'wantFlip=false (animate:false on load/reset, or reduced-motion)'
+                    : !firstBtnRect
+                      ? 'no firstBtnRect (unexpected)'
+                      : 'no switcher button';
+                logPinMenu('skip FLIP (no animation path)', {
+                    seq,
+                    reason,
+                    wantFlip,
+                    hasBtn: !!btn,
+                    firstBtnRectCaptured: !!firstBtnRect,
+                    rectAfterToggle: pinMenuRectStr(btn.getBoundingClientRect()),
+                    computedTransform: getComputedStyle(btn).transform,
+                });
+            }
             return;
         }
-
-        // FLIP animate the transport between pinned/unpinned positions.
-        const first = transport.getBoundingClientRect();
-        doApply();
-        const last = transport.getBoundingClientRect();
-        const dx = first.left - last.left;
-        const dy = first.top - last.top;
-        transport.style.transition = 'none';
-        transport.style.transform = `translate(${dx}px, ${dy}px)`;
-        void transport.offsetHeight;
         requestAnimationFrame(() => {
-            transport.style.transition = 'transform 0.25s ease-out';
-            transport.style.transform = '';
-            const cleanup = () => {
-                transport.removeEventListener('transitionend', onEnd);
-                transport.style.transition = '';
-            };
-            const onEnd = (e) => {
-                if (e.propertyName !== 'transform') return;
-                cleanup();
-            };
-            transport.addEventListener('transitionend', onEnd);
-            setTimeout(cleanup, 300);
+            const lastBtnRect = btn.getBoundingClientRect();
+            const lastInputRect = searchInput ? searchInput.getBoundingClientRect() : null;
+            const btnDx = firstBtnRect.left - lastBtnRect.left;
+            const btnDy = firstBtnRect.top - lastBtnRect.top;
+            const inDx =
+                firstInputRect && lastInputRect ? firstInputRect.left - lastInputRect.left : 0;
+            const inDy =
+                firstInputRect && lastInputRect ? firstInputRect.top - lastInputRect.top : 0;
+            const btnDxR = Math.round(btnDx * 10) / 10;
+            const btnDyR = Math.round(btnDy * 10) / 10;
+            const inDxR = Math.round(inDx * 10) / 10;
+            const inDyR = Math.round(inDy * 10) / 10;
+            const flipBtn = Math.abs(btnDx) >= 0.5 || Math.abs(btnDy) >= 0.5;
+            const flipInput =
+                !!(firstInputRect && lastInputRect && (Math.abs(inDx) >= 0.5 || Math.abs(inDy) >= 0.5));
+            logPinMenu(
+                `rAF1 after class toggle  switcherDelta=dx:${btnDxR} dy:${btnDyR}  inputDelta=dx:${inDxR} dy:${inDyR}`,
+                {
+                    seq,
+                    lastSwitcherRect: pinMenuRectStr(lastBtnRect),
+                    lastInputRect: lastInputRect ? pinMenuRectStr(lastInputRect) : null,
+                    flipBtn,
+                    flipInput,
+                }
+            );
+            if (!flipBtn && !flipInput) {
+                logPinMenu('skip FLIP (no element moved)', { seq });
+                return;
+            }
+            if (flipBtn) {
+                btn.style.transition = 'none';
+                btn.style.transform = `translate(${btnDx}px, ${btnDy}px)`;
+            }
+            if (flipInput) {
+                searchInput.style.transition = 'none';
+                searchInput.style.transform = `translate(${inDx}px, ${inDy}px)`;
+            }
+            void btn.offsetHeight;
+            if (searchInput) void searchInput.offsetHeight;
+            logPinMenu('FLIP invert applied', {
+                seq,
+                switcherTransform: flipBtn ? btn.style.transform : '(none)',
+                inputTransform: flipInput ? searchInput.style.transform : '(none)',
+            });
+            requestAnimationFrame(() => {
+                const dur = '0.25s';
+                if (flipBtn) {
+                    btn.style.transition = `transform ${dur} ease-out`;
+                    btn.style.transform = '';
+                }
+                if (flipInput) {
+                    searchInput.style.transition = `transform ${dur} ease-out`;
+                    searchInput.style.transform = '';
+                }
+                logPinMenu('FLIP animate to layout transform', {
+                    seq,
+                    switcherComputed: flipBtn ? getComputedStyle(btn).transform : 'n/a',
+                    inputComputed: flipInput ? getComputedStyle(searchInput).transform : 'n/a',
+                });
+                let cleaned = false;
+                let pendingEnds = (flipBtn ? 1 : 0) + (flipInput ? 1 : 0);
+                function cleanup(source) {
+                    if (cleaned) return;
+                    cleaned = true;
+                    if (flipBtn) {
+                        btn.removeEventListener('transitionend', onBtnTransitionEnd);
+                        btn.style.transition = '';
+                        btn.style.transform = '';
+                    }
+                    if (flipInput) {
+                        searchInput.removeEventListener('transitionend', onInputTransitionEnd);
+                        searchInput.style.transition = '';
+                        searchInput.style.transform = '';
+                    }
+                    cancelPinMenuFlip = null;
+                    logPinMenu('FLIP cleanup', {
+                        seq,
+                        source,
+                        endSwitcherRect: pinMenuRectStr(btn.getBoundingClientRect()),
+                        endInputRect: searchInput ? pinMenuRectStr(searchInput.getBoundingClientRect()) : null,
+                    });
+                }
+                function onBtnTransitionEnd(e) {
+                    logPinMenu('transitionend (switcher)', {
+                        seq,
+                        propertyName: e.propertyName,
+                        elapsedTime: e.elapsedTime,
+                    });
+                    if (e.propertyName !== 'transform') return;
+                    btn.removeEventListener('transitionend', onBtnTransitionEnd);
+                    pendingEnds--;
+                    if (pendingEnds <= 0) cleanup('transitionend');
+                }
+                function onInputTransitionEnd(e) {
+                    logPinMenu('transitionend (search-input)', {
+                        seq,
+                        propertyName: e.propertyName,
+                        elapsedTime: e.elapsedTime,
+                    });
+                    if (e.propertyName !== 'transform') return;
+                    searchInput.removeEventListener('transitionend', onInputTransitionEnd);
+                    pendingEnds--;
+                    if (pendingEnds <= 0) cleanup('transitionend');
+                }
+                if (flipBtn) btn.addEventListener('transitionend', onBtnTransitionEnd);
+                if (flipInput) searchInput.addEventListener('transitionend', onInputTransitionEnd);
+                cancelPinMenuFlip = () => cleanup('cancel');
+                setTimeout(() => cleanup('timeout350ms'), 350);
+            });
         });
     };
     if (pinMenuToggle && window === window.top && !document.body.classList.contains('addressbar')) {
         const enabled = localStorage.getItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY) === 'true';
-        applyPinnedMenuState(enabled);
+        applyPinnedMenuState(enabled, { animate: false });
         const toggle = (e) => {
-            e.preventDefault();
+            // Space/Enter: prevent page scroll; click: do not preventDefault — otherwise focus stays on
+            // .search-switcher-button (see switcher open path) and window blur mis-detects "switcher focused".
+            if (e.type === 'keydown') e.preventDefault();
             e.stopPropagation();
             const next = !document.body.classList.contains('switcher-outside-search-box-enabled');
-            applyPinnedMenuState(next, { animate: true });
+            const inputType = e.type === 'keydown' ? `keydown:${e.key}` : e.type;
+            const t = e.target;
+            const targetTag = t && String(t.tagName || '').toLowerCase();
+            const targetBrief = !t
+                ? 'unknown'
+                : t === pinMenuToggle
+                  ? 'pin-menu-toggle (direct)'
+                  : `${targetTag}${t.id ? `#${t.id}` : ''}${t.classList?.length ? `.${[...t.classList].slice(0, 3).join('.')}` : ''}`;
+            logPinMenu('pin toggle control', {
+                inputType,
+                currentTarget: e.currentTarget?.id || 'pin-menu-toggle',
+                target: targetBrief,
+                nextOutside: next,
+                label: next ? 'will pin (outside)' : 'will unpin (inside)',
+            });
+            applyPinnedMenuState(next);
+            try {
+                pinMenuToggle.focus({ preventScroll: true });
+            } catch (_) {
+                pinMenuToggle.focus();
+            }
         };
         pinMenuToggle.addEventListener('click', toggle);
         pinMenuToggle.addEventListener('keydown', (e) => {
@@ -4507,11 +4666,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         document.body.classList.add('keyboard-switcher-numbers-enabled');
                     }
 
-                    document.body.classList.remove('switcher-outside-search-box-enabled');
-                    try { localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false'); } catch (_) {}
                     if (typeof applyPinnedMenuState === 'function') {
-                        applyPinnedMenuState(false);
+                        applyPinnedMenuState(false, { animate: false });
                     } else {
+                        document.body.classList.remove('switcher-outside-search-box-enabled');
+                        try { localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false'); } catch (_) {}
                         const pinMenuToggle = document.getElementById('pin-menu-toggle');
                         if (pinMenuToggle) {
                             pinMenuToggle.setAttribute('aria-pressed', 'false');
@@ -4979,14 +5138,22 @@ document.addEventListener('DOMContentLoaded', () => {
         
         window.addEventListener('blur', () => {
             console.log('[WINDOW BLUR] Window lost focus');
-            if (document.activeElement === searchInput) {
+            wasFocusedBeforeBlur = false;
+            wasSwitcherFocusedBeforeBlur = false;
+            const ae = document.activeElement;
+            if (ae === searchInput) {
                 wasFocusedBeforeBlur = true;
-                wasSwitcherFocusedBeforeBlur = false;
                 console.log('[WINDOW BLUR] Search was focused, remembering state');
-            } else if (searchSwitcherButton && searchSwitcherButton.contains(document.activeElement)) {
-                wasSwitcherFocusedBeforeBlur = true;
-                wasFocusedBeforeBlur = false;
-                console.log('[WINDOW BLUR] Switcher was focused, remembering state');
+            } else if (searchSwitcherButton && searchSwitcherButton.contains(ae)) {
+                // Pin/Unpin lives inside the switcher subtree; focus there is not "engine switcher" UX.
+                const pinEl = document.getElementById('pin-menu-toggle');
+                const focusOnPinOnly = pinEl && (ae === pinEl || pinEl.contains(ae));
+                if (focusOnPinOnly) {
+                    console.log('[WINDOW BLUR] Focus on pin-menu only; not remembering switcher state');
+                } else {
+                    wasSwitcherFocusedBeforeBlur = true;
+                    console.log('[WINDOW BLUR] Switcher was focused, remembering state');
+                }
             }
         });
         
@@ -5060,6 +5227,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 100);
                 
                 wasFocusedBeforeBlur = false;
+            }
+            if (wasSwitcherFocusedBeforeBlur) {
+                wasSwitcherFocusedBeforeBlur = false;
             }
         });
     }
