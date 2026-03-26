@@ -1078,14 +1078,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const toggle = document.getElementById('search-engines-display-toggle');
         if (toggle) {
-            const icon = toggle.querySelector('.search-engines-display-icon');
-            const label = toggle.querySelector('.search-engines-display-toggle-label');
-            if (normalized === 'grid') {
-                if (icon) icon.src = 'icons/view-list.svg';
-                if (label) label.textContent = 'Search Engines as list';
-            } else {
-                if (icon) icon.src = 'icons/view-grid.svg';
-                if (label) label.textContent = 'Search Engines as grid';
+            const listSeg = toggle.querySelector('.search-engines-display-segment[data-mode="list"]');
+            const gridSeg = toggle.querySelector('.search-engines-display-segment[data-mode="grid"]');
+            if (listSeg && gridSeg) {
+                const grid = normalized === 'grid';
+                listSeg.classList.toggle('search-engines-display-segment--active', !grid);
+                gridSeg.classList.toggle('search-engines-display-segment--active', grid);
+                listSeg.setAttribute('aria-pressed', grid ? 'false' : 'true');
+                gridSeg.setAttribute('aria-pressed', grid ? 'true' : 'false');
             }
         }
         if (normalized === 'grid') {
@@ -2169,7 +2169,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             cleanup();
                         };
                         if (dropdown) dropdown.addEventListener('transitionend', onClosed);
-                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 280);
+                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
                     }
                     searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                     switcherHighlightedIndex = -1;
@@ -2333,7 +2333,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             cleanup();
                         };
                         if (dropdown) dropdown.addEventListener('transitionend', onClosed);
-                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 280);
+                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
                     }
                     searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                     searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
@@ -2432,7 +2432,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (!item) return;
                 if (item.id === 'quick-buttons-toggle') return;
-                if (item.id === 'search-engines-display-toggle') return;
                 if (item.textContent.includes('Search Settings')) return;
                 console.log('[SWITCHER MOUSE] Dropdown item clicked, applying selection and closing');
                 const query = (searchInput?.value || '').trim();
@@ -3007,17 +3006,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Handle "Show as list / grid" toggle inside the switcher dropdown
+    // List / grid segmented control in the switcher dropdown header (per-search-bar preference).
     const searchEnginesDisplayToggle = document.getElementById('search-engines-display-toggle');
     if (searchEnginesDisplayToggle) {
-        searchEnginesDisplayToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
+        const flipSearchEnginesDisplayMode = () => {
             const current = getSearchEnginesDisplayMode();
             const next = current === 'grid' ? 'list' : 'grid';
             localStorage.setItem(getSearchEnginesDisplayKey(), next);
             applySearchEnginesDisplayMode(next);
-
-            // Intentionally not synced across frames (per-search-bar preference).
+        };
+        searchEnginesDisplayToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            flipSearchEnginesDisplayMode();
+        });
+        searchEnginesDisplayToggle.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            if (!searchEnginesDisplayToggle.contains(e.target)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            flipSearchEnginesDisplayMode();
         });
     }
 
@@ -4501,9 +4508,28 @@ document.addEventListener('DOMContentLoaded', () => {
             // If the switcher was auto-opened for the outside-of-box mode, close it on blur.
             if (autoOpenedSwitcherOnFocus && searchSwitcherButton?.classList.contains('open')) {
                 const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
                 dropdown?.classList.remove('dropdown-revealed');
-                searchSwitcherButton.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
-                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+                // Match pinned-outside click-close: keep squared bottom corners until max-height finishes.
+                if (pinnedOutside && dropdown) {
+                    searchSwitcherButton.classList.add('switcher-closing');
+                    let cleanedUp = false;
+                    const cleanup = () => {
+                        if (cleanedUp) return;
+                        cleanedUp = true;
+                        searchSwitcherButton.classList.remove('switcher-closing');
+                        dropdown.removeEventListener('transitionend', onClosed);
+                    };
+                    const onClosed = (ev) => {
+                        if (ev.propertyName !== 'max-height') return;
+                        cleanup();
+                    };
+                    dropdown.addEventListener('transitionend', onClosed);
+                    setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
+                }
+                searchSwitcherButton.classList.remove('open');
                 autoOpenedSwitcherOnFocus = false;
             } else if (searchSwitcherButton?.classList.contains('open')) {
                 return;

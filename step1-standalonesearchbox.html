@@ -51,17 +51,27 @@
                     <div class="search-switcher-dropdown">
                         <div class="dropdown-content">
                             <div class="dropdown-label">
-                                <span>This time search with</span>
-                                <span class="dropdown-label-info-icon tooltip-trigger" data-tooltip-position="bottom-right">
-                                    <span class="tooltip-popup">
-                                        <ul>
-                                            <li>Opt+⬇️ = open this menu</li>
-                                            <li>Drag / drop = re-order</li>
-                                            <li>Select after typing = search immediately</li>
-                                        </ul>
+                                <span>Search with</span>
+                                <div class="dropdown-label-actions">
+                                    <span class="dropdown-label-info-icon tooltip-trigger" data-tooltip-position="bottom-right">
+                                        <span class="tooltip-popup">
+                                            <ul>
+                                                <li>Opt+⬇️ = open this menu</li>
+                                                <li>Drag / drop = re-order</li>
+                                                <li>Select after typing = search immediately</li>
+                                            </ul>
+                                        </span>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                                     </span>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                                </span>
+                                    <div id="search-engines-display-toggle" class="search-engines-display-segmented" role="group" aria-label="Search engines layout">
+                                        <button type="button" class="search-engines-display-segment search-engines-display-segment--list" data-mode="list" aria-pressed="true" title="List view">
+                                            <img src="icons/view-list.svg" alt="" class="search-engines-display-segment-icon" width="14" height="14">
+                                        </button>
+                                        <button type="button" class="search-engines-display-segment search-engines-display-segment--grid" data-mode="grid" aria-pressed="false" title="Grid view">
+                                            <img src="icons/view-grid.svg" alt="" class="search-engines-display-segment-icon" width="14" height="14">
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div class="dropdown-engines-firefox-scroll">
                             <div class="dropdown-search-engines">
@@ -95,10 +105,6 @@
                             <div class="dropdown-item">
                                 <img src="icons/settings.svg" alt="" class="dropdown-icon">
                                 Search Settings
-                            </div>
-                            <div class="dropdown-item" id="search-engines-display-toggle">
-                                <img src="icons/view-grid.svg" alt="" class="dropdown-icon search-engines-display-icon">
-                                <span class="search-engines-display-toggle-label">Search Engines as grid</span>
                             </div>
                             <div class="dropdown-item" id="quick-buttons-toggle" data-visibility="hidden">
                                 <img src="icons/eye.svg" alt="" class="dropdown-icon quick-buttons-icon">
