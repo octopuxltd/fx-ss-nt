@@ -412,15 +412,41 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     font-size: 12px;
     color: var(--color-text-secondary);
     font-weight: 500;
+    position: relative;
+    z-index: 1;
+    background-color: #fff;
 }
 
 .dropdown-label-info-icon {
     display: inline-flex;
-    width: 14px;
-    height: 14px;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
     flex-shrink: 0;
     color: inherit;
     position: relative;
+    border: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 50%;
+    box-sizing: border-box;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+    appearance: none;
+    transition: background-color 0.15s ease;
+}
+
+.dropdown-label-info-icon:hover,
+.dropdown-label-info-icon:focus-visible {
+    background: rgba(0, 0, 0, 0.06);
+    outline: none;
+}
+
+.dropdown-label-info-icon[aria-expanded="true"] {
+    background: #e8f0ff;
+    outline: none;
 }
 
 .dropdown-label-actions {
@@ -477,6 +503,379 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
 
 .search-engines-display-segment--active .search-engines-display-segment-icon {
     opacity: 1;
+}
+
+.search-engines-controls-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    min-height: 28px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    outline: none;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    transition: background-color 0.15s ease;
+}
+
+.search-engines-controls-toggle:hover,
+.search-engines-controls-toggle:focus-visible {
+    background: rgba(0, 0, 0, 0.06);
+    outline: none;
+}
+
+.search-engines-controls-toggle[aria-expanded="true"] {
+    background: #f4f0fb;
+    outline: none;
+}
+
+.search-engines-controls-toggle-icon {
+    display: block;
+    width: 14px;
+    height: 14px;
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.search-engines-controls-toggle:hover .search-engines-controls-toggle-icon,
+.search-engines-controls-toggle:focus-visible .search-engines-controls-toggle-icon,
+.search-engines-controls-toggle[aria-expanded="true"] .search-engines-controls-toggle-icon {
+    opacity: 1;
+}
+
+/* Lilac controls: slides down from behind the "Search with" header row */
+.dropdown-search-controls-shell {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin: 0 12px 0;
+    transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropdown-search-controls-shell.dropdown-search-controls-shell--open {
+    grid-template-rows: 1fr;
+    margin-bottom: 8px;
+}
+
+.dropdown-search-controls-shell-inner {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.dropdown-search-controls-top {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+}
+
+.dropdown-search-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: #f4f0fb;
+    border: none;
+    font-size: 12px;
+    font-weight: 400;
+    color: #4b3a6b;
+    transform: translateY(-100%);
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropdown-search-controls-shell.dropdown-search-controls-shell--open .dropdown-search-controls {
+    transform: translateY(0);
+}
+
+body.reduced-motion .dropdown-search-controls-shell,
+body.reduced-motion .dropdown-search-controls-shell .dropdown-search-controls {
+    transition: none;
+}
+
+/* Blue info panel: same slide pattern as lilac controls */
+.dropdown-search-info-shell {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin: 0 12px 0;
+    transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropdown-search-info-shell.dropdown-search-info-shell--open {
+    grid-template-rows: 1fr;
+    margin-bottom: 8px;
+}
+
+.dropdown-search-info-shell-inner {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.dropdown-search-info-panel {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: #e8f0ff;
+    border: none;
+    font-size: 12px;
+    font-weight: 400;
+    color: #2c4a7a;
+    overflow-wrap: break-word;
+    transform: translateY(-100%);
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropdown-search-info-shell.dropdown-search-info-shell--open .dropdown-search-info-panel {
+    transform: translateY(0);
+}
+
+body.reduced-motion .dropdown-search-info-shell,
+body.reduced-motion .dropdown-search-info-shell .dropdown-search-info-panel {
+    transition: none;
+}
+
+.dropdown-search-info-panel-heading {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: inherit;
+}
+
+.dropdown-search-info-panel-list {
+    margin: 0;
+    padding-left: 1.15em;
+}
+
+.dropdown-search-info-panel-list li {
+    margin: 0;
+    padding: 0;
+    line-height: 1.35;
+}
+
+.dropdown-search-info-panel-list li + li {
+    margin-top: 4px;
+}
+
+.dropdown-search-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 28px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.dropdown-search-controls-row > :not(.dropdown-search-controls-row-label) {
+    flex-shrink: 0;
+}
+
+.dropdown-search-controls button {
+    font-weight: 400;
+}
+
+.dropdown-search-controls-row-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 400;
+    line-height: 1.3;
+    text-align: left;
+}
+
+.dropdown-search-controls-row--switch {
+    align-items: center;
+}
+
+.dropdown-search-controls-row-label--wrap {
+    max-width: 100%;
+    line-height: 1.3;
+}
+
+.dropdown-search-controls-row--reorder {
+    align-items: center;
+}
+
+/* Shared compact control style (Reset A-Z + More Search Settings) */
+.search-engines-reset-order-button,
+.more-search-settings-button {
+    flex-shrink: 0;
+    padding: 2px 6px;
+    margin: 0;
+    border: 1px solid rgba(75, 50, 120, 0.18);
+    border-radius: 4px;
+    background: #fff;
+    font-size: 9px;
+    font-weight: 400;
+    color: rgba(75, 50, 120, 0.55);
+    cursor: pointer;
+    box-sizing: border-box;
+    line-height: 1.25;
+}
+
+.search-engines-reset-order-button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(75, 50, 120, 0.28);
+    color: rgba(75, 50, 120, 0.7);
+}
+
+.search-engines-reset-order-button:disabled {
+    opacity: 0.5;
+    cursor: default;
+    border-color: rgba(75, 50, 120, 0.1);
+    color: rgba(75, 50, 120, 0.35);
+}
+
+.dropdown-search-controls-row--more-settings {
+    margin-top: 0;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+    min-height: 0;
+}
+
+.more-search-settings-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: auto;
+    max-width: 100%;
+    white-space: nowrap;
+}
+
+.more-search-settings-button:hover {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(75, 50, 120, 0.28);
+    color: rgba(75, 50, 120, 0.7);
+}
+
+.more-search-settings-button:focus-visible {
+    outline: 2px solid rgba(75, 50, 120, 0.35);
+    outline-offset: 2px;
+}
+
+.more-search-settings-button-icon {
+    flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+/* Drag handles while the search-engine controls panel is open (fade with panel via .search-engines-controls-panel-revealed) */
+.search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-left: auto;
+    margin-right: 0;
+    opacity: 0;
+    transition: opacity 0.32s linear;
+    pointer-events: none;
+    cursor: grab;
+}
+
+.search-switcher-button.search-engines-controls-open.search-engines-controls-panel-revealed .dropdown-search-engines .dropdown-item-drag-handle {
+    opacity: 0.55;
+    pointer-events: auto;
+}
+
+.search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-pin-empty,
+.search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-pin {
+    margin-left: 0;
+}
+
+.search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle img {
+    width: 14px;
+    height: 14px;
+    opacity: 0.85;
+    display: block;
+}
+
+.search-switcher-button.search-engines-controls-open.search-engines-controls-panel-revealed .dropdown-search-engines .dropdown-item:hover .dropdown-item-drag-handle {
+    opacity: 0.85;
+}
+
+body.reduced-motion .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle {
+    transition: none;
+}
+
+body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item {
+    position: relative;
+}
+
+body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle {
+    display: flex !important;
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 12px;
+    height: 12px;
+    margin: 0;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle img {
+    width: 9px;
+    height: 9px;
+}
+
+.search-engines-setting-switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 32px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    outline: none;
+    transition: background-color 0.15s ease;
+}
+
+.search-engines-setting-switch[aria-checked="true"] {
+    background: var(--color-accent, #0060df);
+}
+
+.search-engines-setting-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease;
+    pointer-events: none;
+}
+
+.search-engines-setting-switch[aria-checked="true"] .search-engines-setting-switch-thumb {
+    transform: translateX(14px);
 }
 
 /* Tooltip styles - positioned by JS */
@@ -608,22 +1007,19 @@ body.reduced-motion .dropdown-search-engines {
 }
 
 .dropdown-firefox-suggestions {
-    max-height: 129px;
-    overflow-y: auto;
-    scroll-behavior: smooth;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    max-height: none;
+    overflow-y: visible;
 }
 
-.dropdown-firefox-suggestions::-webkit-scrollbar {
-    display: none;
+/* Engines list + fixed "From Firefox" footer share vertical space in the switcher */
+.dropdown-engines-firefox-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
-body.reduced-motion .dropdown-firefox-suggestions {
-    scroll-behavior: auto;
-}
-
-/* Combined scroll area for engines + Firefox sources (single scrollbar) */
+/* Scrollable: search engines only */
 .dropdown-engines-firefox-scroll {
     flex: 1 1 auto;
     min-height: 0;
@@ -632,6 +1028,19 @@ body.reduced-motion .dropdown-firefox-suggestions {
     scroll-behavior: smooth;
     scrollbar-width: none;
     -ms-overflow-style: none;
+}
+
+/* Sticky to bottom of switcher scrollport when browsing engines; flows with scroll (like the old single scroller) in lilac controls mode */
+.dropdown-from-firefox-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background-color: #fff;
+}
+
+.search-switcher-button.search-engines-controls-open .dropdown-from-firefox-footer {
+    position: static;
+    z-index: auto;
 }
 
 .dropdown-engines-firefox-scroll::-webkit-scrollbar {
@@ -740,11 +1149,6 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
     margin: 0;
 }
 
-.dropdown-engines-firefox-scroll .dropdown-firefox-suggestions {
-    max-height: none;
-    overflow-y: visible;
-}
-
 .dropdown-item {
     display: flex;
     align-items: center;
@@ -795,24 +1199,168 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
     justify-content: space-between;
 }
 
+.dropdown-default-badge-wrap {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    flex-shrink: 0;
+    user-select: none;
+    position: relative;
+}
+
+/* Keeps switcher width stable while the real badge is floated to body during drag */
+.dropdown-default-badge-placeholder {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: 8px;
+    box-sizing: border-box;
+    visibility: hidden;
+    pointer-events: none;
+    vertical-align: middle;
+}
+
+/* Floated to document.body while dragging — follows cursor like .dropdown-item.dragging */
+.dropdown-default-badge-wrap.default-badge-drag-float {
+    position: fixed;
+    left: 0;
+    top: 0;
+    margin: 0 !important;
+    z-index: 10002;
+    pointer-events: none;
+}
+
+.dropdown-default-badge-wrap.default-badge-drag-float .dropdown-default-badge {
+    transition: none;
+}
+
 .dropdown-default-badge {
     display: inline-flex;
     align-items: center;
-    height: 14px;
-    padding: 0 4px;
+    gap: 3px;
+    min-height: 14px;
+    padding: 1px 4px 1px 5px;
     border-radius: 3px;
     background: rgba(0, 0, 0, 0.08);
     color: rgba(0, 0, 0, 0.55);
     font-size: 9px;
-    font-weight: 500;
+    font-weight: 400;
     letter-spacing: 0;
     text-transform: uppercase;
-    margin-left: 8px;
-    user-select: none;
     flex-shrink: 0;
+    overflow: visible;
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease,
+        background-color 0.12s ease,
+        opacity 0.12s ease;
 }
 
-body.search-engines-display-grid .dropdown-default-badge {
+.dropdown-default-badge--draggable {
+    cursor: grab;
+}
+
+/* Drag handle only when controls panel is open (see syncDefaultBadgeDraggableState); opacity fades with panel */
+.dropdown-default-badge:not(.dropdown-default-badge--draggable) .dropdown-default-badge-drag {
+    display: none;
+}
+
+.dropdown-default-badge--draggable .dropdown-default-badge-drag {
+    display: inline-flex;
+    opacity: 0;
+    transition: opacity 0.32s linear;
+    pointer-events: none;
+}
+
+.search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable .dropdown-default-badge-drag {
+    opacity: 0.55;
+    pointer-events: auto;
+}
+
+body.reduced-motion .dropdown-default-badge--draggable .dropdown-default-badge-drag {
+    transition: none;
+}
+
+/* Tilt / lift the whole pill (inner handle alone was too subtle and could clip under addressbar height) */
+.dropdown-default-badge--draggable:hover {
+    transform: rotate(-2deg) scale(1.02);
+    background: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.dropdown-default-badge--draggable:active {
+    cursor: grabbing;
+}
+
+.dropdown-default-badge-text {
+    line-height: 1;
+}
+
+.dropdown-default-badge-drag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: grab;
+}
+
+.search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag {
+    opacity: 0.95;
+}
+
+/* “Floating card” while dragging — mirrors engine row drag ghost */
+.dropdown-default-badge--dragging {
+    pointer-events: none;
+    transform: rotate(-4deg) scale(1.08);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.11);
+    opacity: 1;
+}
+
+.dropdown-default-badge--dragging .dropdown-default-badge-drag,
+.dropdown-default-badge-drag.dropdown-default-badge-drag--dragging {
+    opacity: 1 !important;
+    pointer-events: none;
+}
+
+body.reduced-motion .dropdown-default-badge--draggable:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+body.reduced-motion .search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag {
+    opacity: 0.88;
+}
+
+body.reduced-motion .dropdown-default-badge--dragging {
+    transform: scale(1.05);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-default-badge-drag:active {
+    cursor: grabbing;
+}
+
+.dropdown-default-badge-drag img {
+    width: 9px;
+    height: 9px;
+    display: block;
+    /* Keep hit-testing on the icon so hover applies reliably (none was letting events fall through) */
+    pointer-events: auto;
+}
+
+body.search-engines-display-grid .dropdown-default-badge-wrap {
+    display: none;
+}
+
+/* Drop preview while dragging the default badge — darker slot where the pill will land */
+.default-badge-drop-ghost {
+    position: fixed;
+    box-sizing: border-box;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.22);
+    pointer-events: none;
+    z-index: 10001;
     display: none;
 }
 
@@ -855,11 +1403,6 @@ body.search-engines-display-grid .dropdown-default-badge {
     opacity: 0.7;
     transform: rotate(8deg);
     position: absolute;
-}
-
-/* Match engine pin tilt on the "Pin this menu" row (hollow pin only). */
-#pin-menu-toggle[aria-pressed="false"] .pin-menu-toggle-icon {
-    transform: rotate(8deg);
 }
 
 .dropdown-item-pin-empty .pin-filled {
@@ -906,6 +1449,15 @@ body:not(.pin-default-enabled) .dropdown-search-engines.engines-dragging .dropdo
 body:not(.pin-default-enabled) > .dropdown-item.dragging .dropdown-item-drag-handle {
     opacity: 0.2;
     pointer-events: none;
+}
+
+/* Hide row reorder drag handles while dragging the default badge (must beat controls-open display:flex !important) */
+body.default-badge-dragging .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
+body.default-badge-dragging.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
+body.default-badge-dragging .dropdown-search-engines .dropdown-item-drag-handle {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 .dropdown-search-engines.engines-dragging .dropdown-item.highlighted {
@@ -1570,6 +2122,11 @@ body:not(.pin-default-enabled) .dropdown-search-engines:has(.dropdown-item-drag-
 /* Hide drag handles when pin flag is ON */
 body.pin-default-enabled .dropdown-item-drag-handle {
     display: none !important;
+}
+
+/* Controls panel open: show drag handles even when pin-default is enabled */
+body.pin-default-enabled .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle {
+    display: flex !important;
 }
 
 /* When pin-default mode is enabled, hide keyboard numbers outside keyboard-opened mode */

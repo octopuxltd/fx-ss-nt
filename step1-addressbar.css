@@ -160,6 +160,9 @@ body.addressbar .dropdown-content {
 body.addressbar .dropdown-label {
     padding: 4px 10px;
     font-size: 9px;
+    position: relative;
+    z-index: 1;
+    background-color: #fff;
 }
 
 body.addressbar .dropdown-label-info-icon {
@@ -275,12 +278,13 @@ body.addressbar .one-off-buttons-label {
 }
 
 body.addressbar .dropdown-default-badge {
-    height: 12px;
+    /* Avoid fixed height — it clips whole-pill transform; margin comes from .dropdown-default-badge-wrap */
+    min-height: 12px;
+    height: auto;
     padding: 0 4px;
     font-size: 8px;
     font-weight: 500;
     letter-spacing: 0;
-    margin-left: 8px;
 }
 
 body.addressbar .firefox-suggest-section-heading {

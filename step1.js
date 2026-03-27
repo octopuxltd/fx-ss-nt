@@ -1,5 +1,12 @@
 // Step 1 JavaScript
 
+/** Set to false to silence `[default-badge]` console logs */
+const DEBUG_DEFAULT_BADGE = true;
+function defaultBadgeLog(...args) {
+    if (!DEBUG_DEFAULT_BADGE) return;
+    console.log('[default-badge]', ...args);
+}
+
 // ===== API CONFIGURATION =====
 // Load saved provider from localStorage, or default to OpenAI
 let AI_PROVIDER = localStorage.getItem('ai_provider') || 'openai';
@@ -1149,6 +1156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dropdown = btn?.querySelector('.search-switcher-dropdown');
                 const container = document.querySelector('.search-container');
                 if (btn?.classList.contains('open')) {
+                    forceCloseSearchSwitcherSubPanels();
                     dropdown?.classList.remove('dropdown-revealed');
                     btn.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
                     btn.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
@@ -1677,7 +1685,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function applySelectedSearchSource(item) {
         if (!item) return;
         if (item.id === 'quick-buttons-toggle') return;
-        if (item.textContent.includes('Search Settings')) return;
         const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
         const labelEl = item.querySelector('.dropdown-engine-label');
         const label = labelEl ? labelEl.textContent.trim() : item.textContent.replace(/\s+/g, ' ').trim();
@@ -1724,6 +1731,105 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!item) return '';
         const labelEl = item.querySelector('.dropdown-engine-label');
         return labelEl ? labelEl.textContent.trim() : '';
+    }
+
+    /** Scroll parent for the engine list (combined wrapper scrolls when present; else .dropdown-search-engines). */
+    function getEngineListScrollEl(enginesContainer) {
+        if (!enginesContainer) return null;
+        const wrap = enginesContainer.closest('.dropdown-engines-firefox-scroll');
+        return wrap || enginesContainer;
+    }
+
+    function getSearchEngineSuggestionObjectsFromDropdown() {
+        const switcherDropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+        if (!switcherDropdown) return [];
+        const engineItems = Array.from(switcherDropdown.querySelectorAll('.dropdown-search-engines .dropdown-item')).filter(
+            (el) => el.querySelector('.dropdown-engine-label')
+        );
+        return engineItems.map((item) => {
+            const label = getEngineLabel(item);
+            const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+            const icon = iconEl?.getAttribute('src') || '';
+            return { _localSource: true, _searchEngine: true, label, icon };
+        });
+    }
+
+    function isEngineListAlphabeticalInContainer(enginesContainer) {
+        if (!enginesContainer) return true;
+        const items = Array.from(enginesContainer.children).filter(
+            (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        );
+        const labels = items.map((i) => getEngineLabel(i));
+        const sorted = [...labels].sort((a, b) => a.localeCompare(b));
+        return labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
+    }
+
+    function updateReorderResetButtonState() {
+        const btn = document.getElementById('search-engines-reset-order-button');
+        if (!btn) return;
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        const alphabetical = isEngineListAlphabeticalInContainer(enginesContainer);
+        btn.disabled = alphabetical;
+        btn.setAttribute('aria-disabled', alphabetical ? 'true' : 'false');
+    }
+
+    function syncDefaultBadgeDraggableState() {
+        const badge = searchSwitcherButton?.querySelector('.dropdown-default-badge');
+        if (!badge) return;
+        const open = !!searchSwitcherButton?.classList.contains('search-engines-controls-open');
+        badge.classList.toggle('dropdown-default-badge--draggable', open);
+        if (open) {
+            badge.setAttribute('title', 'Drag to move default search engine');
+            badge.setAttribute('aria-label', 'Default search engine — drag to move');
+        } else {
+            badge.setAttribute('title', 'Default search engine');
+            badge.setAttribute('aria-label', 'Default search engine');
+        }
+    }
+
+    function syncEngineDragHandlesForControlsPanel() {
+        const panel = document.getElementById('search-engines-controls-panel');
+        const open = panel && !panel.hasAttribute('hidden');
+        if (searchSwitcherButton) {
+            searchSwitcherButton.classList.toggle('search-engines-controls-open', !!open);
+        }
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter((el) =>
+            el.querySelector('.dropdown-engine-label')
+        );
+        items.forEach((item) => {
+            if (open) {
+                if (!item.querySelector('.dropdown-item-drag-handle')) {
+                    const span = document.createElement('span');
+                    span.className = 'dropdown-item-drag-handle';
+                    span.setAttribute('aria-hidden', 'true');
+                    span.innerHTML = '<img src="icons/drag-handle.svg" alt="">';
+                    const pin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
+                    if (pin) pin.before(span);
+                    else item.appendChild(span);
+                }
+            } else {
+                item.querySelectorAll('.dropdown-item-drag-handle').forEach((h) => h.remove());
+            }
+        });
+        syncDefaultBadgeDraggableState();
+    }
+
+    /** When the search switcher dropdown closes, fully settle info + controls sub-panels (not mid-animation). */
+    function forceCloseSearchSwitcherSubPanels() {
+        const panel = document.getElementById('search-engines-controls-panel');
+        const infoPanel = document.getElementById('search-switcher-info-panel');
+        const controlsShellEl = panel?.closest('.dropdown-search-controls-shell');
+        const infoShellEl = infoPanel?.closest('.dropdown-search-info-shell');
+        controlsShellEl?.classList.remove('dropdown-search-controls-shell--open');
+        infoShellEl?.classList.remove('dropdown-search-info-shell--open');
+        searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
+        panel?.setAttribute('hidden', '');
+        infoPanel?.setAttribute('hidden', '');
+        document.getElementById('search-engines-controls-toggle')?.setAttribute('aria-expanded', 'false');
+        document.getElementById('search-switcher-info-toggle')?.setAttribute('aria-expanded', 'false');
+        syncEngineDragHandlesForControlsPanel();
     }
 
     function escapeHtml(str) {
@@ -1950,18 +2056,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateDefaultBadge() {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-        if (!enginesContainer) return;
-        enginesContainer.querySelectorAll('.dropdown-default-badge').forEach(b => b.remove());
-        if (document.body.classList.contains('pin-default-enabled')) return;
+        if (!enginesContainer) {
+            defaultBadgeLog('updateDefaultBadge: abort — no .dropdown-search-engines');
+            return;
+        }
+        enginesContainer.querySelectorAll('.dropdown-default-badge-wrap').forEach((b) => b.remove());
+        if (document.body.classList.contains('pin-default-enabled')) {
+            defaultBadgeLog('updateDefaultBadge: abort — body.pin-default-enabled (pin-default mode hides badge)');
+            return;
+        }
         const pinned = enginesContainer.querySelector('.dropdown-item-pinned');
-        if (!pinned) return;
+        if (!pinned) {
+            defaultBadgeLog('updateDefaultBadge: abort — no .dropdown-item-pinned');
+            return;
+        }
         const labelEl = pinned.querySelector('.dropdown-engine-label');
-        if (!labelEl) return;
+        if (!labelEl) {
+            defaultBadgeLog('updateDefaultBadge: abort — pinned row has no .dropdown-engine-label');
+            return;
+        }
+        const wrap = document.createElement('span');
+        wrap.className = 'dropdown-default-badge-wrap';
         const badge = document.createElement('span');
         badge.className = 'dropdown-default-badge';
-        badge.textContent = 'DEFAULT';
-        badge.setAttribute('aria-hidden', 'true');
-        labelEl.insertAdjacentElement('afterend', badge);
+        badge.setAttribute('draggable', 'false');
+        badge.setAttribute('role', 'button');
+        badge.setAttribute('tabindex', '-1');
+        const textSpan = document.createElement('span');
+        textSpan.className = 'dropdown-default-badge-text';
+        textSpan.setAttribute('aria-hidden', 'true');
+        textSpan.textContent = 'DEFAULT';
+        const drag = document.createElement('span');
+        drag.className = 'dropdown-default-badge-drag';
+        drag.setAttribute('aria-hidden', 'true');
+        drag.innerHTML = '<img src="icons/drag-handle.svg" alt="">';
+        badge.appendChild(textSpan);
+        badge.appendChild(drag);
+        wrap.appendChild(badge);
+        labelEl.insertAdjacentElement('afterend', wrap);
+        syncDefaultBadgeDraggableState();
+        defaultBadgeLog('updateDefaultBadge: inserted badge after label', {
+            wrap,
+            badgeClasses: badge.className,
+            gridMode: document.body.classList.contains('search-engines-display-grid'),
+        });
     }
 
     function applySearchEnginesCountMode(showTwelve) {
@@ -2153,6 +2291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (_) {}
                 }
                 if (wasOpen && !isNowOpen) {
+                    forceCloseSearchSwitcherSubPanels();
                     const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
                     if (pinnedOutside) {
                         const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
@@ -2270,6 +2409,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const switcherTooltipPinned = tooltipPinned && activeTrigger?.closest('.search-switcher-dropdown');
             if (target && searchSwitcherButton.classList.contains('open') && !switcherTooltipPinned && !window._searchEngineDragging) {
                 console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
+                forceCloseSearchSwitcherSubPanels();
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
@@ -2298,6 +2438,19 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('click', (e) => {
             if (window._searchEngineDragOccurred) {
                 window._searchEngineDragOccurred = false;
+                if (!e.target.closest?.('.search-switcher-button')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                return;
+            }
+            /* Trailing click after default-badge drag (mouseup outside switcher) must not close */
+            if (window._defaultBadgeDragJustEnded) {
+                window._defaultBadgeDragJustEnded = false;
+                if (!e.target.closest?.('.search-switcher-button')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
                 return;
             }
             if (document.body.classList.contains('switcher-outside-search-box-enabled')) {
@@ -2352,6 +2505,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     restoringFocusFromSwitcher = false;
                     closingSwitcherWithoutSuggestions = false;
                 }
+                forceCloseSearchSwitcherSubPanels();
                 searchSwitcherButton.classList.remove('open');
             }
         });
@@ -2359,12 +2513,229 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear keyboard highlight when mouse enters dropdown (switch to hover mode)
         const searchSwitcherDropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
         if (searchSwitcherDropdown) {
+            searchSwitcherDropdown.addEventListener(
+                'mousedown',
+                (e) => {
+                    const onPinnedRow = e.target.closest?.('.dropdown-item-pinned');
+                    if (onPinnedRow) {
+                        defaultBadgeLog('mousedown on pinned row', {
+                            target: e.target?.tagName,
+                            className: e.target?.className,
+                            closestDraggable: !!e.target.closest?.('.dropdown-default-badge--draggable'),
+                            badgeWrapPresent: !!onPinnedRow.querySelector?.('.dropdown-default-badge-wrap'),
+                        });
+                    }
+                    const badgeEl = e.target.closest('.dropdown-default-badge--draggable');
+                    if (!badgeEl) {
+                        return;
+                    }
+                    const dragEl = badgeEl.querySelector('.dropdown-default-badge-drag');
+                    if (!dragEl) {
+                        defaultBadgeLog('drag abort — badge has no .dropdown-default-badge-drag');
+                        return;
+                    }
+                    if (document.body.classList.contains('pin-default-enabled')) {
+                        defaultBadgeLog('drag abort — pin-default-enabled');
+                        return;
+                    }
+                    if (!searchSwitcherButton.classList.contains('search-engines-controls-open')) {
+                        return;
+                    }
+                    const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
+                    const pinnedItem = enginesContainer?.querySelector('.dropdown-item-pinned');
+                    if (!pinnedItem || !enginesContainer || !pinnedItem.contains(badgeEl)) {
+                        defaultBadgeLog('drag abort — badge not inside pinned row / engines', {
+                            hasPinned: !!pinnedItem,
+                            hasEngines: !!enginesContainer,
+                            contains: pinnedItem?.contains?.(badgeEl),
+                        });
+                        return;
+                    }
+                    defaultBadgeLog('drag start');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const floatWrap = badgeEl.closest('.dropdown-default-badge-wrap');
+                    if (!floatWrap) return;
+                    const wrapRect = floatWrap.getBoundingClientRect();
+                    const dragOffsetX = e.clientX - wrapRect.left;
+                    const dragOffsetY = e.clientY - wrapRect.top;
+                    window._defaultBadgeDragging = true;
+                    document.body.classList.add('default-badge-dragging');
+                    floatWrap.style.width = `${wrapRect.width}px`;
+                    floatWrap.classList.add('default-badge-drag-float');
+                    badgeEl.classList.add('dropdown-default-badge--dragging');
+                    dragEl.classList.add('dropdown-default-badge-drag--dragging');
+                    const placeholderEl = document.createElement('span');
+                    placeholderEl.className = 'dropdown-default-badge-placeholder';
+                    placeholderEl.setAttribute('aria-hidden', 'true');
+                    placeholderEl.style.width = `${wrapRect.width}px`;
+                    placeholderEl.style.height = `${wrapRect.height}px`;
+                    floatWrap.parentNode.insertBefore(placeholderEl, floatWrap);
+                    document.body.appendChild(floatWrap);
+                    floatWrap.style.left = `${e.clientX - dragOffsetX}px`;
+                    floatWrap.style.top = `${e.clientY - dragOffsetY}px`;
+                    const ghostEl = document.createElement('div');
+                    ghostEl.className = 'default-badge-drop-ghost';
+                    ghostEl.setAttribute('aria-hidden', 'true');
+                    document.body.appendChild(ghostEl);
+                    const prevCursor = document.body.style.cursor;
+                    const prevUserSelect = document.body.style.userSelect;
+                    document.body.style.cursor = 'grabbing';
+                    document.body.style.userSelect = 'none';
+                    let moveLogAt = 0;
+                    let badgeDragScrollInterval = null;
+                    const clearHighlight = () => {
+                        enginesContainer.querySelectorAll('.dropdown-item').forEach((el) => el.classList.remove('highlighted'));
+                        ghostEl.style.display = 'none';
+                    };
+                    const highlightUnder = (clientX, clientY) => {
+                        clearHighlight();
+                        const stack = document.elementsFromPoint(clientX, clientY);
+                        let item = null;
+                        for (let i = 0; i < stack.length; i++) {
+                            const node = stack[i];
+                            if (!node || typeof node.closest !== 'function') continue;
+                            const row = node.closest('.dropdown-item');
+                            if (
+                                row &&
+                                enginesContainer.contains(row) &&
+                                row.querySelector('.dropdown-engine-label') &&
+                                row !== pinnedItem
+                            ) {
+                                item = row;
+                                break;
+                            }
+                        }
+                        if (!item) return;
+                        item.classList.add('highlighted');
+                        const labelEl = item.querySelector('.dropdown-engine-label');
+                        if (!labelEl) return;
+                        const lr = labelEl.getBoundingClientRect();
+                        ghostEl.style.display = 'block';
+                        ghostEl.style.width = `${wrapRect.width}px`;
+                        ghostEl.style.height = `${wrapRect.height}px`;
+                        ghostEl.style.left = `${lr.right + 8}px`;
+                        ghostEl.style.top = `${lr.top + (lr.height - wrapRect.height) / 2}px`;
+                    };
+                    const BADGE_DRAG_SCROLL_ZONE = 36;
+                    const BADGE_DRAG_SCROLL_SPEED = 8;
+                    const onMove = (ev) => {
+                        if (!window._defaultBadgeDragging) return;
+                        floatWrap.style.left = `${ev.clientX - dragOffsetX}px`;
+                        floatWrap.style.top = `${ev.clientY - dragOffsetY}px`;
+                        const now = performance.now();
+                        if (now - moveLogAt > 120) {
+                            moveLogAt = now;
+                            const topEl = document.elementFromPoint(ev.clientX, ev.clientY);
+                            const underItem = topEl?.closest?.('.dropdown-item');
+                            defaultBadgeLog('drag move', {
+                                x: ev.clientX,
+                                y: ev.clientY,
+                                topElTag: topEl?.tagName,
+                                topElClass: topEl?.className,
+                                underItemLabel: underItem ? getEngineLabel(underItem) : null,
+                            });
+                        }
+                        highlightUnder(ev.clientX, ev.clientY);
+                        const scrollEl = getEngineListScrollEl(enginesContainer);
+                        if (badgeDragScrollInterval) {
+                            clearInterval(badgeDragScrollInterval);
+                            badgeDragScrollInterval = null;
+                        }
+                        if (scrollEl) {
+                            const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+                            if (maxScroll > 0) {
+                                const cr = scrollEl.getBoundingClientRect();
+                                const distFromTop = ev.clientY - cr.top;
+                                const distFromBottom = cr.bottom - ev.clientY;
+                                if (distFromTop < BADGE_DRAG_SCROLL_ZONE && distFromTop >= 0 && scrollEl.scrollTop > 0) {
+                                    badgeDragScrollInterval = setInterval(() => {
+                                        if (scrollEl.scrollTop <= 0) {
+                                            clearInterval(badgeDragScrollInterval);
+                                            badgeDragScrollInterval = null;
+                                            return;
+                                        }
+                                        scrollEl.scrollTop -= BADGE_DRAG_SCROLL_SPEED;
+                                    }, 16);
+                                } else if (
+                                    distFromBottom < BADGE_DRAG_SCROLL_ZONE &&
+                                    distFromBottom >= 0 &&
+                                    scrollEl.scrollTop < maxScroll
+                                ) {
+                                    badgeDragScrollInterval = setInterval(() => {
+                                        if (scrollEl.scrollTop >= maxScroll) {
+                                            clearInterval(badgeDragScrollInterval);
+                                            badgeDragScrollInterval = null;
+                                            return;
+                                        }
+                                        scrollEl.scrollTop += BADGE_DRAG_SCROLL_SPEED;
+                                    }, 16);
+                                }
+                            }
+                        }
+                    };
+                    highlightUnder(e.clientX, e.clientY);
+                    const onUp = (ev) => {
+                        if (!window._defaultBadgeDragging) return;
+                        window._defaultBadgeDragging = false;
+                        if (badgeDragScrollInterval) {
+                            clearInterval(badgeDragScrollInterval);
+                            badgeDragScrollInterval = null;
+                        }
+                        document.body.classList.remove('default-badge-dragging');
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                        document.body.style.cursor = prevCursor;
+                        document.body.style.userSelect = prevUserSelect;
+                        ghostEl.remove();
+                        floatWrap.remove();
+                        placeholderEl.remove();
+                        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+                        const item = el?.closest('.dropdown-item');
+                        clearHighlight();
+                        const willApply =
+                            item &&
+                            enginesContainer.contains(item) &&
+                            item.querySelector('.dropdown-engine-label') &&
+                            item !== pinnedItem;
+                        defaultBadgeLog('drag end (mouseup)', {
+                            x: ev.clientX,
+                            y: ev.clientY,
+                            dropTargetTag: el?.tagName,
+                            dropTargetClass: el?.className,
+                            resolvedItem: item ? getEngineLabel(item) : null,
+                            willApplyNewDefault: !!willApply,
+                        });
+                        if (willApply) {
+                            const label = getEngineLabel(item);
+                            if (label) {
+                                applySelectedSearchSource(item);
+                                localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, label);
+                                setPinnedEngine(item);
+                                defaultBadgeLog('applied new default', label);
+                            } else {
+                                updateDefaultBadge();
+                            }
+                        } else {
+                            updateDefaultBadge();
+                        }
+                        window._defaultBadgeDragJustEnded = true;
+                        setTimeout(() => {
+                            window._defaultBadgeDragJustEnded = false;
+                        }, 750);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                },
+                true
+            );
             searchSwitcherDropdown.addEventListener('mousemove', () => {
                 if (searchSwitcherButton.classList.contains('switcher-suppress-hover')) {
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
                 }
             });
             searchSwitcherDropdown.addEventListener('mouseover', (e) => {
+                if (window._defaultBadgeDragging) return;
                 const item = e.target.closest('.dropdown-item');
                 if (item) {
                     const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
@@ -2380,6 +2751,12 @@ document.addEventListener('DOMContentLoaded', () => {
             searchSwitcherDropdown.addEventListener('click', (e) => {
                 if (window._searchEngineDragOccurred) {
                     window._searchEngineDragOccurred = false;
+                    return;
+                }
+                if (window._defaultBadgeDragJustEnded) {
+                    window._defaultBadgeDragJustEnded = false;
+                    e.preventDefault();
+                    e.stopPropagation();
                     return;
                 }
                 const firefoxToggleEl = e.target.closest('.dropdown-firefox-toggle');
@@ -2401,6 +2778,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
                     if (!pinnedOpen) {
+                        forceCloseSearchSwitcherSubPanels();
                         searchSwitcherDropdown.classList.remove('dropdown-revealed');
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                     }
@@ -2421,6 +2799,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         setPinnedEngine(item);
                         const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
                         if (!pinnedOpen) {
+                            forceCloseSearchSwitcherSubPanels();
                             searchSwitcherDropdown.classList.remove('dropdown-revealed');
                             searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                         }
@@ -2432,7 +2811,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (!item) return;
                 if (item.id === 'quick-buttons-toggle') return;
-                if (item.textContent.includes('Search Settings')) return;
                 console.log('[SWITCHER MOUSE] Dropdown item clicked, applying selection and closing');
                 const query = (searchInput?.value || '').trim();
                 const isEngineItem = !!item.querySelector('.dropdown-engine-label');
@@ -2447,6 +2825,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
                 if (!pinnedOpen) {
+                    forceCloseSearchSwitcherSubPanels();
                     searchSwitcherDropdown.classList.remove('dropdown-revealed');
                     searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 }
@@ -2482,9 +2861,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const getDropIndexFromY = (clientY) => {
                 const items = getEngineItems();
                 if (items.length === 0) return 0;
-                const containerRect = enginesContainer.getBoundingClientRect();
-                if (clientY < containerRect.top) return 0;
-                if (clientY > containerRect.bottom) return items.length;
+                const scrollEl = getEngineListScrollEl(enginesContainer);
+                const viewportRect = scrollEl.getBoundingClientRect();
+                if (clientY < viewportRect.top) return 0;
+                if (clientY > viewportRect.bottom) return items.length;
                 const rows = Array.from(enginesContainer.children).filter(
                     c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
                 );
@@ -2503,15 +2883,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const items = getEngineItems();
                 if (items.length === 0) return { index: 0, marker: null };
 
-                const containerRect = enginesContainer.getBoundingClientRect();
+                const scrollEl = getEngineListScrollEl(enginesContainer);
+                const viewportRect = scrollEl.getBoundingClientRect();
+                const ecRect = enginesContainer.getBoundingClientRect();
                 const visible = items
                     .map((el, idx) => ({ el, idx, rect: el.getBoundingClientRect() }))
                     .filter(r => r.rect.width > 0 && r.rect.height > 0);
                 if (!visible.length) return { index: 0, marker: null };
 
-                // Clamp point into the container bounds so we still get a stable target near edges.
-                const x = Math.min(Math.max(clientX, containerRect.left), containerRect.right);
-                const y = Math.min(Math.max(clientY, containerRect.top), containerRect.bottom);
+                // Clamp point into the visible scroll viewport so edge drags still pick a tile.
+                const x = Math.min(Math.max(clientX, viewportRect.left), viewportRect.right);
+                const y = Math.min(Math.max(clientY, viewportRect.top), viewportRect.bottom);
 
                 let closest = visible[0];
                 let best = Infinity;
@@ -2531,9 +2913,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const insertAfter = x > midX;
                 const index = closest.idx + (insertAfter ? 1 : 0);
 
-                // Marker positioned between tiles, in container coordinates.
-                const markerX = (insertAfter ? closest.rect.right : closest.rect.left) - containerRect.left;
-                const markerY = closest.rect.top - containerRect.top;
+                // Marker positioned between tiles, in engines-container coordinates.
+                const markerX = (insertAfter ? closest.rect.right : closest.rect.left) - ecRect.left;
+                const markerY = closest.rect.top - ecRect.top;
                 const markerH = closest.rect.height;
                 return { index, marker: { x: markerX, y: markerY, h: markerH } };
             };
@@ -2632,33 +3014,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateDropMarker(getDropIndexFromY(e.clientY));
                 }
 
-                const containerRect = enginesContainer.getBoundingClientRect();
+                const scrollEl = getEngineListScrollEl(enginesContainer);
+                const containerRect = scrollEl.getBoundingClientRect();
                 const distFromTop = e.clientY - containerRect.top;
                 const distFromBottom = containerRect.bottom - e.clientY;
+                const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
 
                 if (dragScrollInterval) {
                     clearInterval(dragScrollInterval);
                     dragScrollInterval = null;
                 }
-                if (distFromTop < DRAG_SCROLL_ZONE && distFromTop >= 0 && enginesContainer.scrollTop > 0) {
+                if (maxScroll > 0 && distFromTop < DRAG_SCROLL_ZONE && distFromTop >= 0 && scrollEl.scrollTop > 0) {
                     dragScrollInterval = setInterval(() => {
-                        if (enginesContainer.scrollTop <= 0) {
+                        if (scrollEl.scrollTop <= 0) {
                             clearInterval(dragScrollInterval);
                             dragScrollInterval = null;
                             return;
                         }
-                        enginesContainer.scrollTop -= DRAG_SCROLL_SPEED;
+                        scrollEl.scrollTop -= DRAG_SCROLL_SPEED;
                     }, 16);
-                } else if (distFromBottom < DRAG_SCROLL_ZONE && distFromBottom >= 0 &&
-                    enginesContainer.scrollTop < enginesContainer.scrollHeight - enginesContainer.clientHeight) {
-                    const maxScroll = enginesContainer.scrollHeight - enginesContainer.clientHeight;
+                } else if (
+                    maxScroll > 0 &&
+                    distFromBottom < DRAG_SCROLL_ZONE &&
+                    distFromBottom >= 0 &&
+                    scrollEl.scrollTop < maxScroll
+                ) {
                     dragScrollInterval = setInterval(() => {
-                        if (enginesContainer.scrollTop >= maxScroll) {
+                        if (scrollEl.scrollTop >= maxScroll) {
                             clearInterval(dragScrollInterval);
                             dragScrollInterval = null;
                             return;
                         }
-                        enginesContainer.scrollTop += DRAG_SCROLL_SPEED;
+                        scrollEl.scrollTop += DRAG_SCROLL_SPEED;
                     }, 16);
                 }
             };
@@ -2746,15 +3133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
             const order = items.map(item => getEngineLabel(item));
             if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
-            const sortSection = enginesContainer.querySelector('.engines-sort-section');
-            if (sortSection) {
-                const engineItems = Array.from(enginesContainer.children).filter(
-                    c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
-                );
-                const labels = engineItems.map(i => getEngineLabel(i));
-                const sorted = [...labels].sort((a, b) => a.localeCompare(b));
-                sortSection.hidden = labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
-            }
+            updateReorderResetButtonState();
             updateKeyboardNumbers();
             const underlineEnabled = isUnderlineSearchEnginesEnabled();
             if (underlineEnabled) applyEngineInitialUnderlines();
@@ -2834,38 +3213,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const sortSection = document.createElement('div');
             sortSection.className = 'engines-sort-section';
-            sortSection.innerHTML = '<button type="button" class="engines-sort-alphabetically">Restore A-Z</button>';
+            sortSection.hidden = true;
             enginesContainerForRestore.appendChild(sortSection);
 
-            const isEngineListAlphabetical = () => {
-                const items = getEngineItemsForSort();
-                const labels = items.map(i => getEngineLabel(i));
-                const sorted = [...labels].sort((a, b) => a.localeCompare(b));
-                return labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
-            };
-
-            const updateSortButtonVisibility = () => {
-                sortSection.hidden = isEngineListAlphabetical();
-            };
-
-            sortSection.querySelector('.engines-sort-alphabetically').addEventListener('click', (e) => {
-                e.stopPropagation();
-                const items = getEngineItemsForSort();
-                const sorted = [...items].sort((a, b) => getEngineLabel(a).localeCompare(getEngineLabel(b)));
-                sorted.forEach(item => enginesContainerForRestore.insertBefore(item, sortSection));
-                const order = sorted.map(item => getEngineLabel(item));
-                if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
-                updateSortButtonVisibility();
-                updateKeyboardNumbers();
-                requestAnimationFrame(() => {
+            const resetOrderBtn = document.getElementById('search-engines-reset-order-button');
+            if (resetOrderBtn) {
+                resetOrderBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (resetOrderBtn.disabled) return;
+                    const items = getEngineItemsForSort();
+                    const sorted = [...items].sort((a, b) => getEngineLabel(a).localeCompare(getEngineLabel(b)));
+                    sorted.forEach((item) => enginesContainerForRestore.insertBefore(item, sortSection));
+                    const order = sorted.map((item) => getEngineLabel(item));
+                    if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
+                    updateReorderResetButtonState();
+                    updateKeyboardNumbers();
                     requestAnimationFrame(() => {
-                        const smooth = !document.body.classList.contains('reduced-motion');
-                        enginesContainerForRestore.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+                        requestAnimationFrame(() => {
+                            const smooth = !document.body.classList.contains('reduced-motion');
+                            enginesContainerForRestore.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+                        });
                     });
                 });
-            });
+            }
 
-            updateSortButtonVisibility();
+            updateReorderResetButtonState();
             applySearchEnginesCountMode(localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false');
         }
     }
@@ -3006,7 +3378,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // List / grid segmented control in the switcher dropdown header (per-search-bar preference).
+    // List/grid segmented control in the switcher controls panel (per-search-bar preference).
     const searchEnginesDisplayToggle = document.getElementById('search-engines-display-toggle');
     if (searchEnginesDisplayToggle) {
         const flipSearchEnginesDisplayMode = () => {
@@ -3025,6 +3397,152 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             e.stopPropagation();
             flipSearchEnginesDisplayMode();
+        });
+    }
+
+    const searchEnginesControlsToggle = document.getElementById('search-engines-controls-toggle');
+    const searchEnginesControlsPanel = document.getElementById('search-engines-controls-panel');
+    const searchSwitcherInfoToggle = document.getElementById('search-switcher-info-toggle');
+    const searchSwitcherInfoPanel = document.getElementById('search-switcher-info-panel');
+    const controlsShell = searchEnginesControlsPanel?.closest('.dropdown-search-controls-shell');
+    const infoShell = searchSwitcherInfoPanel?.closest('.dropdown-search-info-shell');
+
+    const syncSearchEnginesControlsExpanded = () => {
+        if (!searchEnginesControlsPanel || !searchEnginesControlsToggle) return;
+        const open = !searchEnginesControlsPanel.hasAttribute('hidden');
+        searchEnginesControlsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        syncEngineDragHandlesForControlsPanel();
+    };
+
+    const closeSearchEnginesControlsPanelInstant = () => {
+        if (!searchEnginesControlsPanel || !searchEnginesControlsToggle) return;
+        if (searchEnginesControlsPanel.hasAttribute('hidden')) return;
+        controlsShell?.classList.remove('dropdown-search-controls-shell--open');
+        searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
+        searchEnginesControlsPanel.setAttribute('hidden', '');
+        searchEnginesControlsToggle.setAttribute('aria-expanded', 'false');
+        syncSearchEnginesControlsExpanded();
+    };
+
+    const closeSearchSwitcherInfoPanelInstant = () => {
+        if (!searchSwitcherInfoPanel || !searchSwitcherInfoToggle) return;
+        if (searchSwitcherInfoPanel.hasAttribute('hidden')) return;
+        infoShell?.classList.remove('dropdown-search-info-shell--open');
+        searchSwitcherInfoPanel.setAttribute('hidden', '');
+        searchSwitcherInfoToggle.setAttribute('aria-expanded', 'false');
+    };
+
+    const PANEL_SLIDE_MS = 320;
+
+    if (searchEnginesControlsToggle && searchEnginesControlsPanel) {
+        const toggleSearchEnginesControlsPanel = () => {
+            if (!controlsShell) {
+                searchEnginesControlsPanel.toggleAttribute('hidden');
+                syncSearchEnginesControlsExpanded();
+                const open = !searchEnginesControlsPanel.hasAttribute('hidden');
+                searchSwitcherButton?.classList.toggle('search-engines-controls-panel-revealed', open);
+                return;
+            }
+            const opening = searchEnginesControlsPanel.hasAttribute('hidden');
+            if (opening) {
+                closeSearchSwitcherInfoPanelInstant();
+                searchEnginesControlsPanel.removeAttribute('hidden');
+                requestAnimationFrame(() => {
+                    controlsShell.classList.add('dropdown-search-controls-shell--open');
+                    syncSearchEnginesControlsExpanded();
+                    const rm = document.body.classList.contains('reduced-motion');
+                    if (rm) {
+                        searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
+                    } else {
+                        requestAnimationFrame(() => {
+                            searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
+                        });
+                    }
+                });
+                return;
+            }
+            controlsShell.classList.remove('dropdown-search-controls-shell--open');
+            searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
+            searchEnginesControlsToggle.setAttribute('aria-expanded', 'false');
+            let settled = false;
+            const settle = () => {
+                if (settled) return;
+                settled = true;
+                searchEnginesControlsPanel.removeEventListener('transitionend', onTrEnd);
+                clearTimeout(fallbackTimer);
+                searchEnginesControlsPanel.setAttribute('hidden', '');
+                syncSearchEnginesControlsExpanded();
+            };
+            const onTrEnd = (ev) => {
+                if (ev.target !== searchEnginesControlsPanel || ev.propertyName !== 'transform') return;
+                settle();
+            };
+            searchEnginesControlsPanel.addEventListener('transitionend', onTrEnd);
+            const fallbackTimer = setTimeout(
+                settle,
+                document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
+            );
+        };
+        searchEnginesControlsToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSearchEnginesControlsPanel();
+        });
+        searchEnginesControlsToggle.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSearchEnginesControlsPanel();
+        });
+        syncSearchEnginesControlsExpanded();
+    }
+
+    if (searchSwitcherInfoToggle && searchSwitcherInfoPanel) {
+        const toggleSearchSwitcherInfoPanel = () => {
+            if (!infoShell) {
+                searchSwitcherInfoPanel.toggleAttribute('hidden');
+                const open = !searchSwitcherInfoPanel.hasAttribute('hidden');
+                searchSwitcherInfoToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                return;
+            }
+            const opening = searchSwitcherInfoPanel.hasAttribute('hidden');
+            if (opening) {
+                closeSearchEnginesControlsPanelInstant();
+                searchSwitcherInfoPanel.removeAttribute('hidden');
+                requestAnimationFrame(() => {
+                    infoShell.classList.add('dropdown-search-info-shell--open');
+                    searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
+                });
+                return;
+            }
+            infoShell.classList.remove('dropdown-search-info-shell--open');
+            searchSwitcherInfoToggle.setAttribute('aria-expanded', 'false');
+            let settled = false;
+            const settle = () => {
+                if (settled) return;
+                settled = true;
+                searchSwitcherInfoPanel.removeEventListener('transitionend', onTrEnd);
+                clearTimeout(fallbackTimer);
+                searchSwitcherInfoPanel.setAttribute('hidden', '');
+            };
+            const onTrEnd = (ev) => {
+                if (ev.target !== searchSwitcherInfoPanel || ev.propertyName !== 'transform') return;
+                settle();
+            };
+            searchSwitcherInfoPanel.addEventListener('transitionend', onTrEnd);
+            const fallbackTimer = setTimeout(
+                settle,
+                document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
+            );
+        };
+        searchSwitcherInfoToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSearchSwitcherInfoPanel();
+        });
+        searchSwitcherInfoToggle.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSearchSwitcherInfoPanel();
         });
     }
 
@@ -3049,7 +3567,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Pin this menu (aka switcher outside of search box) (default: off)
+    const moreSearchSettingsButton = document.getElementById('more-search-settings-button');
+    if (moreSearchSettingsButton) {
+        moreSearchSettingsButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                window.open('about:preferences#search', '_blank', 'noopener,noreferrer');
+            } catch (_) {}
+        });
+    }
+
+    // Switcher outside search box (lilac "Show while typing" toggle; was "Pin this menu" in the dropdown)
     const pinMenuToggle = document.getElementById('pin-menu-toggle');
     let cancelPinMenuFlip = null;
     let pinMenuFlipSeq = 0;
@@ -3100,6 +3629,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = pinMenuToggle.querySelector('.pin-menu-toggle-label');
             if (icon) icon.src = enabled ? 'icons/pin-filled.svg' : 'icons/pin.svg';
             if (label) label.textContent = enabled ? 'Unpin this menu' : 'Pin this menu';
+        }
+        const showWhileTypingToggle = document.getElementById('show-search-engines-while-typing-toggle');
+        if (showWhileTypingToggle) {
+            showWhileTypingToggle.setAttribute('aria-checked', enabled ? 'true' : 'false');
         }
         if (!wantFlip || !btn || !firstBtnRect) {
             if (btn) {
@@ -3232,40 +3765,40 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     };
-    if (pinMenuToggle && window === window.top && !document.body.classList.contains('addressbar')) {
+    const showSearchEnginesWhileTypingToggle = document.getElementById('show-search-engines-while-typing-toggle');
+    if (showSearchEnginesWhileTypingToggle) {
         const enabled = localStorage.getItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY) === 'true';
         applyPinnedMenuState(enabled, { animate: false });
-        const toggle = (e) => {
-            // Space/Enter: prevent page scroll; click: do not preventDefault — otherwise focus stays on
-            // .search-switcher-button (see switcher open path) and window blur mis-detects "switcher focused".
+        const togglePinnedFromSwitch = (e) => {
             if (e.type === 'keydown') e.preventDefault();
             e.stopPropagation();
             const next = !document.body.classList.contains('switcher-outside-search-box-enabled');
-            const inputType = e.type === 'keydown' ? `keydown:${e.key}` : e.type;
             const t = e.target;
+            const inputType = e.type === 'keydown' ? `keydown:${e.key}` : e.type;
             const targetTag = t && String(t.tagName || '').toLowerCase();
             const targetBrief = !t
                 ? 'unknown'
-                : t === pinMenuToggle
-                  ? 'pin-menu-toggle (direct)'
+                : t === showSearchEnginesWhileTypingToggle
+                  ? 'show-search-engines-while-typing-toggle (direct)'
                   : `${targetTag}${t.id ? `#${t.id}` : ''}${t.classList?.length ? `.${[...t.classList].slice(0, 3).join('.')}` : ''}`;
-            logPinMenu('pin toggle control', {
+            logPinMenu('pinned switcher toggle (lilac controls)', {
                 inputType,
-                currentTarget: e.currentTarget?.id || 'pin-menu-toggle',
+                currentTarget: e.currentTarget?.id || 'show-search-engines-while-typing-toggle',
                 target: targetBrief,
                 nextOutside: next,
                 label: next ? 'will pin (outside)' : 'will unpin (inside)',
             });
             applyPinnedMenuState(next);
+            if (searchInput) searchInput.dispatchEvent(new Event('input', { bubbles: true }));
             try {
-                pinMenuToggle.focus({ preventScroll: true });
+                showSearchEnginesWhileTypingToggle.focus({ preventScroll: true });
             } catch (_) {
-                pinMenuToggle.focus();
+                showSearchEnginesWhileTypingToggle.focus();
             }
         };
-        pinMenuToggle.addEventListener('click', toggle);
-        pinMenuToggle.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') toggle(e);
+        showSearchEnginesWhileTypingToggle.addEventListener('click', togglePinnedFromSwitch);
+        showSearchEnginesWhileTypingToggle.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') togglePinnedFromSwitch(e);
         });
     }
 
@@ -3797,10 +4330,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // not an extra "echo" of what the user is already typing.
             suggestionsToShow = Array.isArray(suggestions) ? suggestions : [];
         } else if (searchValueTrimmed) {
-            suggestionsToShow = [searchValueTrimmed, ...(Array.isArray(suggestions) ? suggestions : []).filter(s => {
+            const rest = (Array.isArray(suggestions) ? suggestions : []).filter((s) => {
                 if (typeof s === 'object' && s._localSource) return false;
                 return (typeof s === 'string' ? s : '').toLowerCase() !== searchValueTrimmed.toLowerCase();
-            })];
+            });
+            suggestionsToShow = [searchValueTrimmed, ...rest];
+            if (document.body.classList.contains('switcher-outside-search-box-enabled') && !isAtQuery && !firefoxSuggestionsOnly) {
+                const engines = getSearchEngineSuggestionObjectsFromDropdown();
+                const q = searchValueTrimmed.toLowerCase();
+                const engineMatches = engines.filter((e) => e.label.toLowerCase().startsWith(q));
+                suggestionsToShow = [searchValueTrimmed, ...engineMatches, ...rest];
+            }
         } else {
             suggestionsToShow = Array.isArray(suggestions) ? suggestions : [];
         }
@@ -4529,6 +5069,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     dropdown.addEventListener('transitionend', onClosed);
                     setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
                 }
+                forceCloseSearchSwitcherSubPanels();
                 searchSwitcherButton.classList.remove('open');
                 autoOpenedSwitcherOnFocus = false;
             } else if (searchSwitcherButton?.classList.contains('open')) {
@@ -4697,14 +5238,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         document.body.classList.remove('switcher-outside-search-box-enabled');
                         try { localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false'); } catch (_) {}
-                        const pinMenuToggle = document.getElementById('pin-menu-toggle');
-                        if (pinMenuToggle) {
-                            pinMenuToggle.setAttribute('aria-pressed', 'false');
-                            const icon = pinMenuToggle.querySelector('.pin-menu-toggle-icon');
-                            const label = pinMenuToggle.querySelector('.pin-menu-toggle-label');
-                            if (icon) icon.src = 'icons/pin.svg';
-                            if (label) label.textContent = 'Pin this menu';
-                        }
+                        const showWhileTypingReset = document.getElementById('show-search-engines-while-typing-toggle');
+                        if (showWhileTypingReset) showWhileTypingReset.setAttribute('aria-checked', 'false');
                     }
 
                     const qbtReset = document.getElementById('quick-buttons-toggle');
@@ -4718,6 +5253,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     restoreFirefoxSuggestionsState();
 
+                    forceCloseSearchSwitcherSubPanels();
                     searchSwitcherButton?.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
                     searchSwitcherButton?.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
                     searchSwitcherButton?.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
@@ -4835,6 +5371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                forceCloseSearchSwitcherSubPanels();
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 if (searchContainer?.classList.contains('focused')) {
                     closeSuggestionsPanel();
@@ -4871,6 +5408,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (!pinnedOpen) {
                         searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                        forceCloseSearchSwitcherSubPanels();
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
                     }
                     switcherHighlightedIndex = -1;
@@ -4899,6 +5437,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (!pinnedOpen) {
                         searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                        forceCloseSearchSwitcherSubPanels();
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
                     }
                     switcherHighlightedIndex = -1;
@@ -4923,7 +5462,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (event.key === 'Enter' && switcherHighlightedIndex >= 0 && switcherHighlightedIndex < count) {
                 event.preventDefault();
                 const item = dropdownItems[switcherHighlightedIndex];
-                if (item.id !== 'quick-buttons-toggle' && !item.textContent.includes('Search Settings')) {
+                if (item.id !== 'quick-buttons-toggle') {
                     console.log('[SWITCHER KEYBOARD] Enter pressed on highlighted item, applying selection and closing');
                     applySelectedSearchSource(item);
                     const query = (searchInput?.value || '').trim();
@@ -4932,6 +5471,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (!pinnedOpen) {
                         dropdown?.classList.remove('dropdown-revealed');
+                        forceCloseSearchSwitcherSubPanels();
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                     }
                     switcherHighlightedIndex = -1;
@@ -5171,11 +5711,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 wasFocusedBeforeBlur = true;
                 console.log('[WINDOW BLUR] Search was focused, remembering state');
             } else if (searchSwitcherButton && searchSwitcherButton.contains(ae)) {
-                // Pin/Unpin lives inside the switcher subtree; focus there is not "engine switcher" UX.
-                const pinEl = document.getElementById('pin-menu-toggle');
-                const focusOnPinOnly = pinEl && (ae === pinEl || pinEl.contains(ae));
-                if (focusOnPinOnly) {
-                    console.log('[WINDOW BLUR] Focus on pin-menu only; not remembering switcher state');
+                // Show-while-typing / pin switch lives inside the switcher subtree; focus there is not "engine switcher" UX.
+                const showWhileTypingEl = document.getElementById('show-search-engines-while-typing-toggle');
+                const focusOnShowWhileTypingOnly =
+                    showWhileTypingEl && (ae === showWhileTypingEl || showWhileTypingEl.contains(ae));
+                if (focusOnShowWhileTypingOnly) {
+                    console.log('[WINDOW BLUR] Focus on show-while-typing toggle only; not remembering switcher state');
                 } else {
                     wasSwitcherFocusedBeforeBlur = true;
                     console.log('[WINDOW BLUR] Switcher was focused, remembering state');

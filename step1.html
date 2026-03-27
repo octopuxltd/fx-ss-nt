@@ -134,16 +134,31 @@
                             <div class="dropdown-label">
                                 <span>Search with</span>
                                 <div class="dropdown-label-actions">
-                                    <span class="dropdown-label-info-icon tooltip-trigger" data-tooltip-position="bottom-right">
-                                        <span class="tooltip-popup">
-                                            <ul>
-                                                <li>Opt+⬇️ = open this menu</li>
-                                                <li>Drag / drop = re-order</li>
-                                                <li>Select after typing = search immediately</li>
-                                            </ul>
-                                        </span>
+                                    <button type="button" id="search-switcher-info-toggle" class="dropdown-label-info-icon" aria-expanded="false" aria-controls="search-switcher-info-panel" aria-label="Shortcuts">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                                    </span>
+                                    </button>
+                                    <button type="button" id="search-engines-controls-toggle" class="search-engines-controls-toggle" aria-expanded="false" aria-controls="search-engines-controls-panel" title="Controls">
+                                        <img src="icons/controls.svg" alt="" class="search-engines-controls-toggle-icon" width="14" height="14">
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="dropdown-search-info-shell">
+                                <div class="dropdown-search-info-shell-inner">
+                                    <div id="search-switcher-info-panel" class="dropdown-search-info-panel" hidden aria-labelledby="search-switcher-info-heading">
+                                        <h3 id="search-switcher-info-heading" class="dropdown-search-info-panel-heading">Shortcuts</h3>
+                                        <ul class="dropdown-search-info-panel-list">
+                                            <li>Opt+⬇️ = open this menu</li>
+                                            <li>Select after typing = search immediately</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dropdown-search-controls-shell">
+                                <div class="dropdown-search-controls-shell-inner">
+                            <div id="search-engines-controls-panel" class="dropdown-search-controls" hidden>
+                                <div class="dropdown-search-controls-top">
+                                <div class="dropdown-search-controls-row">
+                                    <span class="dropdown-search-controls-row-label">View as list / grid</span>
                                     <div id="search-engines-display-toggle" class="search-engines-display-segmented" role="group" aria-label="Search engines layout">
                                         <button type="button" class="search-engines-display-segment search-engines-display-segment--list" data-mode="list" aria-pressed="true" title="List view">
                                             <img src="icons/view-list.svg" alt="" class="search-engines-display-segment-icon" width="14" height="14">
@@ -153,7 +168,27 @@
                                         </button>
                                     </div>
                                 </div>
+                                <div class="dropdown-search-controls-row dropdown-search-controls-row--switch">
+                                    <span class="dropdown-search-controls-row-label dropdown-search-controls-row-label--wrap" id="show-search-engines-while-typing-label">Show while typing</span>
+                                    <button type="button" id="show-search-engines-while-typing-toggle" class="search-engines-setting-switch" role="switch" aria-checked="false" aria-labelledby="show-search-engines-while-typing-label">
+                                        <span class="search-engines-setting-switch-thumb" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <div class="dropdown-search-controls-row dropdown-search-controls-row--reorder">
+                                    <span class="dropdown-search-controls-row-label">Drag to sort</span>
+                                    <button type="button" id="search-engines-reset-order-button" class="search-engines-reset-order-button" disabled aria-disabled="true">Reset A-Z</button>
+                                </div>
+                                </div>
+                                <div class="dropdown-search-controls-row dropdown-search-controls-row--more-settings">
+                                    <button type="button" id="more-search-settings-button" class="more-search-settings-button" title="Open Search settings in Firefox Preferences">
+                                        <img src="icons/settings.svg" alt="" class="more-search-settings-button-icon" width="10" height="10">
+                                        More Search Settings
+                                    </button>
+                                </div>
                             </div>
+                                </div>
+                            </div>
+                            <div class="dropdown-engines-firefox-shell">
                             <div class="dropdown-engines-firefox-scroll">
                             <div class="dropdown-search-engines">
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Amazon - Light.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Amazon</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
@@ -173,6 +208,7 @@
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Wikipedia.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Wikipedia (en)</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/YouTube.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">YouTube</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             </div>
+                            <div class="dropdown-from-firefox-footer">
                             <div class="dropdown-divider"></div>
                             <div class="dropdown-label">From Firefox</div>
                             <div class="dropdown-firefox-suggestions">
@@ -182,16 +218,15 @@
                             <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="actions"><img src="icons/actions.svg" alt="" class="dropdown-icon"><span>Actions</span><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="button" tabindex="0" aria-pressed="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span></div>
                             </div>
                             </div>
-                            <div class="dropdown-divider"></div>
-                            <div class="dropdown-item">
-                                <img src="icons/settings.svg" alt="" class="dropdown-icon">
-                                Search Settings
                             </div>
-                            <div class="dropdown-item" id="pin-menu-toggle" role="button" tabindex="0" aria-pressed="false">
-                                <img src="icons/pin.svg" alt="" class="dropdown-icon pin-menu-toggle-icon">
-                                <span class="pin-menu-toggle-label">Pin this menu</span>
                             </div>
+                            <!-- Temporarily hidden: Show one-off buttons (remove stub below when restoring this row)
                             <div class="dropdown-item" id="quick-buttons-toggle" data-visibility="hidden">
+                                <img src="icons/eye.svg" alt="" class="dropdown-icon quick-buttons-icon">
+                                <span class="quick-buttons-label">Show one-off buttons</span>
+                            </div>
+                            -->
+                            <div id="quick-buttons-toggle" data-visibility="hidden" class="quick-buttons-toggle-offmenu" hidden aria-hidden="true" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">
                                 <img src="icons/eye.svg" alt="" class="dropdown-icon quick-buttons-icon">
                                 <span class="quick-buttons-label">Show one-off buttons</span>
                             </div>
