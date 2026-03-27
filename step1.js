@@ -1100,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             clearGridIconTooltips();
         }
+        requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
     };
     applySearchEnginesDisplayMode(getSearchEnginesDisplayMode());
     const isUnderlineSearchEnginesEnabled = () => {
@@ -1816,6 +1817,54 @@ document.addEventListener('DOMContentLoaded', () => {
         syncDefaultBadgeDraggableState();
     }
 
+    function clearFromFirefoxFooterFlipStyles() {
+        const footer = searchSwitcherButton?.querySelector('.dropdown-from-firefox-footer');
+        if (!footer) return;
+        footer.style.transition = '';
+        footer.style.transform = '';
+    }
+
+    /**
+     * Width must not follow the Shortcuts (i) panel text: CSS `width: max-content` on the dropdown
+     * still used intrinsic max-content from that subtree in some engines. Measure with the info shell
+     * out of flow, then set a fixed px width so wrapping stays inside the menu width.
+     */
+    function syncSearchSwitcherDropdownWidth() {
+        const btn = document.querySelector('.search-switcher-button');
+        const dropdown = btn?.querySelector('.search-switcher-dropdown');
+        const infoShell = dropdown?.querySelector('.dropdown-search-info-shell');
+        const infoPanel = document.getElementById('search-switcher-info-panel');
+        if (!dropdown) return;
+        if (!btn?.classList.contains('open')) {
+            dropdown.style.width = '';
+            return;
+        }
+        if (!infoShell) {
+            void dropdown.offsetWidth;
+            const w = Math.min(Math.max(dropdown.scrollWidth, 200), window.innerWidth - 24);
+            dropdown.style.width = `${w}px`;
+            return;
+        }
+        // While Shortcuts is open or closing, never `display:none` the info shell — that kills the slide transition.
+        // Keep width at least the previous px width so the menu does not shrink to the shortcuts column.
+        if (infoPanel && !infoPanel.hasAttribute('hidden')) {
+            void dropdown.offsetWidth;
+            const measured = dropdown.scrollWidth;
+            const capped = Math.min(Math.max(measured, 200), window.innerWidth - 24);
+            const currentPx = parseFloat(String(dropdown.style.width).replace(/px$/i, '')) || 0;
+            dropdown.style.width = `${Math.max(capped, currentPx)}px`;
+            return;
+        }
+        const prevDisplay = infoShell.style.display;
+        infoShell.style.display = 'none';
+        void dropdown.offsetWidth;
+        const measured = dropdown.scrollWidth;
+        infoShell.style.display = prevDisplay;
+        void dropdown.offsetWidth;
+        const capped = Math.min(Math.max(measured, 200), window.innerWidth - 24);
+        dropdown.style.width = `${capped}px`;
+    }
+
     /** When the search switcher dropdown closes, fully settle info + controls sub-panels (not mid-animation). */
     function forceCloseSearchSwitcherSubPanels() {
         const panel = document.getElementById('search-engines-controls-panel');
@@ -1829,6 +1878,7 @@ document.addEventListener('DOMContentLoaded', () => {
         infoPanel?.setAttribute('hidden', '');
         document.getElementById('search-engines-controls-toggle')?.setAttribute('aria-expanded', 'false');
         document.getElementById('search-switcher-info-toggle')?.setAttribute('aria-expanded', 'false');
+        clearFromFirefoxFooterFlipStyles();
         syncEngineDragHandlesForControlsPanel();
     }
 
@@ -2232,6 +2282,8 @@ document.addEventListener('DOMContentLoaded', () => {
             new MutationObserver(() => {
                 if (searchSwitcherButton.classList.contains('open')) {
                     setSwitcherDropdownMaxHeight();
+                } else {
+                    switcherDropdownEl?.style.removeProperty('width');
                 }
             }).observe(searchSwitcherButton, { attributes: true, attributeFilter: ['class'] });
 
@@ -2252,6 +2304,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 new MutationObserver(() => {
                     if (switcherDropdownEl.classList.contains('dropdown-revealed')) {
                         setSwitcherDropdownMaxHeight();
+                        syncSearchSwitcherDropdownWidth();
                     }
                 }).observe(switcherDropdownEl, { attributes: true, attributeFilter: ['class'] });
             }
@@ -2260,6 +2313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('resize', () => {
             if (searchSwitcherButton.classList.contains('open')) {
                 setSwitcherDropdownMaxHeight();
+                syncSearchSwitcherDropdownWidth();
             }
         });
 
@@ -2311,6 +2365,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
                     }
                     searchSwitcherDropdown?.classList.remove('dropdown-revealed');
+                    if (searchSwitcherDropdown) searchSwitcherDropdown.style.width = '';
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
@@ -2335,6 +2390,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
                         if (searchSwitcherButton.classList.contains('open')) {
                             searchSwitcherDropdown.classList.add('dropdown-revealed');
+                            syncSearchSwitcherDropdownWidth();
+                            requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
                         // Log final geometry once revealed (no expansion required in console).
                         const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
                         const dropdownRect = dropdown?.getBoundingClientRect();
@@ -2588,24 +2645,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         enginesContainer.querySelectorAll('.dropdown-item').forEach((el) => el.classList.remove('highlighted'));
                         ghostEl.style.display = 'none';
                     };
-                    const highlightUnder = (clientX, clientY) => {
-                        clearHighlight();
+                    /** Resolve engine row under cursor; skips floating badge + ghost so the source (pinned) row stays a valid drop target. */
+                    const findEngineRowUnderPoint = (clientX, clientY) => {
                         const stack = document.elementsFromPoint(clientX, clientY);
-                        let item = null;
                         for (let i = 0; i < stack.length; i++) {
                             const node = stack[i];
                             if (!node || typeof node.closest !== 'function') continue;
+                            if (node === floatWrap || floatWrap.contains(node)) continue;
+                            if (node === ghostEl || ghostEl.contains(node)) continue;
                             const row = node.closest('.dropdown-item');
                             if (
                                 row &&
                                 enginesContainer.contains(row) &&
-                                row.querySelector('.dropdown-engine-label') &&
-                                row !== pinnedItem
+                                row.querySelector('.dropdown-engine-label')
                             ) {
-                                item = row;
-                                break;
+                                return row;
                             }
                         }
+                        return null;
+                    };
+                    const highlightUnder = (clientX, clientY) => {
+                        clearHighlight();
+                        const item = findEngineRowUnderPoint(clientX, clientY);
                         if (!item) return;
                         item.classList.add('highlighted');
                         const labelEl = item.querySelector('.dropdown-engine-label');
@@ -2690,8 +2751,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ghostEl.remove();
                         floatWrap.remove();
                         placeholderEl.remove();
-                        const el = document.elementFromPoint(ev.clientX, ev.clientY);
-                        const item = el?.closest('.dropdown-item');
+                        const item = findEngineRowUnderPoint(ev.clientX, ev.clientY);
                         clearHighlight();
                         const willApply =
                             item &&
@@ -2701,8 +2761,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         defaultBadgeLog('drag end (mouseup)', {
                             x: ev.clientX,
                             y: ev.clientY,
-                            dropTargetTag: el?.tagName,
-                            dropTargetClass: el?.className,
                             resolvedItem: item ? getEngineLabel(item) : null,
                             willApplyNewDefault: !!willApply,
                         });
@@ -3057,6 +3115,8 @@ document.addEventListener('DOMContentLoaded', () => {
             enginesContainer.addEventListener('mousedown', (e) => {
                 const item = e.target.closest('.dropdown-item');
                 if (!item || !item.querySelector('.dropdown-engine-label')) return;
+                /* Reorder drag only while the controls panel is open (drag handles are shown then). */
+                if (!searchSwitcherButton.classList.contains('search-engines-controls-open')) return;
                 if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin, .dropdown-item-open-new-window, .dropdown-item-row-action')) return;
                 e.preventDefault();
 
@@ -3434,6 +3494,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const PANEL_SLIDE_MS = 320;
 
+    /** When swapping (i) ↔ controls, skip enter animation so one panel replaces the other cleanly. */
+    const openSearchEnginesControlsPanelInstantSwap = () => {
+        if (!controlsShell || !searchEnginesControlsPanel) return;
+        searchEnginesControlsPanel.removeAttribute('hidden');
+        controlsShell.style.transition = 'none';
+        searchEnginesControlsPanel.style.transition = 'none';
+        controlsShell.classList.add('dropdown-search-controls-shell--open');
+        void searchEnginesControlsPanel.offsetHeight;
+        controlsShell.style.transition = '';
+        searchEnginesControlsPanel.style.transition = '';
+        syncSearchEnginesControlsExpanded();
+        searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
+        syncSearchSwitcherDropdownWidth();
+    };
+
+    const openSearchSwitcherInfoPanelInstantSwap = () => {
+        if (!infoShell || !searchSwitcherInfoPanel) return;
+        searchSwitcherInfoPanel.removeAttribute('hidden');
+        infoShell.style.transition = 'none';
+        searchSwitcherInfoPanel.style.transition = 'none';
+        infoShell.classList.add('dropdown-search-info-shell--open');
+        void searchSwitcherInfoPanel.offsetHeight;
+        infoShell.style.transition = '';
+        searchSwitcherInfoPanel.style.transition = '';
+        searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
+        syncSearchSwitcherDropdownWidth();
+    };
+
+    /** Smooth layout jump when “From Firefox” switches sticky ↔ static (runs in parallel with the controls panel slide). */
+    const runFromFirefoxFooterFlipTransition = (footer, firstRect) => {
+        if (!footer || !firstRect) return;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const lastRect = footer.getBoundingClientRect();
+                const dx = firstRect.left - lastRect.left;
+                const dy = firstRect.top - lastRect.top;
+                if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+                footer.style.transition = 'none';
+                footer.style.transform = `translate(${dx}px, ${dy}px)`;
+                void footer.offsetHeight;
+                requestAnimationFrame(() => {
+                    footer.style.transition =
+                        'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)';
+                    footer.style.transform = 'translate(0, 0)';
+                    const cleanup = () => {
+                        footer.removeEventListener('transitionend', onTfEnd);
+                        footer.style.transition = '';
+                        footer.style.transform = '';
+                    };
+                    const onTfEnd = (e) => {
+                        if (e && e.propertyName !== 'transform') return;
+                        cleanup();
+                    };
+                    footer.addEventListener('transitionend', onTfEnd);
+                    setTimeout(cleanup, 420);
+                });
+            });
+        });
+    };
+
     if (searchEnginesControlsToggle && searchEnginesControlsPanel) {
         const toggleSearchEnginesControlsPanel = () => {
             if (!controlsShell) {
@@ -3441,11 +3561,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 syncSearchEnginesControlsExpanded();
                 const open = !searchEnginesControlsPanel.hasAttribute('hidden');
                 searchSwitcherButton?.classList.toggle('search-engines-controls-panel-revealed', open);
+                syncSearchSwitcherDropdownWidth();
                 return;
             }
             const opening = searchEnginesControlsPanel.hasAttribute('hidden');
             if (opening) {
+                const wasInfoOpen =
+                    searchSwitcherInfoPanel && !searchSwitcherInfoPanel.hasAttribute('hidden');
+                clearFromFirefoxFooterFlipStyles();
                 closeSearchSwitcherInfoPanelInstant();
+                if (wasInfoOpen) {
+                    openSearchEnginesControlsPanelInstantSwap();
+                    return;
+                }
                 searchEnginesControlsPanel.removeAttribute('hidden');
                 requestAnimationFrame(() => {
                     controlsShell.classList.add('dropdown-search-controls-shell--open');
@@ -3453,17 +3581,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     const rm = document.body.classList.contains('reduced-motion');
                     if (rm) {
                         searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
+                        syncSearchSwitcherDropdownWidth();
                     } else {
                         requestAnimationFrame(() => {
                             searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
+                            syncSearchSwitcherDropdownWidth();
                         });
                     }
                 });
                 return;
             }
+            const footer = searchSwitcherButton?.querySelector('.dropdown-from-firefox-footer');
+            const wantFooterFlip =
+                footer &&
+                !document.body.classList.contains('reduced-motion') &&
+                searchSwitcherButton.classList.contains('search-engines-controls-panel-revealed');
+            let footerFlipFirstRect = null;
+            if (wantFooterFlip) {
+                footerFlipFirstRect = footer.getBoundingClientRect();
+            }
             controlsShell.classList.remove('dropdown-search-controls-shell--open');
             searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
             searchEnginesControlsToggle.setAttribute('aria-expanded', 'false');
+            if (wantFooterFlip && footerFlipFirstRect) {
+                runFromFirefoxFooterFlipTransition(footer, footerFlipFirstRect);
+            }
             let settled = false;
             const settle = () => {
                 if (settled) return;
@@ -3472,6 +3614,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearTimeout(fallbackTimer);
                 searchEnginesControlsPanel.setAttribute('hidden', '');
                 syncSearchEnginesControlsExpanded();
+                syncSearchSwitcherDropdownWidth();
             };
             const onTrEnd = (ev) => {
                 if (ev.target !== searchEnginesControlsPanel || ev.propertyName !== 'transform') return;
@@ -3506,11 +3649,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const opening = searchSwitcherInfoPanel.hasAttribute('hidden');
             if (opening) {
+                const wasControlsOpen =
+                    searchEnginesControlsPanel && !searchEnginesControlsPanel.hasAttribute('hidden');
                 closeSearchEnginesControlsPanelInstant();
+                if (wasControlsOpen) {
+                    openSearchSwitcherInfoPanelInstantSwap();
+                    return;
+                }
                 searchSwitcherInfoPanel.removeAttribute('hidden');
                 requestAnimationFrame(() => {
                     infoShell.classList.add('dropdown-search-info-shell--open');
                     searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
+                    syncSearchSwitcherDropdownWidth();
+                    requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
                 });
                 return;
             }
@@ -3523,6 +3674,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchSwitcherInfoPanel.removeEventListener('transitionend', onTrEnd);
                 clearTimeout(fallbackTimer);
                 searchSwitcherInfoPanel.setAttribute('hidden', '');
+                syncSearchSwitcherDropdownWidth();
             };
             const onTrEnd = (ev) => {
                 if (ev.target !== searchSwitcherInfoPanel || ev.propertyName !== 'transform') return;
@@ -5034,6 +5186,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         dropdown.removeEventListener('transitionend', onDropRevealed);
                         if (searchSwitcherButton.classList.contains('open')) {
                             dropdown.classList.add('dropdown-revealed');
+                            syncSearchSwitcherDropdownWidth();
+                            requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
                         }
                     };
                     dropdown.addEventListener('transitionend', onDropRevealed);
@@ -5754,6 +5908,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchSwitcherButton.classList.add('open');
                     searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                     switcherDropdownForRestore.classList.add('dropdown-revealed');
+                    syncSearchSwitcherDropdownWidth();
+                    requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
                     try {
                         const rect = switcherDropdownForRestore.getBoundingClientRect();
                         const bottomPadding = 8;

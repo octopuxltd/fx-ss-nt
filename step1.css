@@ -371,7 +371,8 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     background-color: #fff;
     border-radius: 0 var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px);
     min-width: 200px;
-    width: max-content;
+    /* Width set by JS (syncSearchSwitcherDropdownWidth) so intrinsic max-content cannot grow from the Shortcuts (i) panel text; falls back until measured */
+    width: auto;
     max-width: calc(100vw - 24px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     max-height: 0;
@@ -386,6 +387,7 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     padding: 6px 0;
     display: flex;
     flex-direction: column;
+    min-width: 0;
     min-height: 0;
 }
 
@@ -415,6 +417,7 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     position: relative;
     z-index: 1;
     background-color: #fff;
+    overflow: visible;
 }
 
 .dropdown-label-info-icon {
@@ -445,8 +448,28 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
 }
 
 .dropdown-label-info-icon[aria-expanded="true"] {
+    border-radius: 14px 14px 0 0;
     background: #e8f0ff;
     outline: none;
+    position: relative;
+    z-index: 3;
+}
+
+/* Tab connector to the blue info panel (icon position unchanged; extension is ::after) */
+.dropdown-label-info-icon[aria-expanded="true"]::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    height: 8px;
+    background: #e8f0ff;
+    pointer-events: none;
+}
+
+.dropdown-label-info-icon[aria-expanded="true"]:hover,
+.dropdown-label-info-icon[aria-expanded="true"]:focus-visible {
+    background: #e8f0ff;
 }
 
 .dropdown-label-actions {
@@ -532,8 +555,28 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
 }
 
 .search-engines-controls-toggle[aria-expanded="true"] {
+    border-radius: 14px 14px 0 0;
     background: #f4f0fb;
     outline: none;
+    position: relative;
+    z-index: 3;
+}
+
+/* Tab connector to the lilac controls panel */
+.search-engines-controls-toggle[aria-expanded="true"]::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    height: 8px;
+    background: #f4f0fb;
+    pointer-events: none;
+}
+
+.search-engines-controls-toggle[aria-expanded="true"]:hover,
+.search-engines-controls-toggle[aria-expanded="true"]:focus-visible {
+    background: #f4f0fb;
 }
 
 .search-engines-controls-toggle-icon {
@@ -599,6 +642,9 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
 
 .dropdown-search-controls-shell.dropdown-search-controls-shell--open .dropdown-search-controls {
     transform: translateY(0);
+    /* Top-right only: tab aligns with controls icon; top-left stays rounded (no negative margin — avoids clipping TL corner in overflow:hidden shell) */
+    border-radius: 6px 0 6px 6px;
+    padding: 14px 12px 8px;
 }
 
 body.reduced-motion .dropdown-search-controls-shell,
@@ -609,8 +655,14 @@ body.reduced-motion .dropdown-search-controls-shell .dropdown-search-controls {
 /* Blue info panel: same slide pattern as lilac controls */
 .dropdown-search-info-shell {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 0fr;
     margin: 0 12px 0;
+    min-width: 0;
+    box-sizing: border-box;
+    align-self: stretch;
+    width: auto;
+    max-width: min(280px, calc(100vw - 48px));
     transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -622,6 +674,8 @@ body.reduced-motion .dropdown-search-controls-shell .dropdown-search-controls {
 .dropdown-search-info-shell-inner {
     min-width: 0;
     min-height: 0;
+    width: 100%;
+    max-width: 100%;
     overflow: hidden;
 }
 
@@ -638,13 +692,17 @@ body.reduced-motion .dropdown-search-controls-shell .dropdown-search-controls {
     font-size: 12px;
     font-weight: 400;
     color: #2c4a7a;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    overflow-x: hidden;
     transform: translateY(-100%);
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dropdown-search-info-shell.dropdown-search-info-shell--open .dropdown-search-info-panel {
     transform: translateY(0);
+    border-radius: 6px;
+    padding: 14px 12px 10px;
 }
 
 body.reduced-motion .dropdown-search-info-shell,
@@ -658,17 +716,27 @@ body.reduced-motion .dropdown-search-info-shell .dropdown-search-info-panel {
     font-weight: 600;
     line-height: 1.25;
     color: inherit;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .dropdown-search-info-panel-list {
     margin: 0;
     padding-left: 1.15em;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .dropdown-search-info-panel-list li {
     margin: 0;
     padding: 0;
     line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .dropdown-search-info-panel-list li + li {
@@ -715,6 +783,19 @@ body.reduced-motion .dropdown-search-info-shell .dropdown-search-info-panel {
     align-items: center;
 }
 
+/* Divider + centered “More Search Settings” */
+.dropdown-search-controls-more-settings-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 12px 0 0;
+    border-top: 1px solid rgba(75, 50, 120, 0.14);
+}
+
 /* Shared compact control style (Reset A-Z + More Search Settings) */
 .search-engines-reset-order-button,
 .more-search-settings-button {
@@ -747,8 +828,8 @@ body.reduced-motion .dropdown-search-info-shell .dropdown-search-info-panel {
 
 .dropdown-search-controls-row--more-settings {
     margin-top: 0;
-    flex-direction: column;
-    align-items: flex-end;
+    justify-content: center;
+    align-items: center;
     gap: 0;
     min-height: 0;
 }
@@ -1038,7 +1119,8 @@ body.reduced-motion .dropdown-search-engines {
     background-color: #fff;
 }
 
-.search-switcher-button.search-engines-controls-open .dropdown-from-firefox-footer {
+/* Match drag-handle reveal: footer docks with the panel when .panel-revealed is set, not merely when the panel is un-hidden, so closing can start the footer transition with the slide */
+.search-switcher-button.search-engines-controls-panel-revealed .dropdown-from-firefox-footer {
     position: static;
     z-index: auto;
 }
@@ -1072,6 +1154,7 @@ body.search-engines-display-grid .dropdown-search-engines {
 
 body.search-engines-display-grid .dropdown-search-engines .dropdown-item {
     width: auto;
+    margin-inline: 0;
 }
 
 body.search-engines-display-grid .dropdown-search-engines .engines-sort-section {
@@ -1090,7 +1173,7 @@ body.search-engines-display-grid .dropdown-search-engines .dropdown-item-pinned 
     width: 28px;
     height: 28px;
     padding: 0;
-    border-radius: 4px;
+    border-radius: 9999px;
 }
 
 body.search-engines-display-grid .dropdown-search-engines .dropdown-item-pin,
@@ -1127,8 +1210,9 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-fi
     gap: 0;
     width: 28px;
     height: 28px;
+    margin-inline: 0;
     padding: 0;
-    border-radius: 4px;
+    border-radius: 9999px;
 }
 
 body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion > span {
@@ -1153,7 +1237,10 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
+    box-sizing: border-box;
+    margin-inline: 6px;
+    padding: 6px 6px;
+    border-radius: 9999px;
     font-size: 14px;
     color: var(--color-text-primary);
     cursor: pointer;
@@ -1196,13 +1283,13 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
 }
 
 .dropdown-item-pinned {
-    justify-content: space-between;
+    /* Pack icon + label + badge with .dropdown-item gap (8px); pin uses margin-left: auto */
+    justify-content: flex-start;
 }
 
 .dropdown-default-badge-wrap {
     display: inline-flex;
     align-items: center;
-    margin-left: 8px;
     flex-shrink: 0;
     user-select: none;
     position: relative;
@@ -1213,7 +1300,6 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    margin-left: 8px;
     box-sizing: border-box;
     visibility: hidden;
     pointer-events: none;
@@ -1353,12 +1439,12 @@ body.search-engines-display-grid .dropdown-default-badge-wrap {
     display: none;
 }
 
-/* Drop preview while dragging the default badge — darker slot where the pill will land */
+/* Drop preview while dragging the default badge — 60% white slot where the pill will land */
 .default-badge-drop-ghost {
     position: fixed;
     box-sizing: border-box;
     border-radius: 3px;
-    background: rgba(0, 0, 0, 0.22);
+    background: rgba(255, 255, 255, 0.6);
     pointer-events: none;
     z-index: 10001;
     display: none;
@@ -1419,6 +1505,7 @@ body.search-engines-display-grid .dropdown-default-badge-wrap {
 
 body > .dropdown-item.dragging {
     position: fixed;
+    margin-inline: 0;
     transform: scale(1.06) rotate(-8deg);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.08);
     z-index: 10001;
@@ -1427,7 +1514,7 @@ body > .dropdown-item.dragging {
     pointer-events: none;
     user-select: none;
     background-color: #F3F4F6;
-    border-radius: 6px;
+    border-radius: 9999px;
 }
 
 .dropdown-search-engines.engines-dragging .dropdown-item:hover {
@@ -1526,7 +1613,7 @@ body.reduced-motion .dropdown-item.dragging {
     height: 0;
     border: none;
     border-top: 2px solid var(--color-accent, #0060df);
-    margin: 2px 12px;
+    margin: 2px 6px;
     border-radius: 1px;
     flex-shrink: 0;
     pointer-events: none;

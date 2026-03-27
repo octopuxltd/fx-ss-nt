@@ -148,7 +148,8 @@ body.addressbar .search-switcher-button {
 
 body.addressbar .search-switcher-dropdown {
     min-width: 160px;
-    width: max-content;
+    /* Width set by syncSearchSwitcherDropdownWidth in step1.js (same as main page) */
+    width: auto;
     max-width: calc(100vw - 16px);
     transform-origin: top left;
 }
@@ -170,12 +171,23 @@ body.addressbar .dropdown-label-info-icon {
     height: 10px;
 }
 
+body.addressbar .dropdown-label-info-icon[aria-expanded="true"] {
+    border-radius: 5px 5px 0 0;
+}
+
+body.addressbar .dropdown-label-info-icon[aria-expanded="true"]::after {
+    height: 6px;
+    bottom: -6px;
+}
+
 body.addressbar .dropdown-divider {
     margin: 3px 0;
 }
 
 body.addressbar .dropdown-item {
-    padding: 5px 10px;
+    margin-inline: 5px;
+    padding: 5px 5px;
+    border-radius: 9999px;
     gap: 6px;
     font-size: 10px;
 }
