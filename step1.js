@@ -1,5 +1,12 @@
 // Step 1 JavaScript
 
+/** Set to false to silence `[default-badge]` console logs */
+const DEBUG_DEFAULT_BADGE = true;
+function defaultBadgeLog(...args) {
+    if (!DEBUG_DEFAULT_BADGE) return;
+    console.log('[default-badge]', ...args);
+}
+
 // ===== API CONFIGURATION =====
 // Load saved provider from localStorage, or default to OpenAI
 let AI_PROVIDER = localStorage.getItem('ai_provider') || 'openai';
@@ -16,11 +23,6 @@ const CLAUDE_API_KEY = window.API_CONFIG?.CLAUDE_API_KEY || '';
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const OPENAI_API_KEY = window.API_CONFIG?.OPENAI_API_KEY || '';
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-
-console.log('[API CONFIG] Provider:', AI_PROVIDER);
-console.log('[API CONFIG] OpenRouter key present:', !!OPENROUTER_API_KEY);
-console.log('[API CONFIG] OpenAI key present:', !!OPENAI_API_KEY);
-console.log('[API CONFIG] Claude key present:', !!CLAUDE_API_KEY);
 
 // ===== FIREFOX HINT TEXT =====
 // Cache a date; compute relative string when rendering; show actual date on hover
@@ -973,31 +975,150 @@ const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
 const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
 const BACKGROUND_SWATCH_KEY = 'background_swatch';
-const GRADIENT_SEARCH_BORDER_ENABLED_KEY = 'gradient_search_border_enabled';
-const QUICK_BUTTONS_VISIBLE_KEY = 'quick_buttons_visible';
+const SEARCH_BORDER_COLOR_KEY = 'search_border_color';
+const SEARCH_BORDER_COLOR_DEFAULT = '#BBA0FF';
+const SEARCH_BORDER_BLACK_20 = 'rgba(0, 0, 0, 0.2)';
+const SEARCH_BORDER_COLORS = ['#BBA0FF', '#FF8D5B', SEARCH_BORDER_BLACK_20];
+/** Matches `step1.html` default order (Google remains `.dropdown-item-pinned`). */
+const DEFAULT_MAIN_PAGE_ENGINE_ORDER = [
+    'Amazon', 'Bing', 'DuckDuckGo', 'Ecosia', 'eBay', 'Google',
+    'IMDb', 'Perplexity', 'Reddit', 'Startpage', 'Wikipedia (en)', 'YouTube'
+];
 
-console.log('[INIT] Script loading, checking reduced motion in localStorage');
+function normalizeSearchBorderColorInput(raw) {
+    const t = (raw || '').trim();
+    if (!t) return null;
+    const tl = t.toLowerCase();
+    if (tl === '#ebe8ee') return SEARCH_BORDER_BLACK_20;
+    if (tl.replace(/\s/g, '') === 'rgba(0,0,0,0.2)') return SEARCH_BORDER_BLACK_20;
+    const hexHit = SEARCH_BORDER_COLORS.filter(c => c.startsWith('#')).find(c => c.toLowerCase() === tl);
+    if (hexHit) return hexHit;
+    return null;
+}
+
+function canonicalSearchBorderColor(raw) {
+    return normalizeSearchBorderColorInput(raw) || SEARCH_BORDER_COLOR_DEFAULT;
+}
+
+function getStoredSearchBorderColor() {
+    const raw = localStorage.getItem(SEARCH_BORDER_COLOR_KEY);
+    const fromStorage = raw ? normalizeSearchBorderColorInput(raw) : null;
+    if (fromStorage) return fromStorage;
+    if (localStorage.getItem('gradient_search_border_enabled') === 'false') {
+        return SEARCH_BORDER_BLACK_20;
+    }
+    return SEARCH_BORDER_COLOR_DEFAULT;
+}
+
+function applySearchBorderColorVariable(hex) {
+    const c = canonicalSearchBorderColor(hex);
+    document.documentElement.style.setProperty('--search-border-ring-color', c);
+    return c;
+}
+const QUICK_BUTTONS_VISIBLE_KEY = 'quick_buttons_visible';
+const UNDERLINE_SEARCH_ENGINES_ENABLED_KEY = 'underline_search_engines_enabled';
+const KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY = 'keyboard_switcher_numbers_enabled';
+const SEARCH_ENGINES_DISPLAY_KEY_PREFIX = 'search_engines_display';
+const TWELVE_SEARCH_ENGINES_ENABLED_KEY = 'twelve_search_engines_enabled';
+const SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY = 'switcher_outside_search_box_enabled';
+
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
-console.log('[INIT] Reduced motion in localStorage:', initialReducedMotion);
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('[DOM] DOMContentLoaded fired');
+    let underlineSearchEnginesEnabled = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
+    const DEBUG_IFRAME_SWITCHER = true;
+    const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
+    document.body.classList.toggle('keyboard-switcher-numbers-enabled', keyboardSwitcherNumbersEnabled);
+    const getSearchEnginesDisplayKey = () => {
+        // Per-search-bar preference:
+        // - main page search bar
+        // - address bar iframe
+        // - standalone search box iframe
+        const isAddressbar = document.body.classList.contains('addressbar');
+        const isStandalone = document.body.classList.contains('standalone-search-box');
+        const scope = isAddressbar && isStandalone ? 'standalone' : (isAddressbar ? 'addressbar' : 'main');
+        return `${SEARCH_ENGINES_DISPLAY_KEY_PREFIX}:${scope}`;
+    };
+    const getSearchEnginesDisplayMode = () =>
+        localStorage.getItem(getSearchEnginesDisplayKey()) === 'grid' ? 'grid' : 'list';
+    let parentViewportInfo = null; // { viewportH: number, frameTop: number } sent by parent when in iframe
+    const ensureGridIconTooltips = () => {
+        if (!document.body.classList.contains('search-engines-display-grid')) return;
+        const container = document.querySelector('.search-switcher-button');
+        if (!container) return;
+
+        const enginesContainer = container.querySelector('.dropdown-search-engines');
+        if (enginesContainer) {
+            enginesContainer.querySelectorAll('.dropdown-item').forEach(item => {
+                if (!item.querySelector('.dropdown-engine-icon')) return;
+                const label = getEngineLabel(item);
+                if (label) item.title = label;
+            });
+        }
+
+        const firefoxContainer = container.querySelector('.dropdown-firefox-suggestions');
+        if (firefoxContainer) {
+            firefoxContainer.querySelectorAll('.dropdown-item-firefox-suggestion').forEach(item => {
+                const textEl = item.querySelector('span');
+                const label = (textEl?.textContent || '').trim();
+                if (label) item.title = label;
+            });
+        }
+    };
+    const clearGridIconTooltips = () => {
+        const container = document.querySelector('.search-switcher-button');
+        if (!container) return;
+        container.querySelectorAll('.dropdown-search-engines .dropdown-item[title]').forEach(item => {
+            // Only clear tooltips that we add for icon-only grid.
+            item.removeAttribute('title');
+        });
+        container.querySelectorAll('.dropdown-firefox-suggestions .dropdown-item-firefox-suggestion[title]').forEach(item => {
+            item.removeAttribute('title');
+        });
+    };
+    const applySearchEnginesDisplayMode = (mode) => {
+        const normalized = mode === 'grid' ? 'grid' : 'list';
+        document.body.classList.toggle('search-engines-display-grid', normalized === 'grid');
+
+        const select = document.getElementById('search-engines-display-select');
+        if (select) select.value = normalized;
+
+        const toggle = document.getElementById('search-engines-display-toggle');
+        if (toggle) {
+            const listSeg = toggle.querySelector('.search-engines-display-segment[data-mode="list"]');
+            const gridSeg = toggle.querySelector('.search-engines-display-segment[data-mode="grid"]');
+            if (listSeg && gridSeg) {
+                const grid = normalized === 'grid';
+                listSeg.classList.toggle('search-engines-display-segment--active', !grid);
+                gridSeg.classList.toggle('search-engines-display-segment--active', grid);
+                listSeg.setAttribute('aria-pressed', grid ? 'false' : 'true');
+                gridSeg.setAttribute('aria-pressed', grid ? 'true' : 'false');
+            }
+        }
+        if (normalized === 'grid') {
+            ensureGridIconTooltips();
+        } else {
+            clearGridIconTooltips();
+        }
+        requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
+    };
+    applySearchEnginesDisplayMode(getSearchEnginesDisplayMode());
+    const isUnderlineSearchEnginesEnabled = () => {
+        const checkbox = document.querySelector('.underline-search-engines-checkbox');
+        if (checkbox) return checkbox.checked;
+        return underlineSearchEnginesEnabled;
+    };
 
     // Address bar iframe: parent sets width (matches search bar 57.6% / 576px); iframe reports height (including dropdown)
     if (window !== window.top) {
         window.addEventListener('message', (e) => {
-            if (e.data?.type === 'gradient-search-border-off') {
-                if (e.data.off) {
-                    document.body.classList.add('gradient-search-border-off');
-                    if (gradientAnimationId) {
-                        cancelAnimationFrame(gradientAnimationId);
-                        gradientAnimationId = null;
-                    }
-                    const existingStyle = document.getElementById('gradient-animation-style');
-                    if (existingStyle) existingStyle.remove();
-                } else {
-                    document.body.classList.remove('gradient-search-border-off');
+            if (e.data?.type === 'search-border-color') {
+                const col = e.data.color;
+                if (typeof col === 'string' && normalizeSearchBorderColorInput(col)) {
+                    applySearchBorderColorVariable(col);
                 }
+            } else if (e.data?.type === 'prototype-panel-interaction') {
+                window.__prototypeOptionsBlurSuppressUntil = Date.now() + 800;
             } else if (e.data?.type === 'reduced-motion') {
                 if (e.data.enabled) {
                     document.body.classList.add('reduced-motion');
@@ -1010,13 +1131,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     document.body.classList.remove('pin-default-enabled');
                 }
+                updateDefaultBadge();
+            } else if (e.data?.type === 'twelve-search-engines') {
+                applySearchEnginesCountMode(!!e.data.enabled);
+            } else if (e.data?.type === 'underline-search-engines') {
+                underlineSearchEnginesEnabled = !!e.data.enabled;
+                if (e.data.enabled) {
+                    applyEngineInitialUnderlines();
+                } else {
+                    clearEngineInitialUnderlines();
+                }
+            } else if (e.data?.type === 'switcher-viewport') {
+                const vh = Number(e.data.viewportH);
+                const ft = Number(e.data.frameTop);
+                if (Number.isFinite(vh) && Number.isFinite(ft)) {
+                    parentViewportInfo = { viewportH: vh, frameTop: ft };
+                    if (DEBUG_IFRAME_SWITCHER) {
+                        console.log('[IFRAME SWITCHER VIEWPORT]', 'viewportH=', vh, 'frameTop=', Math.round(ft));
+                    }
+                }
+            } else if (e.data?.type === 'switcher-keyboard-numbers') {
+                document.body.classList.toggle('keyboard-switcher-numbers-enabled', !!e.data.enabled);
             } else if (e.data?.type === 'close-switcher') {
                 const btn = document.querySelector('.search-switcher-button');
                 const dropdown = btn?.querySelector('.search-switcher-dropdown');
                 const container = document.querySelector('.search-container');
                 if (btn?.classList.contains('open')) {
-                    dropdown?.classList.remove('dropdown-revealed');
                     forceCloseSearchSwitcherSubPanels();
+                    dropdown?.classList.remove('dropdown-revealed');
                     btn.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
                     btn.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
                     if (container?.classList.contains('focused')) {
@@ -1034,11 +1176,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let bottom = rect.bottom;
             const switcherButton = container.querySelector('.search-switcher-button');
             const dropdown = switcherButton?.querySelector('.search-switcher-dropdown');
-            if (switcherButton?.classList.contains('open') && dropdown) {
-                const dropdownRect = dropdown.getBoundingClientRect();
-                const fullDropdownBottom = dropdownRect.top + dropdown.scrollHeight;
+            const dropdownOpen = !!(switcherButton?.classList.contains('open'));
+            const dropdownRevealed = !!(dropdown?.classList.contains('dropdown-revealed'));
+            let dropdownRect = null;
+            let fullDropdownBottom = null;
+            if (dropdownOpen && dropdown) {
+                dropdownRect = dropdown.getBoundingClientRect();
+                fullDropdownBottom = dropdownRect.top + dropdown.scrollHeight;
                 bottom = Math.max(bottom, fullDropdownBottom);
             }
+
             const h = bottom + 4;
             window.parent.postMessage({ type: 'addressbar-height', height: h }, '*');
         };
@@ -1079,18 +1226,44 @@ document.addEventListener('DOMContentLoaded', () => {
         const iframe = document.querySelector('.addressbar-iframe');
         const standaloneIframe = document.querySelector('.standalone-search-box-iframe');
         const iframes = [iframe, standaloneIframe].filter(Boolean);
+        let addressbarSwitcherOpen = false;
+        let standaloneSwitcherOpen = false;
+        let lastAddressbarReportedHeight = null;
+        let lastStandaloneReportedHeight = null;
 
         const sendPrototypeOptionsToIframes = () => {
-            const gradientOff = localStorage.getItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY) === 'false';
+            const searchBorderColor = getStoredSearchBorderColor();
             const reducedMotion = localStorage.getItem('reduced_motion_enabled') === 'true';
             const pinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY) === 'true';
+            const underlineSearchEngines = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
+            const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
+            const twelveSearchEnginesEnabled = localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false';
+            const sendViewportToIframe = (iframeEl) => {
+                if (!iframeEl?.contentWindow) return;
+                try {
+                    const r = iframeEl.getBoundingClientRect();
+                    iframeEl.contentWindow.postMessage({
+                        type: 'switcher-viewport',
+                        viewportH: window.innerHeight,
+                        frameTop: r.top
+                    }, '*');
+                    if (DEBUG_IFRAME_SWITCHER) {
+                        console.log('[PARENT→IFRAME VIEWPORT]', iframeEl.className, 'viewportH=', window.innerHeight, 'frameTop=', Math.round(r.top));
+                    }
+                } catch (_) {}
+            };
             iframes.forEach(f => {
                 try {
-                    f.contentWindow?.postMessage({ type: 'gradient-search-border-off', off: gradientOff }, '*');
+                    f.contentWindow?.postMessage({ type: 'search-border-color', color: searchBorderColor }, '*');
                     f.contentWindow?.postMessage({ type: 'reduced-motion', enabled: reducedMotion }, '*');
                     f.contentWindow?.postMessage({ type: 'pin-default', enabled: pinDefault }, '*');
+                    f.contentWindow?.postMessage({ type: 'underline-search-engines', enabled: underlineSearchEngines }, '*');
+                    f.contentWindow?.postMessage({ type: 'switcher-keyboard-numbers', enabled: keyboardSwitcherNumbersEnabled }, '*');
+                    f.contentWindow?.postMessage({ type: 'twelve-search-engines', enabled: twelveSearchEnginesEnabled }, '*');
                 } catch (_) {}
             });
+            if (iframe) sendViewportToIframe(iframe);
+            if (standaloneIframe) sendViewportToIframe(standaloneIframe);
         };
 
         if (iframe) {
@@ -1110,13 +1283,103 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             const setHeight = (e) => {
                 if (e.data?.type === 'addressbar-height' && typeof e.data.height === 'number') {
-                    const h = e.data.height;
+                    let h = e.data.height;
                     if (e.source === iframe.contentWindow) {
+                        lastAddressbarReportedHeight = h;
+                        // Clamp to viewport bottom (top window knows its own viewport).
+                        try {
+                            const r = iframe.getBoundingClientRect();
+                            const bottomPadding = 8;
+                            const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
+                            if (addressbarSwitcherOpen) {
+                                h = maxAllowed;
+                            } else {
+                                h = Math.min(h, maxAllowed);
+                            }
+                            if (DEBUG_IFRAME_SWITCHER) {
+                                console.log('[PARENT IFRAME HEIGHT]', 'addressbar', 'incoming=', e.data.height, 'open=', addressbarSwitcherOpen, 'maxAllowed=', maxAllowed, 'applied=', h);
+                            }
+                        } catch (_) {}
                         iframe.style.height = h + 'px';
                         updateBandHeight(h);
                     } else if (standaloneIframe && e.source === standaloneIframe.contentWindow) {
+                        lastStandaloneReportedHeight = h;
+                        try {
+                            const r = standaloneIframe.getBoundingClientRect();
+                            const bottomPadding = 8;
+                            const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
+                            if (standaloneSwitcherOpen) {
+                                h = maxAllowed;
+                            } else {
+                                h = Math.min(h, maxAllowed);
+                            }
+                            if (DEBUG_IFRAME_SWITCHER) {
+                                console.log('[PARENT IFRAME HEIGHT]', 'standalone', 'incoming=', e.data.height, 'open=', standaloneSwitcherOpen, 'maxAllowed=', maxAllowed, 'applied=', h);
+                            }
+                        } catch (_) {}
                         standaloneIframe.style.height = h + 'px';
                     }
+                } else if (e.data?.type === 'search-engines-display-changed') {
+                    // no-op (display mode is per-search-bar now)
+                } else if (e.data?.type === 'switcher-request-viewport') {
+                    if (DEBUG_IFRAME_SWITCHER) {
+                        console.log('[IFRAME→PARENT REQUEST VIEWPORT]');
+                    }
+                    const sourceWin = e.source;
+                    const sourceIsAddressbar = iframe && sourceWin === iframe.contentWindow;
+                    const sourceIsStandalone = standaloneIframe && sourceWin === standaloneIframe.contentWindow;
+                    const targetIframe = sourceIsAddressbar ? iframe : (sourceIsStandalone ? standaloneIframe : null);
+                    if (targetIframe) {
+                        try {
+                            const r = targetIframe.getBoundingClientRect();
+                            targetIframe.contentWindow?.postMessage({
+                                type: 'switcher-viewport',
+                                viewportH: window.innerHeight,
+                                frameTop: r.top
+                            }, '*');
+                            if (DEBUG_IFRAME_SWITCHER) {
+                                console.log('[PARENT→IFRAME VIEWPORT (on request)]', targetIframe.className, 'viewportH=', window.innerHeight, 'frameTop=', Math.round(r.top));
+                            }
+                        } catch (_) {}
+                    }
+                } else if (e.data?.type === 'switcher-open-state') {
+                    const sourceWin = e.source;
+                    const sourceIsAddressbar = iframe && sourceWin === iframe.contentWindow;
+                    const sourceIsStandalone = standaloneIframe && sourceWin === standaloneIframe.contentWindow;
+                    const targetIframe = sourceIsAddressbar ? iframe : (sourceIsStandalone ? standaloneIframe : null);
+                    if (sourceIsAddressbar) addressbarSwitcherOpen = !!e.data?.open;
+                    if (sourceIsStandalone) standaloneSwitcherOpen = !!e.data?.open;
+
+                    if (targetIframe && e.data?.open === true) {
+                        try {
+                            const r = targetIframe.getBoundingClientRect();
+                            const bottomPadding = 8;
+                            const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
+                            targetIframe.style.height = maxAllowed + 'px';
+                            if (targetIframe === iframe) updateBandHeight(maxAllowed);
+                        } catch (_) {}
+                    }
+                    if (targetIframe && e.data?.open === false) {
+                        // Restore iframe height so it doesn't block the main page.
+                        try {
+                            const r = targetIframe.getBoundingClientRect();
+                            const bottomPadding = 8;
+                            const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
+                            let restoreH = null;
+                            if (targetIframe === iframe && typeof lastAddressbarReportedHeight === 'number') {
+                                restoreH = lastAddressbarReportedHeight;
+                            }
+                            if (targetIframe === standaloneIframe && typeof lastStandaloneReportedHeight === 'number') {
+                                restoreH = lastStandaloneReportedHeight;
+                            }
+                            if (typeof restoreH === 'number') {
+                                restoreH = Math.min(restoreH, maxAllowed);
+                                targetIframe.style.height = restoreH + 'px';
+                                if (targetIframe === iframe) updateBandHeight(restoreH);
+                            }
+                        } catch (_) {}
+                    }
+                    console.log('[IFRAME SWITCHER OPEN STATE]', sourceIsAddressbar ? 'addressbar' : (sourceIsStandalone ? 'standalone' : 'unknown'), 'open=', !!e.data?.open);
                 }
             };
             updateIframeSize();
@@ -1143,13 +1406,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (iframes.some(f => f.contentDocument?.readyState === 'complete')) {
             sendPrototypeOptionsToIframes();
         }
-        document.addEventListener('click', () => {
+        window.addEventListener('resize', sendPrototypeOptionsToIframes);
+        document.addEventListener('click', (e) => {
+            if (e.target.closest?.('.bottom-left-panel-content')) {
+                return;
+            }
             iframes.forEach(f => {
                 try {
                     f.contentWindow?.postMessage({ type: 'close-switcher' }, '*');
                 } catch (_) {}
             });
         });
+        const bumpPrototypeOptionsInteractionSuppress = () => {
+            window.__prototypeOptionsBlurSuppressUntil = Date.now() + 800;
+        };
+        document.querySelector('.bottom-left-panel')?.addEventListener(
+            'mousedown',
+            () => {
+                bumpPrototypeOptionsInteractionSuppress();
+                iframes.forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'prototype-panel-interaction' }, '*');
+                    } catch (_) {}
+                });
+            },
+            true
+        );
     }
 
     // Mouse-positioned tooltips
@@ -1272,14 +1554,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tooltipPinned) hideTooltip();
     });
 
-    console.log('[DOM] Body has reduced-motion class?', document.body.classList.contains('reduced-motion'));
     const searchInput = document.querySelector('.search-input');
     const inspectSuggestions = new URLSearchParams(location.search).get('inspect') === '1' || localStorage.getItem('inspectSuggestions') === 'true';
 
     // Clear search input on page load
     if (searchInput) {
         searchInput.value = '';
-        console.log('[DOM] Cleared search input on load');
     }
     const searchContainer = document.querySelector('.search-container');
     const firefoxLogo = document.querySelector('.firefox-logo');
@@ -1356,6 +1636,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchClearButton = document.querySelector('.search-clear-button');
     const searchUrlButton = document.querySelector('.search-url-button');
     const searchButton = document.querySelector('.search-button');
+    const clearCacheButton = document.getElementById('clear-cache-button');
+    let clearCacheSuccessTimer = null;
     let switcherHighlightedIndex = -1;
     let switcherHoveredIndex = -1;
     let restoringFocusFromSwitcher = false;
@@ -1404,7 +1686,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function applySelectedSearchSource(item) {
         if (!item) return;
         if (item.id === 'quick-buttons-toggle') return;
-        if (item.textContent.includes('Search Settings')) return;
         const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
         const labelEl = item.querySelector('.dropdown-engine-label');
         const label = labelEl ? labelEl.textContent.trim() : item.textContent.replace(/\s+/g, ' ').trim();
@@ -1453,6 +1734,264 @@ document.addEventListener('DOMContentLoaded', () => {
         return labelEl ? labelEl.textContent.trim() : '';
     }
 
+    function iconSrcRoughMatch(a, b) {
+        if (!a || !b) return false;
+        if (a === b) return true;
+        const norm = (s) => s.replace(/^.*\/icons\//, 'icons/').replace(/^\.\//, '');
+        return norm(a) === norm(b);
+    }
+
+    /** Ctrl/Cmd + Arrow from the search field: cycle visible engines without opening the switcher. delta: +1 = next, -1 = previous */
+    function cycleSwitcherEngineFromSearchField(delta) {
+        if (!searchSwitcherButton || (delta !== 1 && delta !== -1)) return;
+        const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const engineItems = Array.from(enginesContainer.children).filter(
+            (c) =>
+                c.classList.contains('dropdown-item') &&
+                c.querySelector('.dropdown-engine-label') &&
+                c.style.display !== 'none'
+        );
+        if (engineItems.length === 0) return;
+
+        const switcherLabel = searchSwitcherButton.querySelector('.switcher-button-label');
+        const switcherIcon = searchSwitcherButton.querySelector('.google-icon');
+        let idx = -1;
+        if (switcherLabel && !switcherLabel.hidden && switcherLabel.textContent.trim()) {
+            idx = -1;
+        } else {
+            const iconSrc = switcherIcon?.getAttribute('src') || '';
+            idx = engineItems.findIndex((item) => {
+                const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+                return iconEl && iconSrcRoughMatch(iconEl.getAttribute('src') || '', iconSrc);
+            });
+            if (idx < 0) {
+                const pinned = enginesContainer.querySelector('.dropdown-item-pinned');
+                if (pinned) idx = engineItems.indexOf(pinned);
+            }
+        }
+
+        let nextIdx;
+        if (idx < 0) {
+            nextIdx = delta > 0 ? 0 : engineItems.length - 1;
+        } else {
+            nextIdx = (idx + delta + engineItems.length) % engineItems.length;
+        }
+        applySelectedSearchSource(engineItems[nextIdx]);
+    }
+
+    /** Scroll parent for the engine list (combined wrapper scrolls when present; else .dropdown-search-engines). */
+    function getEngineListScrollEl(enginesContainer) {
+        if (!enginesContainer) return null;
+        const wrap = enginesContainer.closest('.dropdown-engines-firefox-scroll');
+        return wrap || enginesContainer;
+    }
+
+    function getSearchEngineSuggestionObjectsFromDropdown() {
+        const switcherDropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+        if (!switcherDropdown) return [];
+        const engineItems = Array.from(switcherDropdown.querySelectorAll('.dropdown-search-engines .dropdown-item')).filter(
+            (el) => el.querySelector('.dropdown-engine-label')
+        );
+        return engineItems.map((item) => {
+            const label = getEngineLabel(item);
+            const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+            const icon = iconEl?.getAttribute('src') || '';
+            return { _localSource: true, _searchEngine: true, label, icon };
+        });
+    }
+
+    function isEngineListAlphabeticalInContainer(enginesContainer) {
+        if (!enginesContainer) return true;
+        const items = Array.from(enginesContainer.children).filter(
+            (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        );
+        const labels = items.map((i) => getEngineLabel(i));
+        const sorted = [...labels].sort((a, b) => a.localeCompare(b));
+        return labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
+    }
+
+    function updateReorderResetButtonState() {
+        const btn = document.getElementById('search-engines-reset-order-button');
+        if (!btn) return;
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        const alphabetical = isEngineListAlphabeticalInContainer(enginesContainer);
+        btn.disabled = alphabetical;
+        btn.setAttribute('aria-disabled', alphabetical ? 'true' : 'false');
+    }
+
+    function syncDefaultBadgeDraggableState() {
+        const badge = searchSwitcherButton?.querySelector('.dropdown-default-badge');
+        if (!badge) return;
+        const open = !!searchSwitcherButton?.classList.contains('search-engines-controls-open');
+        badge.classList.toggle('dropdown-default-badge--draggable', open);
+        if (open) {
+            badge.setAttribute('title', 'Drag to move default search engine');
+            badge.setAttribute('aria-label', 'Default search engine — drag to move');
+        } else {
+            badge.setAttribute('title', 'Default search engine');
+            badge.setAttribute('aria-label', 'Default search engine');
+        }
+    }
+
+    function syncEngineDragHandlesForControlsPanel() {
+        const panel = document.getElementById('search-engines-controls-panel');
+        const open = panel && !panel.hasAttribute('hidden');
+        if (searchSwitcherButton) {
+            searchSwitcherButton.classList.toggle('search-engines-controls-open', !!open);
+        }
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter((el) =>
+            el.querySelector('.dropdown-engine-label')
+        );
+        items.forEach((item) => {
+            if (open) {
+                if (!item.querySelector('.dropdown-item-drag-handle')) {
+                    const span = document.createElement('span');
+                    span.className = 'dropdown-item-drag-handle';
+                    span.setAttribute('aria-hidden', 'true');
+                    span.innerHTML = '<img src="icons/drag-handle.svg" alt="">';
+                    const pin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
+                    if (pin) pin.before(span);
+                    else item.appendChild(span);
+                }
+            } else {
+                item.querySelectorAll('.dropdown-item-drag-handle').forEach((h) => h.remove());
+            }
+        });
+        syncDefaultBadgeDraggableState();
+    }
+
+    function clearFromFirefoxFooterFlipStyles() {
+        const footer = searchSwitcherButton?.querySelector('.dropdown-from-firefox-footer');
+        if (!footer) return;
+        footer.style.transition = '';
+        footer.style.transform = '';
+    }
+
+    /**
+     * Width must not follow the Shortcuts (i) panel text: CSS `width: max-content` on the dropdown
+     * still used intrinsic max-content from that subtree in some engines. Measure with the info shell
+     * out of flow, then set a fixed px width so wrapping stays inside the menu width.
+     */
+    function syncSearchSwitcherDropdownWidth() {
+        const btn = document.querySelector('.search-switcher-button');
+        const dropdown = btn?.querySelector('.search-switcher-dropdown');
+        const infoShell = dropdown?.querySelector('.dropdown-search-info-shell');
+        const infoPanel = document.getElementById('search-switcher-info-panel');
+        if (!dropdown) return;
+        if (!btn?.classList.contains('open')) {
+            dropdown.style.width = '';
+            return;
+        }
+        if (!infoShell) {
+            void dropdown.offsetWidth;
+            const w = Math.min(Math.max(dropdown.scrollWidth, 200), window.innerWidth - 24);
+            dropdown.style.width = `${w}px`;
+            return;
+        }
+        // While Shortcuts is open or closing, never `display:none` the info shell — that kills the slide transition.
+        // Keep width at least the previous px width so the menu does not shrink to the shortcuts column.
+        if (infoPanel && !infoPanel.hasAttribute('hidden')) {
+            void dropdown.offsetWidth;
+            const measured = dropdown.scrollWidth;
+            const capped = Math.min(Math.max(measured, 200), window.innerWidth - 24);
+            const currentPx = parseFloat(String(dropdown.style.width).replace(/px$/i, '')) || 0;
+            dropdown.style.width = `${Math.max(capped, currentPx)}px`;
+            return;
+        }
+        const prevDisplay = infoShell.style.display;
+        infoShell.style.display = 'none';
+        void dropdown.offsetWidth;
+        const measured = dropdown.scrollWidth;
+        infoShell.style.display = prevDisplay;
+        void dropdown.offsetWidth;
+        const capped = Math.min(Math.max(measured, 200), window.innerWidth - 24);
+        dropdown.style.width = `${capped}px`;
+    }
+
+    /** When the search switcher dropdown closes, fully settle info + controls sub-panels (not mid-animation). */
+    function forceCloseSearchSwitcherSubPanels() {
+        const panel = document.getElementById('search-engines-controls-panel');
+        const infoPanel = document.getElementById('search-switcher-info-panel');
+        const controlsShellEl = panel?.closest('.dropdown-search-controls-shell');
+        const infoShellEl = infoPanel?.closest('.dropdown-search-info-shell');
+        controlsShellEl?.classList.remove('dropdown-search-controls-shell--open');
+        infoShellEl?.classList.remove('dropdown-search-info-shell--open');
+        searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
+        panel?.setAttribute('hidden', '');
+        infoPanel?.setAttribute('hidden', '');
+        document.getElementById('search-engines-controls-toggle')?.setAttribute('aria-expanded', 'false');
+        document.getElementById('search-switcher-info-toggle')?.setAttribute('aria-expanded', 'false');
+        clearFromFirefoxFooterFlipStyles();
+        syncEngineDragHandlesForControlsPanel();
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, (c) => {
+            if (c === '&') return '&amp;';
+            if (c === '<') return '&lt;';
+            if (c === '>') return '&gt;';
+            if (c === '"') return '&quot;';
+            return '&#39;';
+        });
+    }
+
+    function applyEngineInitialUnderlines() {
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const items = Array.from(enginesContainer.children).filter(
+            c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        );
+
+        const firstSeen = new Set();
+        items.forEach((item) => {
+            const labelEl = item.querySelector('.dropdown-engine-label');
+            if (!labelEl) return;
+
+            if (!labelEl.dataset.originalLabel) {
+                labelEl.dataset.originalLabel = labelEl.textContent || '';
+            }
+
+            const original = labelEl.dataset.originalLabel;
+            const trimmed = (original || '').trim();
+            if (!trimmed) {
+                labelEl.textContent = '';
+                return;
+            }
+
+            const firstChar = trimmed[0];
+            const key = /^[a-z]/i.test(firstChar) ? firstChar.toUpperCase() : '';
+            const shouldUnderline = key && !firstSeen.has(key);
+            if (key) firstSeen.add(key);
+
+            if (!shouldUnderline) {
+                labelEl.textContent = trimmed;
+                return;
+            }
+
+            labelEl.innerHTML = `<span class="engine-initial-underline">${escapeHtml(firstChar)}</span>${escapeHtml(trimmed.slice(1))}`;
+        });
+    }
+
+    function clearEngineInitialUnderlines() {
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const items = Array.from(enginesContainer.children).filter(
+            c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        );
+        items.forEach((item) => {
+            const labelEl = item.querySelector('.dropdown-engine-label');
+            if (!labelEl) return;
+            if (labelEl.dataset.originalLabel) {
+                labelEl.textContent = labelEl.dataset.originalLabel;
+            } else {
+                labelEl.textContent = labelEl.textContent || '';
+            }
+        });
+    }
+
     function getCurrentSearchEngineLabel() {
         const icon = searchSwitcherButton?.querySelector('.google-icon');
         if (icon?.alt) return icon.alt;
@@ -1460,30 +1999,43 @@ document.addEventListener('DOMContentLoaded', () => {
         return saved || 'Google';
     }
 
-    function getOrderedEngineItems() {
-        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-        if (!enginesContainer) return [];
-        return Array.from(enginesContainer.children).filter(
-            (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
-        );
+    const ENGINE_SEARCH_URLS = {
+        'Google': 'https://www.google.com/search?q=',
+        'Bing': 'https://www.bing.com/search?q=',
+        'DuckDuckGo': 'https://duckduckgo.com/?q=',
+        'Ecosia': 'https://www.ecosia.org/search?q=',
+        'eBay': 'https://www.ebay.com/sch/i.html?_nkw=',
+        'Perplexity': 'https://www.perplexity.ai/search?q=',
+        'Yahoo': 'https://search.yahoo.com/search?p=',
+        'Wikipedia (en)': 'https://en.wikipedia.org/w/index.php?search=',
+        'Amazon': 'https://www.amazon.com/s?k=',
+        'IMDb': 'https://www.imdb.com/find?q=',
+        'Reddit': 'https://www.reddit.com/search?q=',
+        'Startpage': 'https://www.startpage.com/sp/search?query=',
+        'YouTube': 'https://www.youtube.com/results?search_query='
+    };
+
+    function runSearchWithSelectedEngine(query, sameTab = true) {
+        runSearchWithEngine(query, getCurrentSearchEngineLabel(), sameTab);
     }
 
-    function cycleSearchEngineFromSearchField(delta) {
-        const engineItems = getOrderedEngineItems();
-        if (engineItems.length === 0) return;
-        const current = getCurrentSearchEngineLabel();
-        let idx = engineItems.findIndex((item) => getEngineLabel(item) === current);
-        if (idx < 0) {
-            idx = delta > 0 ? 0 : engineItems.length - 1;
+    function runSearchWithEngine(query, engineLabel, sameTab = true) {
+        const q = (query || '').trim();
+        if (!q) return;
+        const baseUrl = ENGINE_SEARCH_URLS[engineLabel] || ENGINE_SEARCH_URLS['Google'];
+        const url = baseUrl + encodeURIComponent(q);
+        const target = window.top;
+        if (sameTab) {
+            target.location.href = url;
         } else {
-            idx = (idx + delta + engineItems.length) % engineItems.length;
-        }
-        applySelectedSearchSource(engineItems[idx]);
-        if (searchSwitcherButton?.classList.contains('open')) {
-            searchSwitcherButton.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
-            searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
-            switcherHighlightedIndex = -1;
-            searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((i) => i.classList.remove('highlighted'));
+            // Best-effort "background tab": open then re-focus this window.
+            const w = target.open(url, '_blank', 'noopener,noreferrer');
+            try {
+                w?.blur?.();
+            } catch (_) {}
+            try {
+                window.focus();
+            } catch (_) {}
         }
     }
 
@@ -1536,21 +2088,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function ensureDragHandles() {
+    function ensureRowActions() {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
         const engineItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
             el => el.querySelector('.dropdown-engine-label')
         );
-        const dragHandleHtml = '<span class="dropdown-item-drag-handle" title="Drag to reorder" aria-hidden="true"><span class="dropdown-item-keyboard-num" aria-hidden="true"></span><img src="icons/drag-handle.svg" alt=""></span>';
+        const openNewWindowHtml = '<span class="dropdown-item-row-action" aria-hidden="true"><span class="dropdown-item-keyboard-num" aria-hidden="true"></span><button type="button" class="dropdown-item-open-new-window" title="Open in a new tab" aria-label="Open in a new tab"><img src="icons/open-in-new-window.svg" alt=""></button></span>';
         engineItems.forEach(item => {
-            if (!item.querySelector('.dropdown-item-drag-handle')) {
+            if (!item.querySelector('.dropdown-item-row-action')) {
                 const pin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
-                if (pin) pin.insertAdjacentHTML('beforebegin', dragHandleHtml);
+                if (pin) pin.insertAdjacentHTML('beforebegin', openNewWindowHtml);
             } else if (!item.querySelector('.dropdown-item-keyboard-num')) {
-                const handle = item.querySelector('.dropdown-item-drag-handle');
-                if (handle && !handle.querySelector('.dropdown-item-keyboard-num')) {
-                    handle.insertAdjacentHTML('afterbegin', '<span class="dropdown-item-keyboard-num" aria-hidden="true"></span>');
+                const action = item.querySelector('.dropdown-item-row-action');
+                if (action && !action.querySelector('.dropdown-item-keyboard-num')) {
+                    action.insertAdjacentHTML('afterbegin', '<span class="dropdown-item-keyboard-num" aria-hidden="true"></span>');
                 }
             }
         });
@@ -1571,7 +2123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setPinnedEngine(pinnedItem) {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
-        ensureDragHandles();
+        ensureRowActions();
         const engineItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
             el => el.querySelector('.dropdown-engine-label')
         );
@@ -1595,298 +2147,373 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+        updateDefaultBadge();
     }
 
-    const searchEnginesControlsToggle = document.getElementById('search-engines-controls-toggle');
-    const searchEnginesControlsPanel = document.getElementById('search-engines-controls-panel');
-    const searchSwitcherInfoToggle = document.getElementById('search-switcher-info-toggle');
-    const searchSwitcherInfoPanel = document.getElementById('search-switcher-info-panel');
-    const controlsShell = searchEnginesControlsPanel?.closest('.dropdown-search-controls-shell');
-    const infoShell = searchSwitcherInfoPanel?.closest('.dropdown-search-info-shell');
-    const PANEL_SLIDE_MS = 320;
-
-    function syncSearchSwitcherDropdownWidth() {
-        const btn = document.querySelector('.search-switcher-button');
-        const dropdown = btn?.querySelector('.search-switcher-dropdown');
-        const infoShellEl = dropdown?.querySelector('.dropdown-search-info-shell');
-        const infoPanelEl = document.getElementById('search-switcher-info-panel');
-        if (!dropdown) return;
-        if (!btn?.classList.contains('open')) {
-            dropdown.style.width = '';
-            return;
-        }
-        if (!infoShellEl) {
-            void dropdown.offsetWidth;
-            const w = Math.min(Math.max(dropdown.scrollWidth, 200), window.innerWidth - 24);
-            dropdown.style.width = `${w}px`;
-            return;
-        }
-        if (infoPanelEl && !infoPanelEl.hasAttribute('hidden')) {
-            void dropdown.offsetWidth;
-            const measured = dropdown.scrollWidth;
-            const capped = Math.min(Math.max(measured, 200), window.innerWidth - 24);
-            const currentPx = parseFloat(String(dropdown.style.width).replace(/px$/i, '')) || 0;
-            dropdown.style.width = `${Math.max(capped, currentPx)}px`;
-            return;
-        }
-        const prevDisplay = infoShellEl.style.display;
-        infoShellEl.style.display = 'none';
-        void dropdown.offsetWidth;
-        const measured = dropdown.scrollWidth;
-        infoShellEl.style.display = prevDisplay;
-        void dropdown.offsetWidth;
-        const capped = Math.min(Math.max(measured, 200), window.innerWidth - 24);
-        dropdown.style.width = `${capped}px`;
-    }
-
-    function syncEngineDragHandlesForControlsPanel() {
-        const panel = document.getElementById('search-engines-controls-panel');
-        const open = panel && !panel.hasAttribute('hidden');
-        if (searchSwitcherButton) {
-            searchSwitcherButton.classList.toggle('search-engines-controls-open', !!open);
-        }
+    function updateDefaultBadge() {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-        if (!enginesContainer) return;
-        const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter((el) =>
-            el.querySelector('.dropdown-engine-label')
+        if (!enginesContainer) {
+            defaultBadgeLog('updateDefaultBadge: abort — no .dropdown-search-engines');
+            return;
+        }
+        enginesContainer.querySelectorAll('.dropdown-default-badge-wrap').forEach((b) => b.remove());
+        if (document.body.classList.contains('pin-default-enabled')) {
+            defaultBadgeLog('updateDefaultBadge: abort — body.pin-default-enabled (pin-default mode hides badge)');
+            return;
+        }
+        const pinned = enginesContainer.querySelector('.dropdown-item-pinned');
+        if (!pinned) {
+            defaultBadgeLog('updateDefaultBadge: abort — no .dropdown-item-pinned');
+            return;
+        }
+        const labelEl = pinned.querySelector('.dropdown-engine-label');
+        if (!labelEl) {
+            defaultBadgeLog('updateDefaultBadge: abort — pinned row has no .dropdown-engine-label');
+            return;
+        }
+        const wrap = document.createElement('span');
+        wrap.className = 'dropdown-default-badge-wrap';
+        const badge = document.createElement('span');
+        badge.className = 'dropdown-default-badge';
+        badge.setAttribute('draggable', 'false');
+        badge.setAttribute('role', 'button');
+        badge.setAttribute('tabindex', '-1');
+        const textSpan = document.createElement('span');
+        textSpan.className = 'dropdown-default-badge-text';
+        textSpan.setAttribute('aria-hidden', 'true');
+        textSpan.textContent = 'DEFAULT';
+        const drag = document.createElement('span');
+        drag.className = 'dropdown-default-badge-drag';
+        drag.setAttribute('aria-hidden', 'true');
+        drag.innerHTML = '<img src="icons/drag-handle.svg" alt="">';
+        badge.appendChild(textSpan);
+        badge.appendChild(drag);
+        wrap.appendChild(badge);
+        labelEl.insertAdjacentElement('afterend', wrap);
+        syncDefaultBadgeDraggableState();
+        defaultBadgeLog('updateDefaultBadge: inserted badge after label', {
+            wrap,
+            badgeClasses: badge.className,
+            gridMode: document.body.classList.contains('search-engines-display-grid'),
+        });
+    }
+
+    function applySearchEnginesCountMode(showTwelve) {
+        const allowed = new Set(
+            (showTwelve
+                ? ['Amazon', 'Bing', 'DuckDuckGo', 'Ecosia', 'eBay', 'Google', 'IMDb', 'Perplexity', 'Reddit', 'Startpage', 'Wikipedia (en)', 'YouTube']
+                : ['Google', 'Bing', 'DuckDuckGo', 'eBay', 'Perplexity', 'Wikipedia (en)']
+            )
         );
-        items.forEach((item) => {
-            if (open) {
-                if (!item.querySelector('.dropdown-item-drag-handle')) {
-                    const span = document.createElement('span');
-                    span.className = 'dropdown-item-drag-handle';
-                    span.setAttribute('aria-hidden', 'true');
-                    span.innerHTML = '<img src="icons/drag-handle.svg" alt="">';
-                    const pin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
-                    if (pin) pin.before(span);
-                    else item.appendChild(span);
+
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (enginesContainer) {
+            enginesContainer.querySelectorAll('.dropdown-item').forEach(item => {
+                if (!item.querySelector('.dropdown-engine-label')) return;
+                const label = getEngineLabel(item);
+                item.style.display = allowed.has(label) ? '' : 'none';
+            });
+
+            const pinned = enginesContainer.querySelector('.dropdown-item-pinned');
+            const pinnedLabel = pinned ? getEngineLabel(pinned) : '';
+            if (pinned && pinnedLabel && !allowed.has(pinnedLabel)) {
+                const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
+                    el => el.querySelector('.dropdown-engine-label') && el.style.display !== 'none'
+                );
+                const google = items.find(i => getEngineLabel(i) === 'Google') || items[0];
+                if (google) {
+                    applySelectedSearchSource(google);
+                    localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, getEngineLabel(google));
+                    setPinnedEngine(google);
                 }
-            } else {
-                item.querySelectorAll('.dropdown-item-drag-handle').forEach((h) => h.remove());
             }
-        });
-        ensureDragHandles();
-        updateKeyboardNumbers();
-    }
+        }
 
-    function syncSearchEnginesControlsExpanded() {
-        if (!searchEnginesControlsPanel || !searchEnginesControlsToggle) return;
-        const panelOpen = !searchEnginesControlsPanel.hasAttribute('hidden');
-        searchEnginesControlsToggle.setAttribute('aria-expanded', panelOpen ? 'true' : 'false');
-        syncEngineDragHandlesForControlsPanel();
-    }
-
-    function forceCloseSearchSwitcherSubPanels() {
-        const panel = document.getElementById('search-engines-controls-panel');
-        const infoPanel = document.getElementById('search-switcher-info-panel');
-        const controlsShellEl = panel?.closest('.dropdown-search-controls-shell');
-        const infoShellEl = infoPanel?.closest('.dropdown-search-info-shell');
-        controlsShellEl?.classList.remove('dropdown-search-controls-shell--open');
-        infoShellEl?.classList.remove('dropdown-search-info-shell--open');
-        searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
-        panel?.setAttribute('hidden', '');
-        infoPanel?.setAttribute('hidden', '');
-        document.getElementById('search-engines-controls-toggle')?.setAttribute('aria-expanded', 'false');
-        document.getElementById('search-switcher-info-toggle')?.setAttribute('aria-expanded', 'false');
-        syncEngineDragHandlesForControlsPanel();
-    }
-
-    function closeSearchEnginesControlsPanelInstant() {
-        if (!searchEnginesControlsPanel || !searchEnginesControlsToggle) return;
-        if (searchEnginesControlsPanel.hasAttribute('hidden')) return;
-        controlsShell?.classList.remove('dropdown-search-controls-shell--open');
-        searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
-        searchEnginesControlsPanel.setAttribute('hidden', '');
-        searchEnginesControlsToggle.setAttribute('aria-expanded', 'false');
-        syncEngineDragHandlesForControlsPanel();
-    }
-
-    function closeSearchSwitcherInfoPanelInstant() {
-        if (!searchSwitcherInfoPanel || !searchSwitcherInfoToggle) return;
-        if (searchSwitcherInfoPanel.hasAttribute('hidden')) return;
-        infoShell?.classList.remove('dropdown-search-info-shell--open');
-        searchSwitcherInfoPanel.setAttribute('hidden', '');
-        searchSwitcherInfoToggle.setAttribute('aria-expanded', 'false');
-    }
-
-    function openSearchEnginesControlsPanelInstantSwap() {
-        if (!controlsShell || !searchEnginesControlsPanel) return;
-        searchEnginesControlsPanel.removeAttribute('hidden');
-        controlsShell.style.transition = 'none';
-        searchEnginesControlsPanel.style.transition = 'none';
-        controlsShell.classList.add('dropdown-search-controls-shell--open');
-        void searchEnginesControlsPanel.offsetHeight;
-        controlsShell.style.transition = '';
-        searchEnginesControlsPanel.style.transition = '';
-        syncSearchEnginesControlsExpanded();
-        searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
-        syncSearchSwitcherDropdownWidth();
-    }
-
-    function openSearchSwitcherInfoPanelInstantSwap() {
-        if (!infoShell || !searchSwitcherInfoPanel) return;
-        searchSwitcherInfoPanel.removeAttribute('hidden');
-        infoShell.style.transition = 'none';
-        searchSwitcherInfoPanel.style.transition = 'none';
-        infoShell.classList.add('dropdown-search-info-shell--open');
-        void searchSwitcherInfoPanel.offsetHeight;
-        infoShell.style.transition = '';
-        searchSwitcherInfoPanel.style.transition = '';
-        searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
-        syncSearchSwitcherDropdownWidth();
-    }
-
-    if (searchEnginesControlsToggle && searchEnginesControlsPanel) {
-        const toggleSearchEnginesControlsPanel = () => {
-            if (!controlsShell) {
-                searchEnginesControlsPanel.toggleAttribute('hidden');
-                syncSearchEnginesControlsExpanded();
-                const open = !searchEnginesControlsPanel.hasAttribute('hidden');
-                searchSwitcherButton?.classList.toggle('search-engines-controls-panel-revealed', open);
-                syncSearchSwitcherDropdownWidth();
-                return;
-            }
-            const opening = searchEnginesControlsPanel.hasAttribute('hidden');
-            if (opening) {
-                const wasInfoOpen = searchSwitcherInfoPanel && !searchSwitcherInfoPanel.hasAttribute('hidden');
-                closeSearchSwitcherInfoPanelInstant();
-                if (wasInfoOpen) {
-                    openSearchEnginesControlsPanelInstantSwap();
-                    return;
-                }
-                searchEnginesControlsPanel.removeAttribute('hidden');
-                requestAnimationFrame(() => {
-                    controlsShell.classList.add('dropdown-search-controls-shell--open');
-                    syncSearchEnginesControlsExpanded();
-                    const rm = document.body.classList.contains('reduced-motion');
-                    if (rm) {
-                        searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
-                        syncSearchSwitcherDropdownWidth();
-                    } else {
-                        requestAnimationFrame(() => {
-                            searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
-                            syncSearchSwitcherDropdownWidth();
-                        });
-                    }
-                });
-                return;
-            }
-            controlsShell.classList.remove('dropdown-search-controls-shell--open');
-            searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
-            searchEnginesControlsToggle.setAttribute('aria-expanded', 'false');
-            let settled = false;
-            const settle = () => {
-                if (settled) return;
-                settled = true;
-                searchEnginesControlsPanel.removeEventListener('transitionend', onTrEnd);
-                clearTimeout(fallbackTimer);
-                searchEnginesControlsPanel.setAttribute('hidden', '');
-                syncSearchEnginesControlsExpanded();
-                syncSearchSwitcherDropdownWidth();
-            };
-            const onTrEnd = (ev) => {
-                if (ev.target !== searchEnginesControlsPanel || ev.propertyName !== 'transform') return;
-                settle();
-            };
-            searchEnginesControlsPanel.addEventListener('transitionend', onTrEnd);
-            const fallbackTimer = setTimeout(
-                settle,
-                document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
-            );
-        };
-        searchEnginesControlsToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleSearchEnginesControlsPanel();
-        });
-        searchEnginesControlsToggle.addEventListener('keydown', (e) => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            e.preventDefault();
-            e.stopPropagation();
-            toggleSearchEnginesControlsPanel();
-        });
-        syncSearchEnginesControlsExpanded();
-    }
-
-    if (searchSwitcherInfoToggle && searchSwitcherInfoPanel) {
-        const toggleSearchSwitcherInfoPanel = () => {
-            if (!infoShell) {
-                searchSwitcherInfoPanel.toggleAttribute('hidden');
-                const open = !searchSwitcherInfoPanel.hasAttribute('hidden');
-                searchSwitcherInfoToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-                syncSearchSwitcherDropdownWidth();
-                return;
-            }
-            const opening = searchSwitcherInfoPanel.hasAttribute('hidden');
-            if (opening) {
-                const wasControlsOpen = searchEnginesControlsPanel && !searchEnginesControlsPanel.hasAttribute('hidden');
-                closeSearchEnginesControlsPanelInstant();
-                if (wasControlsOpen) {
-                    openSearchSwitcherInfoPanelInstantSwap();
-                    return;
-                }
-                searchSwitcherInfoPanel.removeAttribute('hidden');
-                requestAnimationFrame(() => {
-                    infoShell.classList.add('dropdown-search-info-shell--open');
-                    searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
-                    syncSearchSwitcherDropdownWidth();
-                    requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
-                });
-                return;
-            }
-            infoShell.classList.remove('dropdown-search-info-shell--open');
-            searchSwitcherInfoToggle.setAttribute('aria-expanded', 'false');
-            let settled = false;
-            const settle = () => {
-                if (settled) return;
-                settled = true;
-                searchSwitcherInfoPanel.removeEventListener('transitionend', onTrEnd);
-                clearTimeout(fallbackTimer);
-                searchSwitcherInfoPanel.setAttribute('hidden', '');
-                syncSearchSwitcherDropdownWidth();
-            };
-            const onTrEnd = (ev) => {
-                if (ev.target !== searchSwitcherInfoPanel || ev.propertyName !== 'transform') return;
-                settle();
-            };
-            searchSwitcherInfoPanel.addEventListener('transitionend', onTrEnd);
-            const fallbackTimer = setTimeout(
-                settle,
-                document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
-            );
-        };
-        searchSwitcherInfoToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleSearchSwitcherInfoPanel();
-        });
-        searchSwitcherInfoToggle.addEventListener('keydown', (e) => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            e.preventDefault();
-            e.stopPropagation();
-            toggleSearchSwitcherInfoPanel();
-        });
+        const oneOffContainer = document.querySelector('.one-off-engine-icons');
+        if (oneOffContainer) {
+            oneOffContainer.querySelectorAll('.one-off-engine-icon').forEach(btn => {
+                const img = btn.querySelector('img');
+                const label = img?.getAttribute('alt')?.trim() || '';
+                btn.style.display = allowed.has(label) ? '' : 'none';
+            });
+        }
     }
     
     // Click on search-box-wrapper focuses the input
     if (searchBoxWrapper && searchInput) {
+        let lastPrimaryUiClickAt = 0;
+
+        // If a primary click (search bar / switcher) shifts the suggestions under the cursor,
+        // suppress a rapid follow-up click that lands on the suggestions panel.
+        document.addEventListener('click', (e) => {
+            const now = Date.now();
+            const isRapidSecondClick = now - lastPrimaryUiClickAt < 275;
+            if (!isRapidSecondClick) return;
+            if (!e.target?.closest) return;
+            if (e.target.closest('.suggestions-list') || e.target.closest('.suggestion-item') || e.target.closest('.suggestions-heading')) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+
         searchBoxWrapper.addEventListener('click', (e) => {
+            const now = Date.now();
+            if (now - lastPrimaryUiClickAt < 275) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            lastPrimaryUiClickAt = now;
             // Don't focus if clicking on a button
             if (e.target.closest('.search-switcher-button') || e.target.closest('.search-button') || e.target.closest('.search-url-button')) {
                 return;
             }
             searchInput.focus();
         });
+
+        // Handle search switcher button dropdown
+        if (searchSwitcherButton) {
+        const searchSwitcherDropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        const resetSwitcherScrollPositions = () => {
+            // The prototype now uses a single combined scrollbar container.
+            const scrollContainers = [
+                searchSwitcherButton.querySelector('.dropdown-engines-firefox-scroll'),
+                searchSwitcherButton.querySelector('.dropdown-search-engines'),
+                searchSwitcherButton.querySelector('.dropdown-firefox-suggestions')
+            ].filter(Boolean);
+            scrollContainers.forEach((el) => {
+                try {
+                    const prev = el.style.scrollBehavior;
+                    el.style.scrollBehavior = 'auto';
+                    el.scrollTop = 0;
+                    el.scrollLeft = 0;
+                    // Force style flush so we don't "animate back" when scroll-behavior is smooth in CSS.
+                    void el.offsetHeight;
+                    el.style.scrollBehavior = prev;
+                } catch (_) {}
+            });
+        };
+        const setSwitcherDropdownMaxHeight = () => {
+            const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+            if (!dropdown) return;
+            const dropdownRect = dropdown.getBoundingClientRect();
+            const switcherRect = searchSwitcherButton.getBoundingClientRect();
+            const isInIframe = window !== window.top;
+            const viewportH = isInIframe && parentViewportInfo ? parentViewportInfo.viewportH : window.innerHeight;
+            const frameTop = isInIframe && parentViewportInfo ? parentViewportInfo.frameTop : 0;
+            const dropdownTopInViewport = isInIframe && parentViewportInfo ? (frameTop + dropdownRect.top) : dropdownRect.top;
+            const bottomPadding = 8;
+            const available = Math.floor(viewportH - dropdownTopInViewport - bottomPadding);
+            // Never allow the dropdown to extend past viewport bottom.
+            const clamped = Math.max(0, available);
+            dropdown.style.setProperty('--switcher-dropdown-max-height', clamped + 'px');
+            if (DEBUG_IFRAME_SWITCHER && isInIframe) {
+                console.log(
+                    '[IFRAME DROPDOWN MAXHEIGHT]',
+                    'parentInfo=', !!parentViewportInfo,
+                    'viewportH=', viewportH,
+                    'frameTop=', Math.round(frameTop),
+                    'dropdownTop=', Math.round(dropdownTopInViewport),
+                    'scrollH=', Math.round(dropdown.scrollHeight),
+                    'maxPx=', clamped
+                );
+            }
+        };
+        // On load/reset we want the switcher scroll already at the top (no visible jump when opened).
+        resetSwitcherScrollPositions();
+
+        // Log/sync metrics even when the switcher opens via keyboard or other paths.
+        const switcherDropdownEl = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        if (typeof MutationObserver !== 'undefined') {
+            new MutationObserver(() => {
+                if (searchSwitcherButton.classList.contains('open')) {
+                    setSwitcherDropdownMaxHeight();
+                } else {
+                    switcherDropdownEl?.style.removeProperty('width');
+                }
+            }).observe(searchSwitcherButton, { attributes: true, attributeFilter: ['class'] });
+
+            // Keep parent iframe height in sync even when switcher closes via non-click paths
+            // (e.g. parent "close-switcher" message, outside click, keyboard close).
+            if (window !== window.top) {
+                new MutationObserver(() => {
+                    try {
+                        window.parent.postMessage(
+                            { type: 'switcher-open-state', open: searchSwitcherButton.classList.contains('open') },
+                            '*'
+                        );
+                    } catch (_) {}
+                }).observe(searchSwitcherButton, { attributes: true, attributeFilter: ['class'] });
+            }
+
+            if (switcherDropdownEl) {
+                new MutationObserver(() => {
+                    if (switcherDropdownEl.classList.contains('dropdown-revealed')) {
+                        setSwitcherDropdownMaxHeight();
+                        syncSearchSwitcherDropdownWidth();
+                    }
+                }).observe(switcherDropdownEl, { attributes: true, attributeFilter: ['class'] });
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            if (searchSwitcherButton.classList.contains('open')) {
+                setSwitcherDropdownMaxHeight();
+                syncSearchSwitcherDropdownWidth();
+            }
+        });
+
+            searchSwitcherButton.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Prevent input from blurring
+            });
+            
+            searchSwitcherButton.addEventListener('click', (e) => {
+                const now = Date.now();
+                if (now - lastPrimaryUiClickAt < 275) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                lastPrimaryUiClickAt = now;
+                e.stopPropagation();
+                const clickedInsideDropdown = e.target.closest('.search-switcher-dropdown');
+                const wasOpen = searchSwitcherButton.classList.contains('open');
+                if (clickedInsideDropdown) {
+                    console.log('[SWITCHER BUTTON CLICK] Ignoring - click was inside dropdown (already handled by dropdown)');
+                    return;
+                }
+                searchSwitcherButton.classList.toggle('open');
+                const isNowOpen = searchSwitcherButton.classList.contains('open');
+                const isInIframe = window !== window.top;
+                if (isInIframe) {
+                    try {
+                        window.parent.postMessage({ type: 'switcher-open-state', open: isNowOpen }, '*');
+                    } catch (_) {}
+                }
+                if (wasOpen && !isNowOpen) {
+                    forceCloseSearchSwitcherSubPanels();
+                    const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
+                    if (pinnedOutside) {
+                        const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                        searchSwitcherButton.classList.add('switcher-closing');
+                        let cleanedUp = false;
+                        const cleanup = () => {
+                            if (cleanedUp) return;
+                            cleanedUp = true;
+                            searchSwitcherButton.classList.remove('switcher-closing');
+                            if (dropdown) dropdown.removeEventListener('transitionend', onClosed);
+                        };
+                        const onClosed = (ev) => {
+                            if (ev.propertyName !== 'max-height') return;
+                            cleanup();
+                        };
+                        if (dropdown) dropdown.addEventListener('transitionend', onClosed);
+                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
+                    }
+                    searchSwitcherDropdown?.classList.remove('dropdown-revealed');
+                    if (searchSwitcherDropdown) searchSwitcherDropdown.style.width = '';
+                    switcherHighlightedIndex = -1;
+                    searchSwitcherButton.classList.remove('switcher-suppress-hover');
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
+                    if (searchContainer?.classList.contains('focused')) {
+                        restoreFocusAndOpaqueSuggestions();
+                    }
+                } else if (!wasOpen && isNowOpen) {
+                    searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
+                    searchSwitcherDropdown?.classList.remove('dropdown-revealed');
+                    if (isInIframe) {
+                        try {
+                            window.parent.postMessage({ type: 'switcher-request-viewport' }, '*');
+                        } catch (_) {}
+                    }
+                    setSwitcherDropdownMaxHeight();
+                    setTimeout(setSwitcherDropdownMaxHeight, 0);
+                    requestAnimationFrame(setSwitcherDropdownMaxHeight);
+                    requestAnimationFrame(() => requestAnimationFrame(setSwitcherDropdownMaxHeight));
+                    resetSwitcherScrollPositions();
+                    const onRevealed = (e) => {
+                        if (e.propertyName !== 'max-height') return;
+                        searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
+                        if (searchSwitcherButton.classList.contains('open')) {
+                            searchSwitcherDropdown.classList.add('dropdown-revealed');
+                            syncSearchSwitcherDropdownWidth();
+                            requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
+                        // Log final geometry once revealed (no expansion required in console).
+                        const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                        const dropdownRect = dropdown?.getBoundingClientRect();
+                        const isInIframe = window !== window.top;
+                        const viewportH = isInIframe && parentViewportInfo ? parentViewportInfo.viewportH : window.innerHeight;
+                        const frameTop = isInIframe && parentViewportInfo ? parentViewportInfo.frameTop : 0;
+                        const bottom = dropdownRect
+                            ? Math.round((isInIframe && parentViewportInfo ? (frameTop + dropdownRect.top) : dropdownRect.top) + dropdown.scrollHeight)
+                            : null;
+                        }
+                    };
+                    searchSwitcherDropdown?.addEventListener('transitionend', onRevealed);
+                    searchInput.blur();
+                    searchSwitcherButton.focus();
+                    searchSwitcherButton.classList.add('switcher-suppress-hover');
+                }
+                
+                console.log('[SWITCHER CLICK] Clicked search switcher button');
+                console.log('[SWITCHER CLICK] Was open:', wasOpen, '→ Now open:', isNowOpen);
+                console.log('[SWITCHER CLICK] Search input focused?', document.activeElement === searchInput);
+                console.log('[SWITCHER CLICK] Suggestions visible?', searchContainer?.classList.contains('focused'));
+            });
+        }
     }
-    
+
+    // Delegated click handler for suggestion items (handles static defaults + dynamic items)
+    const suggestionsContent = document.querySelector('.suggestions-content');
+    if (suggestionsContent) {
+        suggestionsContent.addEventListener('click', (e) => {
+            const item = e.target.closest('.suggestion-item:not(.skeleton)');
+            if (!item || item.classList.contains('gmail-item-hidden')) return;
+            if (item.classList.contains('gmail-item')) return; // Gmail has its own handling
+            const suggestion = item.querySelector('.suggestion-label')?.textContent?.trim() || '';
+            if (!suggestion) return;
+            if (item.classList.contains('firefox-suggest-item')) {
+                const ffType = item.getAttribute('data-firefox-type') || '';
+                if (ffType === 'recommendations' || ffType === 'partners') return;
+            }
+            if (item.classList.contains('local-source-suggestion')) {
+                const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+                const engineItem = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')).find(el => el.textContent.trim() === suggestion) : null;
+                if (engineItem) {
+                    applySelectedSearchSource(engineItem);
+                    if (searchInput) {
+                        searchInput.value = '';
+                        suggestionsList?.classList.add('suggestions-suppress-until-typed');
+                        updateSuggestions([]);
+                        searchInput.focus();
+                    }
+                }
+                return;
+            }
+            if (item.classList.contains('visit-site-suggestion') && looksLikeUrl(suggestion)) {
+                const url = suggestion.trim();
+                const toOpen = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+                window.top.open(toOpen, '_blank');
+                return;
+            }
+            if (!item.classList.contains('firefox-suggest-item')) {
+                saveToSearchHistory(suggestion);
+                runSearchWithSelectedEngine(suggestion);
+            }
+        });
+    }
+
     // Close switcher dropdown when hovering over suggestion items or headings
     if (suggestionsList && searchSwitcherButton) {
         // Delegate to handle both existing items and any future items
         suggestionsList.addEventListener('mouseover', (e) => {
+            if (document.body.classList.contains('switcher-outside-search-box-enabled')) return;
             const target = e.target.closest('.suggestion-item, .suggestions-heading');
             const switcherTooltipPinned = tooltipPinned && activeTrigger?.closest('.search-switcher-dropdown');
             if (target && searchSwitcherButton.classList.contains('open') && !switcherTooltipPinned && !window._searchEngineDragging) {
                 console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
-                searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 forceCloseSearchSwitcherSubPanels();
+                searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
@@ -1897,56 +2524,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Handle search switcher button dropdown
     if (searchSwitcherButton) {
-        searchSwitcherButton.addEventListener('mousedown', (e) => {
-            e.preventDefault(); // Prevent input from blurring
-        });
-        
-        searchSwitcherButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const clickedInsideDropdown = e.target.closest('.search-switcher-dropdown');
-            const wasOpen = searchSwitcherButton.classList.contains('open');
-            if (clickedInsideDropdown) {
-                console.log('[SWITCHER BUTTON CLICK] Ignoring - click was inside dropdown (already handled by dropdown)');
-                return;
-            }
-            searchSwitcherButton.classList.toggle('open');
-            const isNowOpen = searchSwitcherButton.classList.contains('open');
-            if (wasOpen && !isNowOpen) {
-                searchSwitcherDropdown?.classList.remove('dropdown-revealed');
-                forceCloseSearchSwitcherSubPanels();
-                switcherHighlightedIndex = -1;
-                searchSwitcherButton.classList.remove('switcher-suppress-hover');
-                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
-                if (searchContainer?.classList.contains('focused')) {
-                    restoreFocusAndOpaqueSuggestions();
-                }
-            } else if (!wasOpen && isNowOpen) {
-                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
-                searchSwitcherDropdown?.classList.remove('dropdown-revealed');
-                const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-                if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
-                const firefoxSuggestionsContainer = searchSwitcherButton?.querySelector('.dropdown-firefox-suggestions');
-                if (firefoxSuggestionsContainer) firefoxSuggestionsContainer.scrollTo({ top: 0, behavior: 'instant' });
-                const onRevealed = (e) => {
-                    if (e.propertyName !== 'max-height') return;
-                    searchSwitcherDropdown.removeEventListener('transitionend', onRevealed);
-                    if (searchSwitcherButton.classList.contains('open')) {
-                        searchSwitcherDropdown.classList.add('dropdown-revealed');
-                    }
-                };
-                searchSwitcherDropdown?.addEventListener('transitionend', onRevealed);
-                searchInput.blur();
-                searchSwitcherButton.focus();
-                searchSwitcherButton.classList.add('switcher-suppress-hover');
-                requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
-            }
-            
-            console.log('[SWITCHER CLICK] Clicked search switcher button');
-            console.log('[SWITCHER CLICK] Was open:', wasOpen, '→ Now open:', isNowOpen);
-            console.log('[SWITCHER CLICK] Search input focused?', document.activeElement === searchInput);
-            console.log('[SWITCHER CLICK] Suggestions visible?', searchContainer?.classList.contains('focused'));
-        });
-        
         // When mousedown on search container (not switcher) with switcher open, focus will move to input
         document.addEventListener('mousedown', (e) => {
             if (searchSwitcherButton?.classList.contains('open') &&
@@ -1964,14 +2541,58 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('click', (e) => {
             if (window._searchEngineDragOccurred) {
                 window._searchEngineDragOccurred = false;
+                if (!e.target.closest?.('.search-switcher-button')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                return;
+            }
+            /* Trailing click after default-badge drag (mouseup outside switcher) must not close */
+            if (window._defaultBadgeDragJustEnded) {
+                window._defaultBadgeDragJustEnded = false;
+                if (!e.target.closest?.('.search-switcher-button')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                return;
+            }
+            if (document.body.classList.contains('switcher-outside-search-box-enabled')) {
+                // When pinned, keep it open while interacting with the search UI,
+                // but clicking away from the search UI should close switcher + suggestions (blur input).
+                if (searchContainer?.classList.contains('focused')) {
+                    const clickInsideSearch = e.target.closest?.('.search-container');
+                    if (clickInsideSearch) {
+                        return;
+                    }
+                }
+            }
+            // Prototype options live only on the main page; keep switcher open while changing settings.
+            if (window === window.top && e.target.closest?.('.bottom-left-panel')) {
                 return;
             }
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
                 if (wasOpen) {
+                    const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
+                    if (pinnedOutside) {
+                        const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                        searchSwitcherButton.classList.add('switcher-closing');
+                        let cleanedUp = false;
+                        const cleanup = () => {
+                            if (cleanedUp) return;
+                            cleanedUp = true;
+                            searchSwitcherButton.classList.remove('switcher-closing');
+                            if (dropdown) dropdown.removeEventListener('transitionend', onClosed);
+                        };
+                        const onClosed = (ev) => {
+                            if (ev.propertyName !== 'max-height') return;
+                            cleanup();
+                        };
+                        if (dropdown) dropdown.addEventListener('transitionend', onClosed);
+                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
+                    }
                     searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                     searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
-                    forceCloseSearchSwitcherSubPanels();
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
@@ -1981,11 +2602,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             restoreFocusAndOpaqueSuggestions();
                         } else {
                             closeSuggestionsPanel();
+                            try { searchInput?.blur?.(); } catch (_) {}
                         }
                     }
                     restoringFocusFromSwitcher = false;
                     closingSwitcherWithoutSuggestions = false;
                 }
+                forceCloseSearchSwitcherSubPanels();
                 searchSwitcherButton.classList.remove('open');
             }
         });
@@ -1993,12 +2616,230 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear keyboard highlight when mouse enters dropdown (switch to hover mode)
         const searchSwitcherDropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
         if (searchSwitcherDropdown) {
+            searchSwitcherDropdown.addEventListener(
+                'mousedown',
+                (e) => {
+                    const onPinnedRow = e.target.closest?.('.dropdown-item-pinned');
+                    if (onPinnedRow) {
+                        defaultBadgeLog('mousedown on pinned row', {
+                            target: e.target?.tagName,
+                            className: e.target?.className,
+                            closestDraggable: !!e.target.closest?.('.dropdown-default-badge--draggable'),
+                            badgeWrapPresent: !!onPinnedRow.querySelector?.('.dropdown-default-badge-wrap'),
+                        });
+                    }
+                    const badgeEl = e.target.closest('.dropdown-default-badge--draggable');
+                    if (!badgeEl) {
+                        return;
+                    }
+                    const dragEl = badgeEl.querySelector('.dropdown-default-badge-drag');
+                    if (!dragEl) {
+                        defaultBadgeLog('drag abort — badge has no .dropdown-default-badge-drag');
+                        return;
+                    }
+                    if (document.body.classList.contains('pin-default-enabled')) {
+                        defaultBadgeLog('drag abort — pin-default-enabled');
+                        return;
+                    }
+                    if (!searchSwitcherButton.classList.contains('search-engines-controls-open')) {
+                        return;
+                    }
+                    const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
+                    const pinnedItem = enginesContainer?.querySelector('.dropdown-item-pinned');
+                    if (!pinnedItem || !enginesContainer || !pinnedItem.contains(badgeEl)) {
+                        defaultBadgeLog('drag abort — badge not inside pinned row / engines', {
+                            hasPinned: !!pinnedItem,
+                            hasEngines: !!enginesContainer,
+                            contains: pinnedItem?.contains?.(badgeEl),
+                        });
+                        return;
+                    }
+                    defaultBadgeLog('drag start');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const floatWrap = badgeEl.closest('.dropdown-default-badge-wrap');
+                    if (!floatWrap) return;
+                    const wrapRect = floatWrap.getBoundingClientRect();
+                    const dragOffsetX = e.clientX - wrapRect.left;
+                    const dragOffsetY = e.clientY - wrapRect.top;
+                    window._defaultBadgeDragging = true;
+                    document.body.classList.add('default-badge-dragging');
+                    floatWrap.style.width = `${wrapRect.width}px`;
+                    floatWrap.classList.add('default-badge-drag-float');
+                    badgeEl.classList.add('dropdown-default-badge--dragging');
+                    dragEl.classList.add('dropdown-default-badge-drag--dragging');
+                    const placeholderEl = document.createElement('span');
+                    placeholderEl.className = 'dropdown-default-badge-placeholder';
+                    placeholderEl.setAttribute('aria-hidden', 'true');
+                    placeholderEl.style.width = `${wrapRect.width}px`;
+                    placeholderEl.style.height = `${wrapRect.height}px`;
+                    floatWrap.parentNode.insertBefore(placeholderEl, floatWrap);
+                    document.body.appendChild(floatWrap);
+                    floatWrap.style.left = `${e.clientX - dragOffsetX}px`;
+                    floatWrap.style.top = `${e.clientY - dragOffsetY}px`;
+                    const ghostEl = document.createElement('div');
+                    ghostEl.className = 'default-badge-drop-ghost';
+                    ghostEl.setAttribute('aria-hidden', 'true');
+                    document.body.appendChild(ghostEl);
+                    const prevCursor = document.body.style.cursor;
+                    const prevUserSelect = document.body.style.userSelect;
+                    document.body.style.cursor = 'grabbing';
+                    document.body.style.userSelect = 'none';
+                    let moveLogAt = 0;
+                    let badgeDragScrollInterval = null;
+                    const clearHighlight = () => {
+                        enginesContainer.querySelectorAll('.dropdown-item').forEach((el) => el.classList.remove('highlighted'));
+                        ghostEl.style.display = 'none';
+                    };
+                    /** Resolve engine row under cursor; skips floating badge + ghost so the source (pinned) row stays a valid drop target. */
+                    const findEngineRowUnderPoint = (clientX, clientY) => {
+                        const stack = document.elementsFromPoint(clientX, clientY);
+                        for (let i = 0; i < stack.length; i++) {
+                            const node = stack[i];
+                            if (!node || typeof node.closest !== 'function') continue;
+                            if (node === floatWrap || floatWrap.contains(node)) continue;
+                            if (node === ghostEl || ghostEl.contains(node)) continue;
+                            const row = node.closest('.dropdown-item');
+                            if (
+                                row &&
+                                enginesContainer.contains(row) &&
+                                row.querySelector('.dropdown-engine-label')
+                            ) {
+                                return row;
+                            }
+                        }
+                        return null;
+                    };
+                    const highlightUnder = (clientX, clientY) => {
+                        clearHighlight();
+                        const item = findEngineRowUnderPoint(clientX, clientY);
+                        if (!item) return;
+                        item.classList.add('highlighted');
+                        const labelEl = item.querySelector('.dropdown-engine-label');
+                        if (!labelEl) return;
+                        const lr = labelEl.getBoundingClientRect();
+                        ghostEl.style.display = 'block';
+                        ghostEl.style.width = `${wrapRect.width}px`;
+                        ghostEl.style.height = `${wrapRect.height}px`;
+                        ghostEl.style.left = `${lr.right + 8}px`;
+                        ghostEl.style.top = `${lr.top + (lr.height - wrapRect.height) / 2}px`;
+                    };
+                    const BADGE_DRAG_SCROLL_ZONE = 36;
+                    const BADGE_DRAG_SCROLL_SPEED = 8;
+                    const onMove = (ev) => {
+                        if (!window._defaultBadgeDragging) return;
+                        floatWrap.style.left = `${ev.clientX - dragOffsetX}px`;
+                        floatWrap.style.top = `${ev.clientY - dragOffsetY}px`;
+                        const now = performance.now();
+                        if (now - moveLogAt > 120) {
+                            moveLogAt = now;
+                            const topEl = document.elementFromPoint(ev.clientX, ev.clientY);
+                            const underItem = topEl?.closest?.('.dropdown-item');
+                            defaultBadgeLog('drag move', {
+                                x: ev.clientX,
+                                y: ev.clientY,
+                                topElTag: topEl?.tagName,
+                                topElClass: topEl?.className,
+                                underItemLabel: underItem ? getEngineLabel(underItem) : null,
+                            });
+                        }
+                        highlightUnder(ev.clientX, ev.clientY);
+                        const scrollEl = getEngineListScrollEl(enginesContainer);
+                        if (badgeDragScrollInterval) {
+                            clearInterval(badgeDragScrollInterval);
+                            badgeDragScrollInterval = null;
+                        }
+                        if (scrollEl) {
+                            const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+                            if (maxScroll > 0) {
+                                const cr = scrollEl.getBoundingClientRect();
+                                const distFromTop = ev.clientY - cr.top;
+                                const distFromBottom = cr.bottom - ev.clientY;
+                                if (distFromTop < BADGE_DRAG_SCROLL_ZONE && distFromTop >= 0 && scrollEl.scrollTop > 0) {
+                                    badgeDragScrollInterval = setInterval(() => {
+                                        if (scrollEl.scrollTop <= 0) {
+                                            clearInterval(badgeDragScrollInterval);
+                                            badgeDragScrollInterval = null;
+                                            return;
+                                        }
+                                        scrollEl.scrollTop -= BADGE_DRAG_SCROLL_SPEED;
+                                    }, 16);
+                                } else if (
+                                    distFromBottom < BADGE_DRAG_SCROLL_ZONE &&
+                                    distFromBottom >= 0 &&
+                                    scrollEl.scrollTop < maxScroll
+                                ) {
+                                    badgeDragScrollInterval = setInterval(() => {
+                                        if (scrollEl.scrollTop >= maxScroll) {
+                                            clearInterval(badgeDragScrollInterval);
+                                            badgeDragScrollInterval = null;
+                                            return;
+                                        }
+                                        scrollEl.scrollTop += BADGE_DRAG_SCROLL_SPEED;
+                                    }, 16);
+                                }
+                            }
+                        }
+                    };
+                    highlightUnder(e.clientX, e.clientY);
+                    const onUp = (ev) => {
+                        if (!window._defaultBadgeDragging) return;
+                        window._defaultBadgeDragging = false;
+                        if (badgeDragScrollInterval) {
+                            clearInterval(badgeDragScrollInterval);
+                            badgeDragScrollInterval = null;
+                        }
+                        document.body.classList.remove('default-badge-dragging');
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                        document.body.style.cursor = prevCursor;
+                        document.body.style.userSelect = prevUserSelect;
+                        ghostEl.remove();
+                        floatWrap.remove();
+                        placeholderEl.remove();
+                        const item = findEngineRowUnderPoint(ev.clientX, ev.clientY);
+                        clearHighlight();
+                        const willApply =
+                            item &&
+                            enginesContainer.contains(item) &&
+                            item.querySelector('.dropdown-engine-label') &&
+                            item !== pinnedItem;
+                        defaultBadgeLog('drag end (mouseup)', {
+                            x: ev.clientX,
+                            y: ev.clientY,
+                            resolvedItem: item ? getEngineLabel(item) : null,
+                            willApplyNewDefault: !!willApply,
+                        });
+                        if (willApply) {
+                            const label = getEngineLabel(item);
+                            if (label) {
+                                applySelectedSearchSource(item);
+                                localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, label);
+                                setPinnedEngine(item);
+                                defaultBadgeLog('applied new default', label);
+                            } else {
+                                updateDefaultBadge();
+                            }
+                        } else {
+                            updateDefaultBadge();
+                        }
+                        window._defaultBadgeDragJustEnded = true;
+                        setTimeout(() => {
+                            window._defaultBadgeDragJustEnded = false;
+                        }, 750);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                },
+                true
+            );
             searchSwitcherDropdown.addEventListener('mousemove', () => {
                 if (searchSwitcherButton.classList.contains('switcher-suppress-hover')) {
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
                 }
             });
             searchSwitcherDropdown.addEventListener('mouseover', (e) => {
+                if (window._defaultBadgeDragging) return;
                 const item = e.target.closest('.dropdown-item');
                 if (item) {
                     const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
@@ -2016,11 +2857,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     window._searchEngineDragOccurred = false;
                     return;
                 }
+                if (window._defaultBadgeDragJustEnded) {
+                    window._defaultBadgeDragJustEnded = false;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
                 const firefoxToggleEl = e.target.closest('.dropdown-firefox-toggle');
                 if (firefoxToggleEl) {
                     e.preventDefault();
                     e.stopPropagation();
                     toggleFirefoxSuggestionCheckbox(firefoxToggleEl);
+                    return;
+                }
+                const openNewTabBtn = e.target.closest('.dropdown-item-open-new-window');
+                if (openNewTabBtn) {
+                    const item = openNewTabBtn.closest('.dropdown-item');
+                    const label = item ? getEngineLabel(item) : '';
+                    const query = (searchInput?.value || '').trim();
+                    if (label && query) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        runSearchWithEngine(query, label, false);
+                    }
+                    const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
+                    if (!pinnedOpen) {
+                        forceCloseSearchSwitcherSubPanels();
+                        searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                    }
+                    switcherHighlightedIndex = -1;
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
+                    if (searchContainer?.classList.contains('focused')) restoreFocusAndOpaqueSuggestions();
                     return;
                 }
                 const item = e.target.closest('.dropdown-item');
@@ -2033,9 +2901,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         const label = getEngineLabel(item);
                         if (label) localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, label);
                         setPinnedEngine(item);
-                        searchSwitcherDropdown.classList.remove('dropdown-revealed');
-                        forceCloseSearchSwitcherSubPanels();
-                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                        const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
+                        if (!pinnedOpen) {
+                            forceCloseSearchSwitcherSubPanels();
+                            searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                            searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                        }
                         switcherHighlightedIndex = -1;
                         searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                         if (searchContainer?.classList.contains('focused')) restoreFocusAndOpaqueSuggestions();
@@ -2044,12 +2915,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (!item) return;
                 if (item.id === 'quick-buttons-toggle') return;
-                if (item.textContent.includes('Search Settings')) return;
                 console.log('[SWITCHER MOUSE] Dropdown item clicked, applying selection and closing');
-                applySelectedSearchSource(item);
-                searchSwitcherDropdown.classList.remove('dropdown-revealed');
-                forceCloseSearchSwitcherSubPanels();
-                searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                const query = (searchInput?.value || '').trim();
+                const isEngineItem = !!item.querySelector('.dropdown-engine-label');
+                const openInBackground = (e.metaKey || e.ctrlKey) && isEngineItem && !!query;
+                if (openInBackground) {
+                    runSearchWithEngine(query, getEngineLabel(item), false);
+                } else {
+                    applySelectedSearchSource(item);
+                    if (isEngineItem && query) {
+                        runSearchWithEngine(query, getEngineLabel(item), true);
+                    }
+                }
+                const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
+                if (!pinnedOpen) {
+                    forceCloseSearchSwitcherSubPanels();
+                    searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                }
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                 if (searchContainer?.classList.contains('focused')) {
@@ -2077,12 +2960,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
             );
 
+            const isGridMode = () => document.body.classList.contains('search-engines-display-grid');
+
             const getDropIndexFromY = (clientY) => {
                 const items = getEngineItems();
                 if (items.length === 0) return 0;
-                const containerRect = enginesContainer.getBoundingClientRect();
-                if (clientY < containerRect.top) return 0;
-                if (clientY > containerRect.bottom) return items.length;
+                const scrollEl = getEngineListScrollEl(enginesContainer);
+                const viewportRect = scrollEl.getBoundingClientRect();
+                if (clientY < viewportRect.top) return 0;
+                if (clientY > viewportRect.bottom) return items.length;
                 const rows = Array.from(enginesContainer.children).filter(
                     c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
                 );
@@ -2097,6 +2983,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 return items.length;
             };
 
+            const getGridDrop = (clientX, clientY) => {
+                const items = getEngineItems();
+                if (items.length === 0) return { index: 0, marker: null };
+
+                const scrollEl = getEngineListScrollEl(enginesContainer);
+                const viewportRect = scrollEl.getBoundingClientRect();
+                const ecRect = enginesContainer.getBoundingClientRect();
+                const visible = items
+                    .map((el, idx) => ({ el, idx, rect: el.getBoundingClientRect() }))
+                    .filter(r => r.rect.width > 0 && r.rect.height > 0);
+                if (!visible.length) return { index: 0, marker: null };
+
+                // Clamp point into the visible scroll viewport so edge drags still pick a tile.
+                const x = Math.min(Math.max(clientX, viewportRect.left), viewportRect.right);
+                const y = Math.min(Math.max(clientY, viewportRect.top), viewportRect.bottom);
+
+                let closest = visible[0];
+                let best = Infinity;
+                for (const v of visible) {
+                    const cx = v.rect.left + v.rect.width / 2;
+                    const cy = v.rect.top + v.rect.height / 2;
+                    const dx = x - cx;
+                    const dy = y - cy;
+                    const d = dx * dx + dy * dy;
+                    if (d < best) {
+                        best = d;
+                        closest = v;
+                    }
+                }
+
+                const midX = closest.rect.left + closest.rect.width / 2;
+                const insertAfter = x > midX;
+                const index = closest.idx + (insertAfter ? 1 : 0);
+
+                // Marker positioned between tiles, in engines-container coordinates.
+                const markerX = (insertAfter ? closest.rect.right : closest.rect.left) - ecRect.left;
+                const markerY = closest.rect.top - ecRect.top;
+                const markerH = closest.rect.height;
+                return { index, marker: { x: markerX, y: markerY, h: markerH } };
+            };
+
             const updateDropMarker = (index) => {
                 const items = getEngineItems();
                 if (index < 0 || index > items.length) return;
@@ -2108,11 +3035,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dropIndex === index) return;
                 dropIndex = index;
                 const sortSectionForMarker = enginesContainer.querySelector('.engines-sort-section');
-                if (index >= items.length) {
-                    enginesContainer.insertBefore(dropMarker, sortSectionForMarker || null);
-                } else {
-                    enginesContainer.insertBefore(dropMarker, items[index]);
+                if (!isGridMode()) {
+                    dropMarker.className = 'dropdown-drop-marker';
+                    dropMarker.style.left = '';
+                    dropMarker.style.top = '';
+                    dropMarker.style.height = '';
+                    if (index >= items.length) {
+                        enginesContainer.insertBefore(dropMarker, sortSectionForMarker || null);
+                    } else {
+                        enginesContainer.insertBefore(dropMarker, items[index]);
+                    }
+                    return;
                 }
+
+                // Grid mode: overlay a vertical bar between icon tiles (don’t consume a grid cell).
+                dropMarker.className = 'dropdown-drop-marker dropdown-drop-marker-grid';
+                if (dropMarker.parentNode !== enginesContainer) {
+                    enginesContainer.appendChild(dropMarker);
+                }
+                // Position is set by onDragMove using getGridDrop().
             };
 
             const endDrag = () => {
@@ -2165,35 +3106,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!draggedItem) return;
                 draggedItem.style.left = (e.clientX - dragOffsetX) + 'px';
                 draggedItem.style.top = (e.clientY - dragOffsetY) + 'px';
-                updateDropMarker(getDropIndexFromY(e.clientY));
+                if (isGridMode()) {
+                    const grid = getGridDrop(e.clientX, e.clientY);
+                    updateDropMarker(grid.index);
+                    if (dropMarker && grid.marker) {
+                        dropMarker.style.left = grid.marker.x + 'px';
+                        dropMarker.style.top = grid.marker.y + 'px';
+                        dropMarker.style.height = grid.marker.h + 'px';
+                    }
+                } else {
+                    updateDropMarker(getDropIndexFromY(e.clientY));
+                }
 
-                const containerRect = enginesContainer.getBoundingClientRect();
+                const scrollEl = getEngineListScrollEl(enginesContainer);
+                const containerRect = scrollEl.getBoundingClientRect();
                 const distFromTop = e.clientY - containerRect.top;
                 const distFromBottom = containerRect.bottom - e.clientY;
+                const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
 
                 if (dragScrollInterval) {
                     clearInterval(dragScrollInterval);
                     dragScrollInterval = null;
                 }
-                if (distFromTop < DRAG_SCROLL_ZONE && distFromTop >= 0 && enginesContainer.scrollTop > 0) {
+                if (maxScroll > 0 && distFromTop < DRAG_SCROLL_ZONE && distFromTop >= 0 && scrollEl.scrollTop > 0) {
                     dragScrollInterval = setInterval(() => {
-                        if (enginesContainer.scrollTop <= 0) {
+                        if (scrollEl.scrollTop <= 0) {
                             clearInterval(dragScrollInterval);
                             dragScrollInterval = null;
                             return;
                         }
-                        enginesContainer.scrollTop -= DRAG_SCROLL_SPEED;
+                        scrollEl.scrollTop -= DRAG_SCROLL_SPEED;
                     }, 16);
-                } else if (distFromBottom < DRAG_SCROLL_ZONE && distFromBottom >= 0 &&
-                    enginesContainer.scrollTop < enginesContainer.scrollHeight - enginesContainer.clientHeight) {
-                    const maxScroll = enginesContainer.scrollHeight - enginesContainer.clientHeight;
+                } else if (
+                    maxScroll > 0 &&
+                    distFromBottom < DRAG_SCROLL_ZONE &&
+                    distFromBottom >= 0 &&
+                    scrollEl.scrollTop < maxScroll
+                ) {
                     dragScrollInterval = setInterval(() => {
-                        if (enginesContainer.scrollTop >= maxScroll) {
+                        if (scrollEl.scrollTop >= maxScroll) {
                             clearInterval(dragScrollInterval);
                             dragScrollInterval = null;
                             return;
                         }
-                        enginesContainer.scrollTop += DRAG_SCROLL_SPEED;
+                        scrollEl.scrollTop += DRAG_SCROLL_SPEED;
                     }, 16);
                 }
             };
@@ -2205,7 +3161,9 @@ document.addEventListener('DOMContentLoaded', () => {
             enginesContainer.addEventListener('mousedown', (e) => {
                 const item = e.target.closest('.dropdown-item');
                 if (!item || !item.querySelector('.dropdown-engine-label')) return;
-                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin')) return;
+                /* Reorder drag only while the controls panel is open (drag handles are shown then). */
+                if (!searchSwitcherButton.classList.contains('search-engines-controls-open')) return;
+                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin, .dropdown-item-open-new-window, .dropdown-item-row-action')) return;
                 e.preventDefault();
 
                 const rect = item.getBoundingClientRect();
@@ -2241,7 +3199,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     draggedItem.style.width = rect.width + 'px';
                     draggedItem.style.left = (e.clientX - dragOffsetX) + 'px';
                     draggedItem.style.top = (e.clientY - dragOffsetY) + 'px';
-                    updateDropMarker(getDropIndexFromY(e.clientY));
+                    if (isGridMode()) {
+                        const grid = getGridDrop(e.clientX, e.clientY);
+                        updateDropMarker(grid.index);
+                        if (dropMarker && grid.marker) {
+                            dropMarker.style.left = grid.marker.x + 'px';
+                            dropMarker.style.top = grid.marker.y + 'px';
+                            dropMarker.style.height = grid.marker.h + 'px';
+                        }
+                    } else {
+                        updateDropMarker(getDropIndexFromY(e.clientY));
+                    }
                     document.addEventListener('mousemove', onDragMove);
                     document.addEventListener('mouseup', onDragEnd);
                     document.addEventListener('mouseleave', onDragEnd);
@@ -2271,19 +3239,14 @@ document.addEventListener('DOMContentLoaded', () => {
             );
             const order = items.map(item => getEngineLabel(item));
             if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
-            const sortSection = enginesContainer.querySelector('.engines-sort-section');
-            if (sortSection) {
-                const engineItems = Array.from(enginesContainer.children).filter(
-                    c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
-                );
-                const labels = engineItems.map(i => getEngineLabel(i));
-                const sorted = [...labels].sort((a, b) => a.localeCompare(b));
-                sortSection.hidden = labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
-            }
+            updateReorderResetButtonState();
             updateKeyboardNumbers();
+            const underlineEnabled = isUnderlineSearchEnginesEnabled();
+            if (underlineEnabled) applyEngineInitialUnderlines();
+            else clearEngineInitialUnderlines();
         }
         
-        // Quick buttons visibility toggle
+        // One-off buttons visibility toggle
         const quickButtonsToggle = document.getElementById('quick-buttons-toggle');
         if (quickButtonsToggle) {
             const applyQuickButtonsState = (visible) => {
@@ -2291,19 +3254,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const label = quickButtonsToggle.querySelector('.quick-buttons-label');
                 if (visible) {
                     quickButtonsToggle.dataset.visibility = 'shown';
-                    icon.src = 'icons/eye.svg';
-                    label.textContent = 'Hide Quick Buttons';
+                    icon.src = 'icons/eye-off.svg';
+                    label.textContent = 'Hide one-off buttons';
                 } else {
                     quickButtonsToggle.dataset.visibility = 'hidden';
-                    icon.src = 'icons/eye-off.svg';
-                    label.textContent = 'Show Quick Buttons';
+                    icon.src = 'icons/eye.svg';
+                    label.textContent = 'Show one-off buttons';
                 }
             };
             const savedQuickButtons = localStorage.getItem(QUICK_BUTTONS_VISIBLE_KEY);
-            if (savedQuickButtons === 'false') {
-                applyQuickButtonsState(false);
-            } else {
+            if (savedQuickButtons === 'true') {
                 applyQuickButtonsState(true);
+            } else {
+                applyQuickButtonsState(false);
             }
             quickButtonsToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -2345,7 +3308,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pinnedItem) applySelectedSearchSource(pinnedItem);
             }
 
-            ensureDragHandles();
+            ensureRowActions();
+            const underlineEnabled = isUnderlineSearchEnginesEnabled();
+            if (underlineEnabled) applyEngineInitialUnderlines();
+            else clearEngineInitialUnderlines();
 
             const getEngineItemsForSort = () => Array.from(enginesContainerForRestore.children).filter(
                 c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
@@ -2353,38 +3319,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const sortSection = document.createElement('div');
             sortSection.className = 'engines-sort-section';
-            sortSection.innerHTML = '<button type="button" class="engines-sort-alphabetically">Restore A-Z</button>';
+            sortSection.hidden = true;
             enginesContainerForRestore.appendChild(sortSection);
 
-            const isEngineListAlphabetical = () => {
-                const items = getEngineItemsForSort();
-                const labels = items.map(i => getEngineLabel(i));
-                const sorted = [...labels].sort((a, b) => a.localeCompare(b));
-                return labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
-            };
-
-            const updateSortButtonVisibility = () => {
-                sortSection.hidden = isEngineListAlphabetical();
-            };
-
-            sortSection.querySelector('.engines-sort-alphabetically').addEventListener('click', (e) => {
-                e.stopPropagation();
-                const items = getEngineItemsForSort();
-                const sorted = [...items].sort((a, b) => getEngineLabel(a).localeCompare(getEngineLabel(b)));
-                sorted.forEach(item => enginesContainerForRestore.insertBefore(item, sortSection));
-                const order = sorted.map(item => getEngineLabel(item));
-                if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
-                updateSortButtonVisibility();
-                updateKeyboardNumbers();
-                requestAnimationFrame(() => {
+            const resetOrderBtn = document.getElementById('search-engines-reset-order-button');
+            if (resetOrderBtn) {
+                resetOrderBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (resetOrderBtn.disabled) return;
+                    const items = getEngineItemsForSort();
+                    const sorted = [...items].sort((a, b) => getEngineLabel(a).localeCompare(getEngineLabel(b)));
+                    sorted.forEach((item) => enginesContainerForRestore.insertBefore(item, sortSection));
+                    const order = sorted.map((item) => getEngineLabel(item));
+                    if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
+                    updateReorderResetButtonState();
+                    updateKeyboardNumbers();
                     requestAnimationFrame(() => {
-                        const smooth = !document.body.classList.contains('reduced-motion');
-                        enginesContainerForRestore.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+                        requestAnimationFrame(() => {
+                            const smooth = !document.body.classList.contains('reduced-motion');
+                            enginesContainerForRestore.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+                        });
                     });
                 });
-            });
+            }
 
-            updateSortButtonVisibility();
+            updateReorderResetButtonState();
+            applySearchEnginesCountMode(localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false');
         }
     }
     
@@ -2416,41 +3376,56 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Handle gradient search border checkbox (default: on)
-    const gradientSearchBorderCheckbox = document.querySelector('.gradient-search-border-checkbox');
-    if (gradientSearchBorderCheckbox) {
-        const saved = localStorage.getItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY);
-        if (saved === 'false') {
-            gradientSearchBorderCheckbox.checked = false;
-            document.body.classList.add('gradient-search-border-off');
-        } else {
-            gradientSearchBorderCheckbox.checked = true;
-            document.body.classList.remove('gradient-search-border-off');
-        }
-        gradientSearchBorderCheckbox.addEventListener('change', (e) => {
-            const off = !e.target.checked;
-            if (e.target.checked) {
-                document.body.classList.remove('gradient-search-border-off');
-                localStorage.setItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY, 'true');
-            } else {
-                document.body.classList.add('gradient-search-border-off');
-                localStorage.setItem(GRADIENT_SEARCH_BORDER_ENABLED_KEY, 'false');
-                // Stop gradient animation and remove injected style so solid border shows immediately
-                if (gradientAnimationId) {
-                    cancelAnimationFrame(gradientAnimationId);
-                    gradientAnimationId = null;
-                }
-                const existingStyle = document.getElementById('gradient-animation-style');
-                if (existingStyle) existingStyle.remove();
-            }
+    // Search border colour swatches (solid ring on focus)
+    const searchBorderSwatches = document.querySelectorAll('.search-border-swatch');
+    if (searchBorderSwatches.length) {
+        const persistAndApply = (hex) => {
+            const c = canonicalSearchBorderColor(hex);
+            localStorage.setItem(SEARCH_BORDER_COLOR_KEY, c);
+            applySearchBorderColorVariable(c);
+            searchBorderSwatches.forEach(btn => {
+                const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
+                btn.setAttribute('aria-pressed', bn === c ? 'true' : 'false');
+            });
             [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
                 .filter(Boolean)
                 .forEach(f => {
                     try {
-                        f.contentWindow?.postMessage({ type: 'gradient-search-border-off', off }, '*');
+                        f.contentWindow?.postMessage({ type: 'search-border-color', color: c }, '*');
                     } catch (_) {}
                 });
+            // Main page search bar only: focus search so the ring (:has(.search-input:focus)) stays visible.
+            // When suggestions are already open, use the same path as switcher restore so we do not remove
+            // suggestions-revealed and replay the open transition.
+            if (
+                window === window.top &&
+                searchInput &&
+                searchContainer &&
+                suggestionsList &&
+                !document.body.classList.contains('addressbar')
+            ) {
+                if (suggestionsList.classList.contains('suggestions-revealed')) {
+                    restoringFocusFromSwitcher = true;
+                }
+                requestAnimationFrame(() => {
+                    searchInput.focus({ preventScroll: true });
+                });
+            }
+        };
+        const initial = getStoredSearchBorderColor();
+        localStorage.setItem(SEARCH_BORDER_COLOR_KEY, initial);
+        applySearchBorderColorVariable(initial);
+        searchBorderSwatches.forEach(btn => {
+            const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
+            btn.setAttribute('aria-pressed', bn === initial ? 'true' : 'false');
+            btn.addEventListener('click', () => {
+                persistAndApply(btn.dataset.borderColor);
+            });
         });
+    } else if (window === window.top) {
+        const initial = getStoredSearchBorderColor();
+        localStorage.setItem(SEARCH_BORDER_COLOR_KEY, initial);
+        applySearchBorderColorVariable(initial);
     }
 
     // Handle pin default search engine checkbox (default: off)
@@ -2463,6 +3438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             pinDefaultCheckbox.checked = false;
         }
+        updateDefaultBadge();
         pinDefaultCheckbox.addEventListener('change', (e) => {
             const enabled = e.target.checked;
             if (enabled) {
@@ -2472,6 +3448,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.remove('pin-default-enabled');
                 localStorage.setItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY, 'false');
             }
+            updateDefaultBadge();
             [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
                 .filter(Boolean)
                 .forEach(f => {
@@ -2479,6 +3456,291 @@ document.addEventListener('DOMContentLoaded', () => {
                         f.contentWindow?.postMessage({ type: 'pin-default', enabled }, '*');
                     } catch (_) {}
                 });
+        });
+    }
+
+    // Number of search engines: 6 vs 12 (default: 12)
+    const searchEnginesCountRadios = document.querySelectorAll('.search-engines-count-radio');
+    if (searchEnginesCountRadios.length) {
+        const twelveEnabled = localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false';
+        searchEnginesCountRadios.forEach((radio) => {
+            radio.checked = (radio.value === '12') === twelveEnabled;
+        });
+        applySearchEnginesCountMode(twelveEnabled);
+        searchEnginesCountRadios.forEach((radio) => {
+            radio.addEventListener('change', () => {
+                if (!radio.checked) return;
+                const on = radio.value === '12';
+                localStorage.setItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY, on ? 'true' : 'false');
+                applySearchEnginesCountMode(on);
+                [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                    .filter(Boolean)
+                    .forEach(f => {
+                        try {
+                            f.contentWindow?.postMessage({ type: 'twelve-search-engines', enabled: on }, '*');
+                        } catch (_) {}
+                    });
+            });
+        });
+    }
+
+    // List/grid segmented control in the switcher controls panel (per-search-bar preference).
+    const searchEnginesDisplayToggle = document.getElementById('search-engines-display-toggle');
+    if (searchEnginesDisplayToggle) {
+        const flipSearchEnginesDisplayMode = () => {
+            const current = getSearchEnginesDisplayMode();
+            const next = current === 'grid' ? 'list' : 'grid';
+            localStorage.setItem(getSearchEnginesDisplayKey(), next);
+            applySearchEnginesDisplayMode(next);
+        };
+        searchEnginesDisplayToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            flipSearchEnginesDisplayMode();
+        });
+        searchEnginesDisplayToggle.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            if (!searchEnginesDisplayToggle.contains(e.target)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            flipSearchEnginesDisplayMode();
+        });
+    }
+
+    const searchEnginesControlsToggle = document.getElementById('search-engines-controls-toggle');
+    const searchEnginesControlsPanel = document.getElementById('search-engines-controls-panel');
+    const searchSwitcherInfoToggle = document.getElementById('search-switcher-info-toggle');
+    const searchSwitcherInfoPanel = document.getElementById('search-switcher-info-panel');
+    const controlsShell = searchEnginesControlsPanel?.closest('.dropdown-search-controls-shell');
+    const infoShell = searchSwitcherInfoPanel?.closest('.dropdown-search-info-shell');
+
+    const syncSearchEnginesControlsExpanded = () => {
+        if (!searchEnginesControlsPanel || !searchEnginesControlsToggle) return;
+        const open = !searchEnginesControlsPanel.hasAttribute('hidden');
+        searchEnginesControlsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        syncEngineDragHandlesForControlsPanel();
+    };
+
+    const closeSearchEnginesControlsPanelInstant = () => {
+        if (!searchEnginesControlsPanel || !searchEnginesControlsToggle) return;
+        if (searchEnginesControlsPanel.hasAttribute('hidden')) return;
+        controlsShell?.classList.remove('dropdown-search-controls-shell--open');
+        searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
+        searchEnginesControlsPanel.setAttribute('hidden', '');
+        searchEnginesControlsToggle.setAttribute('aria-expanded', 'false');
+        syncSearchEnginesControlsExpanded();
+    };
+
+    const closeSearchSwitcherInfoPanelInstant = () => {
+        if (!searchSwitcherInfoPanel || !searchSwitcherInfoToggle) return;
+        if (searchSwitcherInfoPanel.hasAttribute('hidden')) return;
+        infoShell?.classList.remove('dropdown-search-info-shell--open');
+        searchSwitcherInfoPanel.setAttribute('hidden', '');
+        searchSwitcherInfoToggle.setAttribute('aria-expanded', 'false');
+    };
+
+    const PANEL_SLIDE_MS = 320;
+
+    /** When swapping (i) ↔ controls, skip enter animation so one panel replaces the other cleanly. */
+    const openSearchEnginesControlsPanelInstantSwap = () => {
+        if (!controlsShell || !searchEnginesControlsPanel) return;
+        searchEnginesControlsPanel.removeAttribute('hidden');
+        controlsShell.style.transition = 'none';
+        searchEnginesControlsPanel.style.transition = 'none';
+        controlsShell.classList.add('dropdown-search-controls-shell--open');
+        void searchEnginesControlsPanel.offsetHeight;
+        controlsShell.style.transition = '';
+        searchEnginesControlsPanel.style.transition = '';
+        syncSearchEnginesControlsExpanded();
+        searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
+        syncSearchSwitcherDropdownWidth();
+    };
+
+    const openSearchSwitcherInfoPanelInstantSwap = () => {
+        if (!infoShell || !searchSwitcherInfoPanel) return;
+        searchSwitcherInfoPanel.removeAttribute('hidden');
+        infoShell.style.transition = 'none';
+        searchSwitcherInfoPanel.style.transition = 'none';
+        infoShell.classList.add('dropdown-search-info-shell--open');
+        void searchSwitcherInfoPanel.offsetHeight;
+        infoShell.style.transition = '';
+        searchSwitcherInfoPanel.style.transition = '';
+        searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
+        syncSearchSwitcherDropdownWidth();
+    };
+
+    /** Smooth layout jump when “From Firefox” switches sticky ↔ static (runs in parallel with the controls panel slide). */
+    const runFromFirefoxFooterFlipTransition = (footer, firstRect) => {
+        if (!footer || !firstRect) return;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const lastRect = footer.getBoundingClientRect();
+                const dx = firstRect.left - lastRect.left;
+                const dy = firstRect.top - lastRect.top;
+                if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+                footer.style.transition = 'none';
+                footer.style.transform = `translate(${dx}px, ${dy}px)`;
+                void footer.offsetHeight;
+                requestAnimationFrame(() => {
+                    footer.style.transition =
+                        'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)';
+                    footer.style.transform = 'translate(0, 0)';
+                    const cleanup = () => {
+                        footer.removeEventListener('transitionend', onTfEnd);
+                        footer.style.transition = '';
+                        footer.style.transform = '';
+                    };
+                    const onTfEnd = (e) => {
+                        if (e && e.propertyName !== 'transform') return;
+                        cleanup();
+                    };
+                    footer.addEventListener('transitionend', onTfEnd);
+                    setTimeout(cleanup, 420);
+                });
+            });
+        });
+    };
+
+    if (searchEnginesControlsToggle && searchEnginesControlsPanel) {
+        const toggleSearchEnginesControlsPanel = () => {
+            if (!controlsShell) {
+                searchEnginesControlsPanel.toggleAttribute('hidden');
+                syncSearchEnginesControlsExpanded();
+                const open = !searchEnginesControlsPanel.hasAttribute('hidden');
+                searchSwitcherButton?.classList.toggle('search-engines-controls-panel-revealed', open);
+                syncSearchSwitcherDropdownWidth();
+                return;
+            }
+            const opening = searchEnginesControlsPanel.hasAttribute('hidden');
+            if (opening) {
+                const wasInfoOpen =
+                    searchSwitcherInfoPanel && !searchSwitcherInfoPanel.hasAttribute('hidden');
+                clearFromFirefoxFooterFlipStyles();
+                closeSearchSwitcherInfoPanelInstant();
+                if (wasInfoOpen) {
+                    openSearchEnginesControlsPanelInstantSwap();
+                    return;
+                }
+                searchEnginesControlsPanel.removeAttribute('hidden');
+                requestAnimationFrame(() => {
+                    controlsShell.classList.add('dropdown-search-controls-shell--open');
+                    syncSearchEnginesControlsExpanded();
+                    const rm = document.body.classList.contains('reduced-motion');
+                    if (rm) {
+                        searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
+                        syncSearchSwitcherDropdownWidth();
+                    } else {
+                        requestAnimationFrame(() => {
+                            searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
+                            syncSearchSwitcherDropdownWidth();
+                        });
+                    }
+                });
+                return;
+            }
+            const footer = searchSwitcherButton?.querySelector('.dropdown-from-firefox-footer');
+            const wantFooterFlip =
+                footer &&
+                !document.body.classList.contains('reduced-motion') &&
+                searchSwitcherButton.classList.contains('search-engines-controls-panel-revealed');
+            let footerFlipFirstRect = null;
+            if (wantFooterFlip) {
+                footerFlipFirstRect = footer.getBoundingClientRect();
+            }
+            controlsShell.classList.remove('dropdown-search-controls-shell--open');
+            searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
+            searchEnginesControlsToggle.setAttribute('aria-expanded', 'false');
+            if (wantFooterFlip && footerFlipFirstRect) {
+                runFromFirefoxFooterFlipTransition(footer, footerFlipFirstRect);
+            }
+            let settled = false;
+            const settle = () => {
+                if (settled) return;
+                settled = true;
+                searchEnginesControlsPanel.removeEventListener('transitionend', onTrEnd);
+                clearTimeout(fallbackTimer);
+                searchEnginesControlsPanel.setAttribute('hidden', '');
+                syncSearchEnginesControlsExpanded();
+                syncSearchSwitcherDropdownWidth();
+            };
+            const onTrEnd = (ev) => {
+                if (ev.target !== searchEnginesControlsPanel || ev.propertyName !== 'transform') return;
+                settle();
+            };
+            searchEnginesControlsPanel.addEventListener('transitionend', onTrEnd);
+            const fallbackTimer = setTimeout(
+                settle,
+                document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
+            );
+        };
+        searchEnginesControlsToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSearchEnginesControlsPanel();
+        });
+        searchEnginesControlsToggle.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSearchEnginesControlsPanel();
+        });
+        syncSearchEnginesControlsExpanded();
+    }
+
+    if (searchSwitcherInfoToggle && searchSwitcherInfoPanel) {
+        const toggleSearchSwitcherInfoPanel = () => {
+            if (!infoShell) {
+                searchSwitcherInfoPanel.toggleAttribute('hidden');
+                const open = !searchSwitcherInfoPanel.hasAttribute('hidden');
+                searchSwitcherInfoToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                return;
+            }
+            const opening = searchSwitcherInfoPanel.hasAttribute('hidden');
+            if (opening) {
+                const wasControlsOpen =
+                    searchEnginesControlsPanel && !searchEnginesControlsPanel.hasAttribute('hidden');
+                closeSearchEnginesControlsPanelInstant();
+                if (wasControlsOpen) {
+                    openSearchSwitcherInfoPanelInstantSwap();
+                    return;
+                }
+                searchSwitcherInfoPanel.removeAttribute('hidden');
+                requestAnimationFrame(() => {
+                    infoShell.classList.add('dropdown-search-info-shell--open');
+                    searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
+                    syncSearchSwitcherDropdownWidth();
+                    requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
+                });
+                return;
+            }
+            infoShell.classList.remove('dropdown-search-info-shell--open');
+            searchSwitcherInfoToggle.setAttribute('aria-expanded', 'false');
+            let settled = false;
+            const settle = () => {
+                if (settled) return;
+                settled = true;
+                searchSwitcherInfoPanel.removeEventListener('transitionend', onTrEnd);
+                clearTimeout(fallbackTimer);
+                searchSwitcherInfoPanel.setAttribute('hidden', '');
+                syncSearchSwitcherDropdownWidth();
+            };
+            const onTrEnd = (ev) => {
+                if (ev.target !== searchSwitcherInfoPanel || ev.propertyName !== 'transform') return;
+                settle();
+            };
+            searchSwitcherInfoPanel.addEventListener('transitionend', onTrEnd);
+            const fallbackTimer = setTimeout(
+                settle,
+                document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
+            );
+        };
+        searchSwitcherInfoToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSearchSwitcherInfoPanel();
+        });
+        searchSwitcherInfoToggle.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSearchSwitcherInfoPanel();
         });
     }
 
@@ -2500,6 +3762,241 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.remove('standalone-search-box-visible');
                 localStorage.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, 'false');
             }
+        });
+    }
+
+    const moreSearchSettingsButton = document.getElementById('more-search-settings-button');
+    if (moreSearchSettingsButton) {
+        moreSearchSettingsButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                window.open('about:preferences#search', '_blank', 'noopener,noreferrer');
+            } catch (_) {}
+        });
+    }
+
+    // Switcher outside search box (lilac "Show while typing" toggle; was "Pin this menu" in the dropdown)
+    const pinMenuToggle = document.getElementById('pin-menu-toggle');
+    let cancelPinMenuFlip = null;
+    let pinMenuFlipSeq = 0;
+    const pinMenuRectStr = (r) =>
+        `L${Math.round(r.left)} T${Math.round(r.top)} W${Math.round(r.width)} H${Math.round(r.height)}`;
+    const DEBUG_PIN_MENU =
+        typeof localStorage !== 'undefined' && localStorage.getItem('debug_pin_menu') === 'true';
+    const logPinMenu = (msg, detail = {}) => {
+        if (!DEBUG_PIN_MENU) return;
+        const t = typeof performance !== 'undefined' ? performance.now().toFixed(1) : String(Date.now());
+        console.log(`[pin-menu +${t}ms]`, msg, detail);
+    };
+    const applyPinnedMenuState = (on, options = {}) => {
+        const enabled = !!on;
+        const wantFlip = options.animate !== false && !document.body.classList.contains('reduced-motion');
+        const btn = searchSwitcherButton;
+        let firstBtnRect = null;
+        let firstInputRect = null;
+        const seq = ++pinMenuFlipSeq;
+        const searchFocused = !!searchContainer?.classList.contains('focused');
+        logPinMenu('applyPinnedMenuState', {
+            seq,
+            enabled,
+            animate: options.animate !== false,
+            wantFlip,
+            reducedMotion: document.body.classList.contains('reduced-motion'),
+            outsideBefore: document.body.classList.contains('switcher-outside-search-box-enabled'),
+            searchFocused,
+        });
+        if (wantFlip && btn) {
+            if (cancelPinMenuFlip) {
+                logPinMenu('cancel in-flight FLIP', { seq });
+                cancelPinMenuFlip();
+                cancelPinMenuFlip = null;
+            }
+            firstBtnRect = btn.getBoundingClientRect();
+            if (searchInput) firstInputRect = searchInput.getBoundingClientRect();
+            logPinMenu('pre-toggle switcher rect', { seq, rect: pinMenuRectStr(firstBtnRect), computedTransform: getComputedStyle(btn).transform });
+            if (firstInputRect) {
+                logPinMenu('pre-toggle search-input rect', { seq, rect: pinMenuRectStr(firstInputRect) });
+            }
+        }
+        document.body.classList.toggle('switcher-outside-search-box-enabled', enabled);
+        localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, enabled ? 'true' : 'false');
+        if (pinMenuToggle) {
+            pinMenuToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+            const icon = pinMenuToggle.querySelector('.pin-menu-toggle-icon');
+            const label = pinMenuToggle.querySelector('.pin-menu-toggle-label');
+            if (icon) icon.src = enabled ? 'icons/pin-filled.svg' : 'icons/pin.svg';
+            if (label) label.textContent = enabled ? 'Unpin this menu' : 'Pin this menu';
+        }
+        const showWhileTypingToggle = document.getElementById('show-search-engines-while-typing-toggle');
+        if (showWhileTypingToggle) {
+            showWhileTypingToggle.setAttribute('aria-checked', enabled ? 'true' : 'false');
+        }
+        if (!wantFlip || !btn || !firstBtnRect) {
+            if (btn) {
+                const reason = !wantFlip
+                    ? 'wantFlip=false (animate:false on load/reset, or reduced-motion)'
+                    : !firstBtnRect
+                      ? 'no firstBtnRect (unexpected)'
+                      : 'no switcher button';
+                logPinMenu('skip FLIP (no animation path)', {
+                    seq,
+                    reason,
+                    wantFlip,
+                    hasBtn: !!btn,
+                    firstBtnRectCaptured: !!firstBtnRect,
+                    rectAfterToggle: pinMenuRectStr(btn.getBoundingClientRect()),
+                    computedTransform: getComputedStyle(btn).transform,
+                });
+            }
+            return;
+        }
+        requestAnimationFrame(() => {
+            const lastBtnRect = btn.getBoundingClientRect();
+            const lastInputRect = searchInput ? searchInput.getBoundingClientRect() : null;
+            const btnDx = firstBtnRect.left - lastBtnRect.left;
+            const btnDy = firstBtnRect.top - lastBtnRect.top;
+            const inDx =
+                firstInputRect && lastInputRect ? firstInputRect.left - lastInputRect.left : 0;
+            const inDy =
+                firstInputRect && lastInputRect ? firstInputRect.top - lastInputRect.top : 0;
+            const btnDxR = Math.round(btnDx * 10) / 10;
+            const btnDyR = Math.round(btnDy * 10) / 10;
+            const inDxR = Math.round(inDx * 10) / 10;
+            const inDyR = Math.round(inDy * 10) / 10;
+            const flipBtn = Math.abs(btnDx) >= 0.5 || Math.abs(btnDy) >= 0.5;
+            const flipInput =
+                !!(firstInputRect && lastInputRect && (Math.abs(inDx) >= 0.5 || Math.abs(inDy) >= 0.5));
+            logPinMenu(
+                `rAF1 after class toggle  switcherDelta=dx:${btnDxR} dy:${btnDyR}  inputDelta=dx:${inDxR} dy:${inDyR}`,
+                {
+                    seq,
+                    lastSwitcherRect: pinMenuRectStr(lastBtnRect),
+                    lastInputRect: lastInputRect ? pinMenuRectStr(lastInputRect) : null,
+                    flipBtn,
+                    flipInput,
+                }
+            );
+            if (!flipBtn && !flipInput) {
+                logPinMenu('skip FLIP (no element moved)', { seq });
+                return;
+            }
+            if (flipBtn) {
+                btn.style.transition = 'none';
+                btn.style.transform = `translate(${btnDx}px, ${btnDy}px)`;
+            }
+            if (flipInput) {
+                searchInput.style.transition = 'none';
+                searchInput.style.transform = `translate(${inDx}px, ${inDy}px)`;
+            }
+            void btn.offsetHeight;
+            if (searchInput) void searchInput.offsetHeight;
+            logPinMenu('FLIP invert applied', {
+                seq,
+                switcherTransform: flipBtn ? btn.style.transform : '(none)',
+                inputTransform: flipInput ? searchInput.style.transform : '(none)',
+            });
+            requestAnimationFrame(() => {
+                const dur = '0.25s';
+                if (flipBtn) {
+                    btn.style.transition = `transform ${dur} ease-out`;
+                    btn.style.transform = '';
+                }
+                if (flipInput) {
+                    searchInput.style.transition = `transform ${dur} ease-out`;
+                    searchInput.style.transform = '';
+                }
+                logPinMenu('FLIP animate to layout transform', {
+                    seq,
+                    switcherComputed: flipBtn ? getComputedStyle(btn).transform : 'n/a',
+                    inputComputed: flipInput ? getComputedStyle(searchInput).transform : 'n/a',
+                });
+                let cleaned = false;
+                let pendingEnds = (flipBtn ? 1 : 0) + (flipInput ? 1 : 0);
+                function cleanup(source) {
+                    if (cleaned) return;
+                    cleaned = true;
+                    if (flipBtn) {
+                        btn.removeEventListener('transitionend', onBtnTransitionEnd);
+                        btn.style.transition = '';
+                        btn.style.transform = '';
+                    }
+                    if (flipInput) {
+                        searchInput.removeEventListener('transitionend', onInputTransitionEnd);
+                        searchInput.style.transition = '';
+                        searchInput.style.transform = '';
+                    }
+                    cancelPinMenuFlip = null;
+                    logPinMenu('FLIP cleanup', {
+                        seq,
+                        source,
+                        endSwitcherRect: pinMenuRectStr(btn.getBoundingClientRect()),
+                        endInputRect: searchInput ? pinMenuRectStr(searchInput.getBoundingClientRect()) : null,
+                    });
+                }
+                function onBtnTransitionEnd(e) {
+                    logPinMenu('transitionend (switcher)', {
+                        seq,
+                        propertyName: e.propertyName,
+                        elapsedTime: e.elapsedTime,
+                    });
+                    if (e.propertyName !== 'transform') return;
+                    btn.removeEventListener('transitionend', onBtnTransitionEnd);
+                    pendingEnds--;
+                    if (pendingEnds <= 0) cleanup('transitionend');
+                }
+                function onInputTransitionEnd(e) {
+                    logPinMenu('transitionend (search-input)', {
+                        seq,
+                        propertyName: e.propertyName,
+                        elapsedTime: e.elapsedTime,
+                    });
+                    if (e.propertyName !== 'transform') return;
+                    searchInput.removeEventListener('transitionend', onInputTransitionEnd);
+                    pendingEnds--;
+                    if (pendingEnds <= 0) cleanup('transitionend');
+                }
+                if (flipBtn) btn.addEventListener('transitionend', onBtnTransitionEnd);
+                if (flipInput) searchInput.addEventListener('transitionend', onInputTransitionEnd);
+                cancelPinMenuFlip = () => cleanup('cancel');
+                setTimeout(() => cleanup('timeout350ms'), 350);
+            });
+        });
+    };
+    const showSearchEnginesWhileTypingToggle = document.getElementById('show-search-engines-while-typing-toggle');
+    if (showSearchEnginesWhileTypingToggle) {
+        const enabled = localStorage.getItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY) === 'true';
+        applyPinnedMenuState(enabled, { animate: false });
+        const togglePinnedFromSwitch = (e) => {
+            if (e.type === 'keydown') e.preventDefault();
+            e.stopPropagation();
+            const next = !document.body.classList.contains('switcher-outside-search-box-enabled');
+            const t = e.target;
+            const inputType = e.type === 'keydown' ? `keydown:${e.key}` : e.type;
+            const targetTag = t && String(t.tagName || '').toLowerCase();
+            const targetBrief = !t
+                ? 'unknown'
+                : t === showSearchEnginesWhileTypingToggle
+                  ? 'show-search-engines-while-typing-toggle (direct)'
+                  : `${targetTag}${t.id ? `#${t.id}` : ''}${t.classList?.length ? `.${[...t.classList].slice(0, 3).join('.')}` : ''}`;
+            logPinMenu('pinned switcher toggle (lilac controls)', {
+                inputType,
+                currentTarget: e.currentTarget?.id || 'show-search-engines-while-typing-toggle',
+                target: targetBrief,
+                nextOutside: next,
+                label: next ? 'will pin (outside)' : 'will unpin (inside)',
+            });
+            applyPinnedMenuState(next);
+            if (searchInput) searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+            try {
+                showSearchEnginesWhileTypingToggle.focus({ preventScroll: true });
+            } catch (_) {
+                showSearchEnginesWhileTypingToggle.focus();
+            }
+        };
+        showSearchEnginesWhileTypingToggle.addEventListener('click', togglePinnedFromSwitch);
+        showSearchEnginesWhileTypingToggle.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') togglePinnedFromSwitch(e);
         });
     }
 
@@ -2539,10 +4036,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Handle underline first letter of search engines checkbox (default: off)
+    const underlineSearchEnginesCheckbox = document.querySelector('.underline-search-engines-checkbox');
+    if (underlineSearchEnginesCheckbox) {
+        const saved = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY);
+        const enabled = saved === 'true';
+        underlineSearchEnginesEnabled = enabled;
+        underlineSearchEnginesCheckbox.checked = enabled;
+        if (enabled) applyEngineInitialUnderlines();
+        else clearEngineInitialUnderlines();
+
+        underlineSearchEnginesCheckbox.addEventListener('change', (e) => {
+            const on = e.target.checked;
+            underlineSearchEnginesEnabled = on;
+            localStorage.setItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY, on ? 'true' : 'false');
+            if (on) applyEngineInitialUnderlines();
+            else clearEngineInitialUnderlines();
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'underline-search-engines', enabled: on }, '*');
+                    } catch (_) {}
+                });
+        });
+    }
+
+    // Handle keyboard switcher numbers checkbox (default: on)
+    const keyboardSwitcherNumbersCheckbox = document.querySelector('.keyboard-switcher-numbers-checkbox');
+    if (keyboardSwitcherNumbersCheckbox) {
+        const enabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
+        keyboardSwitcherNumbersCheckbox.checked = enabled;
+        document.body.classList.toggle('keyboard-switcher-numbers-enabled', enabled);
+        keyboardSwitcherNumbersCheckbox.addEventListener('change', (e) => {
+            const on = e.target.checked;
+            localStorage.setItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY, on ? 'true' : 'false');
+            document.body.classList.toggle('keyboard-switcher-numbers-enabled', on);
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach(f => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'switcher-keyboard-numbers', enabled: on }, '*');
+                    } catch (_) {}
+                });
+        });
+    }
+
     // Calculate and set border radius based on wrapper height
     const updateBorderRadius = () => {
-        console.log('[BORDER-RADIUS] Calculating border radiuses...');
-        
         if (searchBoxWrapper && searchBoxWrapperOuter) {
             const wrapperHeight = searchBoxWrapper.offsetHeight;
             const borderRadius = wrapperHeight / 2;
@@ -2555,15 +4096,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const outerComputedRadius = getComputedStyle(searchBoxWrapperOuter).borderRadius;
             const innerComputedRadius = getComputedStyle(searchBoxWrapper).borderRadius;
             
-            console.log('[BORDER-RADIUS] Search box wrapper:', {
-                wrapperHeight: wrapperHeight,
-                calculatedInnerRadius: borderRadius,
-                calculatedOuterRadius: borderRadius,
-                calculatedGradientRadius: gradientBorderRadius,
-                renderedInnerRadius: innerComputedRadius,
-                renderedOuterRadius: outerComputedRadius
-            });
-            
             // The ::before element needs extra radius since it extends outward by 2px
             document.documentElement.style.setProperty('--outer-border-radius', `${gradientBorderRadius}px`);
         }
@@ -2574,24 +4106,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const buttonHeight = searchSwitcherBtn.offsetHeight;
             const buttonBorderRadius = buttonHeight / 2;
             document.documentElement.style.setProperty('--switcher-button-radius', `${buttonBorderRadius}px`);
-            
-            console.log('[BORDER-RADIUS] Search switcher button:', {
-                height: buttonHeight,
-                radius: buttonBorderRadius
-            });
         }
 
         // Set suggestion items border radius to half the first item's height
         const firstSuggestionItem = document.querySelector('.suggestion-item');
         if (firstSuggestionItem) {
             const itemHeight = firstSuggestionItem.offsetHeight;
-            const itemBorderRadius = itemHeight / 2;
+            const isAddressbar = document.body.classList.contains('addressbar');
+            const minRadius = isAddressbar ? 10 : 15;
+            const itemBorderRadius = itemHeight > 0 ? itemHeight / 2 : minRadius;
             document.documentElement.style.setProperty('--suggestion-item-radius', `${itemBorderRadius}px`);
-            
-            console.log('[BORDER-RADIUS] Suggestion items:', {
-                height: itemHeight,
-                radius: itemBorderRadius
-            });
         }
     };
     
@@ -2602,8 +4126,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', updateBorderRadius);
     
     let firstHoverDone = false;
-    let gradientAnimationId = null;
-    let gradientAngle = 0;
     
     // Track state for input handler
     let lastApiQuery = '';
@@ -2863,6 +4385,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function updateSearchInputForItem(item, typedText) {
         if (!searchInput) return;
+        // In '@' mode we don't want hover/keyboard navigation to overwrite the input,
+        // otherwise it removes the '@...' the user typed.
+        if (typeof typedText === 'string' && typedText.trim().startsWith('@')) {
+            return;
+        }
         const isGmailItem = item.classList.contains('gmail-item');
         const labelEl = item.querySelector('.suggestion-label');
         const suggestionText = labelEl ? labelEl.textContent.trim() : '';
@@ -2997,12 +4524,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     .filter(title => title.toLowerCase().trim() !== searchValueTrimmed.toLowerCase())
                 : [];
         } else if (isAtQuery) {
-            suggestionsToShow = suggestions;
+            // For '@' mode, show only the matching options (engines + firefox sources),
+            // not an extra "echo" of what the user is already typing.
+            suggestionsToShow = Array.isArray(suggestions) ? suggestions : [];
         } else if (searchValueTrimmed) {
-            suggestionsToShow = [searchValueTrimmed, ...(Array.isArray(suggestions) ? suggestions : []).filter(s => {
+            const rest = (Array.isArray(suggestions) ? suggestions : []).filter((s) => {
                 if (typeof s === 'object' && s._localSource) return false;
                 return (typeof s === 'string' ? s : '').toLowerCase() !== searchValueTrimmed.toLowerCase();
-            })];
+            });
+            suggestionsToShow = [searchValueTrimmed, ...rest];
+            if (document.body.classList.contains('switcher-outside-search-box-enabled') && !isAtQuery && !firefoxSuggestionsOnly) {
+                const engines = getSearchEngineSuggestionObjectsFromDropdown();
+                const q = searchValueTrimmed.toLowerCase();
+                const engineMatches = engines.filter((e) => e.label.toLowerCase().startsWith(q));
+                suggestionsToShow = [searchValueTrimmed, ...engineMatches, ...rest];
+            }
         } else {
             suggestionsToShow = Array.isArray(suggestions) ? suggestions : [];
         }
@@ -3115,6 +4651,7 @@ document.addEventListener('DOMContentLoaded', () => {
             suggestionsToShow.forEach((suggestionOrObj, index) => {
                 const isVisitSite = typeof suggestionOrObj === 'object' && suggestionOrObj._visitSite;
                 const isLocalSource = typeof suggestionOrObj === 'object' && suggestionOrObj._localSource;
+                const isSearchEngineSuggestion = typeof suggestionOrObj === 'object' && suggestionOrObj._searchEngine;
                 const suggestion = isVisitSite ? suggestionOrObj._text : (isLocalSource ? suggestionOrObj.label : suggestionOrObj);
                 const typedTextIndex = suggestionsToShow[0]?._visitSite ? 1 : 0;
                 const isTypedText = !isVisitSite && index === typedTextIndex && searchValueTrimmed && (suggestion || '').toLowerCase() === searchValueTrimmed.toLowerCase();
@@ -3133,6 +4670,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 li.className = 'suggestion-item' + (isFirefoxSuggest ? ' firefox-suggest-item' : '') + (isVisitSite ? ' visit-site-suggestion' : '') + (isLocalSource ? ' local-source-suggestion' : '') + (isTopTwoWithHints ? ' hint-always-visible' : '');
                 if (isTypedText) {
                     li.setAttribute('data-typed-text', 'true');
+                }
+                if (isFirefoxSuggest) {
+                    const firefoxDataForType = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
+                    const firefoxTypeForItem = displayType || (firefoxDataForType && firefoxDataForType.type) || 'history';
+                    li.setAttribute('data-firefox-type', firefoxTypeForItem);
                 }
                 
                 // Get appropriate icon (Firefox items: history=clock, bookmark=star, tab=tabs, actions)
@@ -3254,7 +4796,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.appendChild(moreIcon);
                 } else {
                     if (isLocalSource) {
-                        hintText.dataset.searchHint = 'Search in ' + suggestion;
+                        hintText.dataset.searchHint = isSearchEngineSuggestion
+                            ? 'Search with ' + suggestion
+                            : 'Search in ' + suggestion;
                     } else if (!isVisitSite) {
                         hintText.dataset.searchHint = 'Search with ' + getCurrentSearchEngineLabel();
                     }
@@ -3262,29 +4806,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.appendChild(hintText);
                 }
                 
-                // Add click handler
-                li.addEventListener('click', () => {
-                    if (isLocalSource) {
-                        const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
-                        const item = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')).find(el => el.textContent.trim() === suggestion) : null;
-                        if (item) {
-                            applySelectedSearchSource(item);
-                            if (searchInput) {
-                                searchInput.value = '';
-                                suggestionsList?.classList.add('suggestions-suppress-until-typed');
-                                updateSuggestions([]);
-                                searchInput.focus();
-                            }
-                        }
-                    } else if (isVisitSite && looksLikeUrl(suggestion)) {
-                        const url = suggestion.trim();
-                        const toOpen = /^https?:\/\//i.test(url) ? url : 'https://' + url;
-                        window.open(toOpen, '_blank');
-                    } else {
-                        console.log('[CLICK] Suggestion clicked:', suggestion);
-                        saveToSearchHistory(suggestion);
-                    }
-                });
+                // Click is handled by delegated handler on suggestionsContent (handles static + dynamic items)
                 
                 // Append to content
                 suggestionsContent.appendChild(li);
@@ -3306,7 +4828,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         // Set keyboard selection index when suggestions change
-        selectedSuggestionIndex = searchValueTrimmed ? 0 : -1;
+        // In '@' mode, we don't want to auto-highlight the top row.
+        selectedSuggestionIndex = isAtQuery ? -1 : (searchValueTrimmed ? 0 : -1);
         lastTypedTextInInput = searchValueTrimmed || '';
         lastHoveredItemForInput = null;
         updateSelectedSuggestion(false);
@@ -3317,6 +4840,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (suggestionsList) {
             suggestionsList.classList.remove('suggestions-suppress-hover');
         }
+        // Recalculate suggestion item radius when suggestions change (items may now be visible)
+        requestAnimationFrame(() => updateBorderRadius());
     }
     
     // ===== CLEAR BUTTON =====
@@ -3478,15 +5003,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Handle @ query - show only local sources (Bookmarks, Tabs, History, Actions)
+            // Handle @ query - show search engines + Firefox sources from the switcher
             if (valueLower.startsWith('@')) {
                 const afterAt = valueLower.slice(1).trim();
-                const localSources = [
-                    { _localSource: true, label: 'Bookmarks', icon: 'icons/star.svg' },
-                    { _localSource: true, label: 'Tabs', icon: 'icons/tabs.svg' },
-                    { _localSource: true, label: 'History', icon: 'icons/history.svg' },
-                    { _localSource: true, label: 'Actions', icon: 'icons/actions.svg' }
-                ];
+                const switcherDropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+                const engineItems = switcherDropdown
+                    ? Array.from(switcherDropdown.querySelectorAll('.dropdown-search-engines .dropdown-item')).filter(
+                        el => el.querySelector('.dropdown-engine-label')
+                    )
+                    : [];
+                const firefoxItems = switcherDropdown
+                    ? Array.from(switcherDropdown.querySelectorAll('.dropdown-firefox-suggestions .dropdown-item'))
+                    : [];
+                const localSources = engineItems
+                    .map((item) => {
+                        const label = getEngineLabel(item);
+                        const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+                        const icon = iconEl?.getAttribute('src') || '';
+                        if (!label) return null;
+                        return { _localSource: true, _searchEngine: true, label, icon };
+                    })
+                    .filter(Boolean)
+                    .concat(
+                        firefoxItems
+                            .map((item) => {
+                                const label = item.querySelector('span')?.textContent?.trim() || '';
+                                const iconEl = item.querySelector('.dropdown-icon, .dropdown-engine-icon');
+                                const icon = iconEl?.getAttribute('src') || '';
+                                if (!label) return null;
+                                return { _localSource: true, label, icon };
+                            })
+                            .filter(Boolean)
+                    );
                 const matching = afterAt
                     ? localSources.filter(s => s.label.toLowerCase().startsWith(afterAt))
                     : localSources;
@@ -3592,29 +5140,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Animate gradient border (skipped when gradient-search-border-off or reduced-motion)
-    const animateGradient = () => {
-        if (document.body.classList.contains('gradient-search-border-off') || document.body.classList.contains('reduced-motion')) {
-            gradientAnimationId = null;
-            const existingStyle = document.getElementById('gradient-animation-style');
-            if (existingStyle) existingStyle.remove();
-            return;
-        }
-        gradientAngle = (gradientAngle + 1) % 360;
-        
-        let style = document.getElementById('gradient-animation-style');
-        if (!style) {
-            style = document.createElement('style');
-            style.id = 'gradient-animation-style';
-        }
-        style.textContent = `.search-box-wrapper-outer:has(.search-input:focus)::before { background: conic-gradient(from ${gradientAngle}deg, #FF00FF 0%, #FFA500 35%, #FFFFFF 50%, #FFA500 65%, #FF00FF 100%); }`;
-        if (!document.head.contains(style)) {
-            document.head.appendChild(style);
-        }
-        gradientAnimationId = requestAnimationFrame(animateGradient);
-    };
-    
     if (searchInput && searchContainer) {
+        let autoOpenedSwitcherOnFocus = false;
         searchInput.addEventListener('focus', () => {
             if (restoringFocusFromSwitcher) {
                 restoringFocusFromSwitcher = false;
@@ -3626,6 +5153,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (closingSwitcherWithoutSuggestions) {
                 closingSwitcherWithoutSuggestions = false;
                 searchInput?.blur();
+                return;
+            }
+            if (isRestoringFocus) {
+                isRestoringFocus = false;
+                searchContainer.classList.add('focused');
+                if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
+                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
                 return;
             }
             // Add focused class to expand width
@@ -3663,12 +5197,95 @@ document.addEventListener('DOMContentLoaded', () => {
                     suggestionsList.classList.add('first-hover-fade');
                 }, 420);
             }
+
+            // If the switcher is positioned outside the search box, open it alongside the focus expansion.
+            if (document.body.classList.contains('switcher-outside-search-box-enabled') && searchSwitcherButton) {
+                const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                autoOpenedSwitcherOnFocus = true;
+                searchSwitcherButton.classList.add('open');
+                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
+                dropdown?.classList.remove('dropdown-revealed');
+                try {
+                    // Ensure it starts from the top before the user sees it.
+                    const scrollEl = searchSwitcherButton.querySelector('.dropdown-engines-firefox-scroll');
+                    if (scrollEl) {
+                        const prev = scrollEl.style.scrollBehavior;
+                        scrollEl.style.scrollBehavior = 'auto';
+                        scrollEl.scrollTop = 0;
+                        scrollEl.scrollLeft = 0;
+                        void scrollEl.offsetHeight;
+                        scrollEl.style.scrollBehavior = prev;
+                    }
+                } catch (_) {}
+                try {
+                    // Best-effort: reuse the same CSS max-height variable the dropdown uses.
+                    const rect = dropdown?.getBoundingClientRect?.();
+                    if (rect && dropdown) {
+                        const bottomPadding = 8;
+                        const available = Math.floor(window.innerHeight - rect.top - bottomPadding);
+                        dropdown.style.setProperty('--switcher-dropdown-max-height', Math.max(0, available) + 'px');
+                    }
+                } catch (_) {}
+                if (dropdown) {
+                    const onDropRevealed = (ev) => {
+                        if (ev.propertyName !== 'max-height') return;
+                        dropdown.removeEventListener('transitionend', onDropRevealed);
+                        if (searchSwitcherButton.classList.contains('open')) {
+                            dropdown.classList.add('dropdown-revealed');
+                            syncSearchSwitcherDropdownWidth();
+                            requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
+                        }
+                    };
+                    dropdown.addEventListener('transitionend', onDropRevealed);
+                }
+            } else {
+                autoOpenedSwitcherOnFocus = false;
+            }
         });
         
         searchInput.addEventListener('blur', () => {
             if (inspectSuggestions) return;
-            if (searchSwitcherButton?.classList.contains('open')) return;
-            closeSuggestionsPanel();
+            // If the switcher was auto-opened for the outside-of-box mode, close it on blur.
+            if (autoOpenedSwitcherOnFocus && searchSwitcherButton?.classList.contains('open')) {
+                const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
+                dropdown?.classList.remove('dropdown-revealed');
+                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+                // Match pinned-outside click-close: keep squared bottom corners until max-height finishes.
+                if (pinnedOutside && dropdown) {
+                    searchSwitcherButton.classList.add('switcher-closing');
+                    let cleanedUp = false;
+                    const cleanup = () => {
+                        if (cleanedUp) return;
+                        cleanedUp = true;
+                        searchSwitcherButton.classList.remove('switcher-closing');
+                        dropdown.removeEventListener('transitionend', onClosed);
+                    };
+                    const onClosed = (ev) => {
+                        if (ev.propertyName !== 'max-height') return;
+                        cleanup();
+                    };
+                    dropdown.addEventListener('transitionend', onClosed);
+                    setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
+                }
+                forceCloseSearchSwitcherSubPanels();
+                searchSwitcherButton.classList.remove('open');
+                autoOpenedSwitcherOnFocus = false;
+            } else if (searchSwitcherButton?.classList.contains('open')) {
+                return;
+            }
+            // Capture focused state before closeSuggestionsPanel removes it (for window blur restore)
+            wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
+            setTimeout(() => {
+                if (window.__prototypeOptionsBlurSuppressUntil && Date.now() < window.__prototypeOptionsBlurSuppressUntil) {
+                    return;
+                }
+                if (document.activeElement?.closest?.('.bottom-left-panel')) {
+                    return;
+                }
+                closeSuggestionsPanel();
+            }, 0);
         });
         
         // Track first hover
@@ -3680,6 +5297,242 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, { once: false });
         });
+
+        if (clearCacheButton && window === window.top && !document.body.classList.contains('addressbar')) {
+            clearCacheButton.addEventListener('click', async () => {
+                clearCacheButton.disabled = true;
+                try {
+                    // Reset prototype settings, but preserve "recent searches" to simulate an in-use browser.
+                    const preservedSearchHistory = localStorage.getItem('search_history');
+
+                    const keysToRemove = [
+                        'ai_provider',
+                        'reduced_motion_enabled',
+                        BACKGROUND_SWATCH_KEY,
+                        'pale_grey_background_enabled',
+                        SEARCH_BORDER_COLOR_KEY,
+                        'gradient_search_border_enabled',
+                        PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY,
+                        UNDERLINE_SEARCH_ENGINES_ENABLED_KEY,
+                        KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY,
+                        TWELVE_SEARCH_ENGINES_ENABLED_KEY,
+                        STANDALONE_SEARCH_BOX_VISIBLE_KEY,
+                        QUICK_BUTTONS_VISIBLE_KEY,
+                        DEFAULT_SEARCH_ENGINE_KEY,
+                        SEARCH_ENGINE_ORDER_KEY,
+                        FIREFOX_SUGGESTIONS_ENABLED_KEY,
+                        'inspectSuggestions'
+                    ];
+                    keysToRemove.forEach((k) => {
+                        try { localStorage.removeItem(k); } catch (_) {}
+                    });
+
+                    // Clear cached suggestion blobs, keep history.
+                    const prefixKeys = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (!k) continue;
+                        if (k.startsWith('ai_suggestions_') || k.startsWith('firefox_suggestions_')) {
+                            prefixKeys.push(k);
+                        }
+                    }
+                    prefixKeys.forEach((k) => {
+                        try { localStorage.removeItem(k); } catch (_) {}
+                    });
+
+                    if (preservedSearchHistory != null) {
+                        localStorage.setItem('search_history', preservedSearchHistory);
+                    }
+                    console.log('[CACHE] Reset prototype settings (preserved search_history)');
+
+                    if ('caches' in window && typeof window.caches?.keys === 'function') {
+                        try {
+                            const cacheKeys = await window.caches.keys();
+                            await Promise.all(cacheKeys.map((k) => window.caches.delete(k)));
+                            console.log('[CACHE] Cleared Cache Storage entries:', cacheKeys.length);
+                        } catch (e) {
+                            console.warn('[CACHE] Cache Storage clear failed:', e);
+                        }
+                    }
+
+                    AI_PROVIDER = 'openai';
+                    underlineSearchEnginesEnabled = false;
+
+                    const enginesContainerReset = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+                    if (enginesContainerReset) {
+                        const sortSection = enginesContainerReset.querySelector('.engines-sort-section');
+                        const anchor = sortSection || null;
+                        const byLabel = new Map();
+                        enginesContainerReset.querySelectorAll('.dropdown-item').forEach((item) => {
+                            const label = getEngineLabel(item);
+                            if (label) byLabel.set(label, item);
+                        });
+                        DEFAULT_MAIN_PAGE_ENGINE_ORDER.forEach((label) => {
+                            const item = byLabel.get(label);
+                            if (item) enginesContainerReset.insertBefore(item, anchor);
+                        });
+                        if (sortSection) {
+                            const items = Array.from(enginesContainerReset.children).filter(
+                                (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+                            );
+                            const labels = items.map((i) => getEngineLabel(i));
+                            const sorted = [...labels].sort((a, b) => a.localeCompare(b));
+                            sortSection.hidden = labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
+                        }
+                        const googlePinned = enginesContainerReset.querySelector('.dropdown-item-pinned');
+                        if (googlePinned) {
+                            applySelectedSearchSource(googlePinned);
+                            setPinnedEngine(googlePinned);
+                        }
+                        ensureRowActions();
+                        updateKeyboardNumbers();
+                    }
+
+                    if (reducedMotionCheckbox) {
+                        reducedMotionCheckbox.checked = false;
+                        document.body.classList.remove('reduced-motion');
+                    }
+                    if (pinDefaultCheckbox) {
+                        pinDefaultCheckbox.checked = false;
+                        document.body.classList.remove('pin-default-enabled');
+                    }
+                    updateDefaultBadge();
+
+                    document.querySelectorAll('.search-engines-count-radio').forEach((radio) => {
+                        radio.checked = radio.value === '12';
+                    });
+                    applySearchEnginesCountMode(true);
+
+                    applySearchEnginesDisplayMode('list');
+
+                    const standaloneCbReset = document.querySelector('.standalone-search-box-checkbox');
+                    if (standaloneCbReset) {
+                        standaloneCbReset.checked = false;
+                        document.body.classList.remove('standalone-search-box-visible');
+                    }
+
+                    delete document.body.dataset.background;
+                    document.querySelectorAll('.background-swatch').forEach((btn) => {
+                        const current = document.body.dataset.background || 'gradient';
+                        btn.setAttribute('aria-pressed', btn.dataset.background === current ? 'true' : 'false');
+                    });
+
+                    const borderCleared = applySearchBorderColorVariable(SEARCH_BORDER_COLOR_DEFAULT);
+                    document.querySelectorAll('.search-border-swatch').forEach((btn) => {
+                        const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
+                        btn.setAttribute('aria-pressed', bn === borderCleared ? 'true' : 'false');
+                    });
+
+                    const underlineCbReset = document.querySelector('.underline-search-engines-checkbox');
+                    if (underlineCbReset) underlineCbReset.checked = false;
+                    clearEngineInitialUnderlines();
+
+                    const kbdCbReset = document.querySelector('.keyboard-switcher-numbers-checkbox');
+                    if (kbdCbReset) {
+                        kbdCbReset.checked = true;
+                        document.body.classList.add('keyboard-switcher-numbers-enabled');
+                    }
+
+                    if (typeof applyPinnedMenuState === 'function') {
+                        applyPinnedMenuState(false, { animate: false });
+                    } else {
+                        document.body.classList.remove('switcher-outside-search-box-enabled');
+                        try { localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false'); } catch (_) {}
+                        const showWhileTypingReset = document.getElementById('show-search-engines-while-typing-toggle');
+                        if (showWhileTypingReset) showWhileTypingReset.setAttribute('aria-checked', 'false');
+                    }
+
+                    const qbtReset = document.getElementById('quick-buttons-toggle');
+                    if (qbtReset) {
+                        const icon = qbtReset.querySelector('.quick-buttons-icon');
+                        const labelEl = qbtReset.querySelector('.quick-buttons-label');
+                        qbtReset.dataset.visibility = 'hidden';
+                        if (icon) icon.src = 'icons/eye.svg';
+                        if (labelEl) labelEl.textContent = 'Show one-off buttons';
+                    }
+
+                    restoreFirefoxSuggestionsState();
+
+                    forceCloseSearchSwitcherSubPanels();
+                    searchSwitcherButton?.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                    searchSwitcherButton?.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+                    searchSwitcherButton?.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+
+                    selectedSuggestionIndex = -1;
+                    hoveredSuggestionIndex = -1;
+                    originalTypedText = '';
+                    lastTypedTextInInput = '';
+                    lastHoveredItemForInput = null;
+                    lastApiQuery = '';
+                    aiSuggestionsSet = new Set();
+                    firstHoverDone = false;
+
+                    if (inspectSuggestions) {
+                        searchContainer.classList.add('focused');
+                        suggestionsList?.classList.add('suggestions-revealed');
+                        suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+                        searchInput.value = 'x';
+                        searchContainer.classList.add('search-has-typed-input');
+                        updateClearButton();
+                        updateSearchUrlButton();
+                    } else {
+                        searchInput.value = '';
+                        updateClearButton();
+                        updateSearchUrlButton();
+                        updateTypedState();
+                        // Keep the panel open and re-render the "recent searches" after reset.
+                        searchContainer?.classList.add('focused');
+                        suggestionsList?.classList.add('suggestions-revealed');
+                        suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+
+                        restoringFocusFromSwitcher = true;
+                        requestAnimationFrame(() => searchInput?.focus({ preventScroll: true }));
+
+                        const history = getSearchHistory();
+                        const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
+                        const suggestionsToShow = history.length ? history.slice(0, 8) : defaultSuggestions;
+                        updateSuggestions(suggestionsToShow);
+                        currentDisplayedSuggestions = suggestionsToShow;
+                    }
+
+                    // Ensure switcher scroll is already at top after a reset (no visible jump on open).
+                    try {
+                        const scrollEl = searchSwitcherButton?.querySelector('.dropdown-engines-firefox-scroll');
+                        if (scrollEl) {
+                            const prev = scrollEl.style.scrollBehavior;
+                            scrollEl.style.scrollBehavior = 'auto';
+                            scrollEl.scrollTop = 0;
+                            scrollEl.scrollLeft = 0;
+                            void scrollEl.offsetHeight;
+                            scrollEl.style.scrollBehavior = prev;
+                        }
+                    } catch (_) {}
+
+                    const iframeReset = document.querySelector('.addressbar-iframe');
+                    const standaloneIframeReset = document.querySelector('.standalone-search-box-iframe');
+                    [iframeReset, standaloneIframeReset].filter(Boolean).forEach((f) => {
+                        const src = f.getAttribute('src');
+                        if (src) f.src = src;
+                    });
+
+                    requestAnimationFrame(() => updateLogoPositionForSearchBar());
+
+                    if (clearCacheSuccessTimer) {
+                        clearTimeout(clearCacheSuccessTimer);
+                        clearCacheSuccessTimer = null;
+                    }
+                    clearCacheButton.classList.add('clear-cache-button--success');
+                    clearCacheSuccessTimer = setTimeout(() => {
+                        clearCacheButton.classList.remove('clear-cache-button--success');
+                        clearCacheButton.disabled = false;
+                        clearCacheSuccessTimer = null;
+                    }, 2500);
+                } catch (e) {
+                    console.error('[CACHE] Clear cache failed:', e);
+                    clearCacheButton.disabled = false;
+                }
+            });
+        }
 
         // Inspect mode: keep suggestions panel open for HTML inspection (blur is skipped above)
         if (inspectSuggestions) {
@@ -3712,6 +5565,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.key === 'Escape') {
             const switcherOpen = searchSwitcherButton?.classList.contains('open');
             if (switcherOpen) {
+                if (document.body.classList.contains('switcher-outside-search-box-enabled')) {
+                    // In outside mode, the switcher is pinned open during search.
+                    return;
+                }
                 searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 forceCloseSearchSwitcherSubPanels();
@@ -3730,7 +5587,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const switcherOpen = searchSwitcherButton?.classList.contains('open');
         const switcherKeyboardMode = searchSwitcherButton?.classList.contains('switcher-opened-by-keyboard');
         if (switcherOpen && !event.altKey) {
-            if (switcherKeyboardMode && /^[1-9]$/.test(event.key)) {
+            const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
+            const isPlainLetterKey = /^[a-z]$/i.test(event.key) && !event.ctrlKey && !event.metaKey;
+            if (!pinnedOpen && isPlainLetterKey) {
+                const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+                const engineItems = enginesContainer ? Array.from(enginesContainer.children).filter(
+                    c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+                ) : [];
+                const keyLetter = event.key.toUpperCase();
+                const match = engineItems.find((item) => {
+                    const label = getEngineLabel(item);
+                    return label && label.trim().charAt(0).toUpperCase() === keyLetter;
+                });
+                if (match) {
+                    event.preventDefault();
+                    applySelectedSearchSource(match);
+                    const query = (searchInput?.value || '').trim();
+                    if (query) {
+                        runSearchWithEngine(query, getEngineLabel(match), true);
+                    }
+                    if (!pinnedOpen) {
+                        searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                        forceCloseSearchSwitcherSubPanels();
+                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
+                    }
+                    switcherHighlightedIndex = -1;
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
+                    if (searchContainer?.classList.contains('focused')) {
+                        restoreFocusAndOpaqueSuggestions();
+                    } else if (searchSwitcherButton?.contains(document.activeElement)) {
+                        document.activeElement?.blur?.();
+                    }
+                    return;
+                }
+            }
+            if (!pinnedOpen && switcherKeyboardMode && /^[1-9]$/.test(event.key)) {
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
                 const engineItems = enginesContainer ? Array.from(enginesContainer.children).filter(
                     c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
@@ -3740,9 +5631,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     event.preventDefault();
                     const item = engineItems[index];
                     applySelectedSearchSource(item);
-                    searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
-                    forceCloseSearchSwitcherSubPanels();
-                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
+                    const query = (searchInput?.value || '').trim();
+                    if (query) {
+                        runSearchWithEngine(query, getEngineLabel(item), true);
+                    }
+                    if (!pinnedOpen) {
+                        searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                        forceCloseSearchSwitcherSubPanels();
+                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
+                    }
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) {
@@ -3765,12 +5662,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (event.key === 'Enter' && switcherHighlightedIndex >= 0 && switcherHighlightedIndex < count) {
                 event.preventDefault();
                 const item = dropdownItems[switcherHighlightedIndex];
-                if (item.id !== 'quick-buttons-toggle' && !item.textContent.includes('Search Settings')) {
+                if (item.id !== 'quick-buttons-toggle') {
                     console.log('[SWITCHER KEYBOARD] Enter pressed on highlighted item, applying selection and closing');
                     applySelectedSearchSource(item);
-                    dropdown?.classList.remove('dropdown-revealed');
-                    forceCloseSearchSwitcherSubPanels();
-                    searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                    const query = (searchInput?.value || '').trim();
+                    if (item.querySelector('.dropdown-engine-label') && query) {
+                        runSearchWithEngine(query, getEngineLabel(item), true);
+                    }
+                    if (!pinnedOpen) {
+                        dropdown?.classList.remove('dropdown-revealed');
+                        forceCloseSearchSwitcherSubPanels();
+                        searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
+                    }
                     switcherHighlightedIndex = -1;
                     dropdownItems.forEach(i => i.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) {
@@ -3845,18 +5748,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Ctrl/Cmd + Up/Down: cycle search engine on the switcher button without opening the menu (or sub-panels).
+    // Registered before the suggestions keydown so stopImmediatePropagation blocks suggestion arrow handling.
+    if (searchInput && searchSwitcherButton) {
+        searchInput.addEventListener('keydown', (event) => {
+            if (!(event.ctrlKey || event.metaKey)) return;
+            if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+            if (event.repeat) {
+                event.preventDefault();
+                return;
+            }
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            cycleSwitcherEngineFromSearchField(event.key === 'ArrowDown' ? 1 : -1);
+        });
+    }
+
     // Keyboard navigation (ArrowUp, ArrowDown, Enter); Alt+ArrowUp/Down opens search engine switcher
     if (searchInput && suggestionsList) {
         searchInput.addEventListener('keydown', (event) => {
-            if (
-                (event.ctrlKey || event.metaKey) &&
-                !event.altKey &&
-                (event.key === 'ArrowUp' || event.key === 'ArrowDown')
-            ) {
-                event.preventDefault();
-                cycleSearchEngineFromSearchField(event.key === 'ArrowDown' ? 1 : -1);
-                return;
-            }
             const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
             const dropdownItems = dropdown ? Array.from(dropdown.querySelectorAll('.dropdown-item')) : [];
             
@@ -3864,10 +5774,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.preventDefault();
                 if (searchSwitcherButton) {
                     searchSwitcherButton.classList.add('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
-                    const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-                    if (enginesContainer) enginesContainer.scrollTo({ top: 0, behavior: 'instant' });
-                    const firefoxSuggestionsContainer = searchSwitcherButton?.querySelector('.dropdown-firefox-suggestions');
-                    if (firefoxSuggestionsContainer) firefoxSuggestionsContainer.scrollTo({ top: 0, behavior: 'instant' });
+                    resetSwitcherScrollPositions();
                     searchInput.blur();
                     searchSwitcherButton.focus();
                     switcherHighlightedIndex = -1;
@@ -3923,25 +5830,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 } else {
-                    const searchText = searchInput.value.trim();
+                    const isFirefoxArticle = selectedItem?.classList.contains('firefox-suggest-item') &&
+                        ['recommendations', 'partners'].includes(selectedItem?.dataset?.firefoxType || '');
+                    if (isFirefoxArticle) return;
+                    const searchText = selectedItem?.querySelector('.suggestion-label')?.textContent?.trim() || searchInput?.value?.trim();
                     if (searchText) {
-                        saveToSearchHistory(searchText);
-                        window.open('https://www.google.com/search?q=' + encodeURIComponent(searchText), '_blank');
+                        if (selectedItem?.classList.contains('visit-site-suggestion') && looksLikeUrl(searchText)) {
+                            const toOpen = /^https?:\/\//i.test(searchText) ? searchText : 'https://' + searchText;
+                            window.open(toOpen, '_blank');
+                        } else {
+                            saveToSearchHistory(searchText);
+                            runSearchWithSelectedEngine(searchText);
+                        }
                     }
                 }
-            }
-        });
-    }
-
-    if (searchInput && searchSwitcherButton && !suggestionsList) {
-        searchInput.addEventListener('keydown', (event) => {
-            if (
-                (event.ctrlKey || event.metaKey) &&
-                !event.altKey &&
-                (event.key === 'ArrowUp' || event.key === 'ArrowDown')
-            ) {
-                event.preventDefault();
-                cycleSearchEngineFromSearchField(event.key === 'ArrowDown' ? 1 : -1);
             }
         });
     }
@@ -4004,11 +5906,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Don't add focused class, it's already there
                 isRestoringFocus = false;
             }
-            
-            // Start gradient animation (unless reduced motion or gradient border is off)
-            if (!gradientAnimationId && !document.body.classList.contains('reduced-motion') && !document.body.classList.contains('gradient-search-border-off')) {
-                animateGradient();
-            }
         });
         
         searchInput.addEventListener('blur', () => {
@@ -4016,32 +5913,30 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('[BLUR] Suggestions panel will hide');
             if (searchSwitcherButton?.classList.contains('open')) {
                 wasFocusedBeforeBlur = false;
-            } else {
-                wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
             }
+            // else: first blur handler already captured wasFocusedBeforeBlur before closeSuggestionsPanel
             console.log('[BLUR] Was in focused state:', wasFocusedBeforeBlur);
-            
-            // Stop gradient animation
-            if (gradientAnimationId) {
-                cancelAnimationFrame(gradientAnimationId);
-                gradientAnimationId = null;
-            }
-            const existingStyle = document.getElementById('gradient-animation-style');
-            if (existingStyle) {
-                existingStyle.remove();
-            }
         });
         
         window.addEventListener('blur', () => {
             console.log('[WINDOW BLUR] Window lost focus');
-            if (document.activeElement === searchInput) {
+            wasFocusedBeforeBlur = false;
+            wasSwitcherFocusedBeforeBlur = false;
+            const ae = document.activeElement;
+            if (ae === searchInput) {
                 wasFocusedBeforeBlur = true;
-                wasSwitcherFocusedBeforeBlur = false;
                 console.log('[WINDOW BLUR] Search was focused, remembering state');
-            } else if (searchSwitcherButton && searchSwitcherButton.contains(document.activeElement)) {
-                wasSwitcherFocusedBeforeBlur = true;
-                wasFocusedBeforeBlur = false;
-                console.log('[WINDOW BLUR] Switcher was focused, remembering state');
+            } else if (searchSwitcherButton && searchSwitcherButton.contains(ae)) {
+                // Show-while-typing / pin switch lives inside the switcher subtree; focus there is not "engine switcher" UX.
+                const showWhileTypingEl = document.getElementById('show-search-engines-while-typing-toggle');
+                const focusOnShowWhileTypingOnly =
+                    showWhileTypingEl && (ae === showWhileTypingEl || showWhileTypingEl.contains(ae));
+                if (focusOnShowWhileTypingOnly) {
+                    console.log('[WINDOW BLUR] Focus on show-while-typing toggle only; not remembering switcher state');
+                } else {
+                    wasSwitcherFocusedBeforeBlur = true;
+                    console.log('[WINDOW BLUR] Switcher was focused, remembering state');
+                }
             }
         });
         
@@ -4056,24 +5951,70 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[WINDOW FOCUS] Suppressing transitions and restoring focus to search');
                 isRestoringFocus = true;
                 
-                // Suppress transitions
+                // Suppress transitions (class + inline for reliability)
+                searchContainer.classList.add('restoring-focus');
                 searchContainer.style.transition = 'none';
                 if (suggestionsList) suggestionsList.style.transition = 'none';
                 const logo = document.querySelector('.firefox-logo');
                 if (logo) logo.style.transition = 'none';
+                const oneOffButtons = document.querySelector('.one-off-buttons');
+                if (oneOffButtons) oneOffButtons.style.transition = 'none';
+
+                // Outside-of-search-box mode: keep the switcher visible when returning to the app.
+                // Ensure it is already open without animating max-height on restore.
+                const switcherDropdownForRestore = document.body.classList.contains('switcher-outside-search-box-enabled')
+                    ? searchSwitcherButton?.querySelector('.search-switcher-dropdown')
+                    : null;
+                if (switcherDropdownForRestore) {
+                    switcherDropdownForRestore.style.transition = 'none';
+                    searchSwitcherButton.classList.add('open');
+                    searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
+                    switcherDropdownForRestore.classList.add('dropdown-revealed');
+                    syncSearchSwitcherDropdownWidth();
+                    requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
+                    try {
+                        const rect = switcherDropdownForRestore.getBoundingClientRect();
+                        const bottomPadding = 8;
+                        const available = Math.floor(window.innerHeight - rect.top - bottomPadding);
+                        switcherDropdownForRestore.style.setProperty('--switcher-dropdown-max-height', Math.max(0, available) + 'px');
+                    } catch (_) {}
+                    try {
+                        const scrollEl = searchSwitcherButton.querySelector('.dropdown-engines-firefox-scroll');
+                        if (scrollEl) {
+                            const prev = scrollEl.style.scrollBehavior;
+                            scrollEl.style.scrollBehavior = 'auto';
+                            scrollEl.scrollTop = 0;
+                            scrollEl.scrollLeft = 0;
+                            void scrollEl.offsetHeight;
+                            scrollEl.style.scrollBehavior = prev;
+                        }
+                    } catch (_) {}
+                }
+                // Force reflow so transition:none is applied before state change
+                void searchContainer.offsetHeight;
                 
-                // Restore focus
-                searchInput.focus();
+                // Defer focus until next frame so browser applies transition:none before state change
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        searchInput.focus();
+                    });
+                });
                 
                 // Re-enable transitions after state is restored
                 setTimeout(() => {
                     console.log('[WINDOW FOCUS] Re-enabling transitions');
+                    searchContainer.classList.remove('restoring-focus');
                     searchContainer.style.transition = '';
                     if (suggestionsList) suggestionsList.style.transition = '';
                     if (logo) logo.style.transition = '';
+                    if (oneOffButtons) oneOffButtons.style.transition = '';
+                    if (switcherDropdownForRestore) switcherDropdownForRestore.style.transition = '';
                 }, 100);
                 
                 wasFocusedBeforeBlur = false;
+            }
+            if (wasSwitcherFocusedBeforeBlur) {
+                wasSwitcherFocusedBeforeBlur = false;
             }
         });
     }
