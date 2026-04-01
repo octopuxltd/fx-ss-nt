@@ -11,16 +11,16 @@
 <body>
     <div class="addressbar-band" aria-hidden="true"></div>
     <div class="addressbar-area">
-        <iframe src="step1-addressbar.html" class="addressbar-iframe" title="Address bar"></iframe>
-        <iframe src="step1-standalonesearchbox.html" class="standalone-search-box-iframe" title="Standalone search box"></iframe>
+        <iframe src="step1-addressbar.html" class="addressbar-iframe" title="Address bar" tabindex="-1"></iframe>
+        <iframe src="step1-standalonesearchbox.html" class="standalone-search-box-iframe" title="Standalone search box" tabindex="-1"></iframe>
         <div class="addressbar-toolbar-icons">
-            <button type="button" class="addressbar-toolbar-icon" aria-label="Account" title="Account">
+            <button type="button" class="addressbar-toolbar-icon" aria-label="Account" title="Account" tabindex="-1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9" r="2.5"/><path d="M6.5 19.5c.6-2 2.4-3.5 5-3.5s4.4 1.5 5 3.5"/></svg>
             </button>
-            <button type="button" class="addressbar-toolbar-icon" aria-label="Extensions" title="Extensions">
+            <button type="button" class="addressbar-toolbar-icon" aria-label="Extensions" title="Extensions" tabindex="-1">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 8c-.971 0-1 1-1.75 1a.765.765 0 0 1-.75-.75V5a1 1 0 0 0-1-1H7.75A.765.765 0 0 1 7 3.25c0-.75 1-.779 1-1.75C8 .635 7.1 0 6 0S4 .635 4 1.5c0 .971 1 1 1 1.75a.765.765 0 0 1-.75.75H1a1 1 0 0 0-1 1v2.25A.765.765 0 0 0 .75 8c.75 0 .779-1 1.75-1C3.365 7 4 7.9 4 9s-.635 2-1.5 2c-.971 0-1-1-1.75-1a.765.765 0 0 0-.75.75V15a1 1 0 0 0 1 1h3.25a.765.765 0 0 0 .75-.75c0-.75-1-.779-1-1.75 0-.865.9-1.5 2-1.5s2 .635 2 1.5c0 .971-1 1-1 1.75a.765.765 0 0 0 .75.75H11a1 1 0 0 0 1-1v-3.25a.765.765 0 0 1 .75-.75c.75 0 .779 1 1.75 1 .865 0 1.5-.9 1.5-2s-.635-2-1.5-2z"/></svg>
             </button>
-            <button type="button" class="addressbar-toolbar-icon" aria-label="Menu" title="Menu">
+            <button type="button" class="addressbar-toolbar-icon" aria-label="Menu" title="Menu" tabindex="-1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 6.75h16.5"/><path d="M3.75 12h16.5"/><path d="M3.75 17.25h16.5"/></svg>
             </button>
         </div>
@@ -57,75 +57,10 @@
             document.documentElement.style.setProperty('--search-border-ring-color', c);
         })();
     </script>
-    <div class="bottom-left-panel">
-        <div class="bottom-left-panel-content">
-            <div class="bottom-left-panel-heading-row">
-                <h2 class="bottom-left-panel-heading">Prototype options</h2>
-                <button type="button" class="clear-cache-button clear-cache-button--heading" id="clear-cache-button">
-                    <span class="clear-cache-button-label">Reset prototype</span>
-                    <span class="clear-cache-button-tick" aria-hidden="true">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    </span>
-                </button>
-            </div>
-            <div class="bottom-left-controls">
-                <div class="background-swatches-control">
-                    <span class="background-swatches-label">Background</span>
-                    <div class="background-swatches" role="group" aria-label="Background colour">
-                        <button type="button" class="background-swatch" data-background="gradient" title="Purple gradient" aria-pressed="true"></button>
-                        <button type="button" class="background-swatch" data-background="grey" title="Pale grey"></button>
-                        <button type="button" class="background-swatch" data-background="blue" title="Light blue"></button>
-                        <button type="button" class="background-swatch" data-background="beige" title="Warm beige"></button>
-                    </div>
-                </div>
-                <div class="search-border-swatches-control">
-                    <span class="search-border-swatches-label">Search border</span>
-                    <div class="search-border-swatches" role="group" aria-label="Search border colour">
-                        <button type="button" class="search-border-swatch" data-border-color="#BBA0FF" title="Lilac" aria-pressed="true"></button>
-                        <button type="button" class="search-border-swatch" data-border-color="#FF8D5B" title="Coral" aria-pressed="false"></button>
-                        <button type="button" class="search-border-swatch search-border-swatch-black-20" data-border-color="rgba(0, 0, 0, 0.2)" title="20% black" aria-pressed="false"></button>
-                    </div>
-                </div>
-                <label class="reduced-motion-control">
-                    <input type="checkbox" class="reduced-motion-checkbox">
-                    <span>Reduced motion</span>
-                </label>
-                <label class="standalone-search-box-control">
-                    <input type="checkbox" class="standalone-search-box-checkbox">
-                    <span>Stand-alone search box</span>
-                </label>
-                <label class="pin-default-control">
-                    <input type="checkbox" class="pin-default-checkbox">
-                    <span>Pin default SE (list mode only)</span>
-                </label>
-                <div class="search-engines-count-control" role="group" aria-labelledby="search-engines-count-label">
-                    <span id="search-engines-count-label" class="search-engines-count-heading">Number of SEs</span>
-                    <div class="search-engines-count-radios">
-                        <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="6"> 6</label>
-                        <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="12"> 12</label>
-                    </div>
-                </div>
-                <div class="prototype-options-section-heading">Keyboard shortcuts</div>
-                <label class="underline-search-engines-control">
-                    <input type="checkbox" class="underline-search-engines-checkbox">
-                    <span>Underline first letter of SEs</span>
-                </label>
-                <label class="keyboard-switcher-numbers-control">
-                    <input type="checkbox" class="keyboard-switcher-numbers-checkbox">
-                    <span>Numbers when switcher opened with opt-⬇️</span>
-                </label>
-            </div>
-        </div>
-    </div>
-    
-    <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="Firefox" class="firefox-logo">
-    
     <div class="search-container">
         <div class="search-box-wrapper-outer">
             <div class="search-box-wrapper">
-                <div class="search-switcher-button" tabindex="-1">
+                <div class="search-switcher-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="Choose search engine">
                     <img src="icons/Google.svg" alt="Google" class="google-icon">
                     <span class="switcher-button-label" aria-hidden="true" hidden></span>
                     <img src="icons/chevron-step1.svg" alt="" class="chevron">
@@ -237,13 +172,13 @@
                     </div>
                 </div>
                 <input type="text" class="search-input" placeholder="Search with Google">
-                <button type="button" class="search-url-button" aria-label="Search for URL" title="Search for URL" style="display: none;">
+                <button type="button" class="search-url-button" aria-label="Search for URL" title="Search for URL" tabindex="-1" style="display: none;">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
-                <button type="button" class="search-clear-button" aria-label="Clear search" title="Clear" style="display: none;">
+                <button type="button" class="search-clear-button" aria-label="Clear search" title="Clear" tabindex="-1" style="display: none;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
@@ -300,22 +235,87 @@
         <div class="one-off-buttons">
             <div class="one-off-engine-icons">
                 <span class="one-off-buttons-label">Search with</span>
-                <button type="button" class="one-off-engine-icon" title="Search with Amazon"><img src="icons/Amazon - Light.svg" alt="Amazon"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Bing"><img src="icons/Bing.svg" alt="Bing"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with DuckDuckGo"><img src="icons/DuckDuckGo.svg" alt="DuckDuckGo"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Ecosia"><img src="icons/Ecosia.svg" alt="Ecosia"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with eBay"><img src="icons/eBay.svg" alt="eBay"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Google"><img src="icons/Google.svg" alt="Google"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with IMDb"><img src="icons/IMDb.svg" alt="IMDb"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Perplexity"><img src="icons/Perplexity.svg" alt="Perplexity"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Reddit"><img src="icons/Reddit.svg" alt="Reddit"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Startpage"><img src="icons/Startpage.svg" alt="Startpage"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with Wikipedia (en)"><img src="icons/Wikipedia.svg" alt="Wikipedia (en)"></button>
-                <button type="button" class="one-off-engine-icon" title="Search with YouTube"><img src="icons/YouTube.svg" alt="YouTube"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with Amazon"><img src="icons/Amazon - Light.svg" alt="Amazon"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with Bing"><img src="icons/Bing.svg" alt="Bing"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with DuckDuckGo"><img src="icons/DuckDuckGo.svg" alt="DuckDuckGo"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with Ecosia"><img src="icons/Ecosia.svg" alt="Ecosia"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with eBay"><img src="icons/eBay.svg" alt="eBay"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with Google"><img src="icons/Google.svg" alt="Google"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with IMDb"><img src="icons/IMDb.svg" alt="IMDb"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with Perplexity"><img src="icons/Perplexity.svg" alt="Perplexity"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with Reddit"><img src="icons/Reddit.svg" alt="Reddit"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with Startpage"><img src="icons/Startpage.svg" alt="Startpage"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with Wikipedia (en)"><img src="icons/Wikipedia.svg" alt="Wikipedia (en)"></button>
+                <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with YouTube"><img src="icons/YouTube.svg" alt="YouTube"></button>
             </div>
         </div>
         <div class="search-container-drag-handle"></div>
     </div>
+    <div class="bottom-left-panel">
+        <div class="bottom-left-panel-content">
+            <div class="bottom-left-panel-heading-row">
+                <h2 class="bottom-left-panel-heading">Prototype options</h2>
+                <button type="button" class="clear-cache-button clear-cache-button--heading" id="clear-cache-button">
+                    <span class="clear-cache-button-label">Reset prototype</span>
+                    <span class="clear-cache-button-tick" aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </span>
+                </button>
+            </div>
+            <div class="bottom-left-controls">
+                <div class="background-swatches-control">
+                    <span class="background-swatches-label">Background</span>
+                    <div class="background-swatches" role="group" aria-label="Background colour">
+                        <button type="button" class="background-swatch" data-background="gradient" title="Purple gradient" aria-pressed="true"></button>
+                        <button type="button" class="background-swatch" data-background="grey" title="Pale grey"></button>
+                        <button type="button" class="background-swatch" data-background="blue" title="Light blue"></button>
+                        <button type="button" class="background-swatch" data-background="beige" title="Warm beige"></button>
+                    </div>
+                </div>
+                <div class="search-border-swatches-control">
+                    <span class="search-border-swatches-label">Search border</span>
+                    <div class="search-border-swatches" role="group" aria-label="Search border colour">
+                        <button type="button" class="search-border-swatch" data-border-color="#BBA0FF" title="Lilac" aria-pressed="true"></button>
+                        <button type="button" class="search-border-swatch" data-border-color="#FF8D5B" title="Coral" aria-pressed="false"></button>
+                        <button type="button" class="search-border-swatch search-border-swatch-black-20" data-border-color="rgba(0, 0, 0, 0.2)" title="20% black" aria-pressed="false"></button>
+                    </div>
+                </div>
+                <label class="reduced-motion-control">
+                    <input type="checkbox" class="reduced-motion-checkbox">
+                    <span>Reduced motion</span>
+                </label>
+                <label class="standalone-search-box-control">
+                    <input type="checkbox" class="standalone-search-box-checkbox">
+                    <span>Stand-alone search box</span>
+                </label>
+                <label class="pin-default-control">
+                    <input type="checkbox" class="pin-default-checkbox">
+                    <span>Pin default SE (list mode only)</span>
+                </label>
+                <div class="search-engines-count-control" role="group" aria-labelledby="search-engines-count-label">
+                    <span id="search-engines-count-label" class="search-engines-count-heading">Number of SEs</span>
+                    <div class="search-engines-count-radios">
+                        <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="6"> 6</label>
+                        <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="12"> 12</label>
+                    </div>
+                </div>
+                <div class="prototype-options-section-heading">Keyboard shortcuts</div>
+                <label class="underline-search-engines-control">
+                    <input type="checkbox" class="underline-search-engines-checkbox">
+                    <span>Underline first letter of SEs</span>
+                </label>
+                <label class="keyboard-switcher-numbers-control">
+                    <input type="checkbox" class="keyboard-switcher-numbers-checkbox">
+                    <span>Numbers when switcher opened with opt-⬇️</span>
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="Firefox" class="firefox-logo">
+    
     
     <script src="step1.js"></script>
 </body>

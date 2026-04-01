@@ -2324,8 +2324,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Log/sync metrics even when the switcher opens via keyboard or other paths.
         const switcherDropdownEl = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        const syncSwitcherDropdownInert = () => {
+            if (!switcherDropdownEl) return;
+            if (searchSwitcherButton.classList.contains('open')) {
+                switcherDropdownEl.removeAttribute('inert');
+            } else {
+                switcherDropdownEl.setAttribute('inert', '');
+            }
+        };
         if (typeof MutationObserver !== 'undefined') {
             new MutationObserver(() => {
+                searchSwitcherButton.setAttribute(
+                    'aria-expanded',
+                    searchSwitcherButton.classList.contains('open') ? 'true' : 'false'
+                );
+                syncSwitcherDropdownInert();
                 if (searchSwitcherButton.classList.contains('open')) {
                     setSwitcherDropdownMaxHeight();
                 } else {
@@ -2355,6 +2368,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).observe(switcherDropdownEl, { attributes: true, attributeFilter: ['class'] });
             }
         }
+        syncSwitcherDropdownInert();
 
         window.addEventListener('resize', () => {
             if (searchSwitcherButton.classList.contains('open')) {
@@ -2366,7 +2380,13 @@ document.addEventListener('DOMContentLoaded', () => {
             searchSwitcherButton.addEventListener('mousedown', (e) => {
                 e.preventDefault(); // Prevent input from blurring
             });
-            
+
+            searchSwitcherButton.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                searchSwitcherButton.click();
+            });
+
             searchSwitcherButton.addEventListener('click', (e) => {
                 const now = Date.now();
                 if (now - lastPrimaryUiClickAt < 275) {
@@ -2451,7 +2471,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     searchSwitcherDropdown?.addEventListener('transitionend', onRevealed);
                     searchInput.blur();
-                    searchSwitcherButton.focus();
+                    try {
+                        searchSwitcherButton.focus({ focusVisible: false });
+                    } catch (_) {
+                        searchSwitcherButton.focus();
+                    }
                     searchSwitcherButton.classList.add('switcher-suppress-hover');
                 }
                 

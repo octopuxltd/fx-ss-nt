@@ -345,6 +345,21 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     outline: none;
 }
 
+.search-switcher-button:focus {
+    outline: none;
+}
+
+/* Mouse / programmatic focus must not show the keyboard ring (see focus({ focusVisible: false }) on open). */
+.search-switcher-button:focus:not(:focus-visible) {
+    outline: none;
+    box-shadow: none;
+}
+
+.search-switcher-button:focus-visible {
+    outline: 2px solid var(--search-border-ring-color, #bba0ff);
+    outline-offset: 2px;
+}
+
 .search-switcher-button.open {
     border-radius: var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) 0 0;
     transition: background-color 0.25s linear, border-radius 0s 0s;
@@ -2667,11 +2682,12 @@ body.reduced-motion .one-off-buttons {
     bottom: 0;
 }
 
-.suggestions-list.keyboard-navigating .suggestion-item:hover::before {
+/* Suppress *non-selected* row hover chrome while using arrows; keep full hover+selected look when pointer is on the selected row */
+.suggestions-list.keyboard-navigating .suggestion-item:hover:not(.is-selected)::before {
     background-color: transparent;
 }
 
-.suggestions-list.keyboard-navigating .suggestion-item:hover::after {
+.suggestions-list.keyboard-navigating .suggestion-item:hover:not(.is-selected)::after {
     display: none;
 }
 

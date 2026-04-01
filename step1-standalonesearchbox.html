@@ -44,7 +44,7 @@
     <div class="search-container">
         <div class="search-box-wrapper-outer">
             <div class="search-box-wrapper">
-                <div class="search-switcher-button" tabindex="-1">
+                <div class="search-switcher-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="Choose search engine">
                     <img src="icons/Google.svg" alt="Google" class="google-icon">
                     <span class="switcher-button-label" aria-hidden="true" hidden></span>
                     <img src="icons/chevron-step1.svg" alt="" class="chevron">
@@ -156,13 +156,13 @@
                     </div>
                 </div>
                 <input type="text" class="search-input" placeholder="Search with Google or enter address">
-                <button type="button" class="search-url-button" aria-label="Search for URL" title="Search for URL" style="display: none;">
+                <button type="button" class="search-url-button" aria-label="Search for URL" title="Search for URL" tabindex="-1" style="display: none;">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
-                <button type="button" class="search-clear-button" aria-label="Clear search" title="Clear" style="display: none;">
+                <button type="button" class="search-clear-button" aria-label="Clear search" title="Clear" tabindex="-1" style="display: none;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
