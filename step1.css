@@ -147,6 +147,7 @@ body.standalone-search-box-visible .standalone-search-box-iframe {
     transform: translate(-50%, calc(-50% - 120px + var(--search-drag-offset-y, 0px)));
     opacity: 1;
     transition: transform 0.42s ease-out, opacity 0.42s linear;
+    z-index: 0;
     /* transition: opacity 0.1s linear 0.25s; */
 }
 
@@ -183,6 +184,8 @@ body.search-bar-near-top:has(.search-container.focused) .firefox-logo {
     width: 57.6%;
     max-width: 576px;
     transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.25s ease-out, top 0.25s ease-out;
+    /* Above .firefox-logo (DOM was reordered; logo follows search in markup). */
+    z-index: 1;
 }
 
 body.switcher-outside-search-box-enabled .search-box-wrapper-outer {
