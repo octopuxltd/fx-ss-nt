@@ -32,10 +32,11 @@
             document.body.classList.add('reduced-motion');
         }
         const savedBg = localStorage.getItem('background_swatch');
-        const hadPaleGrey = localStorage.getItem('pale_grey_background_enabled') === 'true';
-        if (savedBg && savedBg !== 'gradient') {
+        if (savedBg === 'gradient') {
+            /* gradient image: no data-background */
+        } else if (savedBg) {
             document.body.dataset.background = savedBg;
-        } else if (hadPaleGrey) {
+        } else {
             document.body.dataset.background = 'grey';
         }
         (function () {
@@ -117,9 +118,9 @@
                                 </div>
                                 <div class="dropdown-search-controls-more-settings-block">
                                 <div class="dropdown-search-controls-row dropdown-search-controls-row--more-settings">
-                                    <button type="button" id="more-search-settings-button" class="more-search-settings-button" title="Open Search settings in Firefox Preferences">
+                                    <button type="button" id="more-search-settings-button" class="more-search-settings-button" title="Search settings">
                                         <img src="icons/settings.svg" alt="" class="more-search-settings-button-icon" width="10" height="10">
-                                        More Search Settings
+                                        Search settings
                                     </button>
                                 </div>
                                 </div>
@@ -268,8 +269,8 @@
                 <div class="background-swatches-control">
                     <span class="background-swatches-label">Background</span>
                     <div class="background-swatches" role="group" aria-label="Background colour">
-                        <button type="button" class="background-swatch" data-background="gradient" title="Purple gradient" aria-pressed="true"></button>
-                        <button type="button" class="background-swatch" data-background="grey" title="Pale grey"></button>
+                        <button type="button" class="background-swatch" data-background="gradient" title="Purple gradient" aria-pressed="false"></button>
+                        <button type="button" class="background-swatch" data-background="grey" title="Pale grey" aria-pressed="true"></button>
                         <button type="button" class="background-swatch" data-background="blue" title="Light blue"></button>
                         <button type="button" class="background-swatch" data-background="beige" title="Warm beige"></button>
                     </div>
@@ -315,8 +316,69 @@
     </div>
     
     <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="Firefox" class="firefox-logo">
-    
-    
+
+    <div id="search-settings-modal" class="search-settings-modal" hidden aria-hidden="true">
+        <div class="search-settings-modal-backdrop" data-close-search-settings tabindex="-1" aria-hidden="true"></div>
+        <div class="search-settings-modal-panel" role="dialog" aria-modal="true" aria-labelledby="search-settings-modal-title" tabindex="-1">
+            <div class="search-settings-modal-header">
+                <h2 id="search-settings-modal-title" class="search-settings-modal-title">Search settings</h2>
+                <button type="button" class="search-settings-modal-close" data-close-search-settings aria-label="Close">×</button>
+            </div>
+            <div class="search-settings-grid-scroll">
+                <table class="search-settings-grid">
+                    <thead>
+                        <tr>
+                            <th class="search-settings-grid-corner" scope="col"><span class="visually-hidden">Feature</span></th>
+                            <th scope="col">Address bar</th>
+                            <th scope="col">New Tab / Homepage</th>
+                            <th scope="col">Standalone search box</th>
+                            <th scope="col">Private window</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row">Navigate</th>
+                            <td class="search-settings-cell">
+                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
+                            </td>
+                            <td class="search-settings-cell">
+                                <input type="checkbox" class="search-settings-cell-checkbox" aria-label="Navigate, New Tab / Homepage">
+                            </td>
+                            <td class="search-settings-cell">
+                                <span class="search-settings-state-label search-settings-state-label--off" title="Always off" aria-label="Always off">always<br>off</span>
+                            </td>
+                            <td class="search-settings-cell">
+                                <input type="checkbox" class="search-settings-cell-checkbox" aria-label="Navigate, Private window">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Search</th>
+                            <td class="search-settings-cell">
+                                <input type="checkbox" class="search-settings-cell-checkbox" aria-label="Search, Address bar">
+                            </td>
+                            <td class="search-settings-cell">
+                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
+                            </td>
+                            <td class="search-settings-cell">
+                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
+                            </td>
+                            <td class="search-settings-cell">
+                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
+                            </td>
+                        </tr>
+                        <tr class="search-settings-grid-subrow">
+                            <th scope="row">Default search engine</th>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script src="step1.js"></script>
 </body>
 </html>

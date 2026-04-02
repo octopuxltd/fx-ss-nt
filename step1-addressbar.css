@@ -6,25 +6,28 @@ body.addressbar .addressbar-row {
     right: 2px;
     display: flex;
     align-items: flex-start;
+    align-content: flex-start;
     gap: 12px;
     z-index: 10;
 }
 
 body.addressbar .addressbar-nav {
     display: flex;
-    align-items: center;
-    gap: 4px;
+    align-items: flex-start;
+    gap: 2px;
     flex-shrink: 0;
+    align-self: flex-start;
 }
 
 body.addressbar .addressbar-back,
-body.addressbar .addressbar-next {
+body.addressbar .addressbar-next,
+body.addressbar .addressbar-reload {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Match address bar height: 8px padding + ~24px content + 8px padding ≈ 40px */
-    width: 40px;
-    height: 40px;
+    /* Match iframe search pill height (body.addressbar .search-box-wrapper) */
+    width: 35px;
+    height: 35px;
     padding: 0;
     border: none;
     border-radius: 50%;
@@ -34,21 +37,49 @@ body.addressbar .addressbar-next {
 }
 
 body.addressbar .addressbar-back:hover,
-body.addressbar .addressbar-next:hover {
+body.addressbar .addressbar-next:hover,
+body.addressbar .addressbar-reload:hover,
+body.addressbar .addressbar-back:focus-visible,
+body.addressbar .addressbar-next:focus-visible,
+body.addressbar .addressbar-reload:focus-visible {
     background-color: rgba(0, 0, 0, 0.05);
+}
+
+body.addressbar .addressbar-back:focus-visible,
+body.addressbar .addressbar-next:focus-visible,
+body.addressbar .addressbar-reload:focus-visible {
+    outline: 2px solid var(--search-border-ring-color, #bba0ff);
+    outline-offset: 2px;
 }
 
 body.addressbar .addressbar-back svg,
 body.addressbar .addressbar-next svg {
-    width: 14px;
-    height: 14px;
-    stroke: rgba(0, 0, 0, 0.6);
+    width: calc(17px * 1.2);
+    height: calc(17px * 1.2);
+    /* Same treatment as .addressbar-reload-icon (black glyph + opacity 0.6) */
+    color: #000000;
+    opacity: 0.6;
+    stroke-width: 1.5;
+    fill: none;
+}
+
+body.addressbar .addressbar-reload-icon {
+    width: calc(17px * 1.2);
+    height: calc(17px * 1.2);
+    display: block;
+    opacity: 0.6;
 }
 
 body.addressbar .addressbar-row .search-container {
     flex: 1;
     min-width: 0;
     position: relative;
+    align-self: flex-start;
+}
+
+/* Shift only the search pill right; keep back/forward/reload at the iframe’s left edge. */
+body.addressbar:not(.standalone-search-box) .addressbar-row .search-container {
+    margin-left: clamp(48px, 9vw, 120px);
 }
 
 html:has(body.addressbar),
@@ -100,9 +131,8 @@ body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning) {
     background-color: #fff;
 }
 
+/* Same ring thickness as base .search-box-wrapper-outer::before (2px) and as standalone iframe */
 body.addressbar:not(.standalone-search-box) .search-box-wrapper-outer::before {
-    inset: -1px;
-    padding: 1px;
     transition: opacity 0.15s linear 0.3s;
 }
 
@@ -124,10 +154,17 @@ body.addressbar .search-box-wrapper:has(.search-input:focus) {
 
 body.addressbar .search-box-wrapper {
     transition: none;
+    box-sizing: border-box;
+    height: 35px;
+    min-height: 35px;
+    max-height: 35px;
+    padding: 5px;
 }
 
 body.addressbar .search-input {
     font-size: 13px;
+    line-height: 1.2;
+    min-height: 0;
 }
 
 /* Scale down search engine switcher and dropdown */

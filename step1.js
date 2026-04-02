@@ -975,6 +975,8 @@ const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
 const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
 const BACKGROUND_SWATCH_KEY = 'background_swatch';
+/** Default when no stored preference (matches step1.html swatches + reset prototype). */
+const DEFAULT_BACKGROUND_SWATCH = 'grey';
 const SEARCH_BORDER_COLOR_KEY = 'search_border_color';
 const SEARCH_BORDER_COLOR_DEFAULT = '#BBA0FF';
 const SEARCH_BORDER_BLACK_20 = 'rgba(0, 0, 0, 0.2)';
@@ -1023,6 +1025,35 @@ const TWELVE_SEARCH_ENGINES_ENABLED_KEY = 'twelve_search_engines_enabled';
 const SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY = 'switcher_outside_search_box_enabled';
 
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
+
+/**
+ * Search switcher close animation: the dropdown collapses with `max-height` (~250ms). Removing
+ * `.open` immediately reapplies the full pill border-radius on the button while the panel is
+ * still visible, so the bottom corners look wrong. Class `.switcher-closing` keeps the same
+ * flat-bottom "tab" shape as `.open` until the dropdown fires `transitionend` for `max-height`
+ * (or a timeout). Call this whenever `.open` is cleared while the dropdown may still be
+ * animating — not only in pinned-outside mode; gating on that mode left the default inline
+ * switcher broken. Future changes: do not remove this coordination or the CSS for
+ * `.switcher-closing` without re-testing the close transition.
+ */
+function beginSwitcherClosingShapeHoldUntilDropdownAnimation(button) {
+    if (!button) return;
+    const dropdown = button.querySelector('.search-switcher-dropdown');
+    button.classList.add('switcher-closing');
+    let cleanedUp = false;
+    const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        button.classList.remove('switcher-closing');
+        if (dropdown) dropdown.removeEventListener('transitionend', onClosed);
+    };
+    const onClosed = (ev) => {
+        if (ev.propertyName !== 'max-height') return;
+        cleanup();
+    };
+    if (dropdown) dropdown.addEventListener('transitionend', onClosed);
+    setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     let underlineSearchEnginesEnabled = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
@@ -1109,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return underlineSearchEnginesEnabled;
     };
 
-    // Address bar iframe: parent sets width (matches search bar 57.6% / 576px); iframe reports height (including dropdown)
+    // Address bar iframe: parent sets width (matches ~62% / 620px cap); iframe reports height (including dropdown)
     if (window !== window.top) {
         window.addEventListener('message', (e) => {
             if (e.data?.type === 'search-border-color') {
@@ -1157,6 +1188,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dropdown = btn?.querySelector('.search-switcher-dropdown');
                 const container = document.querySelector('.search-container');
                 if (btn?.classList.contains('open')) {
+                    beginSwitcherClosingShapeHoldUntilDropdownAnimation(btn);
                     forceCloseSearchSwitcherSubPanels();
                     dropdown?.classList.remove('dropdown-revealed');
                     btn.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
@@ -1275,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
             const updateIframeSize = () => {
-                const w = Math.min(window.innerWidth * 0.576, 576);
+                const w = Math.min(window.innerWidth * 0.62, 620);
                 iframe.style.width = w + 'px';
                 if (standaloneIframe) {
                     standaloneIframe.style.width = Math.round(w / 2) + 'px';
@@ -2412,24 +2444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (wasOpen && !isNowOpen) {
                     forceCloseSearchSwitcherSubPanels();
-                    const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
-                    if (pinnedOutside) {
-                        const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
-                        searchSwitcherButton.classList.add('switcher-closing');
-                        let cleanedUp = false;
-                        const cleanup = () => {
-                            if (cleanedUp) return;
-                            cleanedUp = true;
-                            searchSwitcherButton.classList.remove('switcher-closing');
-                            if (dropdown) dropdown.removeEventListener('transitionend', onClosed);
-                        };
-                        const onClosed = (ev) => {
-                            if (ev.propertyName !== 'max-height') return;
-                            cleanup();
-                        };
-                        if (dropdown) dropdown.addEventListener('transitionend', onClosed);
-                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
-                    }
+                    beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                     searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                     if (searchSwitcherDropdown) searchSwitcherDropdown.style.width = '';
                     switcherHighlightedIndex = -1;
@@ -2538,6 +2553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
                 forceCloseSearchSwitcherSubPanels();
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 switcherHighlightedIndex = -1;
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
@@ -2597,24 +2613,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!e.target.closest('.search-switcher-button')) {
                 const wasOpen = searchSwitcherButton.classList.contains('open');
                 if (wasOpen) {
-                    const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
-                    if (pinnedOutside) {
-                        const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
-                        searchSwitcherButton.classList.add('switcher-closing');
-                        let cleanedUp = false;
-                        const cleanup = () => {
-                            if (cleanedUp) return;
-                            cleanedUp = true;
-                            searchSwitcherButton.classList.remove('switcher-closing');
-                            if (dropdown) dropdown.removeEventListener('transitionend', onClosed);
-                        };
-                        const onClosed = (ev) => {
-                            if (ev.propertyName !== 'max-height') return;
-                            cleanup();
-                        };
-                        if (dropdown) dropdown.addEventListener('transitionend', onClosed);
-                        setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
-                    }
+                    beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                     searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                     searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                     switcherHighlightedIndex = -1;
@@ -2908,6 +2907,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!pinnedOpen) {
                         forceCloseSearchSwitcherSubPanels();
                         searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                        beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                     }
                     switcherHighlightedIndex = -1;
@@ -2929,6 +2929,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!pinnedOpen) {
                             forceCloseSearchSwitcherSubPanels();
                             searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                            beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                             searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                         }
                         switcherHighlightedIndex = -1;
@@ -2955,6 +2956,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!pinnedOpen) {
                     forceCloseSearchSwitcherSubPanels();
                     searchSwitcherDropdown.classList.remove('dropdown-revealed');
+                    beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                     searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 }
                 switcherHighlightedIndex = -1;
@@ -3789,14 +3791,74 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const searchSettingsModal = document.getElementById('search-settings-modal');
+    let searchSettingsModalPreviousFocus = null;
+    const onSearchSettingsModalKeydown = (e) => {
+        if (e.key === 'Escape' && searchSettingsModal && !searchSettingsModal.hidden) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeSearchSettingsModal();
+        }
+    };
+    const closeSearchSettingsModal = () => {
+        if (!searchSettingsModal || searchSettingsModal.hidden) return;
+        searchSettingsModal.hidden = true;
+        searchSettingsModal.setAttribute('aria-hidden', 'true');
+        document.removeEventListener('keydown', onSearchSettingsModalKeydown, true);
+        if (searchSettingsModalPreviousFocus && typeof searchSettingsModalPreviousFocus.focus === 'function') {
+            try {
+                searchSettingsModalPreviousFocus.focus();
+            } catch (_) {}
+        }
+        searchSettingsModalPreviousFocus = null;
+    };
+    const openSearchSettingsModal = () => {
+        if (!searchSettingsModal) return;
+        searchSettingsModalPreviousFocus = document.activeElement;
+        searchSettingsModal.hidden = false;
+        searchSettingsModal.setAttribute('aria-hidden', 'false');
+        document.addEventListener('keydown', onSearchSettingsModalKeydown, true);
+        const closeBtn = searchSettingsModal.querySelector('.search-settings-modal-close');
+        try {
+            closeBtn?.focus();
+        } catch (_) {}
+    };
+    if (searchSettingsModal) {
+        searchSettingsModal.querySelectorAll('[data-close-search-settings]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                closeSearchSettingsModal();
+            });
+        });
+    }
     const moreSearchSettingsButton = document.getElementById('more-search-settings-button');
     if (moreSearchSettingsButton) {
         moreSearchSettingsButton.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            try {
-                window.open('about:preferences#search', '_blank', 'noopener,noreferrer');
-            } catch (_) {}
+            if (window !== window.top) {
+                try {
+                    window.parent.postMessage({ type: 'open-search-settings' }, '*');
+                } catch (_) {}
+                return;
+            }
+            if (searchSettingsModal) {
+                openSearchSettingsModal();
+            }
+        });
+    }
+    if (window === window.top) {
+        window.addEventListener('message', (e) => {
+            if (e.data?.type !== 'open-search-settings') return;
+            const addressbarIframe = document.querySelector('.addressbar-iframe');
+            const standaloneIframe = document.querySelector('.standalone-search-box-iframe');
+            const fromTrustedChild =
+                (addressbarIframe && e.source === addressbarIframe.contentWindow) ||
+                (standaloneIframe && e.source === standaloneIframe.contentWindow);
+            if (!fromTrustedChild) return;
+            if (searchSettingsModal) {
+                openSearchSettingsModal();
+            }
         });
     }
 
@@ -4034,16 +4096,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         };
         const savedBg = localStorage.getItem(BACKGROUND_SWATCH_KEY);
-        const hadPaleGrey = localStorage.getItem('pale_grey_background_enabled') === 'true';
-        if (savedBg) {
-            if (savedBg === 'gradient') {
-                delete document.body.dataset.background;
-            } else {
-                document.body.dataset.background = savedBg;
-            }
-        } else if (hadPaleGrey) {
-            document.body.dataset.background = 'grey';
-            localStorage.setItem(BACKGROUND_SWATCH_KEY, 'grey');
+        if (savedBg === 'gradient') {
+            delete document.body.dataset.background;
+        } else if (savedBg) {
+            document.body.dataset.background = savedBg;
+        } else {
+            document.body.dataset.background = DEFAULT_BACKGROUND_SWATCH;
+            try {
+                localStorage.setItem(BACKGROUND_SWATCH_KEY, DEFAULT_BACKGROUND_SWATCH);
+            } catch (_) {}
         }
         updateSwatchPressed();
         backgroundSwatches.forEach(btn => {
@@ -5272,27 +5333,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // If the switcher was auto-opened for the outside-of-box mode, close it on blur.
             if (autoOpenedSwitcherOnFocus && searchSwitcherButton?.classList.contains('open')) {
                 const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
-                const pinnedOutside = document.body.classList.contains('switcher-outside-search-box-enabled');
                 dropdown?.classList.remove('dropdown-revealed');
                 searchSwitcherButton.classList.remove('switcher-opened-by-keyboard', 'switcher-suppress-hover');
                 searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
-                // Match pinned-outside click-close: keep squared bottom corners until max-height finishes.
-                if (pinnedOutside && dropdown) {
-                    searchSwitcherButton.classList.add('switcher-closing');
-                    let cleanedUp = false;
-                    const cleanup = () => {
-                        if (cleanedUp) return;
-                        cleanedUp = true;
-                        searchSwitcherButton.classList.remove('switcher-closing');
-                        dropdown.removeEventListener('transitionend', onClosed);
-                    };
-                    const onClosed = (ev) => {
-                        if (ev.propertyName !== 'max-height') return;
-                        cleanup();
-                    };
-                    dropdown.addEventListener('transitionend', onClosed);
-                    setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
-                }
+                beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                 forceCloseSearchSwitcherSubPanels();
                 searchSwitcherButton.classList.remove('open');
                 autoOpenedSwitcherOnFocus = false;
@@ -5435,7 +5479,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         document.body.classList.remove('standalone-search-box-visible');
                     }
 
-                    delete document.body.dataset.background;
+                    document.body.dataset.background = DEFAULT_BACKGROUND_SWATCH;
+                    try {
+                        localStorage.setItem(BACKGROUND_SWATCH_KEY, DEFAULT_BACKGROUND_SWATCH);
+                    } catch (_) {}
                     document.querySelectorAll('.background-swatch').forEach((btn) => {
                         const current = document.body.dataset.background || 'gradient';
                         btn.setAttribute('aria-pressed', btn.dataset.background === current ? 'true' : 'false');
@@ -5596,6 +5643,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 forceCloseSearchSwitcherSubPanels();
+                beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                 searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                 if (searchContainer?.classList.contains('focused')) {
                     closeSuggestionsPanel();
@@ -5633,6 +5681,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!pinnedOpen) {
                         searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                         forceCloseSearchSwitcherSubPanels();
+                        beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
                     }
                     switcherHighlightedIndex = -1;
@@ -5662,6 +5711,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!pinnedOpen) {
                         searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                         forceCloseSearchSwitcherSubPanels();
+                        beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover', 'switcher-opened-by-keyboard');
                     }
                     switcherHighlightedIndex = -1;
@@ -5696,6 +5746,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!pinnedOpen) {
                         dropdown?.classList.remove('dropdown-revealed');
                         forceCloseSearchSwitcherSubPanels();
+                        beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                         searchSwitcherButton.classList.remove('open', 'switcher-suppress-hover');
                     }
                     switcherHighlightedIndex = -1;

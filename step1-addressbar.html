@@ -44,13 +44,16 @@
         <div class="addressbar-nav">
             <button type="button" class="addressbar-back" aria-label="Back" title="Back">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>
-            <button type="button" class="addressbar-next" aria-label="Next" title="Next">
+            <button type="button" class="addressbar-next" aria-label="Forward" title="Forward">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
+            </button>
+            <button type="button" class="addressbar-reload" aria-label="Reload" title="Reload">
+                <img src="icons/reload.svg" alt="" class="addressbar-reload-icon">
             </button>
         </div>
     <div class="search-container">
@@ -113,9 +116,9 @@
                                 </div>
                                 <div class="dropdown-search-controls-more-settings-block">
                                 <div class="dropdown-search-controls-row dropdown-search-controls-row--more-settings">
-                                    <button type="button" id="more-search-settings-button" class="more-search-settings-button" title="Open Search settings in Firefox Preferences">
+                                    <button type="button" id="more-search-settings-button" class="more-search-settings-button" title="Search settings">
                                         <img src="icons/settings.svg" alt="" class="more-search-settings-button-icon" width="10" height="10">
-                                        More Search Settings
+                                        Search settings
                                     </button>
                                 </div>
                                 </div>
@@ -247,7 +250,7 @@
         <div class="search-container-drag-handle"></div>
     </div>
     </div>
-    
+
     <script src="step1.js"></script>
 </body>
 </html>
