@@ -36,6 +36,13 @@ body.addressbar .addressbar-reload {
     flex-shrink: 0;
 }
 
+/* With main page "small corners" border mode, match toolbar: rounded squares instead of circles. */
+body.addressbar:not(.search-border-radius-large) .addressbar-back,
+body.addressbar:not(.search-border-radius-large) .addressbar-next,
+body.addressbar:not(.search-border-radius-large) .addressbar-reload {
+    border-radius: 9px;
+}
+
 body.addressbar .addressbar-back:hover,
 body.addressbar .addressbar-next:hover,
 body.addressbar .addressbar-reload:hover,
@@ -203,19 +210,7 @@ body.addressbar .dropdown-label {
     background-color: #fff;
 }
 
-body.addressbar .dropdown-label-info-icon {
-    width: 10px;
-    height: 10px;
-}
-
-body.addressbar .dropdown-label-info-icon[aria-expanded="true"] {
-    border-radius: 5px 5px 0 0;
-}
-
-body.addressbar .dropdown-label-info-icon[aria-expanded="true"]::after {
-    height: 6px;
-    bottom: -6px;
-}
+/* Keep info icon hit area 28×28 like .search-engines-controls-toggle (do not shrink button to SVG size). */
 
 body.addressbar .dropdown-divider {
     margin: 3px 0;
@@ -227,6 +222,10 @@ body.addressbar .dropdown-item {
     border-radius: 9999px;
     gap: 6px;
     font-size: 10px;
+}
+
+body.addressbar:not(.search-border-radius-large) .dropdown-item {
+    border-radius: 9px;
 }
 
 body.addressbar .dropdown-icon,

@@ -277,9 +277,9 @@
                     </div>
                 </div>
                 <div class="search-border-swatches-control">
-                    <span class="search-border-swatches-label">Search borders</span>
+                    <span class="search-border-swatches-label">Borders</span>
                     <div class="search-border-options-row">
-                        <div class="search-border-swatches" role="group" aria-label="Search borders colours">
+                        <div class="search-border-swatches" role="group" aria-label="Border colours">
                             <button type="button" class="search-border-swatch" data-border-color="#BBA0FF" title="Lilac" aria-pressed="true"></button>
                             <button type="button" class="search-border-swatch" data-border-color="#FF8D5B" title="Coral" aria-pressed="false"></button>
                             <button type="button" class="search-border-swatch search-border-swatch-black-20" data-border-color="rgba(0, 0, 0, 0.2)" title="20% black" aria-pressed="false"></button>
@@ -297,10 +297,6 @@
                 <label class="reduced-motion-control">
                     <input type="checkbox" class="reduced-motion-checkbox">
                     <span>Reduced motion</span>
-                </label>
-                <label class="standalone-search-box-control">
-                    <input type="checkbox" class="standalone-search-box-checkbox">
-                    <span>Stand-alone search box</span>
                 </label>
                 <div class="search-engines-count-control" role="group" aria-labelledby="search-engines-count-label">
                     <span id="search-engines-count-label" class="search-engines-count-heading">Number of SEs</span>
@@ -370,7 +366,7 @@
                         <tr>
                             <th scope="row">New Tab / Homepage</th>
                             <td class="search-settings-cell">
-                                <input type="checkbox" id="search-settings-navigate-new-tab" class="search-settings-cell-checkbox" checked aria-label="Navigate, New Tab / Homepage">
+                                <input type="checkbox" id="search-settings-navigate-new-tab" class="search-settings-cell-checkbox search-settings-navigate-column-checkbox" aria-label="Navigate, New Tab / Homepage">
                             </td>
                             <td class="search-settings-cell">
                                 <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
@@ -393,7 +389,23 @@
                             </td>
                         </tr>
                         <tr>
-                            <th scope="row">Standalone search box</th>
+                            <th scope="row" class="search-settings-surface-row-header">
+                                <div class="search-settings-surface-row-header-inner">
+                                    <span class="search-settings-surface-row-title">Standalone search box</span>
+                                    <button
+                                        type="button"
+                                        id="search-settings-standalone-visibility-toggle"
+                                        class="search-settings-standalone-visibility-toggle"
+                                        role="switch"
+                                        aria-checked="false"
+                                        aria-label="Show standalone search box in prototype"
+                                    >
+                                        <span class="search-settings-standalone-visibility-toggle-track" aria-hidden="true">
+                                            <span class="search-settings-standalone-visibility-toggle-thumb"></span>
+                                        </span>
+                                    </button>
+                                </div>
+                            </th>
                             <td class="search-settings-cell">
                                 <span class="search-settings-state-label search-settings-state-label--off" title="Always off" aria-label="Always off">always<br>off</span>
                             </td>
@@ -420,7 +432,7 @@
                         <tr>
                             <th scope="row">Private window</th>
                             <td class="search-settings-cell">
-                                <input type="checkbox" class="search-settings-cell-checkbox" checked aria-label="Navigate, Private window">
+                                <input type="checkbox" id="search-settings-navigate-private" class="search-settings-cell-checkbox search-settings-navigate-column-checkbox" aria-label="Navigate, Private window">
                             </td>
                             <td class="search-settings-cell">
                                 <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>

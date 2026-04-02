@@ -158,6 +158,48 @@ body:not(.standalone-search-box-visible) .addressbar-toolbar-icons {
     stroke: none;
 }
 
+/* "Small corners" border mode: rounded-square controls (large mode keeps fully rounded / pill shapes via JS). */
+body:not(.search-border-radius-large) {
+    --switcher-button-radius: 9px;
+}
+
+body:not(.search-border-radius-large) .addressbar-toolbar-icon {
+    border-radius: 9px;
+}
+
+body:not(.search-border-radius-large) .search-button,
+body:not(.search-border-radius-large) .search-clear-button,
+body:not(.search-border-radius-large) .search-url-button {
+    border-radius: 9px;
+}
+
+body:not(.search-border-radius-large) .dropdown-label-info-icon,
+body:not(.search-border-radius-large) .search-engines-controls-toggle {
+    border-radius: 9px;
+}
+
+body:not(.search-border-radius-large) .dropdown-label-info-icon[aria-expanded="true"],
+body:not(.search-border-radius-large) .search-engines-controls-toggle[aria-expanded="true"] {
+    border-radius: 9px 9px 0 0;
+}
+
+body:not(.search-border-radius-large) .dropdown-item {
+    border-radius: 9px;
+}
+
+body:not(.search-border-radius-large) > .dropdown-item.dragging {
+    border-radius: 9px;
+}
+
+body.search-engines-display-grid:not(.search-border-radius-large) .dropdown-search-engines .dropdown-item-search-engine,
+body.search-engines-display-grid:not(.search-border-radius-large) .dropdown-search-engines .dropdown-item-pinned {
+    border-radius: 9px;
+}
+
+body.search-engines-display-grid:not(.search-border-radius-large) .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion {
+    border-radius: 9px;
+}
+
 .firefox-logo {
     width: 96px;
     height: auto;
@@ -1046,9 +1088,12 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
 }
 
 .search-settings-grid-scroll {
-    overflow: auto;
-    padding: 12px 16px 16px;
+    flex: 1;
     min-height: 0;
+    overflow: auto;
+    padding: 0;
+    /* Flush with panel sides; clip to bottom corners of the dialog */
+    border-radius: 0 0 11px 11px;
 }
 
 .search-settings-grid {
@@ -1080,6 +1125,72 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     font-weight: 500;
     background: rgba(75, 50, 120, 0.04);
     white-space: nowrap;
+}
+
+/* Keep <th> as table-cell; flex on table cells breaks row alignment and borders in several engines. */
+.search-settings-grid tbody th.search-settings-surface-row-header {
+    white-space: normal;
+    vertical-align: middle;
+    min-width: 8.75rem;
+}
+
+.search-settings-surface-row-header-inner {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+}
+
+.search-settings-surface-row-title {
+    font-weight: 500;
+    line-height: 1.25;
+    max-width: 12rem;
+}
+
+.search-settings-standalone-visibility-toggle {
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 999px;
+}
+
+.search-settings-standalone-visibility-toggle:focus-visible {
+    outline: 2px solid rgba(75, 50, 120, 0.45);
+    outline-offset: 2px;
+}
+
+.search-settings-standalone-visibility-toggle-track {
+    position: relative;
+    display: block;
+    width: 36px;
+    height: 20px;
+    border-radius: 999px;
+    background: rgba(75, 50, 120, 0.22);
+    transition: background 0.15s ease;
+}
+
+.search-settings-standalone-visibility-toggle--on .search-settings-standalone-visibility-toggle-track {
+    background: rgba(120, 80, 200, 0.55);
+}
+
+.search-settings-standalone-visibility-toggle-thumb {
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease;
+}
+
+.search-settings-standalone-visibility-toggle--on .search-settings-standalone-visibility-toggle-thumb {
+    transform: translateX(16px);
 }
 
 .search-settings-grid-corner {
@@ -2233,7 +2344,6 @@ body.reduced-motion .bottom-left-panel-content {
 }
 
 .reduced-motion-checkbox,
-.standalone-search-box-checkbox,
 .underline-search-engines-checkbox,
 .keyboard-switcher-numbers-checkbox,
 .search-engines-count-radio {

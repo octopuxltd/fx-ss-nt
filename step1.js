@@ -1003,15 +1003,16 @@ function getSearchEngineOrderStorage() {
 
 /** Main New Tab / Homepage: when `false`, hide “From Firefox” in that switcher (Search settings → Navigate). */
 const SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY = 'search_settings_navigate_new_tab';
+const SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY = 'search_settings_navigate_private';
 
 function isNavigateEnabledForCurrentSwitcherSurface() {
     if (typeof document === 'undefined' || !document.body) return true;
     if (document.body.classList.contains('standalone-search-box')) return false;
     if (document.body.classList.contains('addressbar')) return true;
     try {
-        return localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) !== 'false';
+        return localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
     } catch (_) {
-        return true;
+        return false;
     }
 }
 
@@ -1123,6 +1124,7 @@ let applyingSearchSettingsEngineSelectsSync = false;
 function syncSearchSettingsDefaultEngineSelects() {
     applyingSearchSettingsEngineSelectsSync = true;
     try {
+        populateSearchSettingsEngineSelectOptions();
         const ls = getDefaultSearchEngineLocalStorage();
         const main = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN) || 'Google';
         const addr =
@@ -1329,6 +1331,31 @@ const SEARCH_ENGINE_ORDER_KEY = 'search_engine_order';
 const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
 const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
+
+function readStandaloneSearchBoxVisibleFromStorage() {
+    try {
+        return localStorage.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY) === 'true';
+    } catch (_) {
+        return false;
+    }
+}
+
+/** Prototype: show/hide standalone iframe + persist + sync Search settings switch UI. */
+function applyStandaloneSearchBoxPrototypeVisibility(visible) {
+    const on = !!visible;
+    if (typeof document !== 'undefined' && document.body) {
+        document.body.classList.toggle('standalone-search-box-visible', on);
+    }
+    try {
+        localStorage.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, on ? 'true' : 'false');
+    } catch (_) {}
+    const toggle = typeof document !== 'undefined' ? document.getElementById('search-settings-standalone-visibility-toggle') : null;
+    if (toggle) {
+        toggle.setAttribute('aria-checked', on ? 'true' : 'false');
+        toggle.classList.toggle('search-settings-standalone-visibility-toggle--on', on);
+    }
+}
+
 const BACKGROUND_SWATCH_KEY = 'background_swatch';
 /** Default when no stored preference (matches step1.html swatches + reset prototype). */
 const DEFAULT_BACKGROUND_SWATCH = 'grey';
@@ -1431,6 +1458,45 @@ const KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY = 'keyboard_switcher_numbers_enabled
 const SEARCH_ENGINES_DISPLAY_KEY_PREFIX = 'search_engines_display';
 const TWELVE_SEARCH_ENGINES_ENABLED_KEY = 'twelve_search_engines_enabled';
 const SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY = 'switcher_outside_search_box_enabled';
+
+function getSearchEngineLabelsForCountMode(showTwelve) {
+    return showTwelve
+        ? ['Amazon', 'Bing', 'DuckDuckGo', 'Ecosia', 'eBay', 'Google', 'IMDb', 'Perplexity', 'Reddit', 'Startpage', 'Wikipedia (en)', 'YouTube']
+        : ['Google', 'Bing', 'DuckDuckGo', 'eBay', 'Perplexity', 'Wikipedia (en)'];
+}
+
+let lastSearchSettingsEngineSelectOptionsMode = null;
+
+/** Rebuild Search settings overlay <option>s to match 6 vs 12 engine mode (same lists as the switcher). */
+function populateSearchSettingsEngineSelectOptions(showTwelve) {
+    if (showTwelve === undefined) {
+        try {
+            showTwelve = localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY) !== 'false';
+        } catch (_) {
+            showTwelve = true;
+        }
+    }
+    if (lastSearchSettingsEngineSelectOptionsMode === showTwelve) return;
+    lastSearchSettingsEngineSelectOptionsMode = showTwelve;
+    const labels = getSearchEngineLabelsForCountMode(showTwelve);
+    const ids = [
+        'search-settings-default-engine-address-bar',
+        'search-settings-default-engine-new-tab',
+        'search-settings-default-engine-standalone',
+        'search-settings-default-engine-private',
+    ];
+    for (const id of ids) {
+        const sel = document.getElementById(id);
+        if (!sel) continue;
+        sel.innerHTML = '';
+        for (const label of labels) {
+            const opt = document.createElement('option');
+            opt.value = label;
+            opt.textContent = label;
+            sel.appendChild(opt);
+        }
+    }
+}
 const SEARCH_ENGINE_LIST_MODE_KEY = 'search_engine_list_mode';
 
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
@@ -2869,12 +2935,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applySearchEnginesCountMode(showTwelve) {
-        const allowed = new Set(
-            (showTwelve
-                ? ['Amazon', 'Bing', 'DuckDuckGo', 'Ecosia', 'eBay', 'Google', 'IMDb', 'Perplexity', 'Reddit', 'Startpage', 'Wikipedia (en)', 'YouTube']
-                : ['Google', 'Bing', 'DuckDuckGo', 'eBay', 'Perplexity', 'Wikipedia (en)']
-            )
-        );
+        const allowed = new Set(getSearchEngineLabelsForCountMode(showTwelve));
 
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (enginesContainer) {
@@ -2895,7 +2956,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     applySelectedSearchSource(google);
                     setDefaultSearchEngineStorageItem(getDefaultSearchEngineStorageKeyForPage(), getEngineLabel(google));
                     setPinnedEngine(google);
-                    syncSearchSettingsDefaultEngineSelects();
                     notifyParentDefaultSearchEngineChanged();
                 }
             }
@@ -2909,6 +2969,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.style.display = allowed.has(label) ? '' : 'none';
             });
         }
+
+        syncSearchSettingsDefaultEngineSelects();
     }
     
     // Click on search-box-wrapper focuses the input
@@ -4477,24 +4539,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Handle standalone search box checkbox (default: off)
-    const standaloneSearchBoxCheckbox = document.querySelector('.standalone-search-box-checkbox');
-    if (standaloneSearchBoxCheckbox) {
-        const savedStandaloneVisible = localStorage.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY);
-        if (savedStandaloneVisible === 'true') {
-            standaloneSearchBoxCheckbox.checked = true;
-            document.body.classList.add('standalone-search-box-visible');
-        } else {
-            standaloneSearchBoxCheckbox.checked = false;
-        }
-        standaloneSearchBoxCheckbox.addEventListener('change', (e) => {
-            if (e.target.checked) {
-                document.body.classList.add('standalone-search-box-visible');
-                localStorage.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, 'true');
-            } else {
-                document.body.classList.remove('standalone-search-box-visible');
-                localStorage.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, 'false');
-            }
+    applyStandaloneSearchBoxPrototypeVisibility(readStandaloneSearchBoxVisibleFromStorage());
+    const standaloneVisibilityToggle = document.getElementById('search-settings-standalone-visibility-toggle');
+    if (standaloneVisibilityToggle) {
+        standaloneVisibilityToggle.addEventListener('click', () => {
+            const nextOn = standaloneVisibilityToggle.getAttribute('aria-checked') !== 'true';
+            applyStandaloneSearchBoxPrototypeVisibility(nextOn);
         });
     }
 
@@ -4557,8 +4607,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const navigateNewTabCbOpen = document.getElementById('search-settings-navigate-new-tab');
         if (navigateNewTabCbOpen) {
             try {
-                navigateNewTabCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) !== 'false';
+                navigateNewTabCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
             } catch (_) {}
+        }
+        const navigatePrivateCbOpen = document.getElementById('search-settings-navigate-private');
+        if (navigatePrivateCbOpen) {
+            try {
+                navigatePrivateCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY) === 'true';
+            } catch (_) {}
+        }
+        const standaloneToggleOpen = document.getElementById('search-settings-standalone-visibility-toggle');
+        if (standaloneToggleOpen) {
+            const v = readStandaloneSearchBoxVisibleFromStorage();
+            standaloneToggleOpen.setAttribute('aria-checked', v ? 'true' : 'false');
+            standaloneToggleOpen.classList.toggle('search-settings-standalone-visibility-toggle--on', v);
         }
         logSearchSettingsOverlayOpened();
         searchSettingsModalPreviousFocus = document.activeElement;
@@ -4647,7 +4709,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const navigateNewTabCb = document.getElementById('search-settings-navigate-new-tab');
         if (navigateNewTabCb) {
             try {
-                navigateNewTabCb.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) !== 'false';
+                navigateNewTabCb.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
             } catch (_) {}
             navigateNewTabCb.addEventListener('change', () => {
                 try {
@@ -4657,6 +4719,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
                 } catch (_) {}
                 applySwitcherFromFirefoxSectionVisibility();
+            });
+        }
+        const navigatePrivateCb = document.getElementById('search-settings-navigate-private');
+        if (navigatePrivateCb) {
+            try {
+                navigatePrivateCb.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY) === 'true';
+            } catch (_) {}
+            navigatePrivateCb.addEventListener('change', () => {
+                try {
+                    localStorage.setItem(
+                        SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY,
+                        navigatePrivateCb.checked ? 'true' : 'false'
+                    );
+                } catch (_) {}
             });
         }
         applySwitcherFromFirefoxSectionVisibility();
@@ -4682,7 +4758,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (
             e.key !== DEFAULT_SEARCH_ENGINE_KEY_MAIN &&
             e.key !== DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR &&
-            e.key !== DEFAULT_SEARCH_ENGINE_KEY_STANDALONE
+            e.key !== DEFAULT_SEARCH_ENGINE_KEY_STANDALONE &&
+            e.key !== TWELVE_SEARCH_ENGINES_ENABLED_KEY
         ) {
             return;
         }
@@ -6222,6 +6299,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         QUICK_BUTTONS_VISIBLE_KEY,
                         SEARCH_ENGINE_ORDER_KEY,
                         SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
+                        SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY,
                         FIREFOX_SUGGESTIONS_ENABLED_KEY,
                         'inspectSuggestions'
                     ];
@@ -6297,7 +6375,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     syncSearchSettingsDefaultEngineSelects();
                     document.querySelectorAll('#search-settings-modal .search-settings-cell-checkbox').forEach((cb) => {
-                        cb.checked = true;
+                        cb.checked = !cb.classList.contains('search-settings-navigate-column-checkbox');
                     });
                     applySwitcherFromFirefoxSectionVisibility();
 
@@ -6315,11 +6393,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     applySearchEnginesDisplayMode('list');
 
-                    const standaloneCbReset = document.querySelector('.standalone-search-box-checkbox');
-                    if (standaloneCbReset) {
-                        standaloneCbReset.checked = false;
-                        document.body.classList.remove('standalone-search-box-visible');
-                    }
+                    applyStandaloneSearchBoxPrototypeVisibility(false);
 
                     document.body.dataset.background = DEFAULT_BACKGROUND_SWATCH;
                     try {
