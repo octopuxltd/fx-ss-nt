@@ -335,46 +335,21 @@
                 <table class="search-settings-grid">
                     <thead>
                         <tr>
-                            <th class="search-settings-grid-corner" scope="col"><span class="visually-hidden">Feature</span></th>
-                            <th scope="col">Address bar</th>
-                            <th scope="col">New Tab / Homepage</th>
-                            <th scope="col">Standalone search box</th>
-                            <th scope="col">Private window</th>
+                            <th class="search-settings-grid-corner" scope="col"><span class="visually-hidden">Surface</span></th>
+                            <th scope="col">Navigate</th>
+                            <th scope="col">Search</th>
+                            <th scope="col">Default search engine</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <th scope="row">Navigate</th>
+                            <th scope="row">Address bar</th>
                             <td class="search-settings-cell">
                                 <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
                             </td>
                             <td class="search-settings-cell">
-                                <input type="checkbox" class="search-settings-cell-checkbox" aria-label="Navigate, New Tab / Homepage">
+                                <input type="checkbox" class="search-settings-cell-checkbox" checked aria-label="Search, Address bar">
                             </td>
-                            <td class="search-settings-cell">
-                                <span class="search-settings-state-label search-settings-state-label--off" title="Always off" aria-label="Always off">always<br>off</span>
-                            </td>
-                            <td class="search-settings-cell">
-                                <input type="checkbox" class="search-settings-cell-checkbox" aria-label="Navigate, Private window">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Search</th>
-                            <td class="search-settings-cell">
-                                <input type="checkbox" class="search-settings-cell-checkbox" aria-label="Search, Address bar">
-                            </td>
-                            <td class="search-settings-cell">
-                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
-                            </td>
-                            <td class="search-settings-cell">
-                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
-                            </td>
-                            <td class="search-settings-cell">
-                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
-                            </td>
-                        </tr>
-                        <tr class="search-settings-grid-subrow">
-                            <th scope="row">Default search engine</th>
                             <td class="search-settings-cell search-settings-cell--engine-select">
                                 <select id="search-settings-default-engine-address-bar" class="search-settings-engine-select" aria-label="Default search engine, Address bar">
                                     <option value="Amazon">Amazon</option>
@@ -390,6 +365,15 @@
                                     <option value="Wikipedia (en)">Wikipedia (en)</option>
                                     <option value="YouTube">YouTube</option>
                                 </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">New Tab / Homepage</th>
+                            <td class="search-settings-cell">
+                                <input type="checkbox" id="search-settings-navigate-new-tab" class="search-settings-cell-checkbox" checked aria-label="Navigate, New Tab / Homepage">
+                            </td>
+                            <td class="search-settings-cell">
+                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
                             </td>
                             <td class="search-settings-cell search-settings-cell--engine-select">
                                 <select id="search-settings-default-engine-new-tab" class="search-settings-engine-select" aria-label="Default search engine, New Tab / Homepage">
@@ -407,6 +391,15 @@
                                     <option value="YouTube">YouTube</option>
                                 </select>
                             </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Standalone search box</th>
+                            <td class="search-settings-cell">
+                                <span class="search-settings-state-label search-settings-state-label--off" title="Always off" aria-label="Always off">always<br>off</span>
+                            </td>
+                            <td class="search-settings-cell">
+                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
+                            </td>
                             <td class="search-settings-cell search-settings-cell--engine-select">
                                 <select id="search-settings-default-engine-standalone" class="search-settings-engine-select" aria-label="Default search engine, Standalone search box">
                                     <option value="Amazon">Amazon</option>
@@ -422,6 +415,15 @@
                                     <option value="Wikipedia (en)">Wikipedia (en)</option>
                                     <option value="YouTube">YouTube</option>
                                 </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Private window</th>
+                            <td class="search-settings-cell">
+                                <input type="checkbox" class="search-settings-cell-checkbox" checked aria-label="Navigate, Private window">
+                            </td>
+                            <td class="search-settings-cell">
+                                <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
                             </td>
                             <td class="search-settings-cell search-settings-cell--engine-select">
                                 <select id="search-settings-default-engine-private" class="search-settings-engine-select" aria-label="Default search engine, Private window">

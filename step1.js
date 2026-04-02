@@ -1001,6 +1001,36 @@ function getSearchEngineOrderStorage() {
     return getDefaultSearchEngineLocalStorage();
 }
 
+/** Main New Tab / Homepage: when `false`, hide “From Firefox” in that switcher (Search settings → Navigate). */
+const SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY = 'search_settings_navigate_new_tab';
+
+function isNavigateEnabledForCurrentSwitcherSurface() {
+    if (typeof document === 'undefined' || !document.body) return true;
+    if (document.body.classList.contains('standalone-search-box')) return false;
+    if (document.body.classList.contains('addressbar')) return true;
+    try {
+        return localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) !== 'false';
+    } catch (_) {
+        return true;
+    }
+}
+
+function applySwitcherFromFirefoxSectionVisibility() {
+    const footer = document.querySelector('.search-switcher-button .dropdown-from-firefox-footer');
+    if (!footer) return;
+    const enabled = isNavigateEnabledForCurrentSwitcherSurface();
+    footer.hidden = !enabled;
+    footer.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+    document.body.classList.toggle('search-switcher-from-firefox-hidden', !enabled);
+    if (typeof window !== 'undefined' && window !== window.top) {
+        requestAnimationFrame(() => {
+            try {
+                window.dispatchEvent(new Event('resize'));
+            } catch (_) {}
+        });
+    }
+}
+
 /**
  * Authoritative persistence for the three default-engine keys. Embedded iframes postMessage the parent;
  * the parent writes `localStorage` and mirrors the key/value back so iframe reads work without top access.
@@ -3579,6 +3609,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[SWITCHER MOUSE] Closed. Open state now:', searchSwitcherButton.classList.contains('open'));
             });
             restoreFirefoxSuggestionsState();
+            applySwitcherFromFirefoxSectionVisibility();
         }
 
         // Drag-and-drop reorder for search engines
@@ -4523,6 +4554,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
         }
         syncSearchSettingsDefaultEngineSelects();
+        const navigateNewTabCbOpen = document.getElementById('search-settings-navigate-new-tab');
+        if (navigateNewTabCbOpen) {
+            try {
+                navigateNewTabCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) !== 'false';
+            } catch (_) {}
+        }
         logSearchSettingsOverlayOpened();
         searchSettingsModalPreviousFocus = document.activeElement;
         searchSettingsModal.hidden = false;
@@ -4607,6 +4644,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 postRefreshSearchSwitcherToIframe(standaloneIframeForSettings?.contentWindow, oldStandEff);
             });
         }
+        const navigateNewTabCb = document.getElementById('search-settings-navigate-new-tab');
+        if (navigateNewTabCb) {
+            try {
+                navigateNewTabCb.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) !== 'false';
+            } catch (_) {}
+            navigateNewTabCb.addEventListener('change', () => {
+                try {
+                    localStorage.setItem(
+                        SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
+                        navigateNewTabCb.checked ? 'true' : 'false'
+                    );
+                } catch (_) {}
+                applySwitcherFromFirefoxSectionVisibility();
+            });
+        }
+        applySwitcherFromFirefoxSectionVisibility();
     }
     const moreSearchSettingsButton = document.getElementById('more-search-settings-button');
     if (moreSearchSettingsButton) {
@@ -6168,6 +6221,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         STANDALONE_SEARCH_BOX_VISIBLE_KEY,
                         QUICK_BUTTONS_VISIBLE_KEY,
                         SEARCH_ENGINE_ORDER_KEY,
+                        SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
                         FIREFOX_SUGGESTIONS_ENABLED_KEY,
                         'inspectSuggestions'
                     ];
@@ -6242,6 +6296,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
                     }
                     syncSearchSettingsDefaultEngineSelects();
+                    document.querySelectorAll('#search-settings-modal .search-settings-cell-checkbox').forEach((cb) => {
+                        cb.checked = true;
+                    });
+                    applySwitcherFromFirefoxSectionVisibility();
 
                     if (reducedMotionCheckbox) {
                         reducedMotionCheckbox.checked = false;

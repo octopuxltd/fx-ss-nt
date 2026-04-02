@@ -1123,14 +1123,7 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     cursor: pointer;
 }
 
-.search-settings-grid-subrow th {
-    padding-left: 18px;
-    font-weight: 400;
-    font-size: 11px;
-    color: rgba(75, 50, 120, 0.75);
-}
-
-.search-settings-grid-subrow .search-settings-cell--engine-select {
+.search-settings-grid tbody td.search-settings-cell--engine-select {
     text-align: left;
     min-width: 9.5rem;
     padding: 8px 10px;
@@ -1436,6 +1429,10 @@ body.reduced-motion .dropdown-search-engines {
     bottom: 0;
     z-index: 2;
     background-color: #fff;
+}
+
+.dropdown-from-firefox-footer[hidden] {
+    display: none !important;
 }
 
 /* Flow footer after the engine list when either sub-panel is open (not sticky in the scrollport). Lilac: .search-engines-controls-panel-revealed; blue: :has(#search-switcher-info-panel:not([hidden])). */
