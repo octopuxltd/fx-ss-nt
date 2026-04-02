@@ -76,7 +76,8 @@ body[data-background="beige"] {
     margin-left: 20px;
     margin-right: 20px;
     position: relative;
-    z-index: 1;
+    /* Above .search-container (z-index: 1) so address bar / standalone iframe switcher dropdowns paint over the main search when they overlap. */
+    z-index: 5;
 }
 
 .addressbar-iframe {
@@ -288,11 +289,13 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     transform: translateX(-50%);
 }
 
+/* Fallback radii when JS updateBorderRadius is off; JS overwrites these via --* vars + inline styles when on.
+   Switcher uses a smaller fallback than the wrapper so the chip reads nested inside the pill. */
 .search-box-wrapper-outer {
     display: flex;
     flex-direction: column;
     background-color: rgba(255, 255, 255, 0.35);
-    border-radius: 15px;
+    border-radius: 10px;
     padding: 0;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     position: relative;
@@ -305,7 +308,7 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     content: '';
     position: absolute;
     inset: -2px;
-    border-radius: var(--outer-border-radius, 52px);
+    border-radius: var(--outer-border-radius, 12px);
     padding: 2px;
     background: var(--search-border-ring-color, #BBA0FF);
     -webkit-mask:
@@ -340,7 +343,7 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     align-items: center;
     gap: 10px;
     background-color: rgba(255, 255, 255, 0.35);
-    border-radius: 15px;
+    border-radius: 10px;
     position: relative;
     z-index: 1;
     padding: 8px 10px 8px 10px;
@@ -359,7 +362,7 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     align-items: center;
     gap: 4px;
     background-color: white;
-    border-radius: var(--switcher-button-radius, 15px);
+    border-radius: var(--switcher-button-radius, 7px);
     padding: 6px 8px 6px 6px;
     transition: background-color 0.25s linear, border-radius 0s 0.25s;
     cursor: pointer;
@@ -383,14 +386,14 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
 }
 
 .search-switcher-button.open {
-    border-radius: var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) 0 0;
+    border-radius: var(--switcher-button-radius, 7px) var(--switcher-button-radius, 7px) 0 0;
     transition: background-color 0.25s linear, border-radius 0s 0s;
 }
 
 /* Paired with JS `beginSwitcherClosingShapeHoldUntilDropdownAnimation`: after `.open` is removed,
    the dropdown still animates closed; this class preserves the tab bottom edge until that ends. */
 .search-switcher-button.switcher-closing {
-    border-radius: var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) 0 0;
+    border-radius: var(--switcher-button-radius, 7px) var(--switcher-button-radius, 7px) 0 0;
     transition: background-color 0.25s linear, border-radius 0s 0s;
 }
 
@@ -408,7 +411,7 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     top: calc(100%);
     left: 0;
     background-color: #fff;
-    border-radius: 0 var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px) var(--switcher-button-radius, 15px);
+    border-radius: 0 var(--switcher-button-radius, 7px) var(--switcher-button-radius, 7px) var(--switcher-button-radius, 7px);
     min-width: 200px;
     /* Width set by JS (syncSearchSwitcherDropdownWidth) so intrinsic max-content cannot grow from the Shortcuts (i) panel text; falls back until measured */
     width: auto;
@@ -1863,11 +1866,11 @@ body:not(.pin-default-enabled) > .dropdown-item.dragging .dropdown-item-drag-han
     pointer-events: none;
 }
 
-/* Hide row reorder drag handles while dragging the default badge (must beat controls-open display:flex !important) */
+/* Hide row reorder drag handles while dragging the default badge (invisible but keep layout — display:none was shrinking row height). */
 body.default-badge-dragging .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
 body.default-badge-dragging.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
 body.default-badge-dragging .dropdown-search-engines .dropdown-item-drag-handle {
-    display: none !important;
+    visibility: hidden !important;
     opacity: 0 !important;
     pointer-events: none !important;
 }
@@ -2233,7 +2236,6 @@ body.reduced-motion .bottom-left-panel-content {
 }
 
 .reduced-motion-checkbox,
-.pin-default-checkbox,
 .standalone-search-box-checkbox,
 .underline-search-engines-checkbox,
 .keyboard-switcher-numbers-checkbox,
@@ -2415,6 +2417,7 @@ body.reduced-motion .bottom-left-panel-content {
     justify-content: space-between;
     gap: 10px;
     width: 100%;
+    flex-wrap: wrap;
 }
 
 .search-border-swatches-label {
@@ -2422,11 +2425,74 @@ body.reduced-motion .bottom-left-panel-content {
     color: rgba(255, 255, 255, 0.9);
 }
 
+.search-border-options-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-left: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .search-border-swatches {
     display: flex;
     gap: 6px;
-    margin-left: auto;
     justify-content: flex-end;
+}
+
+.search-border-radius-swatches {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: 28px;
+}
+
+.search-border-radius-swatch {
+    width: 18px;
+    height: 18px;
+    border: none;
+    outline: none;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    transition: transform 0.15s;
+}
+
+.search-border-radius-swatch:hover {
+    transform: scale(1.1);
+}
+
+.search-border-radius-swatch:focus {
+    outline: none;
+}
+
+/* Selected state: ring on the 18×18 hit target only — not on the corner glyph (strokes blur the fillet). */
+.search-border-radius-swatch[aria-pressed="true"] {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+
+/* One rounded corner only (top-left): small vs large fillet — not a full four-corner shape */
+.search-border-radius-swatch--small .search-border-radius-swatch-visual {
+    display: block;
+    width: 13px;
+    height: 13px;
+    background: rgba(255, 255, 255, 0.88);
+    border-radius: 3px 0 0 0;
+}
+
+.search-border-radius-swatch--large .search-border-radius-swatch-visual {
+    display: block;
+    width: 13px;
+    height: 13px;
+    background: rgba(255, 255, 255, 0.88);
+    border-radius: 10px 0 0 0;
 }
 
 .search-border-swatch {
@@ -2810,7 +2876,7 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-
     background-color: #fff;
     color: rgba(0, 0, 0, 0.5);
     font-size: 14px;
-    border-radius: 0 0 15px 15px;
+    border-radius: 0 0 10px 10px;
     transition: max-height 0.25s ease-out;
 }
 
@@ -2890,7 +2956,7 @@ body.reduced-motion .one-off-buttons {
     align-items: center;
     gap: 12px;
     padding: 8px 7px;
-    border-radius: var(--suggestion-item-radius, 15px);
+    border-radius: var(--suggestion-item-radius, 10px);
     cursor: pointer;
     position: relative;
 }

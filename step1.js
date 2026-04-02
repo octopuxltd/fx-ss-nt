@@ -996,6 +996,11 @@ function getDefaultSearchEngineLocalStorage() {
     return localStorage;
 }
 
+/** Same authority as default-engine keys: prefer `top.localStorage` in embedded pages when allowed. */
+function getSearchEngineOrderStorage() {
+    return getDefaultSearchEngineLocalStorage();
+}
+
 /**
  * Authoritative persistence for the three default-engine keys. Embedded iframes postMessage the parent;
  * the parent writes `localStorage` and mirrors the key/value back so iframe reads work without top access.
@@ -1107,7 +1112,7 @@ function syncSearchSettingsDefaultEngineSelects() {
 /**
  * Compare switcher pinned row vs storage (and overlay when opt-in). Search settings overlay uses
  * `logSearchSettingsOverlayOpened()` which always logs when that modal opens.
- * Switcher open always logs via `logSearchSwitcherOpenedDefault()`.
+ * Switcher open always logs via `logSearchSwitcherOpenedDefault()` (single-line string; no collapsed objects).
  * Extra dump: `localStorage.setItem('debug_search_engine_default_sync', 'true')` then reload.
  */
 function getPinnedEngineLabelFromSwitcherButton(buttonEl) {
@@ -1116,6 +1121,25 @@ function getPinnedEngineLabelFromSwitcherButton(buttonEl) {
     const labelEl = pinned?.querySelector('.dropdown-engine-label');
     const t = labelEl?.textContent?.trim();
     return t || null;
+}
+
+/**
+ * Visible engine rows in the switcher list (top to bottom). Same DOM rules as reorder / A–Z checks.
+ * Top-level so logs do not depend on inner `getEngineLabel`.
+ */
+function getSearchEngineListOrderFromSwitcherButton(buttonEl) {
+    if (!buttonEl) return [];
+    const enginesContainer = buttonEl.querySelector('.dropdown-search-engines');
+    if (!enginesContainer) return [];
+    const items = Array.from(enginesContainer.children).filter(
+        (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+    );
+    return items
+        .map((item) => {
+            const labelEl = item.querySelector('.dropdown-engine-label');
+            return labelEl ? labelEl.textContent.trim() : '';
+        })
+        .filter(Boolean);
 }
 
 function getEffectiveSearchDefaultsFromStorage() {
@@ -1185,25 +1209,32 @@ function logSearchSettingsEngineSelectChanged(columnLabel, value) {
 
 /** Logs whenever a search engine switcher opens (main page or iframe). Not gated by localStorage. */
 function logSearchSwitcherOpenedDefault(searchSwitcherButton) {
-    const surface = getDefaultSearchEngineSurfaceLabel();
+    const input = getDefaultSearchEngineSurfaceLabel();
     const key = getDefaultSearchEngineStorageKeyForPage();
     const pinnedLabel = getPinnedEngineLabelFromSwitcherButton(searchSwitcherButton);
     const storageLabel = getDefaultSearchEngineLabelFromStorage();
+    const engineListOrder = getSearchEngineListOrderFromSwitcherButton(searchSwitcherButton);
     console.log(
-        '[search-switcher] opened — default for this search: pinned row="' +
+        '[search-switcher] opened | input=' +
+            input +
+            ' | engineListOrder=' +
+            JSON.stringify(engineListOrder) +
+            ' | localStorageKey=' +
+            key +
+            ' | pinnedRowDefault=' +
             (pinnedLabel ?? '(none)') +
-            '", storage-backed="' +
-            storageLabel +
-            '" | surface=' +
-            surface +
-            ' | localStorage key=' +
-            key
+            ' | storageBackedDefault=' +
+            storageLabel
     );
     if (pinnedLabel != null && storageLabel != null && pinnedLabel !== storageLabel) {
-        console.warn('[search-switcher] pinned row ≠ storage-backed default for this surface', {
-            pinnedLabel,
-            storageLabel,
-        });
+        console.warn(
+            '[search-switcher] pinned row ≠ storage-backed default | input=' +
+                input +
+                ' | pinnedRowDefault=' +
+                pinnedLabel +
+                ' | storageBackedDefault=' +
+                storageLabel
+        );
     }
 }
 
@@ -1272,14 +1303,58 @@ const BACKGROUND_SWATCH_KEY = 'background_swatch';
 /** Default when no stored preference (matches step1.html swatches + reset prototype). */
 const DEFAULT_BACKGROUND_SWATCH = 'grey';
 const SEARCH_BORDER_COLOR_KEY = 'search_border_color';
+/** `'small'` = CSS fallbacks; `'large'` = JS measures elements and fully rounds corners. */
+const SEARCH_BORDER_RADIUS_MODE_KEY = 'search_border_radius_mode';
 const SEARCH_BORDER_COLOR_DEFAULT = '#BBA0FF';
 const SEARCH_BORDER_BLACK_20 = 'rgba(0, 0, 0, 0.2)';
 const SEARCH_BORDER_COLORS = ['#BBA0FF', '#FF8D5B', SEARCH_BORDER_BLACK_20];
 /** Matches `step1.html` default order (Google remains `.dropdown-item-pinned`). */
 const DEFAULT_MAIN_PAGE_ENGINE_ORDER = [
-    'Amazon', 'Bing', 'DuckDuckGo', 'Ecosia', 'eBay', 'Google',
+    'Amazon', 'Bing', 'DuckDuckGo', 'eBay', 'Ecosia', 'Google',
     'IMDb', 'Perplexity', 'Reddit', 'Startpage', 'Wikipedia (en)', 'YouTube'
 ];
+
+/** Case-insensitive A–Z (so eBay sorts before Ecosia; matches “Reset A-Z” / is-alphabetical checks). */
+function compareEngineLabelsAlphabetically(a, b) {
+    return a.localeCompare(b, undefined, { sensitivity: 'base' });
+}
+
+function getDropdownEngineLabelFromItem(item) {
+    if (!item) return '';
+    const labelEl = item.querySelector('.dropdown-engine-label');
+    return labelEl ? labelEl.textContent.trim() : '';
+}
+
+function setEnginesSortSectionHiddenIfAlphabetical(enginesContainer, sortSectionEl) {
+    if (!enginesContainer || !sortSectionEl) return;
+    const items = Array.from(enginesContainer.children).filter(
+        (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+    );
+    const labels = items.map((i) => getDropdownEngineLabelFromItem(i));
+    const sorted = [...labels].sort(compareEngineLabelsAlphabetically);
+    sortSectionEl.hidden =
+        labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
+}
+
+/**
+ * Reorders `.dropdown-item` rows under `.dropdown-search-engines` to `DEFAULT_MAIN_PAGE_ENGINE_ORDER`,
+ * inserting each before `sortSectionEl` when provided (so the sort anchor stays at the end).
+ * Updates `sortSectionEl.hidden` when the list matches case-insensitive A–Z.
+ */
+function applyCanonicalSearchEngineOrder(enginesContainer, sortSectionEl) {
+    if (!enginesContainer) return;
+    const anchor = sortSectionEl || null;
+    const byLabel = new Map();
+    enginesContainer.querySelectorAll('.dropdown-item').forEach((item) => {
+        const label = getDropdownEngineLabelFromItem(item);
+        if (label) byLabel.set(label, item);
+    });
+    DEFAULT_MAIN_PAGE_ENGINE_ORDER.forEach((label) => {
+        const el = byLabel.get(label);
+        if (el) enginesContainer.insertBefore(el, anchor);
+    });
+    setEnginesSortSectionHiddenIfAlphabetical(enginesContainer, sortSectionEl);
+}
 
 function normalizeSearchBorderColorInput(raw) {
     const t = (raw || '').trim();
@@ -1294,6 +1369,15 @@ function normalizeSearchBorderColorInput(raw) {
 
 function canonicalSearchBorderColor(raw) {
     return normalizeSearchBorderColorInput(raw) || SEARCH_BORDER_COLOR_DEFAULT;
+}
+
+function getSearchBorderRadiusMode() {
+    try {
+        const v = localStorage.getItem(SEARCH_BORDER_RADIUS_MODE_KEY);
+        return v === 'large' ? 'large' : 'small';
+    } catch (_) {
+        return 'small';
+    }
 }
 
 function getStoredSearchBorderColor() {
@@ -1451,6 +1535,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else if (e.data?.type === 'prototype-panel-interaction') {
                 window.__prototypeOptionsBlurSuppressUntil = Date.now() + 800;
+            } else if (e.data?.type === 'search-border-radius-mode') {
+                const mode = e.data.mode === 'large' ? 'large' : 'small';
+                try {
+                    localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, mode);
+                } catch (_) {}
+                queueMicrotask(() => {
+                    try {
+                        refreshSearchBorderRadiusMode();
+                    } catch (_) {}
+                });
             } else if (e.data?.type === 'reduced-motion') {
                 if (e.data.enabled) {
                     document.body.classList.add('reduced-motion');
@@ -1527,6 +1621,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         applySearchSwitcherUIFromStoredDefault();
                     } catch (_) {}
                 });
+            } else if (e.data?.type === 'clear-local-storage-key' && typeof e.data.key === 'string') {
+                /* Opaque `file://` iframes keep their own `localStorage`; parent reset clears top only — clear here too. */
+                try {
+                    localStorage.removeItem(e.data.key);
+                } catch (_) {}
             } else if (e.data?.type === 'refresh-search-engine-switcher-from-storage') {
                 if (e.data.oldEffectiveDefault !== undefined && e.data.oldEffectiveDefault !== null) {
                     applySearchSwitcherAfterSearchSettingsChange(e.data.oldEffectiveDefault);
@@ -1615,6 +1714,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const sendPrototypeOptionsToIframes = () => {
             const searchBorderColor = getStoredSearchBorderColor();
+            const searchBorderRadiusMode = getSearchBorderRadiusMode();
             const reducedMotion = localStorage.getItem('reduced_motion_enabled') === 'true';
             const pinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY) === 'true';
             const underlineSearchEngines = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
@@ -1634,6 +1734,10 @@ document.addEventListener('DOMContentLoaded', () => {
             iframes.forEach(f => {
                 try {
                     f.contentWindow?.postMessage({ type: 'search-border-color', color: searchBorderColor }, '*');
+                    f.contentWindow?.postMessage(
+                        { type: 'search-border-radius-mode', mode: searchBorderRadiusMode },
+                        '*'
+                    );
                     f.contentWindow?.postMessage({ type: 'reduced-motion', enabled: reducedMotion }, '*');
                     f.contentWindow?.postMessage({ type: 'pin-default', enabled: pinDefault }, '*');
                     f.contentWindow?.postMessage({ type: 'underline-search-engines', enabled: underlineSearchEngines }, '*');
@@ -1992,6 +2096,93 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', updateLogoPositionForSearchBar);
     const searchBoxWrapper = document.querySelector('.search-box-wrapper');
     const searchBoxWrapperOuter = document.querySelector('.search-box-wrapper-outer');
+
+    function clearJsBorderRadiusStyles() {
+        if (searchBoxWrapper) searchBoxWrapper.style.borderRadius = '';
+        if (searchBoxWrapperOuter) searchBoxWrapperOuter.style.borderRadius = '';
+        document.documentElement.style.removeProperty('--search-box-wrapper-radius');
+        document.documentElement.style.removeProperty('--outer-border-radius');
+        document.documentElement.style.removeProperty('--switcher-button-radius');
+        document.documentElement.style.removeProperty('--suggestion-item-radius');
+    }
+
+    function updateBorderRadius() {
+        if (getSearchBorderRadiusMode() !== 'large') return;
+        let wrapperRadiusPx = null;
+        if (searchBoxWrapper && searchBoxWrapperOuter) {
+            const wrapperHeight = searchBoxWrapper.offsetHeight;
+            const borderRadius = wrapperHeight / 2;
+            wrapperRadiusPx = borderRadius;
+            const gradientBorderRadius = borderRadius + 2;
+
+            searchBoxWrapper.style.borderRadius = `${borderRadius}px`;
+            searchBoxWrapperOuter.style.borderRadius = `${borderRadius}px`;
+            document.documentElement.style.setProperty('--search-box-wrapper-radius', `${borderRadius}px`);
+            document.documentElement.style.setProperty('--outer-border-radius', `${gradientBorderRadius}px`);
+        }
+
+        const searchSwitcherBtn = document.querySelector('.search-switcher-button');
+        if (searchSwitcherBtn) {
+            const buttonHeight = searchSwitcherBtn.offsetHeight;
+            const halfFromHeight = buttonHeight / 2;
+            const maxVsWrapper =
+                wrapperRadiusPx != null ? Math.max(4, wrapperRadiusPx - 2) : halfFromHeight;
+            const buttonBorderRadius = Math.min(halfFromHeight, maxVsWrapper);
+            document.documentElement.style.setProperty('--switcher-button-radius', `${buttonBorderRadius}px`);
+        }
+
+        const firstSuggestionItem = document.querySelector('.suggestion-item');
+        if (firstSuggestionItem) {
+            const itemHeight = firstSuggestionItem.offsetHeight;
+            const isAddressbar = document.body.classList.contains('addressbar');
+            const minRadius = isAddressbar ? 10 : 15;
+            const itemBorderRadius = itemHeight > 0 ? itemHeight / 2 : minRadius;
+            document.documentElement.style.setProperty('--suggestion-item-radius', `${itemBorderRadius}px`);
+        }
+    }
+
+    function syncSearchBorderRadiusSwatches() {
+        const mode = getSearchBorderRadiusMode();
+        document.querySelectorAll('.search-border-radius-swatch').forEach((btn) => {
+            const isLarge = btn.dataset.searchBorderRadius === 'large';
+            const pressed = mode === 'large' ? isLarge : !isLarge;
+            btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+        });
+    }
+
+    function refreshSearchBorderRadiusMode() {
+        const large = getSearchBorderRadiusMode() === 'large';
+        document.body.classList.toggle('search-border-radius-large', large);
+        if (large) {
+            updateBorderRadius();
+        } else {
+            clearJsBorderRadiusStyles();
+        }
+        syncSearchBorderRadiusSwatches();
+    }
+
+    refreshSearchBorderRadiusMode();
+    window.addEventListener('resize', updateBorderRadius);
+
+    document.querySelectorAll('.search-border-radius-swatch').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.searchBorderRadius === 'large' ? 'large' : 'small';
+            try {
+                localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, mode);
+            } catch (_) {}
+            refreshSearchBorderRadiusMode();
+            if (window === window.top) {
+                [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                    .filter(Boolean)
+                    .forEach((f) => {
+                        try {
+                            f.contentWindow?.postMessage({ type: 'search-border-radius-mode', mode }, '*');
+                        } catch (_) {}
+                    });
+            }
+        });
+    });
+
     const reducedMotionCheckbox = document.querySelector('.reduced-motion-checkbox');
     const suggestionsList = document.querySelector('.suggestions-list');
     const suggestionItems = document.querySelectorAll('.suggestion-item');
@@ -2175,7 +2366,7 @@ document.addEventListener('DOMContentLoaded', () => {
             (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
         );
         const labels = items.map((i) => getEngineLabel(i));
-        const sorted = [...labels].sort((a, b) => a.localeCompare(b));
+        const sorted = [...labels].sort(compareEngineLabelsAlphabetically);
         return labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
     }
 
@@ -3683,7 +3874,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 el => el.querySelector('.dropdown-engine-label')
             );
             const order = items.map(item => getEngineLabel(item));
-            if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
+            if (order.length) {
+                try {
+                    getSearchEngineOrderStorage().setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
+                } catch (_) {}
+            }
             updateReorderResetButtonState();
             updateKeyboardNumbers();
             const underlineEnabled = isUnderlineSearchEnginesEnabled();
@@ -3728,7 +3923,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const engineItems = Array.from(enginesContainerForRestore.querySelectorAll('.dropdown-item')).filter(
                 el => el.querySelector('.dropdown-engine-label')
             );
-            const savedOrder = localStorage.getItem(SEARCH_ENGINE_ORDER_KEY);
+            const savedOrder = (() => {
+                try {
+                    return getSearchEngineOrderStorage().getItem(SEARCH_ENGINE_ORDER_KEY);
+                } catch (_) {
+                    return null;
+                }
+            })();
+            let appliedSavedOrder = false;
             if (savedOrder) {
                 try {
                     const order = JSON.parse(savedOrder);
@@ -3736,6 +3938,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const ordered = order.map(label => byLabel.get(label)).filter(Boolean);
                     const rest = engineItems.filter(item => !order.includes(getEngineLabel(item)));
                     ordered.concat(rest).forEach(item => enginesContainerForRestore.appendChild(item));
+                    appliedSavedOrder = true;
                 } catch (_) {}
             }
             const storageKey = getDefaultSearchEngineStorageKeyForPage();
@@ -3802,6 +4005,11 @@ document.addEventListener('DOMContentLoaded', () => {
             sortSection.className = 'engines-sort-section';
             sortSection.hidden = true;
             enginesContainerForRestore.appendChild(sortSection);
+            if (!appliedSavedOrder) {
+                applyCanonicalSearchEngineOrder(enginesContainerForRestore, sortSection);
+            } else {
+                setEnginesSortSectionHiddenIfAlphabetical(enginesContainerForRestore, sortSection);
+            }
 
             const resetOrderBtn = document.getElementById('search-engines-reset-order-button');
             if (resetOrderBtn) {
@@ -3809,10 +4017,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.stopPropagation();
                     if (resetOrderBtn.hasAttribute('hidden')) return;
                     const items = getEngineItemsForSort();
-                    const sorted = [...items].sort((a, b) => getEngineLabel(a).localeCompare(getEngineLabel(b)));
+                    const sorted = [...items].sort((a, b) =>
+                        compareEngineLabelsAlphabetically(getEngineLabel(a), getEngineLabel(b))
+                    );
                     sorted.forEach((item) => enginesContainerForRestore.insertBefore(item, sortSection));
                     const order = sorted.map((item) => getEngineLabel(item));
-                    if (order.length) localStorage.setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
+                    if (order.length) {
+                        try {
+                            getSearchEngineOrderStorage().setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
+                        } catch (_) {}
+                    }
                     updateReorderResetButtonState();
                     updateKeyboardNumbers();
                     requestAnimationFrame(() => {
@@ -3909,35 +4123,15 @@ document.addEventListener('DOMContentLoaded', () => {
         applySearchBorderColorVariable(initial);
     }
 
-    // Handle pin default search engine checkbox (default: off)
-    const pinDefaultCheckbox = document.querySelector('.pin-default-checkbox');
-    if (pinDefaultCheckbox) {
+    // Pin default SE: prototype toggle removed; still honour localStorage (and parent postMessage in iframes).
+    {
         const savedPinDefault = localStorage.getItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY);
         if (savedPinDefault === 'true') {
-            pinDefaultCheckbox.checked = true;
             document.body.classList.add('pin-default-enabled');
         } else {
-            pinDefaultCheckbox.checked = false;
+            document.body.classList.remove('pin-default-enabled');
         }
         updateDefaultBadge();
-        pinDefaultCheckbox.addEventListener('change', (e) => {
-            const enabled = e.target.checked;
-            if (enabled) {
-                document.body.classList.add('pin-default-enabled');
-                localStorage.setItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY, 'true');
-            } else {
-                document.body.classList.remove('pin-default-enabled');
-                localStorage.setItem(PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY, 'false');
-            }
-            updateDefaultBadge();
-            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
-                .filter(Boolean)
-                .forEach(f => {
-                    try {
-                        f.contentWindow?.postMessage({ type: 'pin-default', enabled }, '*');
-                    } catch (_) {}
-                });
-        });
     }
 
     // Number of search engines: 6 vs 12 (default: 12)
@@ -4794,49 +4988,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Calculate and set border radius based on wrapper height
-    const updateBorderRadius = () => {
-        if (searchBoxWrapper && searchBoxWrapperOuter) {
-            const wrapperHeight = searchBoxWrapper.offsetHeight;
-            const borderRadius = wrapperHeight / 2;
-            const gradientBorderRadius = borderRadius + 2;
-
-            searchBoxWrapper.style.borderRadius = `${borderRadius}px`;
-            searchBoxWrapperOuter.style.borderRadius = `${borderRadius}px`;
-            document.documentElement.style.setProperty('--search-box-wrapper-radius', `${borderRadius}px`);
-
-            const outerComputedRadius = getComputedStyle(searchBoxWrapperOuter).borderRadius;
-            const innerComputedRadius = getComputedStyle(searchBoxWrapper).borderRadius;
-            
-            // The ::before element needs extra radius since it extends outward by 2px
-            document.documentElement.style.setProperty('--outer-border-radius', `${gradientBorderRadius}px`);
-        }
-        
-        // Set search-switcher-button border radius to half its height
-        const searchSwitcherBtn = document.querySelector('.search-switcher-button');
-        if (searchSwitcherBtn) {
-            const buttonHeight = searchSwitcherBtn.offsetHeight;
-            const buttonBorderRadius = buttonHeight / 2;
-            document.documentElement.style.setProperty('--switcher-button-radius', `${buttonBorderRadius}px`);
-        }
-
-        // Set suggestion items border radius to half the first item's height
-        const firstSuggestionItem = document.querySelector('.suggestion-item');
-        if (firstSuggestionItem) {
-            const itemHeight = firstSuggestionItem.offsetHeight;
-            const isAddressbar = document.body.classList.contains('addressbar');
-            const minRadius = isAddressbar ? 10 : 15;
-            const itemBorderRadius = itemHeight > 0 ? itemHeight / 2 : minRadius;
-            document.documentElement.style.setProperty('--suggestion-item-radius', `${itemBorderRadius}px`);
-        }
-    };
-    
-    // Set initial border radius
-    updateBorderRadius();
-    
-    // Update on window resize
-    window.addEventListener('resize', updateBorderRadius);
-    
     let firstHoverDone = false;
     
     // Track state for input handler
@@ -6006,6 +6157,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         BACKGROUND_SWATCH_KEY,
                         'pale_grey_background_enabled',
                         SEARCH_BORDER_COLOR_KEY,
+                        SEARCH_BORDER_RADIUS_MODE_KEY,
                         'gradient_search_border_enabled',
                         PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY,
                         UNDERLINE_SEARCH_ENGINES_ENABLED_KEY,
@@ -6019,6 +6171,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         FIREFOX_SUGGESTIONS_ENABLED_KEY,
                         'inspectSuggestions'
                     ];
+                    console.log(
+                        '[prototype-reset] started | preservedSearchHistory=' +
+                            String(preservedSearchHistory != null) +
+                            ' | clearingLocalStorageKeys=' +
+                            JSON.stringify(keysToRemove)
+                    );
                     keysToRemove.forEach((k) => {
                         try {
                             localStorage.removeItem(k);
@@ -6047,6 +6205,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         localStorage.setItem('search_history', preservedSearchHistory);
                     }
                     console.log('[CACHE] Reset prototype settings (preserved search_history)');
+                    console.log('[prototype-reset] localStorage keys cleared; default search engines set to Google (main / address bar / standalone)');
 
                     if ('caches' in window && typeof window.caches?.keys === 'function') {
                         try {
@@ -6064,24 +6223,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const enginesContainerReset = searchSwitcherButton?.querySelector('.dropdown-search-engines');
                     if (enginesContainerReset) {
                         const sortSection = enginesContainerReset.querySelector('.engines-sort-section');
-                        const anchor = sortSection || null;
-                        const byLabel = new Map();
-                        enginesContainerReset.querySelectorAll('.dropdown-item').forEach((item) => {
-                            const label = getEngineLabel(item);
-                            if (label) byLabel.set(label, item);
-                        });
-                        DEFAULT_MAIN_PAGE_ENGINE_ORDER.forEach((label) => {
-                            const item = byLabel.get(label);
-                            if (item) enginesContainerReset.insertBefore(item, anchor);
-                        });
-                        if (sortSection) {
-                            const items = Array.from(enginesContainerReset.children).filter(
-                                (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
-                            );
-                            const labels = items.map((i) => getEngineLabel(i));
-                            const sorted = [...labels].sort((a, b) => a.localeCompare(b));
-                            sortSection.hidden = labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
-                        }
+                        applyCanonicalSearchEngineOrder(enginesContainerReset, sortSection);
                         const googlePinned = enginesContainerReset.querySelector('.dropdown-item-pinned');
                         if (googlePinned) {
                             applySelectedSearchSource(googlePinned);
@@ -6089,6 +6231,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         ensureRowActions();
                         updateKeyboardNumbers();
+                        updateReorderResetButtonState();
+                        console.log(
+                            '[prototype-reset] main page search switcher engine order after DOM reset | input=' +
+                                getDefaultSearchEngineSurfaceLabel() +
+                                ' | engineListOrder=' +
+                                JSON.stringify(
+                                    getSearchEngineListOrderFromSwitcherButton(searchSwitcherButton)
+                                )
+                        );
                     }
                     syncSearchSettingsDefaultEngineSelects();
 
@@ -6096,10 +6247,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         reducedMotionCheckbox.checked = false;
                         document.body.classList.remove('reduced-motion');
                     }
-                    if (pinDefaultCheckbox) {
-                        pinDefaultCheckbox.checked = false;
-                        document.body.classList.remove('pin-default-enabled');
-                    }
+                    document.body.classList.remove('pin-default-enabled');
                     updateDefaultBadge();
 
                     document.querySelectorAll('.search-engines-count-radio').forEach((radio) => {
@@ -6129,6 +6277,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
                         btn.setAttribute('aria-pressed', bn === borderCleared ? 'true' : 'false');
                     });
+                    try {
+                        localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, 'small');
+                    } catch (_) {}
+                    refreshSearchBorderRadiusMode();
 
                     const underlineCbReset = document.querySelector('.underline-search-engines-checkbox');
                     if (underlineCbReset) underlineCbReset.checked = false;
@@ -6230,9 +6382,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     const iframeReset = document.querySelector('.addressbar-iframe');
                     const standaloneIframeReset = document.querySelector('.standalone-search-box-iframe');
                     [iframeReset, standaloneIframeReset].filter(Boolean).forEach((f) => {
+                        try {
+                            f.contentWindow?.postMessage(
+                                { type: 'clear-local-storage-key', key: SEARCH_ENGINE_ORDER_KEY },
+                                '*'
+                            );
+                        } catch (_) {}
+                    });
+                    [iframeReset, standaloneIframeReset].filter(Boolean).forEach((f) => {
                         const src = f.getAttribute('src');
                         if (src) f.src = src;
                     });
+                    console.log(
+                        '[prototype-reset] reloaded embedded search iframes (address bar / standalone). Open each switcher to log [search-switcher] with engineListOrder.'
+                    );
 
                     requestAnimationFrame(() => updateLogoPositionForSearchBar());
 
