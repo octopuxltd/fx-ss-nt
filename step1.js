@@ -1,9 +1,15 @@
 // Step 1 JavaScript
 
-/** Set to false to silence `[default-badge]` console logs */
-const DEBUG_DEFAULT_BADGE = true;
+/** Set to true to enable verbose `[default-badge]` logs (insert badge, abort reasons, etc.) */
+const DEBUG_DEFAULT_BADGE = false;
+/** Set to false to silence badge drag logs (mousedown, drag move/end, applied default). On by default. */
+const DEBUG_DEFAULT_BADGE_DRAG = true;
 function defaultBadgeLog(...args) {
     if (!DEBUG_DEFAULT_BADGE) return;
+    console.log('[default-badge]', ...args);
+}
+function defaultBadgeDragLog(...args) {
+    if (!DEBUG_DEFAULT_BADGE_DRAG) return;
     console.log('[default-badge]', ...args);
 }
 
@@ -969,7 +975,295 @@ async function fetchAISuggestions(query, retryCount = 0) {
     }
 }
 
-const DEFAULT_SEARCH_ENGINE_KEY = 'default_search_engine';
+/** Main page / New Tab row (legacy key, unchanged). */
+const DEFAULT_SEARCH_ENGINE_KEY_MAIN = 'default_search_engine';
+const DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR = 'default_search_engine:addressbar';
+const DEFAULT_SEARCH_ENGINE_KEY_STANDALONE = 'default_search_engine:standalone';
+
+/**
+ * Read default-engine keys: prefer top `localStorage` in iframes when accessible.
+ * Writes use `setDefaultSearchEngineStorageItem` — opaque `file://` iframes often cannot access
+ * `top.localStorage`, so the parent applies writes via `postMessage` and mirrors back.
+ */
+function getDefaultSearchEngineLocalStorage() {
+    try {
+        if (typeof window !== 'undefined' && window.top && window.top !== window) {
+            return window.top.localStorage;
+        }
+    } catch (_) {
+        /* cross-origin top */
+    }
+    return localStorage;
+}
+
+/**
+ * Authoritative persistence for the three default-engine keys. Embedded iframes postMessage the parent;
+ * the parent writes `localStorage` and mirrors the key/value back so iframe reads work without top access.
+ */
+function setDefaultSearchEngineStorageItem(key, value) {
+    const v = String(value);
+    if (
+        key !== DEFAULT_SEARCH_ENGINE_KEY_MAIN &&
+        key !== DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR &&
+        key !== DEFAULT_SEARCH_ENGINE_KEY_STANDALONE
+    ) {
+        return;
+    }
+    if (window !== window.top) {
+        try {
+            window.parent.postMessage({ type: 'set-default-search-engine', key, value: v }, '*');
+        } catch (_) {}
+        return;
+    }
+    try {
+        localStorage.setItem(key, v);
+    } catch (_) {}
+}
+
+/** Parent → iframe: copy parent’s three engine keys so iframe `localStorage` stays in sync for reads. */
+function pushDefaultSearchEngineKeysToIframe(contentWindow) {
+    if (!contentWindow || typeof window === 'undefined' || window !== window.top) return;
+    try {
+        const keys = {
+            [DEFAULT_SEARCH_ENGINE_KEY_MAIN]: localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN),
+            [DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR]: localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR),
+            [DEFAULT_SEARCH_ENGINE_KEY_STANDALONE]: localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE),
+        };
+        contentWindow.postMessage({ type: 'seed-default-search-engine-keys', keys }, '*');
+    } catch (_) {}
+}
+
+/**
+ * Which `localStorage` key backs the current page’s search switcher (main vs address bar iframe vs standalone iframe).
+ * Mirrors scope logic used for `search_engines_display:*`.
+ */
+function getDefaultSearchEngineStorageKeyForPage() {
+    const isAddressbar = typeof document !== 'undefined' && document.body?.classList.contains('addressbar');
+    const isStandalone = typeof document !== 'undefined' && document.body?.classList.contains('standalone-search-box');
+    if (isAddressbar && isStandalone) return DEFAULT_SEARCH_ENGINE_KEY_STANDALONE;
+    if (isAddressbar) return DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR;
+    return DEFAULT_SEARCH_ENGINE_KEY_MAIN;
+}
+
+/** Which search UI this document’s switcher controls (for logs). Not the same as storage key string. */
+function getDefaultSearchEngineSurfaceLabel() {
+    const isAddressbar = document.body?.classList.contains('addressbar');
+    const isStandalone = document.body?.classList.contains('standalone-search-box');
+    if (isAddressbar && isStandalone) return 'Standalone search box (iframe)';
+    if (isAddressbar) return 'Address bar (iframe)';
+    return 'New Tab / Homepage (main page)';
+}
+
+function getDefaultSearchEngineLabelFromStorage() {
+    const ls = getDefaultSearchEngineLocalStorage();
+    const key = getDefaultSearchEngineStorageKeyForPage();
+    const scoped = ls.getItem(key);
+    if (scoped && scoped.trim()) return scoped.trim();
+    const main = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN);
+    if (main && main.trim()) return main.trim();
+    return 'Google';
+}
+
+function setSearchSettingsEngineSelectValue(id, label) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const v = label && String(label).trim() ? String(label).trim() : 'Google';
+    const has = Array.from(sel.options).some((o) => o.value === v);
+    sel.value = has ? v : 'Google';
+}
+
+/** Iframes share `localStorage` but not `storage` events in the same tab — tell the parent to refresh the search settings matrix if it is open. */
+function notifyParentDefaultSearchEngineChanged() {
+    if (window === window.parent) return;
+    try {
+        window.parent.postMessage({ type: 'default-search-engine-changed' }, '*');
+    } catch (_) {}
+}
+
+/**
+ * Search settings matrix: main / address bar / standalone each reflect their scoped switcher.
+ * Private window column is not synced (no switcher in this prototype).
+ */
+let applyingSearchSettingsEngineSelectsSync = false;
+function syncSearchSettingsDefaultEngineSelects() {
+    applyingSearchSettingsEngineSelectsSync = true;
+    try {
+        const ls = getDefaultSearchEngineLocalStorage();
+        const main = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN) || 'Google';
+        const addr =
+            ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR) || main;
+        const standalone =
+            ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE) || main;
+        setSearchSettingsEngineSelectValue('search-settings-default-engine-new-tab', main);
+        setSearchSettingsEngineSelectValue('search-settings-default-engine-address-bar', addr);
+        setSearchSettingsEngineSelectValue('search-settings-default-engine-standalone', standalone);
+    } finally {
+        queueMicrotask(() => {
+            applyingSearchSettingsEngineSelectsSync = false;
+        });
+    }
+}
+
+/**
+ * Compare switcher pinned row vs storage (and overlay when opt-in). Search settings overlay uses
+ * `logSearchSettingsOverlayOpened()` which always logs when that modal opens.
+ * Switcher open always logs via `logSearchSwitcherOpenedDefault()`.
+ * Extra dump: `localStorage.setItem('debug_search_engine_default_sync', 'true')` then reload.
+ */
+function getPinnedEngineLabelFromSwitcherButton(buttonEl) {
+    if (!buttonEl) return null;
+    const pinned = buttonEl.querySelector('.dropdown-search-engines .dropdown-item-pinned');
+    const labelEl = pinned?.querySelector('.dropdown-engine-label');
+    const t = labelEl?.textContent?.trim();
+    return t || null;
+}
+
+function getEffectiveSearchDefaultsFromStorage() {
+    const ls = getDefaultSearchEngineLocalStorage();
+    const mainRaw = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN);
+    const main = mainRaw && mainRaw.trim() ? mainRaw.trim() : 'Google';
+    const addrRaw = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR);
+    const addr = addrRaw && addrRaw.trim() ? addrRaw.trim() : main;
+    const standRaw = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE);
+    const standalone = standRaw && standRaw.trim() ? standRaw.trim() : main;
+    return { newTab: main, addressBar: addr, standalone };
+}
+
+function getSearchSettingsOverlaySelectSnapshot() {
+    const selMain = document.getElementById('search-settings-default-engine-new-tab');
+    const selAddr = document.getElementById('search-settings-default-engine-address-bar');
+    const selStandalone = document.getElementById('search-settings-default-engine-standalone');
+    if (!selMain && !selAddr && !selStandalone) return null;
+    return {
+        newTab: selMain?.value ?? null,
+        addressBar: selAddr?.value ?? null,
+        standalone: selStandalone?.value ?? null,
+    };
+}
+
+/** Called after `syncSearchSettingsDefaultEngineSelects()` when the modal opens (main page only). Always logs — not gated by localStorage. */
+function logSearchSettingsOverlayOpened() {
+    const ls = getDefaultSearchEngineLocalStorage();
+    const rawMain = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN);
+    const rawAddr = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR);
+    const rawStandalone = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE);
+    const matrix = getEffectiveSearchDefaultsFromStorage();
+    const selects = getSearchSettingsOverlaySelectSnapshot();
+    const fmt = (v) => (v === null || v === undefined ? '(unset)' : `"${String(v)}"`);
+    // Plain strings so DevTools does not collapse the important values.
+    console.log(
+        '[search-settings] overlay opened — <select> values (three independent localStorage keys; unset scoped keys fall back to main): ' +
+            `Address bar="${selects?.addressBar ?? '?'}" | ` +
+            `New tab/homepage="${selects?.newTab ?? '?'}" | ` +
+            `Standalone="${selects?.standalone ?? '?'}"`
+    );
+    console.log(
+        '[search-settings] localStorage raw: ' +
+            `default_search_engine=${fmt(rawMain)}; ` +
+            `default_search_engine:addressbar=${fmt(rawAddr)}; ` +
+            `default_search_engine:standalone=${fmt(rawStandalone)}`
+    );
+    console.log(
+        '[search-settings] resolved matrix (same rules as sync: scoped value or fallback to main): ' +
+            `newTab=${matrix.newTab}, addressBar=${matrix.addressBar}, standalone=${matrix.standalone}`
+    );
+    if (selects && matrix) {
+        if (
+            selects.newTab !== matrix.newTab ||
+            selects.addressBar !== matrix.addressBar ||
+            selects.standalone !== matrix.standalone
+        ) {
+            console.warn('[search-settings] <select> values ≠ resolved matrix (invalid option or sync bug)', { selects, matrix });
+        }
+    }
+}
+
+/** Search settings matrix: log when a default-engine `<select>` changes (main page only). */
+function logSearchSettingsEngineSelectChanged(columnLabel, value) {
+    console.log('[search-settings] default engine changed via dropdown: ' + columnLabel + ' → "' + value + '"');
+}
+
+/** Logs whenever a search engine switcher opens (main page or iframe). Not gated by localStorage. */
+function logSearchSwitcherOpenedDefault(searchSwitcherButton) {
+    const surface = getDefaultSearchEngineSurfaceLabel();
+    const key = getDefaultSearchEngineStorageKeyForPage();
+    const pinnedLabel = getPinnedEngineLabelFromSwitcherButton(searchSwitcherButton);
+    const storageLabel = getDefaultSearchEngineLabelFromStorage();
+    console.log(
+        '[search-switcher] opened — default for this search: pinned row="' +
+            (pinnedLabel ?? '(none)') +
+            '", storage-backed="' +
+            storageLabel +
+            '" | surface=' +
+            surface +
+            ' | localStorage key=' +
+            key
+    );
+    if (pinnedLabel != null && storageLabel != null && pinnedLabel !== storageLabel) {
+        console.warn('[search-switcher] pinned row ≠ storage-backed default for this surface', {
+            pinnedLabel,
+            storageLabel,
+        });
+    }
+}
+
+function logSearchEngineDefaultSync(trigger, searchSwitcherButton) {
+    try {
+        if (typeof localStorage === 'undefined' || localStorage.getItem('debug_search_engine_default_sync') !== 'true') {
+            return;
+        }
+    } catch (_) {
+        return;
+    }
+    const surface =
+        document.body?.classList.contains('addressbar') && document.body?.classList.contains('standalone-search-box')
+            ? 'standalone-iframe'
+            : document.body?.classList.contains('addressbar')
+              ? 'address-bar-iframe'
+              : 'main-html';
+    const keyForPage = getDefaultSearchEngineStorageKeyForPage();
+    const ls = getDefaultSearchEngineLocalStorage();
+    const raw = {
+        [DEFAULT_SEARCH_ENGINE_KEY_MAIN]: ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN),
+        [DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR]: ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR),
+        [DEFAULT_SEARCH_ENGINE_KEY_STANDALONE]: ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE),
+    };
+    const matrix = getEffectiveSearchDefaultsFromStorage();
+    const thisPageFromStorage = getDefaultSearchEngineLabelFromStorage();
+    const domPinned = getPinnedEngineLabelFromSwitcherButton(searchSwitcherButton);
+    const overlay = getSearchSettingsOverlaySelectSnapshot();
+    const payload = {
+        trigger,
+        surface,
+        storageKeyForThisPage: keyForPage,
+        localStorageRaw: raw,
+        effectiveDefaults_fromLocalStorage: matrix,
+        thisPageEffective_fromStorage: thisPageFromStorage,
+        domPinnedRow_inThisSwitcher: domPinned,
+        searchSettingsOverlay_selects: overlay,
+    };
+    console.log('[search-engine-default-sync]', payload);
+    if (domPinned != null && thisPageFromStorage != null && domPinned !== thisPageFromStorage) {
+        console.warn('[search-engine-default-sync] pinned row in open switcher ≠ this page’s storage-backed default', {
+            domPinned,
+            thisPageFromStorage,
+        });
+    }
+    if (overlay) {
+        const m = matrix;
+        if (
+            overlay.newTab !== m.newTab ||
+            overlay.addressBar !== m.addressBar ||
+            overlay.standalone !== m.standalone
+        ) {
+            console.warn('[search-engine-default-sync] Search settings dropdowns ≠ localStorage matrix (after sync)', {
+                overlay,
+                matrix,
+            });
+        }
+    }
+}
+
 const SEARCH_ENGINE_ORDER_KEY = 'search_engine_order';
 const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
@@ -1065,7 +1359,6 @@ function beginSwitcherClosingShapeHoldUntilDropdownAnimation(button) {
 
 document.addEventListener('DOMContentLoaded', () => {
     let underlineSearchEnginesEnabled = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
-    const DEBUG_IFRAME_SWITCHER = true;
     const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
     document.body.classList.toggle('keyboard-switcher-numbers-enabled', keyboardSwitcherNumbersEnabled);
     const getSearchEnginesDisplayKey = () => {
@@ -1185,9 +1478,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ft = Number(e.data.frameTop);
                 if (Number.isFinite(vh) && Number.isFinite(ft)) {
                     parentViewportInfo = { viewportH: vh, frameTop: ft };
-                    if (DEBUG_IFRAME_SWITCHER) {
-                        console.log('[IFRAME SWITCHER VIEWPORT]', 'viewportH=', vh, 'frameTop=', Math.round(ft));
-                    }
                 }
             } else if (e.data?.type === 'switcher-keyboard-numbers') {
                 document.body.classList.toggle('keyboard-switcher-numbers-enabled', !!e.data.enabled);
@@ -1206,6 +1496,42 @@ document.addEventListener('DOMContentLoaded', () => {
                             closeSuggestionsPanel();
                         }
                     }
+                }
+            } else if (e.data?.type === 'mirror-default-search-engine') {
+                if (typeof e.data.key === 'string' && typeof e.data.value === 'string') {
+                    try {
+                        localStorage.setItem(e.data.key, e.data.value);
+                    } catch (_) {}
+                    queueMicrotask(() => {
+                        try {
+                            applySearchSwitcherUIFromStoredDefault();
+                        } catch (_) {}
+                    });
+                }
+            } else if (e.data?.type === 'seed-default-search-engine-keys' && e.data.keys && typeof e.data.keys === 'object') {
+                try {
+                    Object.entries(e.data.keys).forEach(([k, v]) => {
+                        if (typeof k !== 'string') return;
+                        if (v != null && String(v).trim() !== '') {
+                            localStorage.setItem(k, String(v));
+                        } else {
+                            try {
+                                localStorage.removeItem(k);
+                            } catch (_) {}
+                        }
+                    });
+                } catch (_) {}
+                /* Restore runs before parent seeds; iframe localStorage can be stale until this message. */
+                queueMicrotask(() => {
+                    try {
+                        applySearchSwitcherUIFromStoredDefault();
+                    } catch (_) {}
+                });
+            } else if (e.data?.type === 'refresh-search-engine-switcher-from-storage') {
+                if (e.data.oldEffectiveDefault !== undefined && e.data.oldEffectiveDefault !== null) {
+                    applySearchSwitcherAfterSearchSettingsChange(e.data.oldEffectiveDefault);
+                } else {
+                    applySearchSwitcherUIFromStoredDefault();
                 }
             }
         });
@@ -1303,9 +1629,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         viewportH: window.innerHeight,
                         frameTop: r.top
                     }, '*');
-                    if (DEBUG_IFRAME_SWITCHER) {
-                        console.log('[PARENT→IFRAME VIEWPORT]', iframeEl.className, 'viewportH=', window.innerHeight, 'frameTop=', Math.round(r.top));
-                    }
                 } catch (_) {}
             };
             iframes.forEach(f => {
@@ -1320,6 +1643,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (iframe) sendViewportToIframe(iframe);
             if (standaloneIframe) sendViewportToIframe(standaloneIframe);
+            if (iframe) pushDefaultSearchEngineKeysToIframe(iframe.contentWindow);
+            if (standaloneIframe) pushDefaultSearchEngineKeysToIframe(standaloneIframe.contentWindow);
         };
 
         if (iframe) {
@@ -1352,9 +1677,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else {
                                 h = Math.min(h, maxAllowed);
                             }
-                            if (DEBUG_IFRAME_SWITCHER) {
-                                console.log('[PARENT IFRAME HEIGHT]', 'addressbar', 'incoming=', e.data.height, 'open=', addressbarSwitcherOpen, 'maxAllowed=', maxAllowed, 'applied=', h);
-                            }
                         } catch (_) {}
                         iframe.style.height = h + 'px';
                         updateBandHeight(h);
@@ -1369,18 +1691,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else {
                                 h = Math.min(h, maxAllowed);
                             }
-                            if (DEBUG_IFRAME_SWITCHER) {
-                                console.log('[PARENT IFRAME HEIGHT]', 'standalone', 'incoming=', e.data.height, 'open=', standaloneSwitcherOpen, 'maxAllowed=', maxAllowed, 'applied=', h);
-                            }
                         } catch (_) {}
                         standaloneIframe.style.height = h + 'px';
                     }
                 } else if (e.data?.type === 'search-engines-display-changed') {
                     // no-op (display mode is per-search-bar now)
                 } else if (e.data?.type === 'switcher-request-viewport') {
-                    if (DEBUG_IFRAME_SWITCHER) {
-                        console.log('[IFRAME→PARENT REQUEST VIEWPORT]');
-                    }
                     const sourceWin = e.source;
                     const sourceIsAddressbar = iframe && sourceWin === iframe.contentWindow;
                     const sourceIsStandalone = standaloneIframe && sourceWin === standaloneIframe.contentWindow;
@@ -1393,9 +1709,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 viewportH: window.innerHeight,
                                 frameTop: r.top
                             }, '*');
-                            if (DEBUG_IFRAME_SWITCHER) {
-                                console.log('[PARENT→IFRAME VIEWPORT (on request)]', targetIframe.className, 'viewportH=', window.innerHeight, 'frameTop=', Math.round(r.top));
-                            }
                         } catch (_) {}
                     }
                 } else if (e.data?.type === 'switcher-open-state') {
@@ -1435,7 +1748,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         } catch (_) {}
                     }
-                    console.log('[IFRAME SWITCHER OPEN STATE]', sourceIsAddressbar ? 'addressbar' : (sourceIsStandalone ? 'standalone' : 'unknown'), 'open=', !!e.data?.open);
                 }
             };
             updateIframeSize();
@@ -2076,8 +2388,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getCurrentSearchEngineLabel() {
         const icon = searchSwitcherButton?.querySelector('.google-icon');
         if (icon?.alt) return icon.alt;
-        const saved = localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY);
-        return saved || 'Google';
+        return getDefaultSearchEngineLabelFromStorage();
     }
 
     const ENGINE_SEARCH_URLS = {
@@ -2231,6 +2542,63 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDefaultBadge();
     }
 
+    /**
+     * Re-apply pinned row + switcher chrome from `getDefaultSearchEngineLabelFromStorage()` (e.g. after badge drag / mirror).
+     */
+    function applySearchSwitcherUIFromStoredDefault() {
+        if (!searchSwitcherButton) return;
+        const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const want = getDefaultSearchEngineLabelFromStorage();
+        const visibleItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
+            (el) =>
+                el.querySelector('.dropdown-engine-label') &&
+                el.style.display !== 'none'
+        );
+        let match = visibleItems.find((item) => getEngineLabel(item) === want);
+        if (!match) {
+            match = visibleItems.find((item) => getEngineLabel(item) === 'Google') || visibleItems[0];
+        }
+        if (!match) return;
+        applySelectedSearchSource(match);
+        setPinnedEngine(match);
+    }
+
+    /** Move pin/default badge only; does not change the switcher button icon (current selection may differ from default). */
+    function applySearchSwitcherPinnedDefaultOnly() {
+        if (!searchSwitcherButton) return;
+        const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return;
+        const want = getDefaultSearchEngineLabelFromStorage();
+        const visibleItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
+            (el) =>
+                el.querySelector('.dropdown-engine-label') &&
+                el.style.display !== 'none'
+        );
+        let match = visibleItems.find((item) => getEngineLabel(item) === want);
+        if (!match) {
+            match = visibleItems.find((item) => getEngineLabel(item) === 'Google') || visibleItems[0];
+        }
+        if (!match) return;
+        setPinnedEngine(match);
+    }
+
+    /**
+     * After Search settings changed a stored default: update full switcher chrome only if the user was still
+     * showing the old default as the selected engine; otherwise only move the pinned default row.
+     * @param {string} oldEffectiveDefault — effective default for this surface before the settings write
+     */
+    function applySearchSwitcherAfterSearchSettingsChange(oldEffectiveDefault) {
+        const oldDef = String(oldEffectiveDefault || '').trim();
+        const icon = searchSwitcherButton?.querySelector('.google-icon');
+        const currentSel = (icon?.alt && String(icon.alt).trim()) ? String(icon.alt).trim() : oldDef;
+        if (currentSel === oldDef) {
+            applySearchSwitcherUIFromStoredDefault();
+        } else {
+            applySearchSwitcherPinnedDefaultOnly();
+        }
+    }
+
     function updateDefaultBadge() {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) {
@@ -2304,8 +2672,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const google = items.find(i => getEngineLabel(i) === 'Google') || items[0];
                 if (google) {
                     applySelectedSearchSource(google);
-                    localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, getEngineLabel(google));
+                    setDefaultSearchEngineStorageItem(getDefaultSearchEngineStorageKeyForPage(), getEngineLabel(google));
                     setPinnedEngine(google);
+                    syncSearchSettingsDefaultEngineSelects();
+                    notifyParentDefaultSearchEngineChanged();
                 }
             }
         }
@@ -2378,7 +2748,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
             if (!dropdown) return;
             const dropdownRect = dropdown.getBoundingClientRect();
-            const switcherRect = searchSwitcherButton.getBoundingClientRect();
             const isInIframe = window !== window.top;
             const viewportH = isInIframe && parentViewportInfo ? parentViewportInfo.viewportH : window.innerHeight;
             const frameTop = isInIframe && parentViewportInfo ? parentViewportInfo.frameTop : 0;
@@ -2388,22 +2757,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Never allow the dropdown to extend past viewport bottom.
             const clamped = Math.max(0, available);
             dropdown.style.setProperty('--switcher-dropdown-max-height', clamped + 'px');
-            if (DEBUG_IFRAME_SWITCHER && isInIframe) {
-                console.log(
-                    '[IFRAME DROPDOWN MAXHEIGHT]',
-                    'parentInfo=', !!parentViewportInfo,
-                    'viewportH=', viewportH,
-                    'frameTop=', Math.round(frameTop),
-                    'dropdownTop=', Math.round(dropdownTopInViewport),
-                    'scrollH=', Math.round(dropdown.scrollHeight),
-                    'maxPx=', clamped
-                );
-            }
         };
         // On load/reset we want the switcher scroll already at the top (no visible jump when opened).
         resetSwitcherScrollPositions();
 
-        // Log/sync metrics even when the switcher opens via keyboard or other paths.
+        // Sync inert / max-height even when the switcher opens via keyboard or other paths.
         const switcherDropdownEl = searchSwitcherButton.querySelector('.search-switcher-dropdown');
         const syncSwitcherDropdownInert = () => {
             if (!switcherDropdownEl) return;
@@ -2414,18 +2772,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
         if (typeof MutationObserver !== 'undefined') {
+            let wasSwitcherOpen = searchSwitcherButton.classList.contains('open');
             new MutationObserver(() => {
                 searchSwitcherButton.setAttribute(
                     'aria-expanded',
                     searchSwitcherButton.classList.contains('open') ? 'true' : 'false'
                 );
                 syncSwitcherDropdownInert();
-                if (searchSwitcherButton.classList.contains('open')) {
+                const nowOpen = searchSwitcherButton.classList.contains('open');
+                if (nowOpen) {
                     setSwitcherDropdownMaxHeight();
+                    /* Other classes on this node can change while already open; log only on closed → open. */
+                    if (!wasSwitcherOpen) {
+                        logSearchSwitcherOpenedDefault(searchSwitcherButton);
+                        logSearchEngineDefaultSync('search-switcher-opened', searchSwitcherButton);
+                    }
                 } else if (document.body.classList.contains('reduced-motion')) {
                     /* No max-height transition: safe to drop width immediately. */
                     switcherDropdownEl?.style.removeProperty('width');
                 }
+                wasSwitcherOpen = nowOpen;
                 /* Otherwise keep inline width until .search-switcher-dropdown transitionend (max-height). */
             }).observe(searchSwitcherButton, { attributes: true, attributeFilter: ['class'] });
 
@@ -2551,11 +2917,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     searchSwitcherButton.classList.add('switcher-suppress-hover');
                 }
-                
-                console.log('[SWITCHER CLICK] Clicked search switcher button');
-                console.log('[SWITCHER CLICK] Was open:', wasOpen, '→ Now open:', isNowOpen);
-                console.log('[SWITCHER CLICK] Search input focused?', document.activeElement === searchInput);
-                console.log('[SWITCHER CLICK] Suggestions visible?', searchContainer?.classList.contains('focused'));
             });
         }
     }
@@ -2700,9 +3061,14 @@ document.addEventListener('DOMContentLoaded', () => {
             searchSwitcherDropdown.addEventListener(
                 'mousedown',
                 (e) => {
+                    const badgeDragSurface = {
+                        surface: getDefaultSearchEngineSurfaceLabel(),
+                        writesToLocalStorageKey: getDefaultSearchEngineStorageKeyForPage(),
+                    };
                     const onPinnedRow = e.target.closest?.('.dropdown-item-pinned');
                     if (onPinnedRow) {
-                        defaultBadgeLog('mousedown on pinned row', {
+                        defaultBadgeDragLog('mousedown on pinned row', {
+                            ...badgeDragSurface,
                             target: e.target?.tagName,
                             className: e.target?.className,
                             closestDraggable: !!e.target.closest?.('.dropdown-default-badge--draggable'),
@@ -2715,11 +3081,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     const dragEl = badgeEl.querySelector('.dropdown-default-badge-drag');
                     if (!dragEl) {
-                        defaultBadgeLog('drag abort — badge has no .dropdown-default-badge-drag');
+                        defaultBadgeDragLog('drag abort — badge has no .dropdown-default-badge-drag', badgeDragSurface);
                         return;
                     }
                     if (document.body.classList.contains('pin-default-enabled')) {
-                        defaultBadgeLog('drag abort — pin-default-enabled');
+                        defaultBadgeDragLog('drag abort — pin-default-enabled', badgeDragSurface);
                         return;
                     }
                     if (!searchSwitcherButton.classList.contains('search-engines-controls-open')) {
@@ -2728,14 +3094,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
                     const pinnedItem = enginesContainer?.querySelector('.dropdown-item-pinned');
                     if (!pinnedItem || !enginesContainer || !pinnedItem.contains(badgeEl)) {
-                        defaultBadgeLog('drag abort — badge not inside pinned row / engines', {
+                        defaultBadgeDragLog('drag abort — badge not inside pinned row / engines', {
+                            ...badgeDragSurface,
                             hasPinned: !!pinnedItem,
                             hasEngines: !!enginesContainer,
                             contains: pinnedItem?.contains?.(badgeEl),
                         });
                         return;
                     }
-                    defaultBadgeLog('drag start');
+                    defaultBadgeDragLog('drag start', badgeDragSurface);
                     e.preventDefault();
                     e.stopPropagation();
                     const floatWrap = badgeEl.closest('.dropdown-default-badge-wrap');
@@ -2766,7 +3133,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const prevUserSelect = document.body.style.userSelect;
                     document.body.style.cursor = 'grabbing';
                     document.body.style.userSelect = 'none';
-                    let moveLogAt = 0;
                     let badgeDragScrollInterval = null;
                     const clearHighlight = () => {
                         enginesContainer.querySelectorAll('.dropdown-item').forEach((el) => el.classList.remove('highlighted'));
@@ -2811,19 +3177,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!window._defaultBadgeDragging) return;
                         floatWrap.style.left = `${ev.clientX - dragOffsetX}px`;
                         floatWrap.style.top = `${ev.clientY - dragOffsetY}px`;
-                        const now = performance.now();
-                        if (now - moveLogAt > 120) {
-                            moveLogAt = now;
-                            const topEl = document.elementFromPoint(ev.clientX, ev.clientY);
-                            const underItem = topEl?.closest?.('.dropdown-item');
-                            defaultBadgeLog('drag move', {
-                                x: ev.clientX,
-                                y: ev.clientY,
-                                topElTag: topEl?.tagName,
-                                topElClass: topEl?.className,
-                                underItemLabel: underItem ? getEngineLabel(underItem) : null,
-                            });
-                        }
                         highlightUnder(ev.clientX, ev.clientY);
                         const scrollEl = getEngineListScrollEl(enginesContainer);
                         if (badgeDragScrollInterval) {
@@ -2885,7 +3238,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             enginesContainer.contains(item) &&
                             item.querySelector('.dropdown-engine-label') &&
                             item !== pinnedItem;
-                        defaultBadgeLog('drag end (mouseup)', {
+                        defaultBadgeDragLog('drag end (mouseup)', {
+                            ...badgeDragSurface,
                             x: ev.clientX,
                             y: ev.clientY,
                             resolvedItem: item ? getEngineLabel(item) : null,
@@ -2895,9 +3249,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             const label = getEngineLabel(item);
                             if (label) {
                                 applySelectedSearchSource(item);
-                                localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, label);
+                                setDefaultSearchEngineStorageItem(getDefaultSearchEngineStorageKeyForPage(), label);
                                 setPinnedEngine(item);
-                                defaultBadgeLog('applied new default', label);
+                                syncSearchSettingsDefaultEngineSelects();
+                                notifyParentDefaultSearchEngineChanged();
+                                defaultBadgeDragLog('applied new default', {
+                                    ...badgeDragSurface,
+                                    engineLabel: label,
+                                });
                             } else {
                                 updateDefaultBadge();
                             }
@@ -2981,8 +3340,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         e.stopPropagation();
                         applySelectedSearchSource(item);
                         const label = getEngineLabel(item);
-                        if (label) localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY, label);
+                        if (label) setDefaultSearchEngineStorageItem(getDefaultSearchEngineStorageKeyForPage(), label);
                         setPinnedEngine(item);
+                        syncSearchSettingsDefaultEngineSelects();
+                        notifyParentDefaultSearchEngineChanged();
                         const pinnedOpen = document.body.classList.contains('switcher-outside-search-box-enabled');
                         if (!pinnedOpen) {
                             forceCloseSearchSwitcherSubPanels();
@@ -3377,8 +3738,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     ordered.concat(rest).forEach(item => enginesContainerForRestore.appendChild(item));
                 } catch (_) {}
             }
-            const savedEngine = localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY);
-            if (savedEngine) {
+            const storageKey = getDefaultSearchEngineStorageKeyForPage();
+            const lsEngine = getDefaultSearchEngineLocalStorage();
+            /* Embedded iframes that cannot read `top.localStorage` fall back to iframe `localStorage`, which can
+             * be stale vs the parent. Applying that here used to call `setDefaultSearchEngineStorageItem`,
+             * which postMessages the parent and overwrote a fresh “Google” right after Reset prototype. */
+            const iframeUsesIsolatedLocalStorage =
+                window !== window.top && lsEngine === localStorage;
+            let savedEngine = lsEngine.getItem(storageKey);
+            if (
+                (storageKey === DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR ||
+                    storageKey === DEFAULT_SEARCH_ENGINE_KEY_STANDALONE) &&
+                !savedEngine
+            ) {
+                savedEngine = lsEngine.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN);
+            }
+            if (savedEngine && !iframeUsesIsolatedLocalStorage) {
                 const reorderedItems = Array.from(enginesContainerForRestore.querySelectorAll('.dropdown-item')).filter(
                     el => el.querySelector('.dropdown-engine-label')
                 );
@@ -3386,10 +3761,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (match) {
                     applySelectedSearchSource(match);
                     setPinnedEngine(match);
+                    if (window === window.top) {
+                        try {
+                            setDefaultSearchEngineStorageItem(storageKey, savedEngine);
+                        } catch (_) {}
+                    }
                 }
+                syncSearchSettingsDefaultEngineSelects();
+            } else if (savedEngine && iframeUsesIsolatedLocalStorage) {
+                /* Do not apply stale labels or clobber parent; parent’s seed message runs next tick. */
+                syncSearchSettingsDefaultEngineSelects();
             } else {
                 const pinnedItem = enginesContainerForRestore.querySelector('.dropdown-item-pinned');
-                if (pinnedItem) applySelectedSearchSource(pinnedItem);
+                if (pinnedItem) {
+                    applySelectedSearchSource(pinnedItem);
+                    const pl = getEngineLabel(pinnedItem);
+                    if (pl && window === window.top) {
+                        try {
+                            setDefaultSearchEngineStorageItem(storageKey, pl);
+                        } catch (_) {}
+                    }
+                }
+                syncSearchSettingsDefaultEngineSelects();
+            }
+
+            if (window !== window.top) {
+                notifyParentDefaultSearchEngineChanged();
             }
 
             ensureRowActions();
@@ -3899,6 +4296,40 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const openSearchSettingsModal = () => {
         if (!searchSettingsModal) return;
+        if (window === window.top) {
+            try {
+                hideTooltip();
+            } catch (_) {}
+            if (document.activeElement?.closest?.('.bottom-left-panel')) {
+                try {
+                    document.activeElement.blur();
+                } catch (_) {}
+            }
+            closeSuggestionsPanel();
+            if (searchSwitcherButton?.classList.contains('open')) {
+                beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
+                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+                switcherHighlightedIndex = -1;
+                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+                forceCloseSearchSwitcherSubPanels();
+                searchSwitcherButton.classList.remove('open');
+            }
+            restoringFocusFromSwitcher = false;
+            closingSwitcherWithoutSuggestions = false;
+            try {
+                searchInput?.blur?.();
+            } catch (_) {}
+            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                .filter(Boolean)
+                .forEach((f) => {
+                    try {
+                        f.contentWindow?.postMessage({ type: 'close-switcher' }, '*');
+                    } catch (_) {}
+                });
+        }
+        syncSearchSettingsDefaultEngineSelects();
+        logSearchSettingsOverlayOpened();
         searchSettingsModalPreviousFocus = document.activeElement;
         searchSettingsModal.hidden = false;
         searchSettingsModal.setAttribute('aria-hidden', 'false');
@@ -3915,6 +4346,73 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeSearchSettingsModal();
             });
         });
+        const selAddr = document.getElementById('search-settings-default-engine-address-bar');
+        const selMain = document.getElementById('search-settings-default-engine-new-tab');
+        const selStandalone = document.getElementById('search-settings-default-engine-standalone');
+        const addressbarIframeForSettings = document.querySelector('.addressbar-iframe');
+        const standaloneIframeForSettings = document.querySelector('.standalone-search-box-iframe');
+        const postRefreshSearchSwitcherToIframe = (contentWindow, oldEffectiveDefault) => {
+            try {
+                contentWindow?.postMessage(
+                    {
+                        type: 'refresh-search-engine-switcher-from-storage',
+                        ...(oldEffectiveDefault !== undefined && oldEffectiveDefault !== null
+                            ? { oldEffectiveDefault: String(oldEffectiveDefault) }
+                            : {})
+                    },
+                    '*'
+                );
+            } catch (_) {}
+        };
+        const mirrorKeyToIframe = (contentWindow, key, value) => {
+            try {
+                contentWindow?.postMessage({ type: 'mirror-default-search-engine', key, value: String(value) }, '*');
+            } catch (_) {}
+        };
+        if (selAddr) {
+            selAddr.addEventListener('change', () => {
+                if (applyingSearchSettingsEngineSelectsSync) return;
+                const effBefore = getEffectiveSearchDefaultsFromStorage();
+                const oldAddrEff = effBefore.addressBar;
+                const v = selAddr.value;
+                setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR, v);
+                syncSearchSettingsDefaultEngineSelects();
+                logSearchSettingsEngineSelectChanged('Address bar', v);
+                mirrorKeyToIframe(addressbarIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR, v);
+                postRefreshSearchSwitcherToIframe(addressbarIframeForSettings?.contentWindow, oldAddrEff);
+            });
+        }
+        if (selMain) {
+            selMain.addEventListener('change', () => {
+                if (applyingSearchSettingsEngineSelectsSync) return;
+                const effBefore = getEffectiveSearchDefaultsFromStorage();
+                const oldMain = effBefore.newTab;
+                const oldAddrEff = effBefore.addressBar;
+                const oldStandEff = effBefore.standalone;
+                const v = selMain.value;
+                setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
+                syncSearchSettingsDefaultEngineSelects();
+                logSearchSettingsEngineSelectChanged('New tab / Homepage', v);
+                applySearchSwitcherAfterSearchSettingsChange(oldMain);
+                mirrorKeyToIframe(addressbarIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
+                mirrorKeyToIframe(standaloneIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
+                postRefreshSearchSwitcherToIframe(addressbarIframeForSettings?.contentWindow, oldAddrEff);
+                postRefreshSearchSwitcherToIframe(standaloneIframeForSettings?.contentWindow, oldStandEff);
+            });
+        }
+        if (selStandalone) {
+            selStandalone.addEventListener('change', () => {
+                if (applyingSearchSettingsEngineSelectsSync) return;
+                const effBefore = getEffectiveSearchDefaultsFromStorage();
+                const oldStandEff = effBefore.standalone;
+                const v = selStandalone.value;
+                setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, v);
+                syncSearchSettingsDefaultEngineSelects();
+                logSearchSettingsEngineSelectChanged('Standalone search box', v);
+                mirrorKeyToIframe(standaloneIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, v);
+                postRefreshSearchSwitcherToIframe(standaloneIframeForSettings?.contentWindow, oldStandEff);
+            });
+        }
     }
     const moreSearchSettingsButton = document.getElementById('more-search-settings-button');
     if (moreSearchSettingsButton) {
@@ -3932,8 +4430,47 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    window.addEventListener('storage', (e) => {
+        if (e.storageArea !== localStorage) return;
+        if (
+            e.key !== DEFAULT_SEARCH_ENGINE_KEY_MAIN &&
+            e.key !== DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR &&
+            e.key !== DEFAULT_SEARCH_ENGINE_KEY_STANDALONE
+        ) {
+            return;
+        }
+        syncSearchSettingsDefaultEngineSelects();
+    });
+
     if (window === window.top) {
         window.addEventListener('message', (e) => {
+            if (e.data?.type === 'set-default-search-engine') {
+                if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                const { key, value } = e.data;
+                if (typeof key !== 'string' || typeof value !== 'string') return;
+                if (
+                    key !== DEFAULT_SEARCH_ENGINE_KEY_MAIN &&
+                    key !== DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR &&
+                    key !== DEFAULT_SEARCH_ENGINE_KEY_STANDALONE
+                ) {
+                    return;
+                }
+                try {
+                    localStorage.setItem(key, value);
+                    syncSearchSettingsDefaultEngineSelects();
+                } catch (_) {}
+                try {
+                    e.source?.postMessage?.({ type: 'mirror-default-search-engine', key, value }, '*');
+                } catch (_) {}
+                return;
+            }
+            if (e.data?.type === 'default-search-engine-changed') {
+                // Same-origin iframes; do not rely on e.source === iframe.contentWindow (timing can fail).
+                if (e.origin === window.location.origin || e.origin === 'null') {
+                    syncSearchSettingsDefaultEngineSelects();
+                }
+                return;
+            }
             if (e.data?.type !== 'open-search-settings') return;
             const addressbarIframe = document.querySelector('.addressbar-iframe');
             const standaloneIframe = document.querySelector('.standalone-search-box-iframe');
@@ -3946,6 +4483,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    syncSearchSettingsDefaultEngineSelects();
+
+    try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('settings') === '1' && searchSettingsModal) {
+            openSearchSettingsModal();
+        }
+    } catch (_) {}
 
     // Switcher outside search box (lilac "This menu" control; was "Pin this menu" in the dropdown)
     const pinMenuToggle = document.getElementById('pin-menu-toggle');
@@ -5469,14 +6015,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY,
                         STANDALONE_SEARCH_BOX_VISIBLE_KEY,
                         QUICK_BUTTONS_VISIBLE_KEY,
-                        DEFAULT_SEARCH_ENGINE_KEY,
                         SEARCH_ENGINE_ORDER_KEY,
                         FIREFOX_SUGGESTIONS_ENABLED_KEY,
                         'inspectSuggestions'
                     ];
                     keysToRemove.forEach((k) => {
-                        try { localStorage.removeItem(k); } catch (_) {}
+                        try {
+                            localStorage.removeItem(k);
+                        } catch (_) {}
                     });
+                    // Explicit Google for all three surfaces (main / address bar / standalone). Removing keys
+                    // alone left nulls that iframe seed skipped, so embedded iframes could keep stale defaults.
+                    setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN, 'Google');
+                    setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR, 'Google');
+                    setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, 'Google');
 
                     // Clear cached suggestion blobs, keep history.
                     const prefixKeys = [];
@@ -5538,6 +6090,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ensureRowActions();
                         updateKeyboardNumbers();
                     }
+                    syncSearchSettingsDefaultEngineSelects();
 
                     if (reducedMotionCheckbox) {
                         reducedMotionCheckbox.checked = false;
@@ -6068,58 +6621,42 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (searchInput && searchContainer) {
         searchInput.addEventListener('focus', () => {
-            console.log('[FOCUS] Search input focused, isRestoring:', isRestoringFocus);
-            console.log('[FOCUS] Suggestions panel will show');
-            
             if (isRestoringFocus) {
-                console.log('[FOCUS] This is a restore focus - keeping transitions suppressed');
                 // Don't add focused class, it's already there
                 isRestoringFocus = false;
             }
         });
         
         searchInput.addEventListener('blur', () => {
-            console.log('[BLUR] Search input blurred');
-            console.log('[BLUR] Suggestions panel will hide');
             if (searchSwitcherButton?.classList.contains('open')) {
                 wasFocusedBeforeBlur = false;
             }
             // else: first blur handler already captured wasFocusedBeforeBlur before closeSuggestionsPanel
-            console.log('[BLUR] Was in focused state:', wasFocusedBeforeBlur);
         });
         
         window.addEventListener('blur', () => {
-            console.log('[WINDOW BLUR] Window lost focus');
             wasFocusedBeforeBlur = false;
             wasSwitcherFocusedBeforeBlur = false;
             const ae = document.activeElement;
             if (ae === searchInput) {
                 wasFocusedBeforeBlur = true;
-                console.log('[WINDOW BLUR] Search was focused, remembering state');
             } else if (searchSwitcherButton && searchSwitcherButton.contains(ae)) {
                 // Show-while-typing / pin switch lives inside the switcher subtree; focus there is not "engine switcher" UX.
                 const searchEngineListModeSelectEl = document.getElementById('search-engine-list-mode-select');
                 const focusOnSearchEngineListModeOnly =
                     searchEngineListModeSelectEl &&
                     (ae === searchEngineListModeSelectEl || searchEngineListModeSelectEl.contains(ae));
-                if (focusOnSearchEngineListModeOnly) {
-                    console.log('[WINDOW BLUR] Focus on search engine list mode select only; not remembering switcher state');
-                } else {
+                if (!focusOnSearchEngineListModeOnly) {
                     wasSwitcherFocusedBeforeBlur = true;
-                    console.log('[WINDOW BLUR] Switcher was focused, remembering state');
                 }
             }
         });
         
         window.addEventListener('focus', () => {
-            console.log('[WINDOW FOCUS] Window gained focus, was focused before?', wasFocusedBeforeBlur, 'was switcher?', wasSwitcherFocusedBeforeBlur);
-            
             if (wasSwitcherFocusedBeforeBlur && searchSwitcherButton?.classList.contains('open')) {
-                console.log('[WINDOW FOCUS] Restoring focus to switcher');
                 searchSwitcherButton.focus();
                 wasSwitcherFocusedBeforeBlur = false;
             } else if (wasFocusedBeforeBlur) {
-                console.log('[WINDOW FOCUS] Suppressing transitions and restoring focus to search');
                 isRestoringFocus = true;
                 
                 // Suppress transitions (class + inline for reliability)
@@ -6173,7 +6710,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Re-enable transitions after state is restored
                 setTimeout(() => {
-                    console.log('[WINDOW FOCUS] Re-enabling transitions');
                     searchContainer.classList.remove('restoring-focus');
                     searchContainer.style.transition = '';
                     if (suggestionsList) suggestionsList.style.transition = '';
