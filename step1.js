@@ -1023,6 +1023,7 @@ const KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY = 'keyboard_switcher_numbers_enabled
 const SEARCH_ENGINES_DISPLAY_KEY_PREFIX = 'search_engines_display';
 const TWELVE_SEARCH_ENGINES_ENABLED_KEY = 'twelve_search_engines_enabled';
 const SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY = 'switcher_outside_search_box_enabled';
+const SEARCH_ENGINE_LIST_MODE_KEY = 'search_engine_list_mode';
 
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 
@@ -1871,8 +1872,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!btn) return;
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         const alphabetical = isEngineListAlphabeticalInContainer(enginesContainer);
-        btn.disabled = alphabetical;
-        btn.setAttribute('aria-disabled', alphabetical ? 'true' : 'false');
+        if (alphabetical) {
+            btn.setAttribute('hidden', '');
+            btn.disabled = true;
+        } else {
+            btn.removeAttribute('hidden');
+            btn.disabled = false;
+        }
     }
 
     function syncDefaultBadgeDraggableState() {
@@ -1923,6 +1929,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!footer) return;
         footer.style.transition = '';
         footer.style.transform = '';
+        searchSwitcherButton?.classList.remove('search-switcher-info-panel-footer-flip');
     }
 
     /**
@@ -1988,11 +1995,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function forceCloseSearchSwitcherSubPanels() {
         const panel = document.getElementById('search-engines-controls-panel');
         const infoPanel = document.getElementById('search-switcher-info-panel');
-        const controlsShellEl = panel?.closest('.dropdown-search-controls-shell');
-        const infoShellEl = infoPanel?.closest('.dropdown-search-info-shell');
-        controlsShellEl?.classList.remove('dropdown-search-controls-shell--open');
-        infoShellEl?.classList.remove('dropdown-search-info-shell--open');
+        const subpanelsClipEl =
+            panel?.closest('.dropdown-switcher-subpanels-clip') ??
+            infoPanel?.closest('.dropdown-switcher-subpanels-clip');
+        subpanelsClipEl?.classList.remove('dropdown-switcher-subpanels-clip--open');
         searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
+        searchSwitcherButton?.classList.remove('search-switcher-info-panel-footer-flip');
         panel?.setAttribute('hidden', '');
         infoPanel?.setAttribute('hidden', '');
         document.getElementById('search-engines-controls-toggle')?.setAttribute('aria-expanded', 'false');
@@ -2453,6 +2461,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
             searchSwitcherButton.addEventListener('mousedown', (e) => {
+                // Native <select> needs default mousedown to open; preventDefault would block it.
+                if (e.target?.closest?.('select')) return;
                 e.preventDefault(); // Prevent input from blurring
             });
 
@@ -3400,7 +3410,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resetOrderBtn) {
                 resetOrderBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (resetOrderBtn.disabled) return;
+                    if (resetOrderBtn.hasAttribute('hidden')) return;
                     const items = getEngineItemsForSort();
                     const sorted = [...items].sort((a, b) => getEngineLabel(a).localeCompare(getEngineLabel(b)));
                     sorted.forEach((item) => enginesContainerForRestore.insertBefore(item, sortSection));
@@ -3584,8 +3594,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchEnginesControlsPanel = document.getElementById('search-engines-controls-panel');
     const searchSwitcherInfoToggle = document.getElementById('search-switcher-info-toggle');
     const searchSwitcherInfoPanel = document.getElementById('search-switcher-info-panel');
-    const controlsShell = searchEnginesControlsPanel?.closest('.dropdown-search-controls-shell');
-    const infoShell = searchSwitcherInfoPanel?.closest('.dropdown-search-info-shell');
+    const subpanelsClip =
+        searchEnginesControlsPanel?.closest('.dropdown-switcher-subpanels-clip') ??
+        searchSwitcherInfoPanel?.closest('.dropdown-switcher-subpanels-clip');
+
+    const syncSubpanelsClipOpen = () => {
+        if (!subpanelsClip) return;
+        const controlsOpen = searchEnginesControlsPanel && !searchEnginesControlsPanel.hasAttribute('hidden');
+        const infoOpen = searchSwitcherInfoPanel && !searchSwitcherInfoPanel.hasAttribute('hidden');
+        subpanelsClip.classList.toggle(
+            'dropdown-switcher-subpanels-clip--open',
+            !!(controlsOpen || infoOpen)
+        );
+    };
 
     const syncSearchEnginesControlsExpanded = () => {
         if (!searchEnginesControlsPanel || !searchEnginesControlsToggle) return;
@@ -3597,48 +3618,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeSearchEnginesControlsPanelInstant = () => {
         if (!searchEnginesControlsPanel || !searchEnginesControlsToggle) return;
         if (searchEnginesControlsPanel.hasAttribute('hidden')) return;
-        controlsShell?.classList.remove('dropdown-search-controls-shell--open');
-        searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
         searchEnginesControlsPanel.setAttribute('hidden', '');
         searchEnginesControlsToggle.setAttribute('aria-expanded', 'false');
+        syncSubpanelsClipOpen();
+        searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
         syncSearchEnginesControlsExpanded();
     };
 
     const closeSearchSwitcherInfoPanelInstant = () => {
         if (!searchSwitcherInfoPanel || !searchSwitcherInfoToggle) return;
         if (searchSwitcherInfoPanel.hasAttribute('hidden')) return;
-        infoShell?.classList.remove('dropdown-search-info-shell--open');
         searchSwitcherInfoPanel.setAttribute('hidden', '');
         searchSwitcherInfoToggle.setAttribute('aria-expanded', 'false');
+        syncSubpanelsClipOpen();
     };
 
     const PANEL_SLIDE_MS = 320;
 
     /** When swapping (i) ↔ controls, skip enter animation so one panel replaces the other cleanly. */
     const openSearchEnginesControlsPanelInstantSwap = () => {
-        if (!controlsShell || !searchEnginesControlsPanel) return;
+        if (!subpanelsClip || !searchEnginesControlsPanel) return;
+        clearFromFirefoxFooterFlipStyles();
+        searchSwitcherInfoPanel?.setAttribute('hidden', '');
+        searchSwitcherInfoToggle?.setAttribute('aria-expanded', 'false');
         searchEnginesControlsPanel.removeAttribute('hidden');
-        controlsShell.style.transition = 'none';
-        searchEnginesControlsPanel.style.transition = 'none';
-        controlsShell.classList.add('dropdown-search-controls-shell--open');
-        void searchEnginesControlsPanel.offsetHeight;
-        controlsShell.style.transition = '';
-        searchEnginesControlsPanel.style.transition = '';
+        searchEnginesControlsToggle?.setAttribute('aria-expanded', 'true');
+        subpanelsClip.classList.add('dropdown-switcher-subpanels-clip--open');
         syncSearchEnginesControlsExpanded();
         searchSwitcherButton?.classList.add('search-engines-controls-panel-revealed');
         syncSearchSwitcherDropdownWidth();
     };
 
     const openSearchSwitcherInfoPanelInstantSwap = () => {
-        if (!infoShell || !searchSwitcherInfoPanel) return;
+        if (!subpanelsClip || !searchSwitcherInfoPanel) return;
+        clearFromFirefoxFooterFlipStyles();
+        searchEnginesControlsPanel?.setAttribute('hidden', '');
+        searchEnginesControlsToggle?.setAttribute('aria-expanded', 'false');
         searchSwitcherInfoPanel.removeAttribute('hidden');
-        infoShell.style.transition = 'none';
-        searchSwitcherInfoPanel.style.transition = 'none';
-        infoShell.classList.add('dropdown-search-info-shell--open');
-        void searchSwitcherInfoPanel.offsetHeight;
-        infoShell.style.transition = '';
-        searchSwitcherInfoPanel.style.transition = '';
         searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
+        subpanelsClip.classList.add('dropdown-switcher-subpanels-clip--open');
+        syncSearchEnginesControlsExpanded();
+        searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
         syncSearchSwitcherDropdownWidth();
     };
 
@@ -3676,7 +3696,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (searchEnginesControlsToggle && searchEnginesControlsPanel) {
         const toggleSearchEnginesControlsPanel = () => {
-            if (!controlsShell) {
+            if (!subpanelsClip) {
                 searchEnginesControlsPanel.toggleAttribute('hidden');
                 syncSearchEnginesControlsExpanded();
                 const open = !searchEnginesControlsPanel.hasAttribute('hidden');
@@ -3689,14 +3709,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const wasInfoOpen =
                     searchSwitcherInfoPanel && !searchSwitcherInfoPanel.hasAttribute('hidden');
                 clearFromFirefoxFooterFlipStyles();
-                closeSearchSwitcherInfoPanelInstant();
                 if (wasInfoOpen) {
                     openSearchEnginesControlsPanelInstantSwap();
                     return;
                 }
+                closeSearchSwitcherInfoPanelInstant();
                 searchEnginesControlsPanel.removeAttribute('hidden');
                 requestAnimationFrame(() => {
-                    controlsShell.classList.add('dropdown-search-controls-shell--open');
+                    subpanelsClip.classList.add('dropdown-switcher-subpanels-clip--open');
                     syncSearchEnginesControlsExpanded();
                     const rm = document.body.classList.contains('reduced-motion');
                     if (rm) {
@@ -3720,7 +3740,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (wantFooterFlip) {
                 footerFlipFirstRect = footer.getBoundingClientRect();
             }
-            controlsShell.classList.remove('dropdown-search-controls-shell--open');
+            subpanelsClip.classList.remove('dropdown-switcher-subpanels-clip--open');
             searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
             searchEnginesControlsToggle.setAttribute('aria-expanded', 'false');
             if (wantFooterFlip && footerFlipFirstRect) {
@@ -3730,17 +3750,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const settle = () => {
                 if (settled) return;
                 settled = true;
-                searchEnginesControlsPanel.removeEventListener('transitionend', onTrEnd);
+                subpanelsClip.removeEventListener('transitionend', onTrEnd);
                 clearTimeout(fallbackTimer);
                 searchEnginesControlsPanel.setAttribute('hidden', '');
                 syncSearchEnginesControlsExpanded();
                 syncSearchSwitcherDropdownWidth();
             };
             const onTrEnd = (ev) => {
-                if (ev.target !== searchEnginesControlsPanel || ev.propertyName !== 'transform') return;
+                if (ev.target !== subpanelsClip || ev.propertyName !== 'grid-template-rows') return;
                 settle();
             };
-            searchEnginesControlsPanel.addEventListener('transitionend', onTrEnd);
+            subpanelsClip.addEventListener('transitionend', onTrEnd);
             const fallbackTimer = setTimeout(
                 settle,
                 document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
@@ -3761,7 +3781,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (searchSwitcherInfoToggle && searchSwitcherInfoPanel) {
         const toggleSearchSwitcherInfoPanel = () => {
-            if (!infoShell) {
+            if (!subpanelsClip) {
                 searchSwitcherInfoPanel.toggleAttribute('hidden');
                 const open = !searchSwitcherInfoPanel.hasAttribute('hidden');
                 searchSwitcherInfoToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -3769,38 +3789,55 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const opening = searchSwitcherInfoPanel.hasAttribute('hidden');
             if (opening) {
+                clearFromFirefoxFooterFlipStyles();
                 const wasControlsOpen =
                     searchEnginesControlsPanel && !searchEnginesControlsPanel.hasAttribute('hidden');
-                closeSearchEnginesControlsPanelInstant();
                 if (wasControlsOpen) {
                     openSearchSwitcherInfoPanelInstantSwap();
                     return;
                 }
+                closeSearchEnginesControlsPanelInstant();
                 searchSwitcherInfoPanel.removeAttribute('hidden');
                 requestAnimationFrame(() => {
-                    infoShell.classList.add('dropdown-search-info-shell--open');
+                    subpanelsClip.classList.add('dropdown-switcher-subpanels-clip--open');
                     searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
                     syncSearchSwitcherDropdownWidth();
                     requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
                 });
                 return;
             }
-            infoShell.classList.remove('dropdown-search-info-shell--open');
+            clearFromFirefoxFooterFlipStyles();
+            const footer = searchSwitcherButton?.querySelector('.dropdown-from-firefox-footer');
+            const wantFooterFlip =
+                footer &&
+                !document.body.classList.contains('reduced-motion') &&
+                searchSwitcherInfoPanel &&
+                !searchSwitcherInfoPanel.hasAttribute('hidden');
+            let footerFlipFirstRect = null;
+            if (wantFooterFlip) {
+                footerFlipFirstRect = footer.getBoundingClientRect();
+            }
+            subpanelsClip.classList.remove('dropdown-switcher-subpanels-clip--open');
+            searchSwitcherButton?.classList.add('search-switcher-info-panel-footer-flip');
             searchSwitcherInfoToggle.setAttribute('aria-expanded', 'false');
+            if (wantFooterFlip && footerFlipFirstRect) {
+                runFromFirefoxFooterFlipTransition(footer, footerFlipFirstRect);
+            }
             let settled = false;
             const settle = () => {
                 if (settled) return;
                 settled = true;
-                searchSwitcherInfoPanel.removeEventListener('transitionend', onTrEnd);
+                subpanelsClip.removeEventListener('transitionend', onTrEnd);
                 clearTimeout(fallbackTimer);
                 searchSwitcherInfoPanel.setAttribute('hidden', '');
+                searchSwitcherButton?.classList.remove('search-switcher-info-panel-footer-flip');
                 syncSearchSwitcherDropdownWidth();
             };
             const onTrEnd = (ev) => {
-                if (ev.target !== searchSwitcherInfoPanel || ev.propertyName !== 'transform') return;
+                if (ev.target !== subpanelsClip || ev.propertyName !== 'grid-template-rows') return;
                 settle();
             };
-            searchSwitcherInfoPanel.addEventListener('transitionend', onTrEnd);
+            subpanelsClip.addEventListener('transitionend', onTrEnd);
             const fallbackTimer = setTimeout(
                 settle,
                 document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
@@ -3910,7 +3947,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Switcher outside search box (lilac "Show while typing" toggle; was "Pin this menu" in the dropdown)
+    // Switcher outside search box (lilac "This menu" control; was "Pin this menu" in the dropdown)
     const pinMenuToggle = document.getElementById('pin-menu-toggle');
     let cancelPinMenuFlip = null;
     let pinMenuFlipSeq = 0;
@@ -3922,6 +3959,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!DEBUG_PIN_MENU) return;
         const t = typeof performance !== 'undefined' ? performance.now().toFixed(1) : String(Date.now());
         console.log(`[pin-menu +${t}ms]`, msg, detail);
+    };
+    const getSearchEngineListMode = () => {
+        try {
+            const raw = localStorage.getItem(SEARCH_ENGINE_LIST_MODE_KEY);
+            if (raw === 'closed' || raw === 'pinned-left' || raw === 'pinned-right') return raw;
+            // First run with no saved mode: default to closed (do not migrate legacy switcher to pinned-left).
+            localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, 'closed');
+            return 'closed';
+        } catch (_) {
+            return 'closed';
+        }
     };
     const applyPinnedMenuState = (on, options = {}) => {
         const enabled = !!on;
@@ -3962,9 +4010,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (icon) icon.src = enabled ? 'icons/pin-filled.svg' : 'icons/pin.svg';
             if (label) label.textContent = enabled ? 'Unpin this menu' : 'Pin this menu';
         }
-        const showWhileTypingToggle = document.getElementById('show-search-engines-while-typing-toggle');
-        if (showWhileTypingToggle) {
-            showWhileTypingToggle.setAttribute('aria-checked', enabled ? 'true' : 'false');
+        const searchEngineListModeSelectSync = document.getElementById('search-engine-list-mode-select');
+        if (searchEngineListModeSelectSync) {
+            try {
+                searchEngineListModeSelectSync.value = getSearchEngineListMode();
+            } catch (_) {}
         }
         if (!wantFlip || !btn || !firstBtnRect) {
             if (btn) {
@@ -4097,40 +4147,23 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     };
-    const showSearchEnginesWhileTypingToggle = document.getElementById('show-search-engines-while-typing-toggle');
-    if (showSearchEnginesWhileTypingToggle) {
-        const enabled = localStorage.getItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY) === 'true';
-        applyPinnedMenuState(enabled, { animate: false });
-        const togglePinnedFromSwitch = (e) => {
-            if (e.type === 'keydown') e.preventDefault();
-            e.stopPropagation();
-            const next = !document.body.classList.contains('switcher-outside-search-box-enabled');
-            const t = e.target;
-            const inputType = e.type === 'keydown' ? `keydown:${e.key}` : e.type;
-            const targetTag = t && String(t.tagName || '').toLowerCase();
-            const targetBrief = !t
-                ? 'unknown'
-                : t === showSearchEnginesWhileTypingToggle
-                  ? 'show-search-engines-while-typing-toggle (direct)'
-                  : `${targetTag}${t.id ? `#${t.id}` : ''}${t.classList?.length ? `.${[...t.classList].slice(0, 3).join('.')}` : ''}`;
-            logPinMenu('pinned switcher toggle (lilac controls)', {
-                inputType,
-                currentTarget: e.currentTarget?.id || 'show-search-engines-while-typing-toggle',
-                target: targetBrief,
-                nextOutside: next,
-                label: next ? 'will pin (outside)' : 'will unpin (inside)',
-            });
-            applyPinnedMenuState(next);
+    const applySearchEngineListMode = (mode, options = {}) => {
+        let m = mode;
+        if (m !== 'closed' && m !== 'pinned-left' && m !== 'pinned-right') m = 'closed';
+        try {
+            localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, m);
+        } catch (_) {}
+        document.body.classList.toggle('search-engine-list-mode-pinned-right', m === 'pinned-right');
+        applyPinnedMenuState(m === 'pinned-left', options);
+    };
+    const searchEngineListModeSelect = document.getElementById('search-engine-list-mode-select');
+    if (searchEngineListModeSelect) {
+        applySearchEngineListMode(getSearchEngineListMode(), { animate: false });
+        searchEngineListModeSelect.addEventListener('change', () => {
+            const next = searchEngineListModeSelect.value;
+            logPinMenu('search engine list mode select', { next });
+            applySearchEngineListMode(next, { animate: true });
             if (searchInput) searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-            try {
-                showSearchEnginesWhileTypingToggle.focus({ preventScroll: true });
-            } catch (_) {
-                showSearchEnginesWhileTypingToggle.focus();
-            }
-        };
-        showSearchEnginesWhileTypingToggle.addEventListener('click', togglePinnedFromSwitch);
-        showSearchEnginesWhileTypingToggle.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') togglePinnedFromSwitch(e);
         });
     }
 
@@ -5432,6 +5465,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         UNDERLINE_SEARCH_ENGINES_ENABLED_KEY,
                         KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY,
                         TWELVE_SEARCH_ENGINES_ENABLED_KEY,
+                        SEARCH_ENGINE_LIST_MODE_KEY,
+                        SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY,
                         STANDALONE_SEARCH_BOX_VISIBLE_KEY,
                         QUICK_BUTTONS_VISIBLE_KEY,
                         DEFAULT_SEARCH_ENGINE_KEY,
@@ -5552,13 +5587,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         document.body.classList.add('keyboard-switcher-numbers-enabled');
                     }
 
-                    if (typeof applyPinnedMenuState === 'function') {
+                    if (typeof applySearchEngineListMode === 'function') {
+                        applySearchEngineListMode('closed', { animate: false });
+                    } else if (typeof applyPinnedMenuState === 'function') {
                         applyPinnedMenuState(false, { animate: false });
                     } else {
-                        document.body.classList.remove('switcher-outside-search-box-enabled');
-                        try { localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false'); } catch (_) {}
-                        const showWhileTypingReset = document.getElementById('show-search-engines-while-typing-toggle');
-                        if (showWhileTypingReset) showWhileTypingReset.setAttribute('aria-checked', 'false');
+                        document.body.classList.remove(
+                            'switcher-outside-search-box-enabled',
+                            'search-engine-list-mode-pinned-right'
+                        );
+                        try {
+                            localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false');
+                        } catch (_) {}
+                        const selReset = document.getElementById('search-engine-list-mode-select');
+                        if (selReset) {
+                            try {
+                                selReset.value = 'closed';
+                            } catch (_) {}
+                        }
                     }
 
                     const qbtReset = document.getElementById('quick-buttons-toggle');
@@ -6052,11 +6098,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[WINDOW BLUR] Search was focused, remembering state');
             } else if (searchSwitcherButton && searchSwitcherButton.contains(ae)) {
                 // Show-while-typing / pin switch lives inside the switcher subtree; focus there is not "engine switcher" UX.
-                const showWhileTypingEl = document.getElementById('show-search-engines-while-typing-toggle');
-                const focusOnShowWhileTypingOnly =
-                    showWhileTypingEl && (ae === showWhileTypingEl || showWhileTypingEl.contains(ae));
-                if (focusOnShowWhileTypingOnly) {
-                    console.log('[WINDOW BLUR] Focus on show-while-typing toggle only; not remembering switcher state');
+                const searchEngineListModeSelectEl = document.getElementById('search-engine-list-mode-select');
+                const focusOnSearchEngineListModeOnly =
+                    searchEngineListModeSelectEl &&
+                    (ae === searchEngineListModeSelectEl || searchEngineListModeSelectEl.contains(ae));
+                if (focusOnSearchEngineListModeOnly) {
+                    console.log('[WINDOW BLUR] Focus on search engine list mode select only; not remembering switcher state');
                 } else {
                     wasSwitcherFocusedBeforeBlur = true;
                     console.log('[WINDOW BLUR] Switcher was focused, remembering state');

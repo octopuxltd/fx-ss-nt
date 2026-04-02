@@ -523,6 +523,7 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     flex-shrink: 0;
 }
 
+/* Total height 19px (1 + 17 + 1 padding) — match .search-engine-list-mode-select in controls row */
 .search-engines-display-segmented {
     display: inline-flex;
     align-items: stretch;
@@ -532,24 +533,32 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     border: none;
     flex-shrink: 0;
     cursor: pointer;
+    box-sizing: border-box;
+    min-height: 19px;
+    height: 19px;
 }
 
+/* Square hit targets so the active (white) fill reads as a circle inside the track */
 .search-engines-display-segment {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
+    width: 17px;
+    height: 17px;
+    min-width: 17px;
     min-height: 17px;
     padding: 0;
     margin: 0;
     border: none;
-    border-radius: 999px;
+    border-radius: 50%;
     background: transparent;
     cursor: pointer;
     color: inherit;
     font: inherit;
     outline: none;
     box-shadow: none;
+    flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 .search-engines-display-segment:focus-visible {
@@ -637,17 +646,46 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     opacity: 1;
 }
 
-/* Lilac controls: slides down from behind the "Search with" header row */
-.dropdown-search-controls-shell {
-    display: grid;
-    grid-template-rows: 0fr;
-    margin: 0 12px 0;
-    transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+/* One body: engines + From Firefox move with lilac/blue subpanels (single clip animation) */
+.dropdown-switcher-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
 }
 
-.dropdown-search-controls-shell.dropdown-search-controls-shell--open {
+.dropdown-switcher-subpanels-clip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 0fr;
+    margin: 0;
+    margin-bottom: 0;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    transition:
+        grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+        margin-bottom 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropdown-switcher-subpanels-clip.dropdown-switcher-subpanels-clip--open {
     grid-template-rows: 1fr;
     margin-bottom: 8px;
+}
+
+.dropdown-switcher-subpanels-clip-inner {
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.dropdown-search-controls-shell {
+    width: 100%;
+    min-width: 0;
 }
 
 .dropdown-search-controls-shell-inner {
@@ -660,59 +698,51 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 3px;
+    gap: 0;
+}
+
+/* Single controls row: space below before the action buttons */
+.dropdown-search-controls-top > .dropdown-search-controls-row {
+    padding-bottom: 6px;
+}
+.dropdown-search-controls-top > .dropdown-search-controls-row:first-child {
+    padding-top: 0;
 }
 
 .dropdown-search-controls {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
+    gap: 0;
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
     max-width: 100%;
     margin: 0;
-    padding: 8px 12px;
-    border-radius: 6px;
+    padding: 14px 12px;
+    border-radius: 0;
     background: #f4f0fb;
     border: none;
     font-size: 12px;
     font-weight: 400;
     color: #4b3a6b;
-    transform: translateY(-100%);
-    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.dropdown-search-controls-shell.dropdown-search-controls-shell--open .dropdown-search-controls {
-    transform: translateY(0);
-    /* Top-right only: tab aligns with controls icon; top-left stays rounded (no negative margin — avoids clipping TL corner in overflow:hidden shell) */
-    border-radius: 6px 0 6px 6px;
-    padding: 14px 12px 8px;
+/* Must win over `display: flex` above — otherwise [hidden] is ineffective (same specificity, author order). */
+.dropdown-search-controls[hidden] {
+    display: none !important;
 }
 
-body.reduced-motion .dropdown-search-controls-shell,
-body.reduced-motion .dropdown-search-controls-shell .dropdown-search-controls {
+body.reduced-motion .dropdown-switcher-subpanels-clip {
     transition: none;
 }
 
-/* Blue info panel: same slide pattern as lilac controls */
+/* Blue info panel: revealed by shared subpanels clip (no separate transform) */
 .dropdown-search-info-shell {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 0fr;
-    margin: 0 12px 0;
+    width: 100%;
     min-width: 0;
     box-sizing: border-box;
     align-self: stretch;
-    width: auto;
-    max-width: min(280px, calc(100vw - 48px));
-    transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.dropdown-search-info-shell.dropdown-search-info-shell--open {
-    grid-template-rows: 1fr;
-    margin-bottom: 8px;
 }
 
 .dropdown-search-info-shell-inner {
@@ -729,8 +759,8 @@ body.reduced-motion .dropdown-search-controls-shell .dropdown-search-controls {
     min-width: 0;
     max-width: 100%;
     margin: 0;
-    padding: 10px 12px;
-    border-radius: 6px;
+    padding: 14px 12px 10px;
+    border-radius: 0;
     background: #e8f0ff;
     border: none;
     font-size: 12px;
@@ -739,19 +769,10 @@ body.reduced-motion .dropdown-search-controls-shell .dropdown-search-controls {
     overflow-wrap: anywhere;
     word-break: break-word;
     overflow-x: hidden;
-    transform: translateY(-100%);
-    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.dropdown-search-info-shell.dropdown-search-info-shell--open .dropdown-search-info-panel {
-    transform: translateY(0);
-    border-radius: 6px;
-    padding: 14px 12px 10px;
-}
-
-body.reduced-motion .dropdown-search-info-shell,
-body.reduced-motion .dropdown-search-info-shell .dropdown-search-info-panel {
-    transition: none;
+.dropdown-search-info-panel[hidden] {
+    display: none !important;
 }
 
 .dropdown-search-info-panel-heading {
@@ -818,33 +839,61 @@ body.reduced-motion .dropdown-search-info-shell .dropdown-search-info-panel {
     align-items: center;
 }
 
+.dropdown-search-controls-row--switch .search-engine-list-mode-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
+.search-engine-list-mode-select {
+    padding: 0 6px;
+    margin: 0;
+    border: 1px solid rgba(75, 50, 120, 0.18);
+    border-radius: 4px;
+    background: #fff;
+    font-size: 9px;
+    font-weight: 400;
+    color: rgba(75, 50, 120, 0.75);
+    cursor: pointer;
+    box-sizing: border-box;
+    line-height: 17px;
+    min-height: 19px;
+    height: 19px;
+}
+
+.search-engine-list-mode-select:hover {
+    border-color: rgba(75, 50, 120, 0.28);
+    color: rgba(75, 50, 120, 0.85);
+}
+
+.search-engine-list-mode-select:focus {
+    outline: 2px solid rgba(0, 96, 223, 0.35);
+    outline-offset: 1px;
+}
+
 .dropdown-search-controls-row-label--wrap {
     max-width: 100%;
     line-height: 1.3;
 }
 
-.dropdown-search-controls-row--reorder {
-    align-items: center;
-}
-
-/* Divider + centered “More Search Settings” */
+/* Action row: Reset A-Z (left) + Search settings (right); no divider above */
 .dropdown-search-controls-more-settings-block {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
     margin: 0;
-    padding: 12px 0 0;
-    border-top: 1px solid rgba(75, 50, 120, 0.14);
+    padding: 6px 0 0;
 }
 
-/* Shared compact control style (Reset A-Z + More Search Settings) */
+/* Shared compact control style (Reset A-Z + More Search Settings) — 19px to match list/grid toggle + select */
 .search-engines-reset-order-button,
 .more-search-settings-button {
     flex-shrink: 0;
-    padding: 2px 6px;
+    padding: 0 6px;
     margin: 0;
     border: 1px solid rgba(75, 50, 120, 0.18);
     border-radius: 4px;
@@ -854,7 +903,9 @@ body.reduced-motion .dropdown-search-info-shell .dropdown-search-info-panel {
     color: rgba(75, 50, 120, 0.55);
     cursor: pointer;
     box-sizing: border-box;
-    line-height: 1.25;
+    line-height: 17px;
+    min-height: 19px;
+    height: 19px;
 }
 
 .search-engines-reset-order-button:hover:not(:disabled) {
@@ -872,10 +923,12 @@ body.reduced-motion .dropdown-search-info-shell .dropdown-search-info-panel {
 
 .dropdown-search-controls-row--more-settings {
     margin-top: 0;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
-    gap: 0;
+    gap: 8px;
+    flex-wrap: nowrap;
     min-height: 0;
+    width: 100%;
 }
 
 .more-search-settings-button {
@@ -886,6 +939,7 @@ body.reduced-motion .dropdown-search-info-shell .dropdown-search-info-panel {
     width: auto;
     max-width: 100%;
     white-space: nowrap;
+    margin-left: auto;
 }
 
 .more-search-settings-button:hover {
@@ -1341,10 +1395,19 @@ body.reduced-motion .dropdown-search-engines {
     background-color: #fff;
 }
 
-/* Match drag-handle reveal: footer docks with the panel when .panel-revealed is set, not merely when the panel is un-hidden, so closing can start the footer transition with the slide */
-.search-switcher-button.search-engines-controls-panel-revealed .dropdown-from-firefox-footer {
+/* Flow footer after the engine list when either sub-panel is open (not sticky in the scrollport). Lilac: .search-engines-controls-panel-revealed; blue: :has(#search-switcher-info-panel:not([hidden])). */
+.search-switcher-button.search-engines-controls-panel-revealed .dropdown-from-firefox-footer,
+.search-switcher-button:has(#search-switcher-info-panel:not([hidden])) .dropdown-from-firefox-footer {
     position: static;
     z-index: auto;
+}
+
+/* While closing Shortcuts (i), revert footer to sticky in sync with the clip collapse — matches removing .search-engines-controls-panel-revealed when closing lilac. */
+.search-switcher-button.search-switcher-info-panel-footer-flip:has(#search-switcher-info-panel:not([hidden])) .dropdown-from-firefox-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background-color: #fff;
 }
 
 .dropdown-engines-firefox-scroll::-webkit-scrollbar {
