@@ -59,6 +59,7 @@
         })();
     </script>
     <div class="search-container">
+        <div class="search-container-top-row">
         <div class="search-box-wrapper-outer">
         <div class="search-box-wrapper">
                 <div class="search-switcher-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="Choose search engine">
@@ -109,7 +110,7 @@
                                     <select id="search-engine-list-mode-select" class="search-engine-list-mode-select" aria-label="This menu" title="This menu">
                                         <option value="closed" selected>Closed when searching</option>
                                         <option value="pinned-left">Pinned left</option>
-                                        <option value="pinned-right" disabled>Pinned right</option>
+                                        <option value="pinned-right">Pinned right</option>
                                     </select>
                                 </div>
                                 </div>
@@ -232,6 +233,8 @@
                     </li>
                 </div>
             </ul>
+        </div>
+        <div class="search-switcher-pinned-right-host" hidden aria-hidden="true"></div>
         </div>
 
         <div class="one-off-buttons">

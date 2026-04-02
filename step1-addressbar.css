@@ -89,6 +89,23 @@ body.addressbar:not(.standalone-search-box) .addressbar-row .search-container {
     margin-left: clamp(48px, 9vw, 120px);
 }
 
+/*
+ * Pinned-left (switcher outside): move the whole pill right by chip width + gap, and counter-shift the chip
+ * so it stays in the same place; the field moves right instead of the chip jumping left.
+ * --addressbar-pinned-switcher-offset is set in step1.js (measured width + 12px gap).
+ */
+body.addressbar:not(.standalone-search-box).switcher-outside-search-box-enabled .addressbar-row .search-container {
+    margin-left: calc(clamp(48px, 9vw, 120px) + var(--addressbar-pinned-switcher-offset, 80px));
+}
+
+body.addressbar:not(.standalone-search-box).switcher-outside-search-box-enabled .search-box-wrapper > .search-switcher-button {
+    transform: translateX(calc(-1 * var(--addressbar-pinned-switcher-offset, 80px)));
+}
+
+body.addressbar:not(.standalone-search-box).switcher-outside-search-box-enabled .search-container.focused .search-box-wrapper > .search-switcher-button {
+    transform: translateX(calc(-150px - var(--addressbar-pinned-switcher-offset, 80px)));
+}
+
 html:has(body.addressbar),
 body.addressbar {
     background: transparent;

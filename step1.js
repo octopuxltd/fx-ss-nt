@@ -2288,6 +2288,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastTypedTextInInput = '';
     let lastHoveredItemForInput = null;
     const searchSwitcherButton = document.querySelector('.search-switcher-button');
+    const pinnedRightHost = document.querySelector('.search-switcher-pinned-right-host');
     const searchClearButton = document.querySelector('.search-clear-button');
     const searchUrlButton = document.querySelector('.search-url-button');
     const searchButton = document.querySelector('.search-button');
@@ -2297,6 +2298,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let switcherHoveredIndex = -1;
     let restoringFocusFromSwitcher = false;
     let closingSwitcherWithoutSuggestions = false;
+    /** True between mousedown and mouseup on the pinned-right engine panel (avoids premature blur close). */
+    let pinnedRightHostPointerActive = false;
 
     function restoreFocusAndOpaqueSuggestions() {
         restoringFocusFromSwitcher = true;
@@ -2336,6 +2339,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 suggestionsList.classList.remove('transitioning');
             }, closeDuration);
         }
+        refreshPinnedRightSwitcherPanel();
     }
 
     function applySelectedSearchSource(item) {
@@ -2541,19 +2545,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const dropdown = btn?.querySelector('.search-switcher-dropdown');
         const infoShell = dropdown?.querySelector('.dropdown-search-info-shell');
         const infoPanel = document.getElementById('search-switcher-info-panel');
-        if (!dropdown) return;
+        if (!dropdown) {
+            syncPinnedRightDropdownWidthFromPrimary(null);
+            return;
+        }
         if (!btn?.classList.contains('open')) {
             // Keep fixed px width until max-height collapse finishes; clearing here makes width:auto
             // reflow to a narrower intrinsic width while height still animates (iframes especially).
             if (document.body.classList.contains('reduced-motion')) {
                 dropdown.style.width = '';
             }
+            syncPinnedRightDropdownWidthFromPrimary(dropdown);
             return;
         }
         if (!infoShell) {
             void dropdown.offsetWidth;
             const w = Math.min(Math.max(dropdown.scrollWidth, 200), window.innerWidth - 24);
             dropdown.style.width = `${w}px`;
+            syncPinnedRightDropdownWidthFromPrimary(dropdown);
             return;
         }
         // While Shortcuts is open or closing, never `display:none` the info shell — that kills the slide transition.
@@ -2564,6 +2573,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const capped = Math.min(Math.max(measured, 200), window.innerWidth - 24);
             const currentPx = parseFloat(String(dropdown.style.width).replace(/px$/i, '')) || 0;
             dropdown.style.width = `${Math.max(capped, currentPx)}px`;
+            syncPinnedRightDropdownWidthFromPrimary(dropdown);
             return;
         }
         const prevDisplay = infoShell.style.display;
@@ -2574,6 +2584,7 @@ document.addEventListener('DOMContentLoaded', () => {
         void dropdown.offsetWidth;
         const capped = Math.min(Math.max(measured, 200), window.innerWidth - 24);
         dropdown.style.width = `${capped}px`;
+        syncPinnedRightDropdownWidthFromPrimary(dropdown);
     }
 
     /** Clear inline width only after vertical collapse; see syncSearchSwitcherDropdownWidth when !open. */
@@ -2589,6 +2600,333 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     registerSwitcherDropdownWidthCollapseCleanup();
+
+    let pinnedRightMutationObserver = null;
+    let pinnedRightMutationDebounce = null;
+    /** Set when controls/display/info toggles are wired (same behavior as chip dropdown, without opening it). */
+    let flipSearchEnginesDisplayModeForPinned = null;
+    let toggleSearchEnginesControlsPanelForPinned = null;
+    let toggleSearchSwitcherInfoPanelForPinned = null;
+
+    function sanitizePinnedRightCloneRoot(root) {
+        if (!root) return;
+        root.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+        root.querySelectorAll('[for]').forEach((el) => el.removeAttribute('for'));
+    }
+
+    function measurePinnedDropdownContentWidth(sourceDropdown) {
+        if (!sourceDropdown) return 200;
+        const probe = sourceDropdown.cloneNode(true);
+        probe.classList.add('search-switcher-dropdown--width-probe');
+        probe.style.cssText =
+            'position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none;max-height:none!important;overflow:visible!important;display:flex;flex-direction:column;';
+        const infoShell = probe.querySelector('.dropdown-search-info-shell');
+        const infoPanel = probe.querySelector('.dropdown-search-info-panel');
+        if (infoShell && infoPanel?.hasAttribute('hidden')) {
+            infoShell.style.display = 'none';
+        }
+        document.body.appendChild(probe);
+        void probe.offsetWidth;
+        const w = Math.min(Math.max(probe.scrollWidth, 200), window.innerWidth - 24);
+        document.body.removeChild(probe);
+        return w;
+    }
+
+    function syncPinnedRightPanelLayoutAfterAppend(cloneDd) {
+        if (!cloneDd) return;
+        const rect = cloneDd.getBoundingClientRect();
+        const bottomPadding = 8;
+        const available = Math.floor(window.innerHeight - rect.top - bottomPadding);
+        cloneDd.style.setProperty('--switcher-dropdown-max-height', `${Math.max(160, available)}px`);
+    }
+
+    function syncPinnedRightDropdownWidthFromPrimary(primaryDropdown) {
+        try {
+            if (!pinnedRightHost || pinnedRightHost.hidden) return;
+            const cloneDd = pinnedRightHost.querySelector('.search-switcher-dropdown');
+            if (!cloneDd) return;
+            const w = primaryDropdown?.style?.width;
+            if (w) cloneDd.style.width = w;
+        } catch (_) {}
+    }
+
+    function getPrimaryEngineRowByLabel(label) {
+        if (!label) return null;
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        if (!enginesContainer) return null;
+        return Array.from(enginesContainer.querySelectorAll('.dropdown-item')).find(
+            (r) => getEngineLabel(r) === label
+        );
+    }
+
+    /**
+     * Run the same actions as the chip dropdown, using shared state/DOM in the primary menu
+     * without opening the switcher chip or dispatching synthetic clicks on primary rows.
+     */
+    function handlePinnedRightPanelInteraction(tgt, e) {
+        const primaryDropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+        if (!primaryDropdown || !pinnedRightHost?.contains(tgt)) return false;
+
+        if (tgt.closest('.search-engine-list-mode-select')) {
+            return false;
+        }
+
+        const segBtn = tgt.closest('.search-engines-display-segment[data-mode]');
+        if (segBtn) {
+            if (flipSearchEnginesDisplayModeForPinned) flipSearchEnginesDisplayModeForPinned();
+            return true;
+        }
+
+        if (tgt.closest('.search-engines-controls-toggle')) {
+            if (toggleSearchEnginesControlsPanelForPinned) toggleSearchEnginesControlsPanelForPinned();
+            return true;
+        }
+        if (tgt.closest('.dropdown-label-info-icon')) {
+            if (toggleSearchSwitcherInfoPanelForPinned) toggleSearchSwitcherInfoPanelForPinned();
+            return true;
+        }
+        if (tgt.closest('.search-engines-reset-order-button')) {
+            const btn = document.getElementById('search-engines-reset-order-button');
+            if (btn && !btn.hasAttribute('hidden')) {
+                btn.click();
+            }
+            return true;
+        }
+        if (tgt.closest('.more-search-settings-button')) {
+            document.getElementById('more-search-settings-button')?.click();
+            return true;
+        }
+
+        const firefoxToggle = tgt.closest('.dropdown-firefox-toggle');
+        if (firefoxToggle) {
+            toggleFirefoxSuggestionCheckbox(firefoxToggle);
+            restoreFirefoxSuggestionsState();
+            return true;
+        }
+
+        const openNewTabBtn = tgt.closest('.dropdown-item-open-new-window');
+        if (openNewTabBtn) {
+            const row = openNewTabBtn.closest('.dropdown-item');
+            const label = row ? getEngineLabel(row) : '';
+            const query = (searchInput?.value || '').trim();
+            if (label && query) {
+                runSearchWithEngine(query, label, false);
+            }
+            switcherHighlightedIndex = -1;
+            searchSwitcherButton?.querySelectorAll('.dropdown-item').forEach((i) => i.classList.remove('highlighted'));
+            if (searchContainer?.classList.contains('focused')) restoreFocusAndOpaqueSuggestions();
+            return true;
+        }
+
+        const pinEl = tgt.closest('.dropdown-item-pin-empty, .dropdown-item-pin');
+        if (pinEl) {
+            const row = pinEl.closest('.dropdown-item');
+            const label = getEngineLabel(row);
+            const primaryRow = label ? getPrimaryEngineRowByLabel(label) : null;
+            if (primaryRow && primaryRow.querySelector('.dropdown-engine-label') && document.body.classList.contains('pin-default-enabled')) {
+                applySelectedSearchSource(primaryRow);
+                if (label) setDefaultSearchEngineStorageItem(getDefaultSearchEngineStorageKeyForPage(), label);
+                setPinnedEngine(primaryRow);
+                syncSearchSettingsDefaultEngineSelects();
+                notifyParentDefaultSearchEngineChanged();
+                switcherHighlightedIndex = -1;
+                searchSwitcherButton?.querySelectorAll('.dropdown-item').forEach((i) => i.classList.remove('highlighted'));
+                if (searchContainer?.classList.contains('focused')) restoreFocusAndOpaqueSuggestions();
+                return true;
+            }
+        }
+
+        const item = tgt.closest('.dropdown-item');
+        if (item) {
+            if (item.id === 'quick-buttons-toggle') return false;
+            if (item.closest('.dropdown-item-firefox-suggestion') && !tgt.closest('.dropdown-firefox-toggle')) {
+                return false;
+            }
+            const query = (searchInput?.value || '').trim();
+            const isEngineItem = !!item.querySelector('.dropdown-engine-label');
+            const label = getEngineLabel(item);
+            let primaryRow = label ? getPrimaryEngineRowByLabel(label) : null;
+            if (!primaryRow && item.classList.contains('dropdown-item-pinned')) {
+                primaryRow = primaryDropdown.querySelector('.dropdown-item-pinned');
+            }
+            if (!primaryRow) {
+                return false;
+            }
+            const openInBackground = e && (e.metaKey || e.ctrlKey) && isEngineItem && !!query;
+            if (openInBackground) {
+                runSearchWithEngine(query, getEngineLabel(primaryRow), false);
+            } else {
+                applySelectedSearchSource(primaryRow);
+                if (isEngineItem && query) {
+                    runSearchWithEngine(query, getEngineLabel(primaryRow), true);
+                }
+            }
+            switcherHighlightedIndex = -1;
+            searchSwitcherButton?.querySelectorAll('.dropdown-item').forEach((i) => i.classList.remove('highlighted'));
+            if (searchContainer?.classList.contains('focused')) {
+                restoreFocusAndOpaqueSuggestions();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function onPinnedRightHostClickCapture(e) {
+        if (!pinnedRightHost || pinnedRightHost.hidden || !pinnedRightHost.contains(e.target)) return;
+        if (!document.body.classList.contains('search-engine-list-mode-pinned-right')) return;
+        const interactive = e.target.closest(
+            'button, [role="button"], .dropdown-item, .dropdown-firefox-toggle, select, .search-engines-display-segment[data-mode]'
+        );
+        if (!interactive || !pinnedRightHost.contains(interactive)) return;
+        if (handlePinnedRightPanelInteraction(e.target, e)) {
+            e.preventDefault();
+            e.stopPropagation();
+            requestAnimationFrame(() => refreshPinnedRightSwitcherPanel());
+        }
+    }
+
+    function onPinnedRightHostChangeCapture(e) {
+        if (!pinnedRightHost || pinnedRightHost.hidden || !pinnedRightHost.contains(e.target)) return;
+        const sel = e.target.closest('.search-engine-list-mode-select');
+        if (!sel) return;
+        const primary = document.getElementById('search-engine-list-mode-select');
+        if (!primary || sel === primary) return;
+        e.stopPropagation();
+        if (sel.value !== primary.value) {
+            primary.value = sel.value;
+            primary.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
+    function onPinnedRightHostMouseDownCapture(e) {
+        if (!pinnedRightHost || pinnedRightHost.hidden || !pinnedRightHost.contains(e.target)) return;
+        if (!document.body.classList.contains('search-engine-list-mode-pinned-right')) return;
+        if (e.button === 0) {
+            pinnedRightHostPointerActive = true;
+        }
+        const handle = e.target.closest('.dropdown-item-drag-handle');
+        if (handle) {
+            const item = handle.closest('.dropdown-item');
+            const label = getEngineLabel(item);
+            const primaryRow = Array.from(
+                searchSwitcherButton?.querySelectorAll('.dropdown-search-engines .dropdown-item') || []
+            ).find((r) => getEngineLabel(r) === label);
+            const primaryHandle = primaryRow?.querySelector('.dropdown-item-drag-handle');
+            if (primaryHandle) {
+                e.preventDefault();
+                e.stopPropagation();
+                primaryHandle.dispatchEvent(
+                    new MouseEvent('mousedown', {
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                        button: e.button,
+                        buttons: e.buttons,
+                    })
+                );
+                requestAnimationFrame(() => refreshPinnedRightSwitcherPanel());
+            }
+            return;
+        }
+        const badge = e.target.closest('.dropdown-default-badge--draggable');
+        if (badge) {
+            const primaryBadge = searchSwitcherButton?.querySelector(
+                '.dropdown-item-pinned .dropdown-default-badge--draggable'
+            );
+            if (primaryBadge) {
+                e.preventDefault();
+                e.stopPropagation();
+                primaryBadge.dispatchEvent(
+                    new MouseEvent('mousedown', {
+                        bubbles: true,
+                        cancelable: true,
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                        button: e.button,
+                        buttons: e.buttons,
+                    })
+                );
+            }
+        }
+    }
+
+    function ensurePinnedRightMutationObserver() {
+        if (pinnedRightMutationObserver || !searchSwitcherButton) return;
+        const sd = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        if (!sd) return;
+        pinnedRightMutationObserver = new MutationObserver(() => {
+            if (
+                !document.body.classList.contains('search-engine-list-mode-pinned-right') ||
+                !searchContainer?.classList.contains('focused')
+            ) {
+                return;
+            }
+            clearTimeout(pinnedRightMutationDebounce);
+            pinnedRightMutationDebounce = setTimeout(() => {
+                refreshPinnedRightSwitcherPanel();
+            }, 80);
+        });
+        pinnedRightMutationObserver.observe(sd, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['hidden', 'class', 'style'],
+        });
+    }
+
+    function refreshPinnedRightSwitcherPanel() {
+        if (!pinnedRightHost || !searchSwitcherButton) return;
+        const show =
+            document.body.classList.contains('search-engine-list-mode-pinned-right') &&
+            searchContainer?.classList.contains('focused');
+        if (!show) {
+            pinnedRightHost.hidden = true;
+            pinnedRightHost.innerHTML = '';
+            return;
+        }
+        pinnedRightHost.hidden = false;
+        pinnedRightHost.setAttribute('aria-hidden', 'true');
+        const source = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        if (!source) return;
+        const clone = source.cloneNode(true);
+        clone.classList.add('search-switcher-dropdown--pinned-right');
+        sanitizePinnedRightCloneRoot(clone);
+        pinnedRightHost.replaceChildren(clone);
+        ensurePinnedRightMutationObserver();
+        syncPinnedRightPanelLayoutAfterAppend(clone);
+        try {
+            const pw = source.style.width;
+            if (pw) {
+                clone.style.width = pw;
+            } else {
+                clone.style.width = `${measurePinnedDropdownContentWidth(source)}px`;
+            }
+        } catch (_) {}
+        requestAnimationFrame(() => {
+            syncPinnedRightPanelLayoutAfterAppend(clone);
+            syncPinnedRightDropdownWidthFromPrimary(source);
+        });
+    }
+
+    function installPinnedRightForwardingOnce() {
+        if (!pinnedRightHost || pinnedRightHost.dataset.pinnedForwardInstalled) return;
+        pinnedRightHost.dataset.pinnedForwardInstalled = '1';
+        pinnedRightHost.addEventListener('click', onPinnedRightHostClickCapture, true);
+        pinnedRightHost.addEventListener('change', onPinnedRightHostChangeCapture, true);
+        pinnedRightHost.addEventListener('mousedown', onPinnedRightHostMouseDownCapture, true);
+        if (!window.__pinnedRightPointerBlurGuardInstalled) {
+            window.__pinnedRightPointerBlurGuardInstalled = true;
+            const clearPinnedRightPointer = () => {
+                pinnedRightHostPointerActive = false;
+            };
+            document.addEventListener('mouseup', clearPinnedRightPointer, true);
+            document.addEventListener('pointerup', clearPinnedRightPointer, true);
+            document.addEventListener('pointercancel', clearPinnedRightPointer, true);
+            window.addEventListener('blur', clearPinnedRightPointer);
+        }
+    }
+    installPinnedRightForwardingOnce();
 
     /** When the search switcher dropdown closes, fully settle info + controls sub-panels (not mid-animation). */
     function forceCloseSearchSwitcherSubPanels() {
@@ -3270,7 +3608,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('mousedown', (e) => {
             if (searchSwitcherButton?.classList.contains('open') &&
                 e.target.closest('.search-container') &&
-                !e.target.closest('.search-switcher-button')) {
+                !e.target.closest('.search-switcher-button') &&
+                !e.target.closest('.search-switcher-pinned-right-host')) {
                 if (searchContainer?.classList.contains('focused')) {
                     restoringFocusFromSwitcher = true;
                 } else {
@@ -3310,6 +3649,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // Prototype options live only on the main page; keep switcher open while changing settings.
             if (window === window.top && e.target.closest?.('.bottom-left-panel')) {
+                return;
+            }
+            if (e.target.closest?.('.search-switcher-pinned-right-host')) {
                 return;
             }
             if (!e.target.closest('.search-switcher-button')) {
@@ -4261,6 +4603,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem(getSearchEnginesDisplayKey(), next);
             applySearchEnginesDisplayMode(next);
         };
+        flipSearchEnginesDisplayModeForPinned = flipSearchEnginesDisplayMode;
         searchEnginesDisplayToggle.addEventListener('click', (e) => {
             e.stopPropagation();
             flipSearchEnginesDisplayMode();
@@ -4450,6 +4793,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
             );
         };
+        toggleSearchEnginesControlsPanelForPinned = toggleSearchEnginesControlsPanel;
         searchEnginesControlsToggle.addEventListener('click', (e) => {
             e.stopPropagation();
             toggleSearchEnginesControlsPanel();
@@ -4527,6 +4871,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
             );
         };
+        toggleSearchSwitcherInfoPanelForPinned = toggleSearchSwitcherInfoPanel;
         searchSwitcherInfoToggle.addEventListener('click', (e) => {
             e.stopPropagation();
             toggleSearchSwitcherInfoPanel();
@@ -4841,6 +5186,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return 'closed';
         }
     };
+    /** Address bar iframe: shift the pill right when pinned outside, and counter-shift the chip so it stays put. */
+    const syncAddressbarPinnedSwitcherOffset = () => {
+        const isAddressbar = document.body.classList.contains('addressbar');
+        const isStandaloneIframe = document.body.classList.contains('standalone-search-box');
+        const outside = document.body.classList.contains('switcher-outside-search-box-enabled');
+        if (isAddressbar && !isStandaloneIframe && outside && searchSwitcherButton) {
+            const gap = 12;
+            const w = Math.round(searchSwitcherButton.offsetWidth + gap);
+            document.documentElement.style.setProperty('--addressbar-pinned-switcher-offset', `${w}px`);
+        } else {
+            document.documentElement.style.removeProperty('--addressbar-pinned-switcher-offset');
+        }
+    };
     const applyPinnedMenuState = (on, options = {}) => {
         const enabled = !!on;
         const wantFlip = options.animate !== false && !document.body.classList.contains('reduced-motion');
@@ -4886,6 +5244,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchEngineListModeSelectSync.value = getSearchEngineListMode();
             } catch (_) {}
         }
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                try {
+                    syncAddressbarPinnedSwitcherOffset();
+                } catch (_) {}
+            });
+        });
         if (!wantFlip || !btn || !firstBtnRect) {
             if (btn) {
                 const reason = !wantFlip
@@ -5025,6 +5390,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {}
         document.body.classList.toggle('search-engine-list-mode-pinned-right', m === 'pinned-right');
         applyPinnedMenuState(m === 'pinned-left', options);
+        refreshPinnedRightSwitcherPanel();
     };
     const searchEngineListModeSelect = document.getElementById('search-engine-list-mode-select');
     if (searchEngineListModeSelect) {
@@ -5036,6 +5402,38 @@ document.addEventListener('DOMContentLoaded', () => {
             if (searchInput) searchInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
     }
+
+    if (window !== window.top) {
+        window.addEventListener('message', (e) => {
+            if (e.data?.type !== 'search-engine-list-mode') return;
+            const m = e.data.mode;
+            if (m !== 'closed' && m !== 'pinned-left' && m !== 'pinned-right') return;
+            applySearchEngineListMode(m, { animate: false });
+        });
+    }
+
+    let addressbarPinnedResizeScheduled = false;
+    window.addEventListener('resize', () => {
+        if (!document.body.classList.contains('addressbar') || document.body.classList.contains('standalone-search-box')) return;
+        if (!document.body.classList.contains('switcher-outside-search-box-enabled')) return;
+        if (addressbarPinnedResizeScheduled) return;
+        addressbarPinnedResizeScheduled = true;
+        requestAnimationFrame(() => {
+            addressbarPinnedResizeScheduled = false;
+            try {
+                syncAddressbarPinnedSwitcherOffset();
+            } catch (_) {}
+        });
+    });
+
+    window.addEventListener('resize', () => {
+        try {
+            if (pinnedRightHost && !pinnedRightHost.hidden) {
+                const dd = pinnedRightHost.querySelector('.search-switcher-dropdown');
+                if (dd) syncPinnedRightPanelLayoutAfterAppend(dd);
+            }
+        } catch (_) {}
+    });
 
     // Handle background colour swatches
     const backgroundSwatches = document.querySelectorAll('.background-swatch');
@@ -6141,11 +6539,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchContainer.classList.add('focused');
                 if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
                 requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
+                refreshPinnedRightSwitcherPanel();
                 return;
             }
             if (closingSwitcherWithoutSuggestions) {
                 closingSwitcherWithoutSuggestions = false;
                 searchInput?.blur();
+                refreshPinnedRightSwitcherPanel();
                 return;
             }
             if (isRestoringFocus) {
@@ -6153,6 +6553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchContainer.classList.add('focused');
                 if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
                 requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
+                refreshPinnedRightSwitcherPanel();
                 return;
             }
             // Add focused class to expand width
@@ -6169,6 +6570,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (inLocalSourceMode && inputEmpty) {
                 suggestionsList?.classList.add('suggestions-suppress-until-typed');
                 updateSuggestions([]);
+                refreshPinnedRightSwitcherPanel();
                 return;
             }
             suggestionsList?.classList.remove('suggestions-suppress-until-typed');
@@ -6234,10 +6636,15 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 autoOpenedSwitcherOnFocus = false;
             }
+            refreshPinnedRightSwitcherPanel();
         });
         
-        searchInput.addEventListener('blur', () => {
+        searchInput.addEventListener('blur', (e) => {
             if (inspectSuggestions) return;
+            // Pinned-right panel is beside the pill; focus moves into it on click — not "left search".
+            if (e.relatedTarget?.closest?.('.search-switcher-pinned-right-host')) {
+                return;
+            }
             // If the switcher was auto-opened for the outside-of-box mode, close it on blur.
             if (autoOpenedSwitcherOnFocus && searchSwitcherButton?.classList.contains('open')) {
                 const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
@@ -6254,13 +6661,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // Capture focused state before closeSuggestionsPanel removes it (for window blur restore)
             wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
             setTimeout(() => {
-                if (window.__prototypeOptionsBlurSuppressUntil && Date.now() < window.__prototypeOptionsBlurSuppressUntil) {
-                    return;
-                }
-                if (document.activeElement?.closest?.('.bottom-left-panel')) {
-                    return;
-                }
-                closeSuggestionsPanel();
+                requestAnimationFrame(() => {
+                    if (window.__prototypeOptionsBlurSuppressUntil && Date.now() < window.__prototypeOptionsBlurSuppressUntil) {
+                        return;
+                    }
+                    if (document.activeElement?.closest?.('.bottom-left-panel')) {
+                        return;
+                    }
+                    if (document.activeElement?.closest?.('.search-switcher-pinned-right-host')) {
+                        return;
+                    }
+                    if (pinnedRightHostPointerActive) {
+                        return;
+                    }
+                    closeSuggestionsPanel();
+                });
             }, 0);
         });
         
@@ -6314,6 +6729,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             localStorage.removeItem(k);
                         } catch (_) {}
                     });
+                    try {
+                        localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, 'closed');
+                        localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false');
+                    } catch (_) {}
                     // Explicit Google for all three surfaces (main / address bar / standalone). Removing keys
                     // alone left nulls that iframe seed skipped, so embedded iframes could keep stale defaults.
                     setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN, 'Google');
@@ -6424,25 +6843,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         document.body.classList.add('keyboard-switcher-numbers-enabled');
                     }
 
-                    if (typeof applySearchEngineListMode === 'function') {
-                        applySearchEngineListMode('closed', { animate: false });
-                    } else if (typeof applyPinnedMenuState === 'function') {
-                        applyPinnedMenuState(false, { animate: false });
-                    } else {
-                        document.body.classList.remove(
-                            'switcher-outside-search-box-enabled',
-                            'search-engine-list-mode-pinned-right'
-                        );
-                        try {
-                            localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false');
-                        } catch (_) {}
-                        const selReset = document.getElementById('search-engine-list-mode-select');
-                        if (selReset) {
-                            try {
-                                selReset.value = 'closed';
-                            } catch (_) {}
-                        }
-                    }
+                    applySearchEngineListMode('closed', { animate: false });
 
                     const qbtReset = document.getElementById('quick-buttons-toggle');
                     if (qbtReset) {
@@ -6519,6 +6920,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 { type: 'clear-local-storage-key', key: SEARCH_ENGINE_ORDER_KEY },
                                 '*'
                             );
+                            f.contentWindow?.postMessage({ type: 'search-engine-list-mode', mode: 'closed' }, '*');
                         } catch (_) {}
                     });
                     [iframeReset, standaloneIframeReset].filter(Boolean).forEach((f) => {

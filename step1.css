@@ -380,6 +380,43 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     opacity: 1;
 }
 
+/* Pinned-right panel is absolutely positioned so it does not steal width from the search card. */
+.search-container-top-row {
+    position: relative;
+    width: 100%;
+}
+
+.search-container-top-row > .search-box-wrapper-outer {
+    width: 100%;
+    min-width: 0;
+}
+
+.search-switcher-pinned-right-host:not([hidden]) {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    margin-left: 12px;
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    max-width: min(360px, 45vw);
+    z-index: 5;
+}
+
+.search-switcher-pinned-right-host .search-switcher-dropdown.search-switcher-dropdown--pinned-right {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    max-height: var(--switcher-dropdown-max-height, 600px);
+    min-width: 0;
+    width: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: var(--switcher-button-radius, 7px);
+    overflow: hidden;
+    transition: none;
+}
+
 .search-box-wrapper {
     display: flex;
     align-items: center;
@@ -985,12 +1022,14 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     max-width: 100%;
     white-space: nowrap;
     margin-left: auto;
+    /* Same label colour as .search-engine-list-mode-select (“Closed when searching”, etc.) */
+    color: rgba(75, 50, 120, 0.75);
 }
 
 .more-search-settings-button:hover {
     background: rgba(255, 255, 255, 0.95);
     border-color: rgba(75, 50, 120, 0.28);
-    color: rgba(75, 50, 120, 0.7);
+    color: rgba(75, 50, 120, 0.85);
 }
 
 .more-search-settings-button:focus-visible {
