@@ -18,6 +18,10 @@
     --color-white-66: rgba(255, 255, 255, 0.66);
     --color-white-90: rgba(255, 255, 255, 0.9);
     --search-border-ring-color: #BBA0FF;
+    /* Slower than open (0.25s) so collapse feels deliberate; toggled via .switcher-dropdown--closing in step1.js */
+    --switcher-dropdown-close-max-height-duration: 0.55s;
+    /* ease-out on max-height collapses most height at the start (list zips away) and only the top/header lingers; linear keeps the whole panel moving at one rate */
+    --switcher-dropdown-close-max-height-easing: linear;
 }
 
 * {
@@ -416,6 +420,11 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     transition: max-height 0.25s ease-out;
     display: flex;
     flex-direction: column;
+}
+
+.search-switcher-dropdown.switcher-dropdown--closing {
+    transition: max-height var(--switcher-dropdown-close-max-height-duration, 0.55s)
+        var(--switcher-dropdown-close-max-height-easing, linear);
 }
 
 .dropdown-content {

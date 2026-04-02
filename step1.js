@@ -1027,7 +1027,8 @@ const SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY = 'switcher_outside_search_box_ena
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 
 /**
- * Search switcher close animation: the dropdown collapses with `max-height` (~250ms). Removing
+ * Search switcher close animation: the dropdown collapses with `max-height` (~550ms when not reduced motion;
+ * open uses 250ms). Removing
  * `.open` immediately reapplies the full pill border-radius on the button while the panel is
  * still visible, so the bottom corners look wrong. Class `.switcher-closing` keeps the same
  * flat-bottom "tab" shape as `.open` until the dropdown fires `transitionend` for `max-height`
@@ -1039,12 +1040,17 @@ const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 function beginSwitcherClosingShapeHoldUntilDropdownAnimation(button) {
     if (!button) return;
     const dropdown = button.querySelector('.search-switcher-dropdown');
+    /* Click path adds this before .open is removed; other paths call us while still open. */
+    if (button.classList.contains('open')) {
+        dropdown?.classList.add('switcher-dropdown--closing');
+    }
     button.classList.add('switcher-closing');
     let cleanedUp = false;
     const cleanup = () => {
         if (cleanedUp) return;
         cleanedUp = true;
         button.classList.remove('switcher-closing');
+        dropdown?.classList.remove('switcher-dropdown--closing');
         if (dropdown) dropdown.removeEventListener('transitionend', onClosed);
     };
     const onClosed = (ev) => {
@@ -1052,7 +1058,8 @@ function beginSwitcherClosingShapeHoldUntilDropdownAnimation(button) {
         cleanup();
     };
     if (dropdown) dropdown.addEventListener('transitionend', onClosed);
-    setTimeout(cleanup, document.body.classList.contains('reduced-motion') ? 0 : 250);
+    const closeMs = document.body.classList.contains('reduced-motion') ? 0 : 560;
+    setTimeout(cleanup, closeMs);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1209,13 +1216,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const switcherButton = container.querySelector('.search-switcher-button');
             const dropdown = switcherButton?.querySelector('.search-switcher-dropdown');
             const dropdownOpen = !!(switcherButton?.classList.contains('open'));
-            const dropdownRevealed = !!(dropdown?.classList.contains('dropdown-revealed'));
-            let dropdownRect = null;
-            let fullDropdownBottom = null;
+            const dropdownClosing = !!(dropdown?.classList.contains('switcher-dropdown--closing'));
+            /* Dropdown is position:absolute — it does not grow .search-container height. When open we add
+             * full scrollHeight; when closing, .open is gone immediately but max-height still animates, so
+             * we must use the dropdown's current painted rect or the iframe collapses before the panel. */
             if (dropdownOpen && dropdown) {
-                dropdownRect = dropdown.getBoundingClientRect();
-                fullDropdownBottom = dropdownRect.top + dropdown.scrollHeight;
+                const dropdownRect = dropdown.getBoundingClientRect();
+                const fullDropdownBottom = dropdownRect.top + dropdown.scrollHeight;
                 bottom = Math.max(bottom, fullDropdownBottom);
+            } else if (dropdownClosing && dropdown) {
+                const dropdownRect = dropdown.getBoundingClientRect();
+                if (dropdownRect.height > 0) {
+                    bottom = Math.max(bottom, dropdownRect.bottom);
+                }
             }
 
             const h = bottom + 4;
@@ -1248,11 +1261,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (switcherButton.classList.contains('open')) {
                     scheduleHeightReports();
                 } else {
-                    const closeDelay = document.body.classList.contains('reduced-motion') ? 0 : 250;
+                    const closeDelay = document.body.classList.contains('reduced-motion') ? 0 : 560;
                     setTimeout(scheduleHeightReports, closeDelay);
                 }
             });
             switcherObserver.observe(switcherButton, { attributes: true, attributeFilter: ['class'] });
+        }
+        const switcherDropdownForResize = container?.querySelector('.search-switcher-dropdown');
+        if (switcherDropdownForResize) {
+            if (typeof ResizeObserver !== 'undefined') {
+                new ResizeObserver(scheduleHeightReports).observe(switcherDropdownForResize);
+            }
+            new MutationObserver(() => scheduleHeightReports()).observe(switcherDropdownForResize, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
         }
     } else {
         const iframe = document.querySelector('.addressbar-iframe');
@@ -1914,7 +1937,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const infoPanel = document.getElementById('search-switcher-info-panel');
         if (!dropdown) return;
         if (!btn?.classList.contains('open')) {
-            dropdown.style.width = '';
+            // Keep fixed px width until max-height collapse finishes; clearing here makes width:auto
+            // reflow to a narrower intrinsic width while height still animates (iframes especially).
+            if (document.body.classList.contains('reduced-motion')) {
+                dropdown.style.width = '';
+            }
             return;
         }
         if (!infoShell) {
@@ -1942,6 +1969,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const capped = Math.min(Math.max(measured, 200), window.innerWidth - 24);
         dropdown.style.width = `${capped}px`;
     }
+
+    /** Clear inline width only after vertical collapse; see syncSearchSwitcherDropdownWidth when !open. */
+    function registerSwitcherDropdownWidthCollapseCleanup() {
+        const dropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+        if (!dropdown || dropdown.dataset.switcherWidthCollapseCleanup) return;
+        dropdown.dataset.switcherWidthCollapseCleanup = '1';
+        dropdown.addEventListener('transitionend', (e) => {
+            if (e.target !== dropdown || e.propertyName !== 'max-height') return;
+            if (!searchSwitcherButton?.classList.contains('open')) {
+                dropdown.style.width = '';
+            }
+        });
+    }
+    registerSwitcherDropdownWidthCollapseCleanup();
 
     /** When the search switcher dropdown closes, fully settle info + controls sub-panels (not mid-animation). */
     function forceCloseSearchSwitcherSubPanels() {
@@ -2373,9 +2414,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 syncSwitcherDropdownInert();
                 if (searchSwitcherButton.classList.contains('open')) {
                     setSwitcherDropdownMaxHeight();
-                } else {
+                } else if (document.body.classList.contains('reduced-motion')) {
+                    /* No max-height transition: safe to drop width immediately. */
                     switcherDropdownEl?.style.removeProperty('width');
                 }
+                /* Otherwise keep inline width until .search-switcher-dropdown transitionend (max-height). */
             }).observe(searchSwitcherButton, { attributes: true, attributeFilter: ['class'] });
 
             // Keep parent iframe height in sync even when switcher closes via non-click paths
@@ -2434,6 +2477,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('[SWITCHER BUTTON CLICK] Ignoring - click was inside dropdown (already handled by dropdown)');
                     return;
                 }
+                /* Apply slower max-height transition *before* removing .open so collapse uses ~0.55s, not 0.25s. */
+                if (wasOpen) {
+                    searchSwitcherDropdown?.classList.add('switcher-dropdown--closing');
+                } else {
+                    searchSwitcherDropdown?.classList.remove('switcher-dropdown--closing');
+                }
                 searchSwitcherButton.classList.toggle('open');
                 const isNowOpen = searchSwitcherButton.classList.contains('open');
                 const isInIframe = window !== window.top;
@@ -2446,7 +2495,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     forceCloseSearchSwitcherSubPanels();
                     beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                     searchSwitcherDropdown?.classList.remove('dropdown-revealed');
-                    if (searchSwitcherDropdown) searchSwitcherDropdown.style.width = '';
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
@@ -5525,6 +5573,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     restoreFirefoxSuggestionsState();
 
                     forceCloseSearchSwitcherSubPanels();
+                    searchSwitcherButton?.querySelector('.search-switcher-dropdown')?.classList.remove('switcher-dropdown--closing');
                     searchSwitcherButton?.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
                     searchSwitcherButton?.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
                     searchSwitcherButton?.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
