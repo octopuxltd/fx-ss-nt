@@ -1585,8 +1585,9 @@ body.search-switcher-reorder-handles-revealed .search-switcher-pinned-right-host
     pointer-events: auto;
 }
 
-/* Pinned-right clone is not under .search-switcher-button; mirror chip when ••• strip or lilac panel enables reorder. */
-body.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
+/* Pinned-right clone is not under .search-switcher-button; mirror chip when ••• strip or lilac panel enables reorder.
+ * When handles are revealed (••• open or panel slid), do not force opacity 0 — that would override .search-switcher-reorder-handles-revealed. */
+body.search-switcher-reorder-ui-open:not(.search-switcher-reorder-handles-revealed) .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
     display: flex !important;
     align-items: center;
     justify-content: center;
