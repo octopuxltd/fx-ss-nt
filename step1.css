@@ -18,6 +18,16 @@
     --color-white-66: rgba(255, 255, 255, 0.66);
     --color-white-90: rgba(255, 255, 255, 0.9);
     --search-border-ring-color: #BBA0FF;
+    /* Search engine chip: light top → slightly darker bottom (button-like depth) */
+    --search-switcher-chip-bg: linear-gradient(to bottom, #ffffff 0%, #e8eaef 100%);
+    --search-switcher-chip-bg-focused: linear-gradient(to bottom, #fcfcfd 0%, #dde0e7 100%);
+    /* Flat chip when the engine panel is open (matches dropdown, no gradient) */
+    --search-switcher-chip-bg-panel-open: #ffffff;
+    --search-switcher-chip-bg-panel-open-focused: #dde0e7;
+    /* Inset hairline (not border) so the edge is even on gradients; matches suggestion hover weight */
+    --search-switcher-chip-edge: rgba(0, 0, 0, 0.12);
+    /* Softer edge when the engine panel is open (flat chip + white panel) */
+    --search-switcher-chip-edge-panel-open: rgba(0, 0, 0, 0.06);
     /* Slower than open (0.25s) so collapse feels deliberate; toggled via .switcher-dropdown--closing in step1.js */
     --switcher-dropdown-close-max-height-duration: 0.55s;
     /* ease-out on max-height collapses most height at the start (list zips away) and only the top/header lingers; linear keeps the whole panel moving at one rate */
@@ -48,7 +58,7 @@ body[data-background="grey"] {
 
 body[data-background="blue"] {
     background-image: none;
-    background-color: #C8E4F8;
+    background-color: #E0F2FB;
 }
 
 body[data-background="beige"] {
@@ -193,49 +203,167 @@ body:not(.search-border-radius-large) > .dropdown-item.dragging {
     border-radius: 9px;
 }
 
-body.search-engines-display-grid:not(.search-border-radius-large) .dropdown-search-engines .dropdown-item-search-engine,
-body.search-engines-display-grid:not(.search-border-radius-large) .dropdown-search-engines .dropdown-item-pinned {
+body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-search-engine,
+body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-pinned {
     border-radius: 9px;
 }
 
-body.search-engines-display-grid:not(.search-border-radius-large) .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion {
+body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion {
     border-radius: 9px;
 }
 
-.firefox-logo {
-    width: 96px;
-    height: auto;
+.main-screen-brand-logos {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, calc(-50% - 120px + var(--search-drag-offset-y, 0px)));
+    transform: translate(-50%, calc(-50% - 132px + var(--search-drag-offset-y, 0px)));
     opacity: 1;
     transition: transform 0.42s ease-out, opacity 0.42s linear;
     z-index: 0;
-    /* transition: opacity 0.1s linear 0.25s; */
 }
 
-body:has(.search-container.focused) .firefox-logo {
-    transform: translate(-50%, calc(-50% - 110px + var(--search-drag-offset-y, 0px))) scale(0.8);
+/* Fixed-height slot so the strapline stays put when logo max dimensions change (engine / aspect ratio). */
+.main-screen-engine-wordmark-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 58px;
+    width: min(90vw, 352px);
 }
 
-body.search-bar-dragged-down:has(.search-container.focused) .firefox-logo {
+/* Hero wordmarks: default 60% larger than legacy box; Bing + Wikipedia stay on the smaller “standard” box. */
+.main-screen-brand-logos .main-screen-engine-wordmark {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: min(90vw, 352px);
+    max-height: 58px;
+    object-fit: contain;
+    object-position: center;
+}
+
+.main-screen-brand-logos .main-screen-engine-wordmark[data-wordmark-hero-size='standard'] {
+    max-width: min(90vw, 220px);
+    max-height: 36px;
+}
+
+.main-screen-firefox-hero-logo {
+    display: none;
+    height: 88px;
+    width: auto;
+    max-width: min(90vw, 352px);
+    object-fit: contain;
+}
+
+body[data-main-screen-hero-logo='firefox'] .main-screen-engine-wordmark-slot {
+    height: 88px;
+}
+
+body[data-main-screen-hero-logo='firefox'] .main-screen-engine-wordmark-slot .main-screen-engine-wordmark {
+    display: none;
+}
+
+body[data-main-screen-hero-logo='firefox'] .main-screen-engine-wordmark-slot .main-screen-firefox-hero-logo {
+    display: block;
+}
+
+body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
+    display: none;
+}
+
+.main-screen-brand-firefox-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3em;
+    font-size: 11px;
+}
+
+.main-screen-brand-attribution {
+    font-size: inherit;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.main-screen-brand-engine-name {
+    font-weight: 400;
+    color: #000000;
+}
+
+.main-screen-brand-firefox-name {
+    font-size: inherit;
+    font-weight: 700;
+    color: #000000;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.main-screen-brand-read-why-sep {
+    font-size: inherit;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.main-screen-brand-read-why-link {
+    font-size: inherit;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.main-screen-brand-read-why-link:hover {
+    color: var(--color-text-primary);
+}
+
+.main-screen-brand-read-why-link:focus-visible {
+    outline: 2px solid var(--color-text-secondary);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.main-screen-brand-logos .firefox-logo {
+    width: 2em;
+    height: auto;
+    display: block;
+    flex-shrink: 0;
+}
+
+body:has(.search-container.focused) .main-screen-brand-logos {
+    transform: translate(-50%, calc(-50% - 122px + var(--search-drag-offset-y, 0px))) scale(0.8);
+}
+
+body.search-bar-dragged-down:has(.search-container.focused) .main-screen-brand-logos {
     opacity: 0;
 }
 
-body.search-bar-near-top .firefox-logo {
+body.search-bar-near-top .main-screen-brand-logos {
     left: 40px;
     top: var(--logo-near-top-y, 0);
     transform: translateY(-50%) scale(1);
     transition: none;
 }
 
-body.search-bar-near-top:has(.search-container.focused) .firefox-logo {
+body.search-bar-near-top:has(.search-container.focused) .main-screen-brand-logos {
     transform: translateY(-50%) scale(1);
     transition: none;
 }
 
-/* body:has(.search-input:focus) .firefox-logo {
+/* body:has(.search-input:focus) .main-screen-brand-logos {
     opacity: 0;
     transition: opacity 0.1s linear 0s;
 } */
@@ -248,7 +376,7 @@ body.search-bar-near-top:has(.search-container.focused) .firefox-logo {
     width: 57.6%;
     max-width: 576px;
     transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.25s ease-out, top 0.25s ease-out;
-    /* Above .firefox-logo (DOM was reordered; logo follows search in markup). */
+    /* Above .main-screen-brand-logos (DOM was reordered; logos follow search in markup). */
     z-index: 1;
 }
 
@@ -274,26 +402,26 @@ body.switcher-outside-search-box-enabled .search-container.focused .search-box-w
  * focusing. Re-declare transform alongside those timings when the switcher is pinned outside.
  */
 body.switcher-outside-search-box-enabled .search-box-wrapper:has(.search-input:focus) > .search-switcher-button {
-    transition: background-color 0s 0s, border-radius 0s 0.25s, transform 0.25s ease-out;
+    transition: background 0s 0s, border-radius 0s 0.25s, transform 0.25s ease-out;
 }
 
 body.switcher-outside-search-box-enabled .search-box-wrapper:has(.search-input:focus) > .search-switcher-button.open {
-    transition: background-color 0s 0s, border-radius 0s 0s, transform 0.25s ease-out;
+    transition: background 0s 0s, border-radius 0s 0s, transform 0.25s ease-out;
 }
 
 body.reduced-motion body.switcher-outside-search-box-enabled .search-box-wrapper:has(.search-input:focus) > .search-switcher-button,
 body.reduced-motion body.switcher-outside-search-box-enabled .search-box-wrapper:has(.search-input:focus) > .search-switcher-button.open {
-    transition: background-color 0s 0s, border-radius 0s 0s, transform 0s;
+    transition: background 0s 0s, border-radius 0s 0s, transform 0s;
 }
 
 /* Closed switcher (not open, not finishing close): no border-radius delay — base uses
    border-radius 0s 0.25s which deferred bottom rounding after switcher-closing ended. */
 body.switcher-outside-search-box-enabled .search-box-wrapper:has(.search-input:focus) > .search-switcher-button:not(.open):not(.switcher-closing) {
-    transition: background-color 0s 0s, border-radius 0s 0s, transform 0.25s ease-out;
+    transition: background 0s 0s, border-radius 0s 0s, transform 0.25s ease-out;
 }
 
 body.reduced-motion body.switcher-outside-search-box-enabled .search-box-wrapper:has(.search-input:focus) > .search-switcher-button:not(.open):not(.switcher-closing) {
-    transition: background-color 0s 0s, border-radius 0s 0s, transform 0s;
+    transition: background 0s 0s, border-radius 0s 0s, transform 0s;
 }
 
 .search-container-drag-handle {
@@ -442,10 +570,13 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     display: flex;
     align-items: center;
     gap: 4px;
-    background-color: white;
+    background: var(--search-switcher-chip-bg);
+    border: none;
+    /* Inset ring: one continuous stroke on the gradient (physical borders can look uneven on rounded rects). */
+    box-shadow: inset 0 0 0 1px var(--search-switcher-chip-edge);
     border-radius: var(--switcher-button-radius, 7px);
     padding: 6px 8px 6px 6px;
-    transition: background-color 0.25s linear, border-radius 0s 0.25s;
+    transition: background 0.25s linear, border-radius 0s 0.25s, box-shadow 0.2s linear;
     cursor: pointer;
     position: relative;
     outline: none;
@@ -458,7 +589,19 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
 /* Mouse / programmatic focus must not show the keyboard ring (see focus({ focusVisible: false }) on open). */
 .search-switcher-button:focus:not(:focus-visible) {
     outline: none;
-    box-shadow: none;
+}
+
+/* Don’t use box-shadow: none above — it removed the inset edge. Re-apply the same stroke as the non-focus chip. */
+.search-switcher-button:focus:not(:focus-visible):not(.open):not(.switcher-closing) {
+    box-shadow: inset 0 0 0 1px var(--search-switcher-chip-edge);
+}
+
+.search-switcher-button.open:focus:not(:focus-visible),
+.search-switcher-button.switcher-closing:focus:not(:focus-visible) {
+    box-shadow:
+        inset 1px 0 0 0 var(--search-switcher-chip-edge-panel-open),
+        inset -1px 0 0 0 var(--search-switcher-chip-edge-panel-open),
+        inset 0 1px 0 0 var(--search-switcher-chip-edge-panel-open);
 }
 
 .search-switcher-button:focus-visible {
@@ -466,25 +609,48 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     outline-offset: 2px;
 }
 
+.search-switcher-button:focus-visible:not(.open):not(.switcher-closing) {
+    box-shadow: inset 0 0 0 1px var(--search-switcher-chip-edge);
+}
+
+.search-switcher-button.open:focus-visible,
+.search-switcher-button.switcher-closing:focus-visible {
+    box-shadow:
+        inset 1px 0 0 0 var(--search-switcher-chip-edge-panel-open),
+        inset -1px 0 0 0 var(--search-switcher-chip-edge-panel-open),
+        inset 0 1px 0 0 var(--search-switcher-chip-edge-panel-open);
+}
+
 .search-switcher-button.open {
+    background: var(--search-switcher-chip-bg-panel-open);
     border-radius: var(--switcher-button-radius, 7px) var(--switcher-button-radius, 7px) 0 0;
-    transition: background-color 0.25s linear, border-radius 0s 0s;
+    transition: background 0.25s linear, border-radius 0s 0s, box-shadow 0.2s linear;
+    /* No bottom inset — panel meets the chip; avoids a double line at the seam */
+    box-shadow:
+        inset 1px 0 0 0 var(--search-switcher-chip-edge-panel-open),
+        inset -1px 0 0 0 var(--search-switcher-chip-edge-panel-open),
+        inset 0 1px 0 0 var(--search-switcher-chip-edge-panel-open);
 }
 
 /* Paired with JS `beginSwitcherClosingShapeHoldUntilDropdownAnimation`: after `.open` is removed,
    the dropdown still animates closed; this class preserves the tab bottom edge until that ends. */
 .search-switcher-button.switcher-closing {
+    background: var(--search-switcher-chip-bg-panel-open);
     border-radius: var(--switcher-button-radius, 7px) var(--switcher-button-radius, 7px) 0 0;
-    transition: background-color 0.25s linear, border-radius 0s 0s;
+    transition: background 0.25s linear, border-radius 0s 0s, box-shadow 0.2s linear;
+    box-shadow:
+        inset 1px 0 0 0 var(--search-switcher-chip-edge-panel-open),
+        inset -1px 0 0 0 var(--search-switcher-chip-edge-panel-open),
+        inset 0 1px 0 0 var(--search-switcher-chip-edge-panel-open);
 }
 
 /* Fully closed: avoid base border-radius 0s 0.25s delay so corners round as soon as switcher-closing is removed. */
 .search-switcher-button:not(.open):not(.switcher-closing) {
-    transition: background-color 0.25s linear, border-radius 0s 0s;
+    transition: background 0.25s linear, border-radius 0s 0s, box-shadow 0.2s linear;
 }
 
 .search-box-wrapper:has(.search-input:focus) .search-switcher-button.open {
-    transition: background-color 0s 0s, border-radius 0s 0s;
+    transition: background 0s 0s, border-radius 0s 0s, box-shadow 0s 0s;
 }
 
 .search-switcher-dropdown {
@@ -720,7 +886,7 @@ body.reduced-motion .dropdown-label-text {
 
 /* Compact switcher label: list/grid + ••• always; (i)/pin/settings behind ••• until opened; list/grid copy in lilac panel.
    Use data/class (not #ids): pinned-right clone has ids stripped by sanitizePinnedRightCloneRoot. */
-body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-display-toggle="1"] {
+body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-display-toggle="primary"] {
     display: none !important;
 }
 
@@ -1580,14 +1746,14 @@ body.reduced-motion .search-settings-modal-panel {
 }
 
 .search-switcher-button.search-engines-controls-open.search-engines-controls-panel-revealed .dropdown-search-engines .dropdown-item-drag-handle,
-body.search-switcher-reorder-handles-revealed .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
+.search-switcher-pinned-right-host.search-switcher-reorder-handles-revealed .dropdown-search-engines .dropdown-item-drag-handle {
     opacity: 0.55;
     pointer-events: auto;
 }
 
 /* Pinned-right clone is not under .search-switcher-button; mirror chip when ••• strip or lilac panel enables reorder.
  * When handles are revealed (••• open or panel slid), do not force opacity 0 — that would override .search-switcher-reorder-handles-revealed. */
-body.search-switcher-reorder-ui-open:not(.search-switcher-reorder-handles-revealed) .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
+.search-switcher-pinned-right-host.search-switcher-reorder-ui-open:not(.search-switcher-reorder-handles-revealed) .dropdown-search-engines .dropdown-item-drag-handle {
     display: flex !important;
     align-items: center;
     justify-content: center;
@@ -1602,13 +1768,13 @@ body.search-switcher-reorder-ui-open:not(.search-switcher-reorder-handles-reveal
 
 .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-pin-empty,
 .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-pin,
-body.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-pin-empty,
-body.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-pin {
+.search-switcher-pinned-right-host.search-switcher-reorder-ui-open .dropdown-search-engines .dropdown-item-pin-empty,
+.search-switcher-pinned-right-host.search-switcher-reorder-ui-open .dropdown-search-engines .dropdown-item-pin {
     margin-left: 0;
 }
 
 .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle img,
-body.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle img {
+.search-switcher-pinned-right-host.search-switcher-reorder-ui-open .dropdown-search-engines .dropdown-item-drag-handle img {
     width: 14px;
     height: 14px;
     opacity: 0.85;
@@ -1616,22 +1782,22 @@ body.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdow
 }
 
 .search-switcher-button.search-engines-controls-open.search-engines-controls-panel-revealed .dropdown-search-engines .dropdown-item:hover .dropdown-item-drag-handle,
-body.search-switcher-reorder-handles-revealed .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item:hover .dropdown-item-drag-handle {
+.search-switcher-pinned-right-host.search-switcher-reorder-handles-revealed .dropdown-search-engines .dropdown-item:hover .dropdown-item-drag-handle {
     opacity: 0.85;
 }
 
 body.reduced-motion .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
-body.reduced-motion.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
+body.reduced-motion .search-switcher-pinned-right-host.search-switcher-reorder-ui-open .dropdown-search-engines .dropdown-item-drag-handle {
     transition: none;
 }
 
-body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item,
-body.search-engines-display-grid.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item {
+.search-switcher-button.search-engines-controls-open .search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item,
+.search-switcher-pinned-right-host.search-switcher-reorder-ui-open .search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item {
     position: relative;
 }
 
-body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
-body.search-engines-display-grid.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
+.search-switcher-button.search-engines-controls-open .search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-drag-handle,
+.search-switcher-pinned-right-host.search-switcher-reorder-ui-open .search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-drag-handle {
     display: flex !important;
     position: absolute;
     top: 1px;
@@ -1644,8 +1810,8 @@ body.search-engines-display-grid.search-switcher-reorder-ui-open .search-switche
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
-body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle img,
-body.search-engines-display-grid.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle img {
+.search-switcher-button.search-engines-controls-open .search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-drag-handle img,
+.search-switcher-pinned-right-host.search-switcher-reorder-ui-open .search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-drag-handle img {
     width: 9px;
     height: 9px;
 }
@@ -1893,7 +2059,7 @@ body.reduced-motion .dropdown-engines-firefox-scroll {
     overflow-y: visible;
 }
 
-body.search-engines-display-grid .dropdown-search-engines {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines {
     display: grid;
     grid-template-columns: repeat(5, 28px);
     justify-content: space-between;
@@ -1906,22 +2072,22 @@ body.search-engines-display-grid .dropdown-search-engines {
     align-items: center;
 }
 
-body.search-engines-display-grid .dropdown-search-engines .dropdown-item {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item {
     width: auto;
     margin-inline: 0;
 }
 
-body.search-engines-display-grid .dropdown-search-engines .engines-sort-section {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .engines-sort-section {
     grid-column: 1 / -1;
     width: 100%;
 }
 
-body.search-engines-display-grid .dropdown-search-engines .dropdown-engine-label {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-engine-label {
     display: none;
 }
 
-body.search-engines-display-grid .dropdown-search-engines .dropdown-item-search-engine,
-body.search-engines-display-grid .dropdown-search-engines .dropdown-item-pinned {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-search-engine,
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-pinned {
     justify-content: center;
     gap: 0;
     width: 28px;
@@ -1930,24 +2096,24 @@ body.search-engines-display-grid .dropdown-search-engines .dropdown-item-pinned 
     border-radius: 9999px;
 }
 
-body.search-engines-display-grid .dropdown-search-engines .dropdown-item-pin,
-body.search-engines-display-grid .dropdown-search-engines .dropdown-item-pin-empty,
-body.search-engines-display-grid .dropdown-search-engines .dropdown-item-row-action,
-body.search-engines-display-grid .dropdown-search-engines .dropdown-item-drag-handle {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-pin,
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-pin-empty,
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-row-action,
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-drag-handle {
     display: none !important;
 }
 
-body.search-engines-display-grid .dropdown-search-engines .dropdown-engine-icon {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-engine-icon {
     width: 18px;
     height: 18px;
 }
 
-body.search-engines-display-grid .dropdown-search-engines .dropdown-item:hover,
-body.search-engines-display-grid .dropdown-search-engines .dropdown-item.highlighted {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item:hover,
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item.highlighted {
     background-color: var(--color-suggestion-hover);
 }
 
-body.search-engines-display-grid .dropdown-firefox-suggestions {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-firefox-suggestions {
     display: grid;
     grid-template-columns: repeat(5, 28px);
     justify-content: space-between;
@@ -1959,7 +2125,7 @@ body.search-engines-display-grid .dropdown-firefox-suggestions {
     align-items: center;
 }
 
-body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion {
     justify-content: center;
     gap: 0;
     width: 28px;
@@ -1969,12 +2135,12 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-fi
     border-radius: 9999px;
 }
 
-body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion > span {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion > span {
     display: none;
 }
 
-body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item:hover,
-body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.highlighted {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item:hover,
+.search-switcher-dropdown.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.highlighted {
     background-color: var(--color-suggestion-hover);
 }
 
@@ -2006,26 +2172,31 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
 }
 
 /* List view: ellipsis long engine names so intrinsic width does not widen the switcher (pairs with JS grid width lock). */
-body:not(.search-engines-display-grid) .search-switcher-dropdown .dropdown-content {
+.search-switcher-dropdown:not(.search-engines-display-grid) .dropdown-content {
     min-width: 0;
 }
 
-body:not(.search-engines-display-grid) .dropdown-search-engines {
+.search-switcher-dropdown:not(.search-engines-display-grid) .dropdown-search-engines {
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
 }
 
-body:not(.search-engines-display-grid) .dropdown-search-engines > .dropdown-item {
+.search-switcher-dropdown:not(.search-engines-display-grid) .dropdown-search-engines > .dropdown-item {
     min-width: 0;
     max-width: 100%;
 }
 
-body:not(.search-engines-display-grid) .dropdown-search-engines .dropdown-engine-label {
+.search-switcher-dropdown:not(.search-engines-display-grid) .dropdown-search-engines .dropdown-engine-label {
     min-width: 0;
     flex: 1 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* Pinned default row: keep DEFAULT badge flush to the right of the engine name (not at the end of a stretched label track). */
+.search-switcher-dropdown:not(.search-engines-display-grid) .dropdown-search-engines > .dropdown-item-pinned .dropdown-engine-label {
+    flex: 0 1 auto;
 }
 
 .dropdown-item:hover {
@@ -2136,7 +2307,10 @@ body:not(.search-engines-display-grid) .dropdown-search-engines .dropdown-engine
 }
 
 .search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable .dropdown-default-badge-drag,
-body.search-switcher-reorder-handles-revealed .dropdown-default-badge--draggable .dropdown-default-badge-drag {
+.search-switcher-pinned-right-host.search-switcher-reorder-handles-revealed .dropdown-default-badge--draggable .dropdown-default-badge-drag,
+.search-switcher-pinned-right-host.search-switcher-reorder-ui-open:not(.search-switcher-reorder-handles-revealed)
+    .dropdown-default-badge--draggable
+    .dropdown-default-badge-drag {
     opacity: 0.55;
     pointer-events: auto;
 }
@@ -2169,7 +2343,10 @@ body.reduced-motion .dropdown-default-badge--draggable .dropdown-default-badge-d
 }
 
 .search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag,
-body.search-switcher-reorder-handles-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag {
+.search-switcher-pinned-right-host.search-switcher-reorder-handles-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag,
+.search-switcher-pinned-right-host.search-switcher-reorder-ui-open:not(.search-switcher-reorder-handles-revealed)
+    .dropdown-default-badge--draggable:hover
+    .dropdown-default-badge-drag {
     opacity: 0.95;
 }
 
@@ -2194,7 +2371,11 @@ body.reduced-motion .dropdown-default-badge--draggable:hover {
 }
 
 body.reduced-motion .search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag,
-body.reduced-motion.search-switcher-reorder-handles-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag {
+body.reduced-motion .search-switcher-pinned-right-host.search-switcher-reorder-handles-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag,
+body.reduced-motion
+    .search-switcher-pinned-right-host.search-switcher-reorder-ui-open:not(.search-switcher-reorder-handles-revealed)
+    .dropdown-default-badge--draggable:hover
+    .dropdown-default-badge-drag {
     opacity: 0.88;
 }
 
@@ -2215,7 +2396,7 @@ body.reduced-motion .dropdown-default-badge--dragging {
     pointer-events: auto;
 }
 
-body.search-engines-display-grid .dropdown-default-badge-wrap {
+.search-switcher-dropdown.search-engines-display-grid .dropdown-default-badge-wrap {
     display: none;
 }
 
@@ -2320,7 +2501,7 @@ body:not(.pin-default-enabled) > .dropdown-item.dragging .dropdown-item-drag-han
 
 /* Hide row reorder drag handles while dragging the default badge (invisible but keep layout — display:none was shrinking row height). */
 body.default-badge-dragging .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
-body.default-badge-dragging.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
+body.default-badge-dragging .search-switcher-button.search-engines-controls-open .search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item-drag-handle,
 body.default-badge-dragging .dropdown-search-engines .dropdown-item-drag-handle {
     visibility: hidden !important;
     opacity: 0 !important;
@@ -2400,12 +2581,17 @@ body.reduced-motion .dropdown-item.dragging {
 }
 
 .search-box-wrapper:has(.search-input:focus) .search-switcher-button {
-    background-color: #F3F4F6;
-    transition: background-color 0s 0s, border-radius 0s 0.25s;
+    background: var(--search-switcher-chip-bg-focused);
+    transition: background 0s 0s, border-radius 0s 0.25s, box-shadow 0s 0s;
 }
 
 .search-box-wrapper:has(.search-input:focus) .search-switcher-button:not(.open):not(.switcher-closing) {
-    transition: background-color 0s 0s, border-radius 0s 0s;
+    transition: background 0s 0s, border-radius 0s 0s, box-shadow 0s 0s;
+}
+
+.search-box-wrapper:has(.search-input:focus) .search-switcher-button.open,
+.search-box-wrapper:has(.search-input:focus) .search-switcher-button.switcher-closing {
+    background: var(--search-switcher-chip-bg-panel-open-focused);
 }
 
 .search-button {
@@ -2856,7 +3042,7 @@ body.reduced-motion .bottom-left-panel-content {
 }
 
 .background-swatch[data-background="blue"] {
-    background-color: #C8E4F8;
+    background-color: #E0F2FB;
 }
 
 .background-swatch[data-background="beige"] {
@@ -3210,7 +3396,7 @@ body.reduced-motion .search-container.focused {
     max-width: 691.2px;
 }
 
-body.reduced-motion:has(.search-container.focused) .firefox-logo {
+body.reduced-motion:has(.search-container.focused) .main-screen-brand-logos {
     opacity: 1;
 }
 
@@ -3231,7 +3417,7 @@ body.reduced-motion .search-box-wrapper {
 }
 
 body.reduced-motion .search-switcher-button {
-    transition: background-color 0s 0s, border-radius 0s 0s;
+    transition: background 0s 0s, border-radius 0s 0s, box-shadow 0s 0s;
 }
 
 body.reduced-motion .search-switcher-dropdown {
@@ -3247,22 +3433,22 @@ body.reduced-motion .search-button svg {
     transition: none;
 }
 
-body.reduced-motion .firefox-logo {
+body.reduced-motion .main-screen-brand-logos {
     transition: none;
 }
 
-body.reduced-motion:has(.search-container.focused) .firefox-logo {
-    transform: translate(-50%, calc(-50% - 120px + var(--search-drag-offset-y, 0px)));
+body.reduced-motion:has(.search-container.focused) .main-screen-brand-logos {
+    transform: translate(-50%, calc(-50% - 132px + var(--search-drag-offset-y, 0px)));
 }
 
-body.reduced-motion.search-bar-near-top .firefox-logo {
+body.reduced-motion.search-bar-near-top .main-screen-brand-logos {
     left: 40px;
     top: var(--logo-near-top-y, 0);
     transform: translateY(-50%) scale(1);
     transition: none;
 }
 
-body.reduced-motion.search-bar-near-top:has(.search-container.focused) .firefox-logo {
+body.reduced-motion.search-bar-near-top:has(.search-container.focused) .main-screen-brand-logos {
     transform: translateY(-50%) scale(1);
     transition: none;
 }

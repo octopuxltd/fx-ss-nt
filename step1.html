@@ -39,6 +39,17 @@
         } else {
             document.body.dataset.background = 'grey';
         }
+        try {
+            const hm = localStorage.getItem('main_screen_hero_logo_mode');
+            if (hm === 'firefox') {
+                document.body.dataset.mainScreenHeroLogo = 'firefox';
+            } else {
+                delete document.body.dataset.mainScreenHeroLogo;
+                if (hm !== 'search_engine') {
+                    localStorage.setItem('main_screen_hero_logo_mode', 'search_engine');
+                }
+            }
+        } catch (_) {}
         (function () {
             const BLACK20 = 'rgba(0, 0, 0, 0.2)';
             const DEF = '#BBA0FF';
@@ -71,7 +82,7 @@
                             <div class="dropdown-label">
                                 <span class="dropdown-label-text">Search with</span>
                                 <div class="dropdown-label-actions">
-                                    <div id="search-engines-display-toggle" class="search-engines-display-segmented" role="group" aria-label="Search engines layout" data-search-engines-display-toggle="1">
+                                    <div id="search-engines-display-toggle" class="search-engines-display-segmented" role="group" aria-label="Search engines layout" data-search-engines-display-toggle="primary">
                                         <button type="button" class="search-engines-display-segment search-engines-display-segment--list" data-mode="list" aria-pressed="true" title="List view">
                                             <img src="icons/view-list.svg" alt="" class="search-engines-display-segment-icon" width="14" height="14">
                                         </button>
@@ -119,7 +130,7 @@
                             <div id="search-engines-controls-panel" class="dropdown-search-controls" hidden>
                                 <div class="dropdown-search-controls-top">
                                 <div class="dropdown-search-controls-row dropdown-search-controls-row--switch">
-                                    <div class="search-engines-display-segmented search-engines-display-segmented--in-controls-panel" role="group" aria-label="Search engines layout" data-search-engines-display-toggle="1" hidden>
+                                    <div class="search-engines-display-segmented search-engines-display-segmented--in-controls-panel" role="group" aria-label="Search engines layout" data-search-engines-display-toggle="primary" hidden>
                                         <button type="button" class="search-engines-display-segment search-engines-display-segment--list" data-mode="list" aria-pressed="true" title="List view">
                                             <img src="icons/view-list.svg" alt="" class="search-engines-display-segment-icon" width="14" height="14">
                                         </button>
@@ -299,6 +310,13 @@
                         <button type="button" class="background-swatch" data-background="beige" title="Warm beige"></button>
                     </div>
                 </div>
+                <div class="search-engines-count-control" role="group" aria-labelledby="main-screen-hero-logo-label">
+                    <span id="main-screen-hero-logo-label" class="search-engines-count-heading">Hero logo</span>
+                    <div class="search-engines-count-radios">
+                        <label class="search-engines-count-option"><input type="radio" name="main-screen-hero-logo" class="search-engines-count-radio" value="search_engine" checked> Search engine logo</label>
+                        <label class="search-engines-count-option"><input type="radio" name="main-screen-hero-logo" class="search-engines-count-radio" value="firefox"> Firefox logo</label>
+                    </div>
+                </div>
                 <div class="search-border-swatches-control">
                     <span class="search-border-swatches-label">Borders</span>
                     <div class="search-border-options-row">
@@ -346,7 +364,19 @@
         </div>
     </div>
     
-    <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="Firefox" class="firefox-logo">
+    <div class="main-screen-brand-logos">
+        <div class="main-screen-engine-wordmark-slot" aria-hidden="true">
+            <img src="icons/google-logo.svg" alt="" class="main-screen-engine-wordmark">
+            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="main-screen-firefox-hero-logo">
+        </div>
+        <div class="main-screen-brand-firefox-row">
+            <span class="main-screen-brand-attribution">Start your <span class="main-screen-brand-engine-name">Google</span> search right here in </span>
+            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="firefox-logo">
+            <span class="main-screen-brand-firefox-name">Firefox</span>
+            <span class="main-screen-brand-read-why-sep" aria-hidden="true"> • </span>
+            <a class="main-screen-brand-read-why-link" href="#">Read why</a>
+        </div>
+    </div>
 
     <div id="search-settings-modal" class="search-settings-modal" hidden aria-hidden="true">
         <div class="search-settings-modal-backdrop" data-close-search-settings tabindex="-1" aria-hidden="true"></div>

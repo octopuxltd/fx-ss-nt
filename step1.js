@@ -1360,6 +1360,26 @@ function applyStandaloneSearchBoxPrototypeVisibility(visible) {
 const BACKGROUND_SWATCH_KEY = 'background_swatch';
 /** Default when no stored preference (matches step1.html swatches + reset prototype). */
 const DEFAULT_BACKGROUND_SWATCH = 'grey';
+const MAIN_SCREEN_HERO_LOGO_MODE_KEY = 'main_screen_hero_logo_mode';
+/** `'search_engine'` = dynamic horizontal wordmarks; `'firefox'` = Firefox icon only (classic hero). */
+const DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE = 'search_engine';
+
+function getMainScreenHeroLogoMode() {
+    try {
+        return localStorage.getItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY) === 'firefox' ? 'firefox' : 'search_engine';
+    } catch (_) {
+        return 'search_engine';
+    }
+}
+
+function applyMainScreenHeroLogoMode(mode) {
+    const isFirefox = mode === 'firefox';
+    if (isFirefox) {
+        document.body.dataset.mainScreenHeroLogo = 'firefox';
+    } else {
+        delete document.body.dataset.mainScreenHeroLogo;
+    }
+}
 const SEARCH_BORDER_COLOR_KEY = 'search_border_color';
 /** `'small'` = CSS fallbacks; `'large'` = JS measures elements and fully rounds corners. */
 const SEARCH_BORDER_RADIUS_MODE_KEY = 'search_border_radius_mode';
@@ -1482,6 +1502,20 @@ const SEARCH_ENGINE_LABELS_12 = [
     'YouTube',
 ];
 
+/**
+ * Horizontal or wide wordmark SVGs for the main-screen hero (matches 6-engine prototype set + shared engines).
+ * Sources: `icons/google-logo.svg` (Google brand wordmark), `icons/duckduckgo-logo.svg` (DDG site horizontal lockup),
+ * Wikimedia Commons — Microsoft_Bing_logo.svg, EBay_logo.svg, Perplexity_AI_logo.svg; en.wikipedia.org static — wikipedia-wordmark-en.svg;
+ */
+const MAIN_SCREEN_HORIZONTAL_ENGINE_LOGOS = {
+    Google: 'icons/google-logo.svg',
+    Bing: 'icons/bing-logo-horizontal.svg',
+    DuckDuckGo: 'icons/duckduckgo-logo.svg',
+    eBay: 'icons/ebay-logo-horizontal.svg',
+    Perplexity: 'icons/perplexity-logo-horizontal.svg',
+    'Wikipedia (en)': 'icons/wikipedia-wordmark-en.svg',
+};
+
 function getStoredSearchEnginesCount() {
     try {
         const raw = localStorage.getItem(SEARCH_ENGINES_COUNT_KEY);
@@ -1600,12 +1634,16 @@ function ensurePrototypeSearchEngineRows() {
 
 /** List view: show a native tooltip only when `.dropdown-engine-label` text is ellipsized. */
 function updateListEngineLabelTruncationTooltips() {
-    if (document.body.classList.contains('search-engines-display-grid')) return;
     document
         .querySelectorAll(
             '.search-switcher-button .dropdown-search-engines .dropdown-engine-label, .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-engine-label'
         )
         .forEach((el) => {
+            const dd = el.closest('.search-switcher-dropdown');
+            if (dd?.classList.contains('search-engines-display-grid')) {
+                el.removeAttribute('title');
+                return;
+            }
             const text = (el.textContent || '').trim();
             if (!text) {
                 el.removeAttribute('title');
@@ -1702,7 +1740,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let underlineSearchEnginesEnabled = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
     const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
     document.body.classList.toggle('keyboard-switcher-numbers-enabled', keyboardSwitcherNumbersEnabled);
-    const getSearchEnginesDisplayKey = () => {
+    const SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY = 'primary';
+    const SEARCH_ENGINES_DISPLAY_SURFACE_PINNED = 'pinned-right';
+    const getSearchEnginesDisplayKey = (surface = SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY) => {
         // Per-search-bar preference:
         // - main page search bar
         // - address bar iframe
@@ -1710,75 +1750,128 @@ document.addEventListener('DOMContentLoaded', () => {
         const isAddressbar = document.body.classList.contains('addressbar');
         const isStandalone = document.body.classList.contains('standalone-search-box');
         const scope = isAddressbar && isStandalone ? 'standalone' : (isAddressbar ? 'addressbar' : 'main');
-        return `${SEARCH_ENGINES_DISPLAY_KEY_PREFIX}:${scope}`;
+        const base = `${SEARCH_ENGINES_DISPLAY_KEY_PREFIX}:${scope}`;
+        return surface === SEARCH_ENGINES_DISPLAY_SURFACE_PINNED ? `${base}:pinnedRight` : base;
     };
-    const getSearchEnginesDisplayMode = () =>
-        localStorage.getItem(getSearchEnginesDisplayKey()) === 'grid' ? 'grid' : 'list';
+    const getSearchEnginesDisplayModeForSurface = (surface = SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY) => {
+        const key = getSearchEnginesDisplayKey(surface);
+        let raw = null;
+        try {
+            raw = localStorage.getItem(key);
+        } catch (_) {}
+        if (surface === SEARCH_ENGINES_DISPLAY_SURFACE_PINNED && (raw === null || raw === '')) {
+            try {
+                raw = localStorage.getItem(getSearchEnginesDisplayKey(SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY));
+            } catch (_) {}
+            if (raw != null && raw !== '') {
+                try {
+                    localStorage.setItem(key, raw);
+                } catch (_) {}
+            }
+        }
+        return raw === 'grid' ? 'grid' : 'list';
+    };
+    const syncSearchEnginesDisplaySegmentedControl = (toggleRoot, modeNorm) => {
+        if (!toggleRoot) return;
+        const listSeg = toggleRoot.querySelector('.search-engines-display-segment[data-mode="list"]');
+        const gridSeg = toggleRoot.querySelector('.search-engines-display-segment[data-mode="grid"]');
+        if (!listSeg || !gridSeg) return;
+        const grid = modeNorm === 'grid';
+        listSeg.classList.toggle('search-engines-display-segment--active', !grid);
+        gridSeg.classList.toggle('search-engines-display-segment--active', grid);
+        listSeg.setAttribute('aria-pressed', grid ? 'false' : 'true');
+        gridSeg.setAttribute('aria-pressed', grid ? 'true' : 'false');
+    };
     let parentViewportInfo = null; // { viewportH: number, frameTop: number } sent by parent when in iframe
     const ensureGridIconTooltips = () => {
-        if (!document.body.classList.contains('search-engines-display-grid')) return;
-        const container = document.querySelector('.search-switcher-button');
-        if (!container) return;
-
-        const enginesContainer = container.querySelector('.dropdown-search-engines');
-        if (enginesContainer) {
-            enginesContainer.querySelectorAll('.dropdown-item').forEach(item => {
-                if (!item.querySelector('.dropdown-engine-icon')) return;
-                const label = getEngineLabel(item);
-                if (label) item.title = label;
-            });
-        }
-
-        const firefoxContainer = container.querySelector('.dropdown-firefox-suggestions');
-        if (firefoxContainer) {
-            firefoxContainer.querySelectorAll('.dropdown-item-firefox-suggestion').forEach(item => {
-                const textEl = item.querySelector('span');
-                const label = (textEl?.textContent || '').trim();
-                if (label) item.title = label;
-            });
-        }
-    };
-    const clearGridIconTooltips = () => {
-        const container = document.querySelector('.search-switcher-button');
-        if (!container) return;
-        container.querySelectorAll('.dropdown-search-engines .dropdown-item[title]').forEach(item => {
-            // Only clear tooltips that we add for icon-only grid.
-            item.removeAttribute('title');
-        });
-        document.querySelectorAll('.dropdown-search-engines .dropdown-engine-label[title]').forEach((el) => {
-            el.removeAttribute('title');
-        });
-        container.querySelectorAll('.dropdown-firefox-suggestions .dropdown-item-firefox-suggestion[title]').forEach(item => {
-            item.removeAttribute('title');
-        });
-    };
-    const applySearchEnginesDisplayMode = (mode) => {
-        const normalized = mode === 'grid' ? 'grid' : 'list';
-        document.body.classList.toggle('search-engines-display-grid', normalized === 'grid');
-
-        const select = document.getElementById('search-engines-display-select');
-        if (select) select.value = normalized;
-
-        document.querySelectorAll('[data-search-engines-display-toggle="1"]').forEach((toggle) => {
-            const listSeg = toggle.querySelector('.search-engines-display-segment[data-mode="list"]');
-            const gridSeg = toggle.querySelector('.search-engines-display-segment[data-mode="grid"]');
-            if (listSeg && gridSeg) {
-                const grid = normalized === 'grid';
-                listSeg.classList.toggle('search-engines-display-segment--active', !grid);
-                gridSeg.classList.toggle('search-engines-display-segment--active', grid);
-                listSeg.setAttribute('aria-pressed', grid ? 'false' : 'true');
-                gridSeg.setAttribute('aria-pressed', grid ? 'true' : 'false');
+        document.querySelectorAll('.search-switcher-dropdown.search-engines-display-grid').forEach((dropdown) => {
+            const enginesContainer = dropdown.querySelector('.dropdown-search-engines');
+            if (enginesContainer) {
+                enginesContainer.querySelectorAll('.dropdown-item').forEach((item) => {
+                    if (!item.querySelector('.dropdown-engine-icon')) return;
+                    const label = getEngineLabel(item);
+                    if (label) item.title = label;
+                });
+            }
+            const firefoxContainer = dropdown.querySelector('.dropdown-firefox-suggestions');
+            if (firefoxContainer) {
+                firefoxContainer.querySelectorAll('.dropdown-item-firefox-suggestion').forEach((item) => {
+                    const textEl = item.querySelector('span');
+                    const label = (textEl?.textContent || '').trim();
+                    if (label) item.title = label;
+                });
             }
         });
-        if (normalized === 'grid') {
-            ensureGridIconTooltips();
-        } else {
+    };
+    const clearGridIconTooltips = () => {
+        document
+            .querySelectorAll(
+                '.search-switcher-button .search-switcher-dropdown, .search-switcher-pinned-right-host .search-switcher-dropdown'
+            )
+            .forEach((dropdown) => {
+                dropdown.querySelectorAll('.dropdown-search-engines .dropdown-item[title]').forEach((item) => {
+                    item.removeAttribute('title');
+                });
+                dropdown.querySelectorAll('.dropdown-search-engines .dropdown-engine-label[title]').forEach((el) => {
+                    el.removeAttribute('title');
+                });
+                dropdown
+                    .querySelectorAll('.dropdown-firefox-suggestions .dropdown-item-firefox-suggestion[title]')
+                    .forEach((item) => {
+                        item.removeAttribute('title');
+                    });
+            });
+    };
+    const applySearchEnginesDisplayMode = (mode, surface = 'all', opts = {}) => {
+        const skipStorage = opts.skipStorage === true;
+
+        const applyOne = (surf, modeNorm) => {
+            const isPinned = surf === SEARCH_ENGINES_DISPLAY_SURFACE_PINNED;
+            const dd = isPinned
+                ? document.querySelector('.search-switcher-pinned-right-host .search-switcher-dropdown')
+                : document.querySelector('.search-switcher-button .search-switcher-dropdown');
+            if (dd) {
+                dd.classList.toggle('search-engines-display-grid', modeNorm === 'grid');
+            }
+            const attr = isPinned ? SEARCH_ENGINES_DISPLAY_SURFACE_PINNED : SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY;
+            document.querySelectorAll(`[data-search-engines-display-toggle="${attr}"]`).forEach((toggle) => {
+                syncSearchEnginesDisplaySegmentedControl(toggle, modeNorm);
+            });
+        };
+
+        const finish = () => {
             clearGridIconTooltips();
+            ensureGridIconTooltips();
+            requestAnimationFrame(() => {
+                syncSearchSwitcherDropdownWidth();
+                requestAnimationFrame(() => updateListEngineLabelTruncationTooltips());
+            });
+        };
+
+        if (surface === 'all') {
+            const mPrimary = getSearchEnginesDisplayModeForSurface(SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY);
+            const mPinned = getSearchEnginesDisplayModeForSurface(SEARCH_ENGINES_DISPLAY_SURFACE_PINNED);
+            applyOne(SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY, mPrimary);
+            applyOne(SEARCH_ENGINES_DISPLAY_SURFACE_PINNED, mPinned);
+            const select = document.getElementById('search-engines-display-select');
+            if (select) select.value = mPrimary;
+            finish();
+            return;
         }
-        requestAnimationFrame(() => {
-            syncSearchSwitcherDropdownWidth();
-            requestAnimationFrame(() => updateListEngineLabelTruncationTooltips());
-        });
+
+        const normalized = mode === 'grid' ? 'grid' : 'list';
+        if (!skipStorage) {
+            try {
+                localStorage.setItem(getSearchEnginesDisplayKey(surface), normalized);
+            } catch (_) {}
+        }
+        applyOne(surface, normalized);
+
+        if (surface === SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY) {
+            const select = document.getElementById('search-engines-display-select');
+            if (select) select.value = normalized;
+        }
+        finish();
     };
     const isUnderlineSearchEnginesEnabled = () => {
         const checkbox = document.querySelector('.underline-search-engines-checkbox');
@@ -2307,17 +2400,17 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.value = '';
     }
     const searchContainer = document.querySelector('.search-container');
-    const firefoxLogo = document.querySelector('.firefox-logo');
+    const mainScreenBrandLogos = document.querySelector('.main-screen-brand-logos');
 
     // Repositionable search bar (testing)
     const searchDragHandle = document.querySelector('.search-container-drag-handle');
     const LOGO_NEAR_TOP_THRESHOLD = 250;
     function updateLogoPositionForSearchBar(opts = {}) {
-        if (!searchContainer || !firefoxLogo) return;
+        if (!searchContainer || !mainScreenBrandLogos) return;
         if (opts.skipWhenLogoOnLeft && document.body.classList.contains('search-bar-near-top')) return;
         const rect = searchContainer.getBoundingClientRect();
         const searchCenterY = rect.top + rect.height / 2;
-        const logoHeight = firefoxLogo.getBoundingClientRect().height;
+        const logoHeight = mainScreenBrandLogos.getBoundingClientRect().height;
         if (rect.top < LOGO_NEAR_TOP_THRESHOLD) {
             document.body.classList.add('search-bar-near-top');
             document.documentElement.style.setProperty('--logo-near-top-y', (searchCenterY - logoHeight / 2 + 45) + 'px');
@@ -2343,14 +2436,14 @@ document.addEventListener('DOMContentLoaded', () => {
             document.removeEventListener('pointercancel', onPointerUp);
             searchContainer.style.transition = '';
             const wasNearTop = document.body.classList.contains('search-bar-near-top');
-            if (wasNearTop && firefoxLogo) {
-                firefoxLogo.style.transition = 'none';
+            if (wasNearTop && mainScreenBrandLogos) {
+                mainScreenBrandLogos.style.transition = 'none';
             }
             updateLogoPositionForSearchBar();
-            if (wasNearTop && firefoxLogo) {
-                firefoxLogo.offsetHeight;
+            if (wasNearTop && mainScreenBrandLogos) {
+                mainScreenBrandLogos.offsetHeight;
                 requestAnimationFrame(() => {
-                    firefoxLogo.style.transition = '';
+                    mainScreenBrandLogos.style.transition = '';
                 });
             }
         };
@@ -2561,6 +2654,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.suggestion-item:not(.gmail-item):not(.firefox-suggest-item):not(.visit-site-suggestion) .suggestion-hint-text').forEach(el => {
                 el.dataset.searchHint = hint;
             });
+            syncMainScreenBrandFromSwitcherItem(item);
         }
     }
 
@@ -2568,6 +2662,45 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!item) return '';
         const labelEl = item.querySelector('.dropdown-engine-label');
         return labelEl ? labelEl.textContent.trim() : '';
+    }
+
+    /** For strapline copy only: drop parentheticals, e.g. "Wikipedia (en)" → "Wikipedia". */
+    function straplineSearchEngineDisplayName(label) {
+        const s = String(label || '').replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+        return s || label;
+    }
+
+    /** Main-page hero wordmark + strapline track the switcher’s selected web search engine (full SVG wordmarks for Google / DuckDuckGo). */
+    function syncMainScreenBrandFromSwitcherItem(item) {
+        const container = document.querySelector('.main-screen-brand-logos');
+        if (!container) return;
+        const wordmark = container.querySelector('.main-screen-engine-wordmark');
+        const attribution = container.querySelector('.main-screen-brand-attribution');
+        const engineNameEl = container.querySelector('.main-screen-brand-engine-name');
+        if (!wordmark || !attribution || !engineNameEl) return;
+        const label = getEngineLabel(item);
+        if (!label) return;
+        const heroFirefox = getMainScreenHeroLogoMode() === 'firefox';
+        const localSources = ['Bookmarks', 'History', 'Tabs', 'Actions'];
+        if (localSources.includes(label)) {
+            if (!heroFirefox) {
+                wordmark.dataset.wordmarkHeroSize = 'large';
+                wordmark.src = 'icons/google-logo.svg';
+            }
+            engineNameEl.textContent = 'Google';
+            return;
+        }
+        let src = MAIN_SCREEN_HORIZONTAL_ENGINE_LOGOS[label];
+        if (!src) {
+            const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+            src = iconEl ? iconEl.getAttribute('src') || iconEl.src : 'icons/google-logo.svg';
+        }
+        const heroSize = label === 'Bing' || label === 'Wikipedia (en)' ? 'standard' : 'large';
+        if (!heroFirefox) {
+            wordmark.dataset.wordmarkHeroSize = heroSize;
+            wordmark.src = src;
+        }
+        engineNameEl.textContent = straplineSearchEngineDisplayName(label);
     }
 
     function iconSrcRoughMatch(a, b) {
@@ -2711,6 +2844,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /** Pinned-right clone: draggable only when that panel’s reorder UI is active (not when ••• is open on the chip only). */
+    function syncPinnedDefaultBadgeDraggableState() {
+        const badge = pinnedRightHost?.querySelector('.dropdown-default-badge');
+        if (!badge) return;
+        const open = !!pinnedRightHost?.classList.contains('search-switcher-reorder-ui-open');
+        badge.classList.toggle('dropdown-default-badge--draggable', open);
+        if (open) {
+            badge.setAttribute('title', 'Drag to move default search engine');
+            badge.setAttribute('aria-label', 'Default search engine — drag to move');
+        } else {
+            badge.setAttribute('title', 'Default search engine');
+            badge.setAttribute('aria-label', 'Default search engine');
+        }
+    }
+
     /** True when the pinned-right clone’s lilac controls strip is visible (ids stripped; class matches primary). */
     function isPinnedCloneControlsPanelOpen() {
         if (!document.body.classList.contains('search-engine-list-mode-pinned-right')) return false;
@@ -2721,21 +2869,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return !!(ctl && !ctl.hasAttribute('hidden'));
     }
 
-    /** True when any switcher label has the ••• toolbar strip open (chip or pinned-right clone). */
-    function isAnyDropdownLabelOverflowToolsOpen() {
-        return document.querySelector('.dropdown-label--overflow-tools-open') !== null;
-    }
-
     function syncEngineDragHandlesForControlsPanel() {
         const panel = document.getElementById('search-engines-controls-panel');
-        const controlsPanelOpen =
-            (panel && !panel.hasAttribute('hidden')) || isPinnedCloneControlsPanelOpen();
-        const overflowOpen = isAnyDropdownLabelOverflowToolsOpen();
-        const open = controlsPanelOpen || overflowOpen;
+        const controlsPanelOpenPrimary = !!(panel && !panel.hasAttribute('hidden'));
+        const controlsPanelOpenPinned = isPinnedCloneControlsPanelOpen();
+        const overflowOpenPrimary = !!searchSwitcherButton?.querySelector(
+            '.search-switcher-dropdown .dropdown-label.dropdown-label--overflow-tools-open'
+        );
+        const overflowOpenPinned = !!pinnedRightHost?.querySelector(
+            '.dropdown-label.dropdown-label--overflow-tools-open'
+        );
+        const openPrimary = controlsPanelOpenPrimary || overflowOpenPrimary;
+        const openPinned = controlsPanelOpenPinned || overflowOpenPinned;
         const dropdownForLock = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
         const wasReorderUiOpen = searchSwitcherButton?.classList.contains('search-engines-controls-open');
         /* Lock width before row handles + default-badge drag UI widen scrollWidth (••• / controls edit mode). */
-        if (open && !wasReorderUiOpen && searchSwitcherButton?.classList.contains('open') && dropdownForLock) {
+        if (openPrimary && !wasReorderUiOpen && searchSwitcherButton?.classList.contains('open') && dropdownForLock) {
             try {
                 syncSearchSwitcherDropdownWidth();
                 const w =
@@ -2744,24 +2893,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (w > 0) dropdownForLock.dataset.switcherReorderWidthLock = String(Math.round(w));
             } catch (_) {}
         }
-        if (!open && wasReorderUiOpen && dropdownForLock) {
+        if (!openPrimary && wasReorderUiOpen && dropdownForLock) {
             delete dropdownForLock.dataset.switcherReorderWidthLock;
         }
         if (searchSwitcherButton) {
-            searchSwitcherButton.classList.toggle('search-engines-controls-open', !!open);
-            /* Overflow-only: show row/badge drag affordances immediately (no lilac panel slide). */
-            if (overflowOpen && !controlsPanelOpen) {
+            searchSwitcherButton.classList.toggle('search-engines-controls-open', openPrimary);
+            /* Overflow-only (chip): show row/badge drag affordances immediately (no lilac panel slide). */
+            if (overflowOpenPrimary && !controlsPanelOpenPrimary) {
                 searchSwitcherButton.classList.add('search-engines-controls-panel-revealed');
-            } else if (!overflowOpen && !controlsPanelOpen) {
+            } else if (!overflowOpenPrimary && !controlsPanelOpenPrimary) {
                 searchSwitcherButton.classList.remove('search-engines-controls-panel-revealed');
             }
-            const handlesRevealed = !!searchSwitcherButton.classList.contains(
-                'search-engines-controls-panel-revealed'
-            );
-            document.body.classList.toggle('search-switcher-reorder-handles-revealed', handlesRevealed);
         }
-        document.body.classList.toggle('search-switcher-reorder-ui-open', !!open);
-        const applyDragHandlesToEnginesContainer = (enginesContainer) => {
+        if (pinnedRightHost) {
+            pinnedRightHost.classList.toggle('search-switcher-reorder-ui-open', openPinned);
+            const handlesRevealedPinned = overflowOpenPinned && !controlsPanelOpenPinned;
+            pinnedRightHost.classList.toggle('search-switcher-reorder-handles-revealed', handlesRevealedPinned);
+        }
+        const applyDragHandlesToEnginesContainer = (enginesContainer, open) => {
             if (!enginesContainer) return;
             const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter((el) =>
                 el.querySelector('.dropdown-engine-label')
@@ -2782,11 +2931,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         };
-        applyDragHandlesToEnginesContainer(searchSwitcherButton?.querySelector('.dropdown-search-engines'));
         applyDragHandlesToEnginesContainer(
-            pinnedRightHost?.querySelector('.search-switcher-dropdown .dropdown-search-engines')
+            searchSwitcherButton?.querySelector('.dropdown-search-engines'),
+            openPrimary
+        );
+        applyDragHandlesToEnginesContainer(
+            pinnedRightHost?.querySelector('.search-switcher-dropdown .dropdown-search-engines'),
+            openPinned
         );
         syncDefaultBadgeDraggableState();
+        syncPinnedDefaultBadgeDraggableState();
     }
 
     function clearFromFirefoxFooterFlipStyles() {
@@ -2804,7 +2958,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function applyListModeWidthCapFromGridSnapshot(dropdown, cappedPx, shortcutsOpen) {
         if (shortcutsOpen) return cappedPx;
-        if (document.body.classList.contains('search-engines-display-grid')) return cappedPx;
+        if (dropdown?.classList.contains('search-engines-display-grid')) return cappedPx;
         const gridLock = dropdown.dataset.switcherGridModeWidthLock;
         if (!gridLock) return cappedPx;
         const g = parseFloat(gridLock);
@@ -2814,7 +2968,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function recordGridModeWidthSnapshot(dropdown, appliedPx, shortcutsOpen) {
         if (shortcutsOpen) return;
-        if (document.body.classList.contains('search-engines-display-grid') && appliedPx > 0) {
+        if (dropdown?.classList.contains('search-engines-display-grid') && appliedPx > 0) {
             dropdown.dataset.switcherGridModeWidthLock = String(Math.round(appliedPx));
         }
     }
@@ -2924,6 +3078,14 @@ document.addEventListener('DOMContentLoaded', () => {
         root.querySelectorAll('[inert]').forEach((el) => el.removeAttribute('inert'));
         root.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
         root.querySelectorAll('[for]').forEach((el) => el.removeAttribute('for'));
+        root.querySelectorAll('[data-search-engines-display-toggle]').forEach((el) => {
+            el.setAttribute('data-search-engines-display-toggle', SEARCH_ENGINES_DISPLAY_SURFACE_PINNED);
+        });
+        root.querySelectorAll('.dropdown-default-badge').forEach((badge) => {
+            badge.classList.remove('dropdown-default-badge--draggable', 'dropdown-default-badge--dragging');
+        });
+        /* Ephemeral reorder UI from the primary surface must not appear in the pinned clone. */
+        root.querySelectorAll('.dropdown-drop-marker').forEach((el) => el.remove());
     }
 
     /**
@@ -3192,7 +3354,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     applySearchSwitcherControlsVisibleLayout();
-    applySearchEnginesDisplayMode(getSearchEnginesDisplayMode());
+    applySearchEnginesDisplayMode(undefined, 'all');
 
     /**
      * Run the same actions as the chip dropdown for engines/settings rows (primary DOM).
@@ -3435,6 +3597,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ) {
                 return;
             }
+            /* Primary row is moved to document.body during reorder drag; do not re-clone until drop. */
+            if (window._searchEngineDragging) return;
             if (shouldSkipPinnedCloneRefreshForMutations(mutations)) {
                 return;
             }
@@ -3646,6 +3810,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function refreshPinnedRightSwitcherPanel() {
         if (!pinnedRightHost || !searchSwitcherButton) return;
+        if (window._searchEngineDragging) return;
         const show =
             document.body.classList.contains('search-engine-list-mode-pinned-right') &&
             searchContainer?.classList.contains('focused');
@@ -3679,6 +3844,11 @@ document.addEventListener('DOMContentLoaded', () => {
             setDropdownLabelOverflowToolsOpen(cloneLabel, !!preservedCloneOverflowToolbar, { immediate: true });
         }
         pinnedRightHost.replaceChildren(clone);
+        applySearchEnginesDisplayMode(
+            getSearchEnginesDisplayModeForSurface(SEARCH_ENGINES_DISPLAY_SURFACE_PINNED),
+            SEARCH_ENGINES_DISPLAY_SURFACE_PINNED,
+            { skipStorage: true }
+        );
         ensurePinnedRightMutationObserver();
         syncPinnedRightPanelLayoutAfterAppend(clone);
         syncEngineDragHandlesForControlsPanel();
@@ -4054,7 +4224,9 @@ document.addEventListener('DOMContentLoaded', () => {
         defaultBadgeLog('updateDefaultBadge: inserted badge after label', {
             wrap,
             badgeClasses: badge.className,
-            gridMode: document.body.classList.contains('search-engines-display-grid'),
+            gridMode: !!searchSwitcherButton?.querySelector(
+                '.search-switcher-dropdown.search-engines-display-grid'
+            ),
         });
     }
 
@@ -4847,7 +5019,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
             };
 
-            const isGridMode = () => document.body.classList.contains('search-engines-display-grid');
+            const isGridMode = () => {
+                const ec = activeHitSurface();
+                const dd = ec?.closest?.('.search-switcher-dropdown');
+                return !!(dd && dd.classList.contains('search-engines-display-grid'));
+            };
 
             const getDropIndexFromY = (clientY) => {
                 const hitEc = activeHitSurface();
@@ -4989,6 +5165,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 dropMarker = null;
                 dropIndex = -1;
                 window._searchEngineDragOccurred = true;
+                try {
+                    if (
+                        document.body.classList.contains('search-engine-list-mode-pinned-right') &&
+                        searchContainer?.classList.contains('focused')
+                    ) {
+                        requestAnimationFrame(() => {
+                            try {
+                                refreshPinnedRightSwitcherPanel();
+                            } catch (_) {}
+                        });
+                    }
+                } catch (_) {}
             };
 
             const DRAG_SCROLL_ZONE = 36;
@@ -5173,6 +5361,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 const willBeShown = !isShown;
                 applyQuickButtonsState(willBeShown);
                 localStorage.setItem(QUICK_BUTTONS_VISIBLE_KEY, String(willBeShown));
+            });
+        }
+
+        if (window === window.top && mainScreenBrandLogos) {
+            try {
+                const rawHero = localStorage.getItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY);
+                if (rawHero === 'firefox') {
+                    /* keep */
+                } else if (rawHero === 'search_engine') {
+                    /* keep */
+                } else {
+                    localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE);
+                }
+            } catch (_) {}
+            const savedHero = getMainScreenHeroLogoMode();
+            applyMainScreenHeroLogoMode(savedHero);
+            document.querySelectorAll('input[name="main-screen-hero-logo"]').forEach((radio) => {
+                radio.checked = radio.value === savedHero;
+                radio.addEventListener('change', (e) => {
+                    const t = e.target;
+                    if (!t.checked) return;
+                    const mode = t.value === 'firefox' ? 'firefox' : 'search_engine';
+                    try {
+                        localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, mode);
+                    } catch (_) {}
+                    applyMainScreenHeroLogoMode(mode);
+                    const pinned = searchSwitcherButton?.querySelector('.dropdown-search-engines .dropdown-item-pinned');
+                    if (pinned) syncMainScreenBrandFromSwitcherItem(pinned);
+                });
             });
         }
 
@@ -5422,26 +5639,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // List/grid segmented control in the switcher label or lilac panel (per-search-bar preference).
-    const flipSearchEnginesDisplayMode = () => {
-        const current = getSearchEnginesDisplayMode();
+    const flipSearchEnginesDisplayMode = (surface = SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY) => {
+        const current = getSearchEnginesDisplayModeForSurface(surface);
         const next = current === 'grid' ? 'list' : 'grid';
-        localStorage.setItem(getSearchEnginesDisplayKey(), next);
-        applySearchEnginesDisplayMode(next);
+        applySearchEnginesDisplayMode(next, surface);
     };
-    flipSearchEnginesDisplayModeForPinned = flipSearchEnginesDisplayMode;
-    document.querySelectorAll('[data-search-engines-display-toggle="1"]').forEach((searchEnginesDisplayToggle) => {
-        searchEnginesDisplayToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            flipSearchEnginesDisplayMode();
+    flipSearchEnginesDisplayModeForPinned = () => flipSearchEnginesDisplayMode(SEARCH_ENGINES_DISPLAY_SURFACE_PINNED);
+    document
+        .querySelectorAll(
+            `[data-search-engines-display-toggle="${SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY}"], [data-search-engines-display-toggle="${SEARCH_ENGINES_DISPLAY_SURFACE_PINNED}"]`
+        )
+        .forEach((searchEnginesDisplayToggle) => {
+            const surfaceAttr = searchEnginesDisplayToggle.getAttribute('data-search-engines-display-toggle');
+            const surface =
+                surfaceAttr === SEARCH_ENGINES_DISPLAY_SURFACE_PINNED
+                    ? SEARCH_ENGINES_DISPLAY_SURFACE_PINNED
+                    : SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY;
+            searchEnginesDisplayToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                flipSearchEnginesDisplayMode(surface);
+            });
+            searchEnginesDisplayToggle.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                if (!searchEnginesDisplayToggle.contains(e.target)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                flipSearchEnginesDisplayMode(surface);
+            });
         });
-        searchEnginesDisplayToggle.addEventListener('keydown', (e) => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            if (!searchEnginesDisplayToggle.contains(e.target)) return;
-            e.preventDefault();
-            e.stopPropagation();
-            flipSearchEnginesDisplayMode();
-        });
-    });
 
     document.querySelectorAll('.search-engines-pin-default-toggle').forEach((btn) => {
         btn.addEventListener('click', (e) => {
@@ -7584,6 +7809,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         SEARCH_SWITCHER_CONTROLS_VISIBLE_BY_DEFAULT_KEY,
                         UNDERLINE_SEARCH_ENGINES_ENABLED_KEY,
                         KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY,
+                        MAIN_SCREEN_HERO_LOGO_MODE_KEY,
                         TWELVE_SEARCH_ENGINES_ENABLED_KEY,
                         SEARCH_ENGINES_COUNT_KEY,
                         SEARCH_ENGINE_LIST_MODE_KEY,
@@ -7696,7 +7922,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (swControlsVisibleReset) swControlsVisibleReset.checked = true;
                         applySearchSwitcherControlsVisibleLayout();
                     }
-                    applySearchEnginesDisplayMode('list');
+                    try {
+                        localStorage.setItem(
+                            getSearchEnginesDisplayKey(SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY),
+                            'list'
+                        );
+                        localStorage.setItem(
+                            getSearchEnginesDisplayKey(SEARCH_ENGINES_DISPLAY_SURFACE_PINNED),
+                            'list'
+                        );
+                    } catch (_) {}
+                    applySearchEnginesDisplayMode(undefined, 'all');
 
                     applyStandaloneSearchBoxPrototypeVisibility(false);
 
@@ -7708,6 +7944,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         const current = document.body.dataset.background || 'gradient';
                         btn.setAttribute('aria-pressed', btn.dataset.background === current ? 'true' : 'false');
                     });
+
+                    applyMainScreenHeroLogoMode(DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE);
+                    try {
+                        localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE);
+                    } catch (_) {}
+                    document.querySelectorAll('input[name="main-screen-hero-logo"]').forEach((radio) => {
+                        radio.checked = radio.value === DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE;
+                    });
+                    const pinnedHeroReset = searchSwitcherButton?.querySelector('.dropdown-search-engines .dropdown-item-pinned');
+                    if (pinnedHeroReset) syncMainScreenBrandFromSwitcherItem(pinnedHeroReset);
 
                     const borderCleared = applySearchBorderColorVariable(SEARCH_BORDER_COLOR_DEFAULT);
                     document.querySelectorAll('.search-border-swatch').forEach((btn) => {
@@ -8246,7 +8492,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 searchContainer.classList.add('restoring-focus');
                 searchContainer.style.transition = 'none';
                 if (suggestionsList) suggestionsList.style.transition = 'none';
-                const logo = document.querySelector('.firefox-logo');
+                const logo = document.querySelector('.main-screen-brand-logos');
                 if (logo) logo.style.transition = 'none';
                 const oneOffButtons = document.querySelector('.one-off-buttons');
                 if (oneOffButtons) oneOffButtons.style.transition = 'none';
