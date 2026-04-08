@@ -4,13 +4,45 @@
 const DEBUG_DEFAULT_BADGE = false;
 /** Set to false to silence badge drag logs (mousedown, drag move/end, applied default). On by default. */
 const DEBUG_DEFAULT_BADGE_DRAG = true;
-function defaultBadgeLog(...args) {
-    if (!DEBUG_DEFAULT_BADGE) return;
-    console.log('[default-badge]', ...args);
+/** Logs when `elementsFromPoint` would hit a clone row before the chip list during default-badge drag (primary-only hit-test suppresses clone highlight). */
+const DEBUG_DEFAULT_BADGE_CLONE_HIGHLIGHT = true;
+/** Logs when the pointer stack hits a clone engine row during badge drag (same hit-test CSS :hover uses; not logged elsewhere). */
+const DEBUG_DEFAULT_BADGE_CLONE_HOVER = true;
+
+/** Inline detail for console (avoids expandable Object / Array in DevTools). */
+function formatInlineLogDetail(detail) {
+    if (detail === undefined) return '';
+    if (detail === null) return ' null';
+    const t = typeof detail;
+    if (t === 'string' || t === 'number' || t === 'boolean') return ' ' + detail;
+    if (detail instanceof Element) {
+        const cls = String(detail.className || '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        return ` ${detail.tagName || '?'}${cls ? '.' + cls.slice(0, 120) : ''}`;
+    }
+    try {
+        return ' ' + JSON.stringify(detail);
+    } catch (_) {
+        return ' [...]';
+    }
 }
-function defaultBadgeDragLog(...args) {
+
+function defaultBadgeLog(msg, detail) {
+    if (!DEBUG_DEFAULT_BADGE) return;
+    console.log('[default-badge] ' + msg + formatInlineLogDetail(detail));
+}
+function defaultBadgeDragLog(msg, detail) {
     if (!DEBUG_DEFAULT_BADGE_DRAG) return;
-    console.log('[default-badge]', ...args);
+    console.log('[default-badge] ' + msg + formatInlineLogDetail(detail));
+}
+function defaultBadgeCloneHighlightLog(msg, detail) {
+    if (!DEBUG_DEFAULT_BADGE_CLONE_HIGHLIGHT) return;
+    console.log('[default-badge clone-highlight] ' + msg + formatInlineLogDetail(detail));
+}
+function defaultBadgeCloneHoverLog(msg, detail) {
+    if (!DEBUG_DEFAULT_BADGE_CLONE_HOVER) return;
+    console.log('[default-badge clone-hover] ' + msg + formatInlineLogDetail(detail));
 }
 
 // ===== API CONFIGURATION =====
@@ -1382,6 +1414,14 @@ function applyMainScreenHeroLogoMode(mode) {
     } else {
         delete document.body.dataset.mainScreenHeroLogo;
     }
+}
+
+function syncMainScreenHeroLogoRadiosToMode(mode) {
+    document
+        .querySelectorAll('input[name="main-screen-hero-logo"], input[name="main-screen-hero-logo-settings"]')
+        .forEach((radio) => {
+            radio.checked = radio.value === mode;
+        });
 }
 const SEARCH_BORDER_COLOR_KEY = 'search_border_color';
 /** `'small'` = CSS fallbacks; `'large'` = JS measures elements and fully rounds corners. */
@@ -3602,6 +3642,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             /* Primary row is moved to document.body during reorder drag; do not re-clone until drop. */
             if (window._searchEngineDragging) return;
+            /* Default badge is moved to body + placeholder inserted — same idea: keep clone stable until mouseup. */
+            if (window._defaultBadgeDragging) return;
             if (shouldSkipPinnedCloneRefreshForMutations(mutations)) {
                 return;
             }
@@ -3814,6 +3856,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function refreshPinnedRightSwitcherPanel() {
         if (!pinnedRightHost || !searchSwitcherButton) return;
         if (window._searchEngineDragging) return;
+        /* Badge float + placeholder mutate the primary dropdown; re-clone would replace the pinned copy and drop `engines-dragging`. */
+        if (window._defaultBadgeDragging) return;
         const show =
             document.body.classList.contains('search-engine-list-mode-pinned-right') &&
             searchContainer?.classList.contains('focused');
@@ -4225,7 +4269,6 @@ document.addEventListener('DOMContentLoaded', () => {
         labelEl.insertAdjacentElement('afterend', wrap);
         syncDefaultBadgeDraggableState();
         defaultBadgeLog('updateDefaultBadge: inserted badge after label', {
-            wrap,
             badgeClasses: badge.className,
             gridMode: !!searchSwitcherButton?.querySelector(
                 '.search-switcher-dropdown.search-engines-display-grid'
@@ -4711,6 +4754,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dragOffsetY = e.clientY - wrapRect.top;
                     window._defaultBadgeDragging = true;
                     document.body.classList.add('default-badge-dragging');
+                    /* Same as engine row reorder: .engines-dragging suppresses :hover flicker on both chip + clone lists. */
+                    enginesContainer.classList.add('engines-dragging');
+                    pinnedRightHost?.querySelector('.search-switcher-dropdown .dropdown-search-engines')?.classList.add(
+                        'engines-dragging'
+                    );
                     floatWrap.style.width = `${wrapRect.width}px`;
                     floatWrap.classList.add('default-badge-drag-float');
                     badgeEl.classList.add('dropdown-default-badge--dragging');
@@ -4748,8 +4796,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         cloneEcForBadge()?.querySelectorAll('.dropdown-item').forEach((el) => el.classList.remove('highlighted'));
                         ghostEl.style.display = 'none';
                     };
-                    /** Resolve engine row under cursor (chip or pinned clone); skips float + ghost. */
-                    const findEngineRowUnderPoint = (clientX, clientY) => {
+                    /**
+                     * Hit-test engine rows under a point. The chip and pinned-right clone duplicate the same list;
+                     * `elementsFromPoint` can return the clone’s `.dropdown-item` first (stacking / position), which
+                     * used to add `.highlighted` on the clone while dragging from the chip. Badge-drag uses
+                     * `allowClone: false` so only the primary `.dropdown-search-engines` rows receive highlight/drop.
+                     */
+                    const findEngineRowUnderPoint = (clientX, clientY, { allowClone = true } = {}) => {
                         const stack = document.elementsFromPoint(clientX, clientY);
                         const ecClone = cloneEcForBadge();
                         for (let i = 0; i < stack.length; i++) {
@@ -4759,11 +4812,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (node === ghostEl || ghostEl.contains(node)) continue;
                             const row = node.closest('.dropdown-item');
                             if (!row || !row.querySelector('.dropdown-engine-label')) continue;
+                            if (ecClone && ecClone.contains(row)) {
+                                if (allowClone) return row;
+                                continue;
+                            }
                             if (enginesContainer.contains(row)) return row;
-                            if (ecClone && ecClone.contains(row)) return row;
                         }
                         return null;
                     };
+                    let loggedCloneHighlightMismatchThisDrag = false;
+                    let lastCloneHoverStackLabel = '';
+                    let lastPrimaryDragHighlightLabel = '';
                     const labelRectForBadgeGhost = (row) => {
                         const labelEl = row?.querySelector('.dropdown-engine-label');
                         if (!labelEl) return null;
@@ -4781,9 +4840,45 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     const highlightUnder = (clientX, clientY) => {
                         clearHighlight();
-                        const item = findEngineRowUnderPoint(clientX, clientY);
-                        if (!item) return;
+                        if (DEBUG_DEFAULT_BADGE_CLONE_HIGHLIGHT && !loggedCloneHighlightMismatchThisDrag) {
+                            const ec = cloneEcForBadge();
+                            if (ec) {
+                                const ifCloneAllowed = findEngineRowUnderPoint(clientX, clientY, { allowClone: true });
+                                const primaryOnly = findEngineRowUnderPoint(clientX, clientY, { allowClone: false });
+                                if (ifCloneAllowed && ec.contains(ifCloneAllowed) && ifCloneAllowed !== primaryOnly) {
+                                    loggedCloneHighlightMismatchThisDrag = true;
+                                    defaultBadgeCloneHighlightLog(
+                                        'clone row would have been highlighted first under cursor (chip drag uses primary list only)',
+                                        {
+                                            cloneRowLabel: getEngineLabel(ifCloneAllowed),
+                                            primaryRowLabel: primaryOnly ? getEngineLabel(primaryOnly) : null,
+                                            clientX,
+                                            clientY,
+                                        }
+                                    );
+                                }
+                            }
+                        }
+                        const item = findEngineRowUnderPoint(clientX, clientY, { allowClone: false });
+                        if (!item) {
+                            if (lastPrimaryDragHighlightLabel) {
+                                defaultBadgeDragLog('main switcher (chip) .highlighted cleared — no engine row under point', {
+                                    wasLabel: lastPrimaryDragHighlightLabel,
+                                });
+                                lastPrimaryDragHighlightLabel = '';
+                            }
+                            return;
+                        }
+                        const hlLabel = getEngineLabel(item);
                         item.classList.add('highlighted');
+                        if (hlLabel !== lastPrimaryDragHighlightLabel) {
+                            lastPrimaryDragHighlightLabel = hlLabel;
+                            defaultBadgeDragLog('main switcher (chip) drop-target .highlighted', {
+                                label: hlLabel,
+                                clientX,
+                                clientY,
+                            });
+                        }
                         const lr = labelRectForBadgeGhost(item);
                         if (!lr || lr.width < 1) return;
                         ghostEl.style.display = 'block';
@@ -4794,11 +4889,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     const BADGE_DRAG_SCROLL_ZONE = 36;
                     const BADGE_DRAG_SCROLL_SPEED = 8;
+                    /**
+                     * Topmost stack node inside the clone engines subtree → same row CSS :hover uses (unlike
+                     * “first .dropdown-item in stack”, which can be the chip row while the pointer is still over the clone).
+                     */
+                    const logCloneHoverFromPointerStack = (clientX, clientY) => {
+                        if (!DEBUG_DEFAULT_BADGE_CLONE_HOVER) return;
+                        const ec = cloneEcForBadge();
+                        if (!ec) return;
+                        let cloneLabel = null;
+                        try {
+                            const stack = document.elementsFromPoint(clientX, clientY);
+                            for (let i = 0; i < stack.length; i++) {
+                                const node = stack[i];
+                                if (!node || typeof node.closest !== 'function') continue;
+                                if (node === floatWrap || floatWrap.contains(node)) continue;
+                                if (node === ghostEl || ghostEl.contains(node)) continue;
+                                if (!ec.contains(node)) continue;
+                                const row = node.closest('.dropdown-item');
+                                if (!row || !ec.contains(row) || !row.querySelector('.dropdown-engine-label')) continue;
+                                cloneLabel = getEngineLabel(row);
+                                break;
+                            }
+                        } catch (_) {}
+                        const nextKey = cloneLabel || '';
+                        if (nextKey === lastCloneHoverStackLabel) return;
+                        lastCloneHoverStackLabel = nextKey;
+                        if (cloneLabel) {
+                            defaultBadgeCloneHoverLog('clone panel under pointer (CSS :hover target)', {
+                                label: cloneLabel,
+                                clientX,
+                                clientY,
+                            });
+                        }
+                    };
                     const onMove = (ev) => {
                         if (!window._defaultBadgeDragging) return;
                         floatWrap.style.left = `${ev.clientX - dragOffsetX}px`;
                         floatWrap.style.top = `${ev.clientY - dragOffsetY}px`;
                         highlightUnder(ev.clientX, ev.clientY);
+                        logCloneHoverFromPointerStack(ev.clientX, ev.clientY);
                         const scrollEl = getEngineListScrollEl(
                             getHitTestEnginesContainerForReorder(enginesContainer)
                         );
@@ -4839,6 +4969,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     };
                     highlightUnder(e.clientX, e.clientY);
+                    logCloneHoverFromPointerStack(e.clientX, e.clientY);
                     const onUp = (ev) => {
                         if (!window._defaultBadgeDragging) return;
                         window._defaultBadgeDragging = false;
@@ -4847,6 +4978,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             badgeDragScrollInterval = null;
                         }
                         document.body.classList.remove('default-badge-dragging');
+                        enginesContainer.classList.remove('engines-dragging');
+                        pinnedRightHost?.querySelector('.search-switcher-dropdown .dropdown-search-engines')?.classList.remove(
+                            'engines-dragging'
+                        );
                         document.removeEventListener('mousemove', onMove);
                         document.removeEventListener('mouseup', onUp);
                         document.body.style.cursor = prevCursor;
@@ -4854,7 +4989,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         ghostEl.remove();
                         floatWrap.remove();
                         placeholderEl.remove();
-                        const item = findEngineRowUnderPoint(ev.clientX, ev.clientY);
+                        lastCloneHoverStackLabel = '';
+                        lastPrimaryDragHighlightLabel = '';
+                        const item = findEngineRowUnderPoint(ev.clientX, ev.clientY, { allowClone: false });
                         clearHighlight();
                         const lab = item ? getEngineLabel(item) : '';
                         const primaryTarget = lab ? resolvePrimaryEngineRowByLabel(lab) : null;
@@ -5421,7 +5558,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        if (window === window.top && mainScreenBrandLogos) {
+        if (window === window.top) {
             try {
                 const rawHero = localStorage.getItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY);
                 if (rawHero === 'firefox') {
@@ -5434,20 +5571,23 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (_) {}
             const savedHero = getMainScreenHeroLogoMode();
             applyMainScreenHeroLogoMode(savedHero);
-            document.querySelectorAll('input[name="main-screen-hero-logo"]').forEach((radio) => {
-                radio.checked = radio.value === savedHero;
-                radio.addEventListener('change', (e) => {
-                    const t = e.target;
-                    if (!t.checked) return;
-                    const mode = t.value === 'firefox' ? 'firefox' : 'search_engine';
-                    try {
-                        localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, mode);
-                    } catch (_) {}
-                    applyMainScreenHeroLogoMode(mode);
-                    const pinned = searchSwitcherButton?.querySelector('.dropdown-search-engines .dropdown-item-pinned');
-                    if (pinned) syncMainScreenBrandFromSwitcherItem(pinned);
+            syncMainScreenHeroLogoRadiosToMode(savedHero);
+            document
+                .querySelectorAll('input[name="main-screen-hero-logo"], input[name="main-screen-hero-logo-settings"]')
+                .forEach((radio) => {
+                    radio.addEventListener('change', (e) => {
+                        const t = e.target;
+                        if (!t.checked) return;
+                        const mode = t.value === 'firefox' ? 'firefox' : 'search_engine';
+                        try {
+                            localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, mode);
+                        } catch (_) {}
+                        applyMainScreenHeroLogoMode(mode);
+                        syncMainScreenHeroLogoRadiosToMode(mode);
+                        const pinned = searchSwitcherButton?.querySelector('.dropdown-search-engines .dropdown-item-pinned');
+                        if (pinned) syncMainScreenBrandFromSwitcherItem(pinned);
+                    });
                 });
-            });
         }
 
         // Restore saved default search engine and order on load
@@ -5663,8 +5803,8 @@ document.addEventListener('DOMContentLoaded', () => {
         syncSearchSwitcherPanelPinToggle();
     }
 
-    // Number of search engines: 6 / 12 / 50 (default: 12)
-    const searchEnginesCountRadios = document.querySelectorAll('.search-engines-count-radio');
+    // Number of search engines: 6 / 12 / 50 (default: 12); scoped by name (Hero logo reuses .search-engines-count-radio).
+    const searchEnginesCountRadios = document.querySelectorAll('input[name="search-engines-count"]');
     if (searchEnginesCountRadios.length) {
         const count = getStoredSearchEnginesCount();
         searchEnginesCountRadios.forEach((radio) => {
@@ -6796,7 +6936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     
     function showSkeletonLoaders(count = 3) {
-        console.log('[SKELETON] showSkeletonLoaders called, count:', count);
+        console.log('[SKELETON] showSkeletonLoaders count=' + count);
         
         const suggestionsContent = suggestionsList?.querySelector('.suggestions-content');
         if (!suggestionsContent) {
@@ -6820,7 +6960,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }).join('');
         
-        console.log('[SKELETON] Adding', count, 'skeletons starting at row', startRowIndex);
+        console.log('[SKELETON] adding skeletons count=' + count + ' startRow=' + startRowIndex);
         suggestionsContent.insertAdjacentHTML('beforeend', skeletonHTML);
     }
     
@@ -6830,7 +6970,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const skeletons = suggestionsContent.querySelectorAll('.skeleton');
         skeletons.forEach(skeleton => skeleton.remove());
-        console.log('[SKELETON] Removed', skeletons.length, 'skeletons');
+        console.log('[SKELETON] removed skeletons count=' + skeletons.length);
     }
     
     // ===== HIGHLIGHTING MATCHING TEXT =====
@@ -7012,16 +7152,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const localSourceMode = options.localSourceMode || '';
         const localSourceModeToType = { Bookmarks: 'bookmark', Tabs: 'tab', History: 'history', Actions: 'actions' };
         const displayType = (firefoxSuggestionsOnly && localSourceMode) ? (localSourceModeToType[localSourceMode] || 'history') : null;
-        console.log('[UPDATE] ===== updateSuggestions CALLED =====');
-        console.log('[UPDATE] Suggestions array:', suggestions);
-        console.log('[UPDATE] Suggestions count:', suggestions ? suggestions.length : 0);
-        
-        if (!suggestionsList) {
-            console.log('[UPDATE] ✗ suggestionsList not found, returning early');
-            return;
+        try {
+            console.log(
+                '[UPDATE] updateSuggestions | count=' +
+                    (suggestions ? suggestions.length : 0) +
+                    ' | suggestions=' +
+                    (Array.isArray(suggestions) ? JSON.stringify(suggestions) : String(suggestions))
+            );
+        } catch (_) {
+            console.log('[UPDATE] updateSuggestions (could not stringify suggestions)');
         }
         
-        console.log('[UPDATE] ✓ suggestionsList exists, proceeding...');
+        if (!suggestionsList) {
+            console.log('[UPDATE] suggestionsList not found, returning early');
+            return;
+        }
         
         // Remove any existing skeletons
         removeSkeletons();
@@ -7029,7 +7174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Get the suggestions content container
         const suggestionsContent = suggestionsList.querySelector('.suggestions-content');
         if (!suggestionsContent) {
-            console.log('[UPDATE] ✗ suggestions-content not found');
+            console.log('[UPDATE] suggestions-content not found');
             return;
         }
         
@@ -7098,11 +7243,14 @@ document.addEventListener('DOMContentLoaded', () => {
             suggestionsToShow = [{ _visitSite: true, _text: firstText }, ...suggestionsToShow];
         }
         
-        console.log('[UPDATE] Typed text:', searchValueTrimmed, '| Total suggestions:', suggestionsToShow.length);
-        console.log('[UPDATE] Total suggestions to show:', suggestionsToShow.length);
-        
-        // Get Firefox suggestions metadata (already extracted above)
-        console.log('[UPDATE] Firefox suggestions:', firefoxSuggestions.length);
+        console.log(
+            '[UPDATE] typed=' +
+                JSON.stringify(searchValueTrimmed) +
+                ' | toShow=' +
+                suggestionsToShow.length +
+                ' | firefoxMetaCount=' +
+                firefoxSuggestions.length
+        );
         
         // Track AI suggestions for icon assignment (skip _localSource objects)
         if (suggestions.length > 0) {
@@ -7193,7 +7341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Add suggestions
         if (suggestionsToShow && suggestionsToShow.length > 0) {
-            console.log('[UPDATE] Adding', suggestionsToShow.length, 'suggestions');
+            console.log('[UPDATE] adding suggestion rows count=' + suggestionsToShow.length);
             
             let firefoxHeadingAdded = false;
             
@@ -7361,9 +7509,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 suggestionsContent.appendChild(li);
             });
             
-            console.log('[UPDATE] Added', suggestionsToShow.length, 'suggestion items to list');
+            console.log('[UPDATE] appended suggestion rows count=' + suggestionsToShow.length);
         } else {
-            console.log('[UPDATE] No suggestions to add');
+            console.log('[UPDATE] no suggestion rows to append');
         }
         
         // Re-attach event listeners for first hover
@@ -7966,7 +8114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.body.classList.remove('pin-default-enabled');
                     updateDefaultBadge();
 
-                    document.querySelectorAll('.search-engines-count-radio').forEach((radio) => {
+                    document.querySelectorAll('input[name="search-engines-count"]').forEach((radio) => {
                         radio.checked = radio.value === '12';
                     });
                     try {
@@ -8006,9 +8154,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE);
                     } catch (_) {}
-                    document.querySelectorAll('input[name="main-screen-hero-logo"]').forEach((radio) => {
-                        radio.checked = radio.value === DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE;
-                    });
+                    syncMainScreenHeroLogoRadiosToMode(DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE);
                     const pinnedHeroReset = searchSwitcherButton?.querySelector('.dropdown-search-engines .dropdown-item-pinned');
                     if (pinnedHeroReset) syncMainScreenBrandFromSwitcherItem(pinnedHeroReset);
 

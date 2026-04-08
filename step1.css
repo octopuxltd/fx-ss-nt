@@ -502,7 +502,45 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     background-color: rgba(255, 255, 255, 0.66);
 }
 
+/* Switcher open calls `searchInput.blur()` — keep the same shell as focused input (not the unfocused 0.35 shell). */
+.search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    background-color: rgba(255, 255, 255, 0.66);
+}
+
+.search-container.focused .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)) {
+    background-color: rgba(255, 255, 255, 1);
+}
+
+.search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing))::before {
+    opacity: 1;
+}
+
+.search-container.focused .search-box-wrapper-outer .suggestions-content,
+.search-container.focused .search-box-wrapper-outer .search-button svg,
+.search-container.focused .search-box-wrapper-outer .search-input::placeholder {
+    transition: opacity 0.2s ease;
+}
+
+body.reduced-motion .search-container.focused .search-box-wrapper-outer .suggestions-content,
+body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-button svg,
+body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-input::placeholder {
+    transition: none;
+}
+
+/* Switcher open blurs the input: de-emphasize suggestions, submit arrow, and placeholder. */
+.search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) .suggestions-content,
+.search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) .search-button svg,
+.search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) .search-input::placeholder {
+    opacity: 0.5;
+}
+
 .search-container.search-has-typed-input .search-box-wrapper-outer {
+    background-color: #fff;
+}
+
+/* Beat switcher-open shell rule when the user has typed (outer must stay #fff). */
+.search-container.search-has-typed-input .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) {
     background-color: #fff;
 }
 
@@ -1579,6 +1617,40 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     min-width: 8.75rem;
 }
 
+.search-settings-grid tbody th.search-settings-new-tab-row-header {
+    white-space: normal;
+    vertical-align: middle;
+    min-width: 10rem;
+}
+
+.search-settings-new-tab-row-header-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.search-settings-new-tab-row-title {
+    font-weight: 500;
+    line-height: 1.25;
+}
+
+.search-settings-grid .search-settings-hero-logo-radios {
+    margin-left: 0;
+    flex-wrap: wrap;
+}
+
+.search-settings-grid .search-settings-hero-logo-radios .search-engines-count-option {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    font-weight: 400;
+    cursor: pointer;
+    user-select: none;
+    color: inherit;
+}
+
 .search-settings-surface-row-header-inner {
     display: flex;
     flex-direction: row;
@@ -2479,6 +2551,12 @@ body > .dropdown-item.dragging {
 }
 
 .dropdown-search-engines.engines-dragging .dropdown-item:hover {
+    background-color: transparent;
+}
+
+/* Grid: `.search-switcher-dropdown...grid .dropdown-search-engines .dropdown-item:hover` beats the three-class
+   engines-dragging rule above. (Default badge is list-only — grid hides `.dropdown-default-badge-wrap`.) */
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines.engines-dragging .dropdown-item:hover {
     background-color: transparent;
 }
 

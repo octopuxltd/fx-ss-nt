@@ -150,7 +150,8 @@ body.addressbar .search-box-wrapper-outer {
 }
 
 body.addressbar .search-box-wrapper-outer:has(.search-input:focus),
-body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning) {
+body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning),
+body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) {
     box-shadow: none;
     background-color: #fff;
 }
@@ -168,12 +169,33 @@ body.addressbar.reduced-motion .search-box-wrapper-outer::before {
     transition: none;
 }
 
-body.addressbar .search-box-wrapper-outer:has(.search-input:focus)::before {
+body.addressbar .search-box-wrapper-outer:has(.search-input:focus)::before,
+body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing))::before {
+    opacity: 1;
     transition: none;
 }
 
-body.addressbar .search-box-wrapper:has(.search-input:focus) {
+body.addressbar .search-box-wrapper:has(.search-input:focus),
+body.addressbar .search-container.focused .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)) {
     background-color: #fff;
+}
+
+body.addressbar .search-container.focused .search-box-wrapper-outer .suggestions-content,
+body.addressbar .search-container.focused .search-box-wrapper-outer .search-button svg,
+body.addressbar .search-container.focused .search-box-wrapper-outer .search-input::placeholder {
+    transition: opacity 0.2s ease;
+}
+
+body.addressbar.reduced-motion .search-container.focused .search-box-wrapper-outer .suggestions-content,
+body.addressbar.reduced-motion .search-container.focused .search-box-wrapper-outer .search-button svg,
+body.addressbar.reduced-motion .search-container.focused .search-box-wrapper-outer .search-input::placeholder {
+    transition: none;
+}
+
+body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) .suggestions-content,
+body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) .search-button svg,
+body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) .search-input::placeholder {
+    opacity: 0.5;
 }
 
 body.addressbar .search-box-wrapper {

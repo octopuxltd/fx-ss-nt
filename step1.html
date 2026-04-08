@@ -313,8 +313,8 @@
                 <div class="search-engines-count-control" role="group" aria-labelledby="main-screen-hero-logo-label">
                     <span id="main-screen-hero-logo-label" class="search-engines-count-heading">Hero logo</span>
                     <div class="search-engines-count-radios">
-                        <label class="search-engines-count-option"><input type="radio" name="main-screen-hero-logo" class="search-engines-count-radio" value="search_engine" checked> Search engine logo</label>
-                        <label class="search-engines-count-option"><input type="radio" name="main-screen-hero-logo" class="search-engines-count-radio" value="firefox"> Firefox logo</label>
+                        <label class="search-engines-count-option"><input type="radio" name="main-screen-hero-logo" class="search-engines-count-radio" value="search_engine" checked> Search engine</label>
+                        <label class="search-engines-count-option"><input type="radio" name="main-screen-hero-logo" class="search-engines-count-radio" value="firefox"> Firefox</label>
                     </div>
                 </div>
                 <div class="search-border-swatches-control">
@@ -422,7 +422,19 @@
                             </td>
                         </tr>
                         <tr>
-                            <th scope="row">New Tab / Homepage</th>
+                            <th scope="row" class="search-settings-new-tab-row-header">
+                                <div class="search-settings-new-tab-row-header-inner">
+                                    <span id="search-settings-new-tab-row-heading" class="search-settings-new-tab-row-title">New Tab / Homepage</span>
+                                    <div
+                                        class="search-engines-count-radios search-settings-hero-logo-radios"
+                                        role="group"
+                                        aria-labelledby="search-settings-new-tab-row-heading"
+                                    >
+                                        <label class="search-engines-count-option"><input type="radio" name="main-screen-hero-logo-settings" class="search-engines-count-radio" value="search_engine"> Search engine logo</label>
+                                        <label class="search-engines-count-option"><input type="radio" name="main-screen-hero-logo-settings" class="search-engines-count-radio" value="firefox"> Firefox logo</label>
+                                    </div>
+                                </div>
+                            </th>
                             <td class="search-settings-cell">
                                 <input type="checkbox" id="search-settings-navigate-new-tab" class="search-settings-cell-checkbox search-settings-navigate-column-checkbox" aria-label="Navigate, New Tab / Homepage">
                             </td>
