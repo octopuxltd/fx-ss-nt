@@ -3936,15 +3936,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 pinnedRightHost.style.zIndex = '4';
                 void pinnedRightHost.offsetWidth;
                 requestAnimationFrame(() => {
-                    const duration = 450;
+                    const movementDurationMs = 450;
+                    const fadeDurationMs = movementDurationMs / 2; /* fade completes in half the movement time; same t=0 start */
                     const slideEasing = 'cubic-bezier(0.22, 1, 0.36, 1)';
                     const animOp = pinnedRightHost.animate(
                         [{ opacity: 1 }, { opacity: 0 }],
-                        { duration, easing: 'linear', fill: 'forwards' }
+                        { duration: fadeDurationMs, easing: 'linear', fill: 'forwards', delay: 0 }
                     );
                     const animX = pinnedRightHost.animate(
                         [{ transform: 'translateX(0px)' }, { transform: `translateX(${endX}px)` }],
-                        { duration, easing: slideEasing, fill: 'forwards' }
+                        { duration: movementDurationMs, easing: slideEasing, fill: 'forwards', delay: 0 }
                     );
                     const ourPair = [animOp, animX];
                     pinnedRightHost._pinnedSlideAnim = ourPair;
