@@ -6257,15 +6257,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchInput) searchInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
     const searchEngineListModeSelect = document.getElementById('search-engine-list-mode-select');
+    let newtabPinFromUrl = false;
+    try {
+        newtabPinFromUrl = new URLSearchParams(window.location.search).get('newtab')?.toLowerCase() === 'pin';
+    } catch (_) {}
     if (searchEngineListModeSelect) {
-        let initialListMode = getSearchEngineListMode();
-        try {
-            /* newtab=pin → engines panel pinned right (pinned-left remains in code / storage but not in UI). */
-            if (new URLSearchParams(window.location.search).get('newtab') === 'pin') {
-                initialListMode = 'pinned-right';
-            }
-        } catch (_) {}
+        const initialListMode = newtabPinFromUrl ? 'pinned-right' : getSearchEngineListMode();
         applySearchEngineListMode(initialListMode, { animate: false });
+        try {
+            searchEngineListModeSelect.value = initialListMode;
+        } catch (_) {}
+        if (newtabPinFromUrl) {
+            /* Defer until after search-input focus listeners are registered so focused + pinned-right panel run. */
+            setTimeout(() => searchInput?.focus(), 0);
+        }
         searchEngineListModeSelect.addEventListener('change', () => {
             const next = searchEngineListModeSelect.value;
             logPinMenu('search engine list mode select', { next });
