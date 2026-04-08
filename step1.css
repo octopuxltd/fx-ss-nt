@@ -174,7 +174,9 @@ body:not(.search-border-radius-large) .search-url-button {
 }
 
 body:not(.search-border-radius-large) .dropdown-label-info-icon,
-body:not(.search-border-radius-large) .search-engines-controls-toggle {
+body:not(.search-border-radius-large) .search-engines-controls-toggle,
+body:not(.search-border-radius-large) .search-engines-pin-default-toggle,
+body:not(.search-border-radius-large) .search-switcher-more-menu-button {
     border-radius: 9px;
 }
 
@@ -397,7 +399,7 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     top: 0;
     margin-left: 12px;
     display: flex;
-    align-items: stretch;
+    align-items: flex-start;
     min-width: 0;
     max-width: min(360px, 45vw);
     z-index: 5;
@@ -537,13 +539,131 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     justify-content: space-between;
     gap: 6px;
     padding: 5px 12px;
+    min-height: 38px;
     font-size: 12px;
     color: var(--color-text-secondary);
     font-weight: 500;
     position: relative;
     z-index: 1;
+    isolation: isolate;
     background-color: #fff;
     overflow: visible;
+}
+
+.dropdown-label-text {
+    transition: opacity 0.22s ease;
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+/* ••• above the sliding strip (transform layers can otherwise paint over this sibling). */
+.dropdown-label > .search-switcher-more-menu-button {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    background-color: inherit;
+}
+
+.dropdown-label > .search-switcher-more-menu-button[aria-expanded="true"] {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+/* While the strip collapses, keep ••• matching the open look so aria-expanded=false does not flash dim icon/bg. */
+.dropdown-label.dropdown-label--overflow-tools-closing > .search-switcher-more-menu-button {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.dropdown-label.dropdown-label--overflow-tools-closing > .search-switcher-more-menu-button .search-switcher-more-menu-button-icon {
+    opacity: 1;
+}
+
+.dropdown-label-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-right: 36px;
+    position: relative;
+    z-index: 1;
+}
+
+.dropdown-label-overflow-reveal,
+.dropdown-label-overflow-reveal-inner {
+    z-index: 0;
+}
+
+/* ••• reveals list/grid + (i) + settings + pin to the left; "Search with" fades; row overlays label when open */
+.dropdown-label-overflow-reveal {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    max-width: 0;
+    min-width: 0;
+    opacity: 0;
+    flex-shrink: 0;
+    transition:
+        max-width 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.dropdown-label-overflow-reveal-inner {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    transform: translateX(100%);
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropdown-label--overflow-tools-open .dropdown-label-overflow-reveal {
+    max-width: 120px;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.dropdown-label--overflow-tools-open .dropdown-label-overflow-reveal-inner {
+    transform: translateX(0);
+}
+
+.dropdown-label--overflow-tools-open .dropdown-label-text,
+.dropdown-label--overflow-tools-closing .dropdown-label-text {
+    opacity: 0;
+    flex: 0 0 0;
+    width: 0;
+    height: 0;
+    min-height: 0;
+    line-height: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Match label content box vertically (same band as closed flex layout). */
+.dropdown-label--overflow-tools-open .dropdown-label-actions,
+.dropdown-label--overflow-tools-closing .dropdown-label-actions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 5px;
+    bottom: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 0 44px 0 12px;
+    box-sizing: border-box;
+    z-index: 1;
+    margin-right: 0;
+}
+
+body.reduced-motion .dropdown-label-overflow-reveal,
+body.reduced-motion .dropdown-label-overflow-reveal-inner,
+body.reduced-motion .dropdown-label-text {
+    transition: none;
 }
 
 .dropdown-label-info-icon {
@@ -598,11 +718,10 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     background: #e8f0ff;
 }
 
-.dropdown-label-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
+/* Compact switcher label: list/grid + ••• always; (i)/pin/settings behind ••• until opened; list/grid copy in lilac panel.
+   Use data/class (not #ids): pinned-right clone has ids stripped by sanitizePinnedRightCloneRoot. */
+body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-display-toggle="1"] {
+    display: none !important;
 }
 
 /* Total height 19px (1 + 17 + 1 padding) — match .search-engine-list-mode-select in controls row */
@@ -728,11 +847,132 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     opacity: 1;
 }
 
+.search-engines-pin-default-toggle,
+.search-switcher-more-menu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 28px;
+    min-height: 28px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    outline: none;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    transition: background-color 0.15s ease;
+}
+
+.search-switcher-more-menu-button:hover,
+.search-switcher-more-menu-button:focus-visible {
+    background: rgba(0, 0, 0, 0.06);
+    outline: none;
+}
+
+.search-engines-pin-default-toggle:hover,
+.search-engines-pin-default-toggle:focus-visible {
+    background: rgba(0, 0, 0, 0.06);
+    outline: none;
+}
+
+/* Stacked outline + filled; hover previews the other state (cf. .dropdown-item-pin-empty). Hollow outline uses 5° clockwise. */
+
+.search-switcher-more-menu-button-icon {
+    display: block;
+    width: 14px;
+    height: 14px;
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.search-engines-pin-default-toggle-icon {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: block;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+}
+
+.search-engines-pin-default-toggle-icon--outline {
+    transform: translate(-50%, -50%) rotate(5deg);
+}
+
+.search-engines-pin-default-toggle-icon--filled {
+    transform: translate(-50%, -50%);
+}
+
+.search-engines-pin-default-toggle[aria-pressed="false"] .search-engines-pin-default-toggle-icon--outline {
+    opacity: 0.55;
+    visibility: visible;
+}
+
+.search-engines-pin-default-toggle[aria-pressed="false"] .search-engines-pin-default-toggle-icon--filled {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.search-engines-pin-default-toggle[aria-pressed="false"]:hover .search-engines-pin-default-toggle-icon--outline,
+.search-engines-pin-default-toggle[aria-pressed="false"]:focus-visible .search-engines-pin-default-toggle-icon--outline {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.search-engines-pin-default-toggle[aria-pressed="false"]:hover .search-engines-pin-default-toggle-icon--filled,
+.search-engines-pin-default-toggle[aria-pressed="false"]:focus-visible .search-engines-pin-default-toggle-icon--filled {
+    opacity: 1;
+    visibility: visible;
+}
+
+.search-engines-pin-default-toggle[aria-pressed="true"] .search-engines-pin-default-toggle-icon--outline {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.search-engines-pin-default-toggle[aria-pressed="true"] .search-engines-pin-default-toggle-icon--filled {
+    opacity: 0.55;
+    visibility: visible;
+}
+
+/* Pinned: keep the filled icon on hover (no outline swap / rotation) so size stays stable like ••• / settings. */
+.search-engines-pin-default-toggle[aria-pressed="true"]:hover .search-engines-pin-default-toggle-icon--outline,
+.search-engines-pin-default-toggle[aria-pressed="true"]:focus-visible .search-engines-pin-default-toggle-icon--outline {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.search-engines-pin-default-toggle[aria-pressed="true"]:hover .search-engines-pin-default-toggle-icon--filled,
+.search-engines-pin-default-toggle[aria-pressed="true"]:focus-visible .search-engines-pin-default-toggle-icon--filled {
+    opacity: 1;
+    visibility: visible;
+}
+
+.search-switcher-more-menu-button:hover .search-switcher-more-menu-button-icon,
+.search-switcher-more-menu-button:focus-visible .search-switcher-more-menu-button-icon {
+    opacity: 1;
+}
+
+.search-switcher-more-menu-button[aria-expanded="true"] {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.search-switcher-more-menu-button[aria-expanded="true"] .search-switcher-more-menu-button-icon {
+    opacity: 1;
+}
+
 /* One body: engines + From Firefox move with lilac/blue subpanels (single clip animation) */
 .dropdown-switcher-body {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
     width: 100%;
     min-width: 0;
@@ -1339,36 +1579,58 @@ body.reduced-motion .search-settings-modal-panel {
     cursor: grab;
 }
 
-.search-switcher-button.search-engines-controls-open.search-engines-controls-panel-revealed .dropdown-search-engines .dropdown-item-drag-handle {
+.search-switcher-button.search-engines-controls-open.search-engines-controls-panel-revealed .dropdown-search-engines .dropdown-item-drag-handle,
+body.search-switcher-reorder-handles-revealed .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
     opacity: 0.55;
     pointer-events: auto;
 }
 
+/* Pinned-right clone is not under .search-switcher-button; mirror chip when ••• strip or lilac panel enables reorder. */
+body.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-left: auto;
+    margin-right: 0;
+    opacity: 0;
+    transition: opacity 0.32s linear;
+    pointer-events: none;
+    cursor: grab;
+}
+
 .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-pin-empty,
-.search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-pin {
+.search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-pin,
+body.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-pin-empty,
+body.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-pin {
     margin-left: 0;
 }
 
-.search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle img {
+.search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle img,
+body.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle img {
     width: 14px;
     height: 14px;
     opacity: 0.85;
     display: block;
 }
 
-.search-switcher-button.search-engines-controls-open.search-engines-controls-panel-revealed .dropdown-search-engines .dropdown-item:hover .dropdown-item-drag-handle {
+.search-switcher-button.search-engines-controls-open.search-engines-controls-panel-revealed .dropdown-search-engines .dropdown-item:hover .dropdown-item-drag-handle,
+body.search-switcher-reorder-handles-revealed .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item:hover .dropdown-item-drag-handle {
     opacity: 0.85;
 }
 
-body.reduced-motion .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle {
+body.reduced-motion .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
+body.reduced-motion.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
     transition: none;
 }
 
-body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item {
+body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item,
+body.search-engines-display-grid.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item {
     position: relative;
 }
 
-body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle {
+body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle,
+body.search-engines-display-grid.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle {
     display: flex !important;
     position: absolute;
     top: 1px;
@@ -1381,7 +1643,8 @@ body.search-engines-display-grid .search-switcher-button.search-engines-controls
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
-body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle img {
+body.search-engines-display-grid .search-switcher-button.search-engines-controls-open .dropdown-search-engines .dropdown-item-drag-handle img,
+body.search-engines-display-grid.search-switcher-reorder-ui-open .search-switcher-pinned-right-host .dropdown-search-engines .dropdown-item-drag-handle img {
     width: 9px;
     height: 9px;
 }
@@ -1504,9 +1767,24 @@ body.search-engines-display-grid .search-switcher-button.search-engines-controls
     margin: 4px 0;
 }
 
+.dropdown-divider--below-search-label {
+    margin: 2px 12px 6px;
+    flex-shrink: 0;
+}
+
+/* Compact label (only (i) + controls): no line under “Search with” */
+body.search-switcher-label-compact .dropdown-divider--below-search-label {
+    display: none;
+}
+
 .engines-sort-section {
     flex-shrink: 0;
     padding: 8px 12px;
+}
+
+.engines-sort-section:empty {
+    display: none;
+    padding: 0;
 }
 
 .engines-sort-section[hidden] {
@@ -1558,13 +1836,13 @@ body.reduced-motion .dropdown-search-engines {
 .dropdown-engines-firefox-shell {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
 }
 
 /* Scrollable: search engines only */
 .dropdown-engines-firefox-scroll {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     min-height: 0;
     max-height: none;
     overflow-y: auto;
@@ -1726,6 +2004,29 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
     white-space: nowrap;
 }
 
+/* List view: ellipsis long engine names so intrinsic width does not widen the switcher (pairs with JS grid width lock). */
+body:not(.search-engines-display-grid) .search-switcher-dropdown .dropdown-content {
+    min-width: 0;
+}
+
+body:not(.search-engines-display-grid) .dropdown-search-engines {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+body:not(.search-engines-display-grid) .dropdown-search-engines > .dropdown-item {
+    min-width: 0;
+    max-width: 100%;
+}
+
+body:not(.search-engines-display-grid) .dropdown-search-engines .dropdown-engine-label {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .dropdown-item:hover {
     background-color: var(--color-suggestion-hover);
 }
@@ -1833,7 +2134,8 @@ body.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item.hi
     pointer-events: none;
 }
 
-.search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable .dropdown-default-badge-drag {
+.search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable .dropdown-default-badge-drag,
+body.search-switcher-reorder-handles-revealed .dropdown-default-badge--draggable .dropdown-default-badge-drag {
     opacity: 0.55;
     pointer-events: auto;
 }
@@ -1865,7 +2167,8 @@ body.reduced-motion .dropdown-default-badge--draggable .dropdown-default-badge-d
     cursor: grab;
 }
 
-.search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag {
+.search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag,
+body.search-switcher-reorder-handles-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag {
     opacity: 0.95;
 }
 
@@ -1889,7 +2192,8 @@ body.reduced-motion .dropdown-default-badge--draggable:hover {
     box-shadow: none;
 }
 
-body.reduced-motion .search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag {
+body.reduced-motion .search-switcher-button.search-engines-controls-panel-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag,
+body.reduced-motion.search-switcher-reorder-handles-revealed .dropdown-default-badge--draggable:hover .dropdown-default-badge-drag {
     opacity: 0.88;
 }
 
@@ -2383,6 +2687,7 @@ body.reduced-motion .bottom-left-panel-content {
 }
 
 .reduced-motion-checkbox,
+.search-switcher-controls-visible-by-default-checkbox,
 .underline-search-engines-checkbox,
 .keyboard-switcher-numbers-checkbox,
 .search-engines-count-radio {

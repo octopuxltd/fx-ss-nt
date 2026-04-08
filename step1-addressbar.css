@@ -227,10 +227,25 @@ body.addressbar .dropdown-label {
     background-color: #fff;
 }
 
+body.addressbar .dropdown-label > .search-switcher-more-menu-button {
+    right: 10px;
+}
+
+body.addressbar .dropdown-label--overflow-tools-open .dropdown-label-actions,
+body.addressbar .dropdown-label--overflow-tools-closing .dropdown-label-actions {
+    top: 4px;
+    bottom: 4px;
+    padding: 0 44px 0 10px;
+}
+
 /* Keep info icon hit area 28×28 like .search-engines-controls-toggle (do not shrink button to SVG size). */
 
 body.addressbar .dropdown-divider {
     margin: 3px 0;
+}
+
+body.addressbar .dropdown-divider--below-search-label {
+    margin: 2px 10px 5px;
 }
 
 body.addressbar .dropdown-item {
