@@ -37,7 +37,7 @@
         } else if (savedBg) {
             document.body.dataset.background = savedBg;
         } else {
-            document.body.dataset.background = 'grey';
+            document.body.dataset.background = 'blue';
         }
         try {
             const hm = localStorage.getItem('main_screen_hero_logo_mode');
@@ -68,6 +68,14 @@
             if (!c) c = DEF;
             document.documentElement.style.setProperty('--search-border-ring-color', c);
         })();
+        try {
+            const brm = localStorage.getItem('search_border_radius_mode');
+            if (brm === 'small') {
+                document.body.classList.remove('search-border-radius-large');
+            } else {
+                document.body.classList.add('search-border-radius-large');
+            }
+        } catch (_) {}
     </script>
     <div class="search-container">
         <div class="search-container-top-row">
@@ -305,8 +313,8 @@
                     <span class="background-swatches-label">Background</span>
                     <div class="background-swatches" role="group" aria-label="Background colour">
                         <button type="button" class="background-swatch" data-background="gradient" title="Purple gradient" aria-pressed="false"></button>
-                        <button type="button" class="background-swatch" data-background="grey" title="Pale grey" aria-pressed="true"></button>
-                        <button type="button" class="background-swatch" data-background="blue" title="Light blue"></button>
+                        <button type="button" class="background-swatch" data-background="grey" title="Pale grey" aria-pressed="false"></button>
+                        <button type="button" class="background-swatch" data-background="blue" title="Light blue" aria-pressed="true"></button>
                         <button type="button" class="background-swatch" data-background="beige" title="Warm beige"></button>
                     </div>
                 </div>
@@ -326,10 +334,10 @@
                             <button type="button" class="search-border-swatch search-border-swatch-black-20" data-border-color="rgba(0, 0, 0, 0.2)" title="20% black" aria-pressed="false"></button>
                         </div>
                         <div class="search-border-radius-swatches" role="group" aria-label="Corner radius">
-                            <button type="button" class="search-border-radius-swatch search-border-radius-swatch--small" data-search-border-radius="small" title="Small corners" aria-pressed="true">
+                            <button type="button" class="search-border-radius-swatch search-border-radius-swatch--small" data-search-border-radius="small" title="Small corners" aria-pressed="false">
                                 <span class="search-border-radius-swatch-visual" aria-hidden="true"></span>
                             </button>
-                            <button type="button" class="search-border-radius-swatch search-border-radius-swatch--large" data-search-border-radius="large" title="Large corners" aria-pressed="false">
+                            <button type="button" class="search-border-radius-swatch search-border-radius-swatch--large" data-search-border-radius="large" title="Large corners" aria-pressed="true">
                                 <span class="search-border-radius-swatch-visual" aria-hidden="true"></span>
                             </button>
                         </div>
@@ -339,14 +347,10 @@
                     <input type="checkbox" class="reduced-motion-checkbox">
                     <span>Reduced motion</span>
                 </label>
-                <label class="search-switcher-controls-visible-control">
-                    <input type="checkbox" class="search-switcher-controls-visible-by-default-checkbox" checked>
-                    <span>Controls visible by default</span>
-                </label>
                 <div class="search-engines-count-control" role="group" aria-labelledby="search-engines-count-label">
                     <span id="search-engines-count-label" class="search-engines-count-heading">Number of SEs</span>
                     <div class="search-engines-count-radios">
-                        <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="6"> 6</label>
+                        <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="6" checked> 6</label>
                         <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="12"> 12</label>
                         <label class="search-engines-count-option"><input type="radio" name="search-engines-count" class="search-engines-count-radio" value="50"> 50</label>
                     </div>

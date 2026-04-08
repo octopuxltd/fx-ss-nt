@@ -1394,7 +1394,7 @@ function applyStandaloneSearchBoxPrototypeVisibility(visible) {
 
 const BACKGROUND_SWATCH_KEY = 'background_swatch';
 /** Default when no stored preference (matches step1.html swatches + reset prototype). */
-const DEFAULT_BACKGROUND_SWATCH = 'grey';
+const DEFAULT_BACKGROUND_SWATCH = 'blue';
 const MAIN_SCREEN_HERO_LOGO_MODE_KEY = 'main_screen_hero_logo_mode';
 /** `'search_engine'` = dynamic horizontal wordmarks; `'firefox'` = Firefox icon only (classic hero). */
 const DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE = 'search_engine';
@@ -1498,9 +1498,11 @@ function canonicalSearchBorderColor(raw) {
 function getSearchBorderRadiusMode() {
     try {
         const v = localStorage.getItem(SEARCH_BORDER_RADIUS_MODE_KEY);
-        return v === 'large' ? 'large' : 'small';
+        if (v === 'large' || v === 'small') return v;
+        localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, 'large');
+        return 'large';
     } catch (_) {
-        return 'small';
+        return 'large';
     }
 }
 
@@ -1564,11 +1566,11 @@ function getStoredSearchEnginesCount() {
         const raw = localStorage.getItem(SEARCH_ENGINES_COUNT_KEY);
         if (raw === '6' || raw === '12' || raw === '50') return parseInt(raw, 10);
         const legacy = localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY);
-        const fallback = legacy === 'false' ? 6 : 12;
+        const fallback = legacy === 'true' ? 12 : 6;
         localStorage.setItem(SEARCH_ENGINES_COUNT_KEY, String(fallback));
         return fallback;
     } catch (_) {
-        return 12;
+        return 6;
     }
 }
 
@@ -3347,7 +3349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function isSearchSwitcherControlsVisibleByDefault() {
-        return localStorage.getItem(SEARCH_SWITCHER_CONTROLS_VISIBLE_BY_DEFAULT_KEY) !== 'false';
+        return true;
     }
 
     function applySearchSwitcherControlsVisibleLayout() {
@@ -3380,25 +3382,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (document.body.classList.contains('search-engine-list-mode-pinned-right') && searchContainer?.classList.contains('focused')) {
                 refreshPinnedRightSwitcherPanel();
             }
-        });
-    }
-
-    const swControlsVisibleCheckbox = document.querySelector('.search-switcher-controls-visible-by-default-checkbox');
-    if (swControlsVisibleCheckbox) {
-        swControlsVisibleCheckbox.checked = localStorage.getItem(SEARCH_SWITCHER_CONTROLS_VISIBLE_BY_DEFAULT_KEY) !== 'false';
-        swControlsVisibleCheckbox.addEventListener('change', () => {
-            localStorage.setItem(
-                SEARCH_SWITCHER_CONTROLS_VISIBLE_BY_DEFAULT_KEY,
-                swControlsVisibleCheckbox.checked ? 'true' : 'false'
-            );
-            applySearchSwitcherControlsVisibleLayout();
-            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
-                .filter(Boolean)
-                .forEach((f) => {
-                    try {
-                        f.contentWindow?.postMessage({ type: 'search-switcher-controls-visible' }, '*');
-                    } catch (_) {}
-                });
         });
     }
 
@@ -5818,7 +5801,7 @@ document.addEventListener('DOMContentLoaded', () => {
         syncSearchSwitcherPanelPinToggle();
     }
 
-    // Number of search engines: 6 / 12 / 50 (default: 12); scoped by name (Hero logo reuses .search-engines-count-radio).
+    // Number of search engines: 6 / 12 / 50 (default: 6); scoped by name (Hero logo reuses .search-engines-count-radio).
     const searchEnginesCountRadios = document.querySelectorAll('input[name="search-engines-count"]');
     if (searchEnginesCountRadios.length) {
         const count = getStoredSearchEnginesCount();
@@ -8130,18 +8113,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateDefaultBadge();
 
                     document.querySelectorAll('input[name="search-engines-count"]').forEach((radio) => {
-                        radio.checked = radio.value === '12';
+                        radio.checked = radio.value === '6';
                     });
                     try {
-                        localStorage.setItem(SEARCH_ENGINES_COUNT_KEY, '12');
+                        localStorage.setItem(SEARCH_ENGINES_COUNT_KEY, '6');
                     } catch (_) {}
-                    applySearchEnginesCountMode(12);
+                    applySearchEnginesCountMode(6);
 
-                    {
-                        const swControlsVisibleReset = document.querySelector('.search-switcher-controls-visible-by-default-checkbox');
-                        if (swControlsVisibleReset) swControlsVisibleReset.checked = true;
-                        applySearchSwitcherControlsVisibleLayout();
-                    }
+                    applySearchSwitcherControlsVisibleLayout();
                     try {
                         localStorage.setItem(
                             getSearchEnginesDisplayKey(SEARCH_ENGINES_DISPLAY_SURFACE_PRIMARY),
@@ -8174,12 +8153,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (pinnedHeroReset) syncMainScreenBrandFromSwitcherItem(pinnedHeroReset);
 
                     const borderCleared = applySearchBorderColorVariable(SEARCH_BORDER_COLOR_DEFAULT);
+                    try {
+                        localStorage.setItem(SEARCH_BORDER_COLOR_KEY, SEARCH_BORDER_COLOR_DEFAULT);
+                    } catch (_) {}
                     document.querySelectorAll('.search-border-swatch').forEach((btn) => {
                         const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
                         btn.setAttribute('aria-pressed', bn === borderCleared ? 'true' : 'false');
                     });
                     try {
-                        localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, 'small');
+                        localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, 'large');
                     } catch (_) {}
                     refreshSearchBorderRadiusMode();
 
