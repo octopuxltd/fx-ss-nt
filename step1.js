@@ -4823,10 +4823,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     let loggedCloneHighlightMismatchThisDrag = false;
                     let lastCloneHoverStackLabel = '';
                     let lastPrimaryDragHighlightLabel = '';
+                    /** List rows give `.dropdown-engine-label` flex:1 — element rect is full row width; badge sits after text. */
+                    const rectForLabelTextContent = (labelEl) => {
+                        if (!labelEl) return null;
+                        try {
+                            const range = document.createRange();
+                            range.selectNodeContents(labelEl);
+                            const br = range.getBoundingClientRect();
+                            if (br.width > 0.5 && br.height > 0.5) return br;
+                        } catch (_) {}
+                        return labelEl.getBoundingClientRect();
+                    };
                     const labelRectForBadgeGhost = (row) => {
                         const labelEl = row?.querySelector('.dropdown-engine-label');
                         if (!labelEl) return null;
-                        let lr = labelEl.getBoundingClientRect();
+                        let lr = rectForLabelTextContent(labelEl);
                         if (lr.width >= 2 && lr.height >= 2) return lr;
                         const lab = getEngineLabel(row);
                         const cloneEc = cloneEcForBadge();
@@ -4835,7 +4846,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             cloneEc &&
                             Array.from(cloneEc.querySelectorAll('.dropdown-item')).find((r) => getEngineLabel(r) === lab);
                         const cl = cloneRow?.querySelector('.dropdown-engine-label');
-                        if (cl) return cl.getBoundingClientRect();
+                        if (cl) return rectForLabelTextContent(cl);
                         return lr;
                     };
                     const highlightUnder = (clientX, clientY) => {
