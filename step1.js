@@ -2615,6 +2615,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let pinnedRightHostPointerActive = false;
     /** Set by the engine-reorder block when `enginesContainer` exists; starts drag from pinned clone rows. */
     let engineReorderHandlePinnedCloneMousedown = null;
+    /** Assigned when the default-badge drag mousedown listener is installed; pinned clone calls this instead of forwarding to the chip. */
+    let handleDefaultBadgeDragMouseDown = null;
 
     function restoreFocusAndOpaqueSuggestions() {
         restoringFocusFromSwitcher = true;
@@ -3561,23 +3563,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const badge = e.target.closest('.dropdown-default-badge--draggable');
         if (badge) {
-            const primaryBadge = searchSwitcherButton?.querySelector(
-                '.dropdown-item-pinned .dropdown-default-badge--draggable'
-            );
-            if (primaryBadge) {
+            if (typeof handleDefaultBadgeDragMouseDown === 'function') {
                 e.preventDefault();
                 e.stopPropagation();
-                primaryBadge.dispatchEvent(
-                    new MouseEvent('mousedown', {
-                        bubbles: true,
-                        cancelable: true,
-                        clientX: e.clientX,
-                        clientY: e.clientY,
-                        button: e.button,
-                        buttons: e.buttons,
-                    })
-                );
+                handleDefaultBadgeDragMouseDown(e);
             }
+            return;
         }
     }
 
@@ -4704,9 +4695,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear keyboard highlight when mouse enters dropdown (switch to hover mode)
         const searchSwitcherDropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
         if (searchSwitcherDropdown) {
-            searchSwitcherDropdown.addEventListener(
-                'mousedown',
-                (e) => {
+            handleDefaultBadgeDragMouseDown = (e) => {
                     const badgeDragSurface = {
                         surface: getDefaultSearchEngineSurfaceLabel(),
                         writesToLocalStorageKey: getDefaultSearchEngineStorageKeyForPage(),
@@ -4735,12 +4724,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
                     const pinnedItem = enginesContainer?.querySelector('.dropdown-item-pinned');
-                    if (!pinnedItem || !enginesContainer || !pinnedItem.contains(badgeEl)) {
-                        defaultBadgeDragLog('drag abort — badge not inside pinned row / engines', {
+                    const pinnedCloneRow = pinnedRightHost?.querySelector(
+                        '.dropdown-search-engines .dropdown-item-pinned'
+                    );
+                    const isOnPrimaryPinned = !!(pinnedItem && pinnedItem.contains(badgeEl));
+                    const isOnClonePinned = !!(pinnedCloneRow && pinnedCloneRow.contains(badgeEl));
+                    if (!pinnedItem || !enginesContainer || (!isOnPrimaryPinned && !isOnClonePinned)) {
+                        defaultBadgeDragLog('drag abort — badge not on primary or clone pinned row', {
                             ...badgeDragSurface,
                             hasPinned: !!pinnedItem,
                             hasEngines: !!enginesContainer,
-                            contains: pinnedItem?.contains?.(badgeEl),
+                            containsPrimary: pinnedItem?.contains?.(badgeEl),
+                            containsClone: pinnedCloneRow?.contains?.(badgeEl),
                         });
                         return;
                     }
@@ -4797,10 +4792,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         ghostEl.style.display = 'none';
                     };
                     /**
-                     * Hit-test engine rows under a point. The chip and pinned-right clone duplicate the same list;
-                     * `elementsFromPoint` can return the clone’s `.dropdown-item` first (stacking / position), which
-                     * used to add `.highlighted` on the clone while dragging from the chip. Badge-drag uses
-                     * `allowClone: false` so only the primary `.dropdown-search-engines` rows receive highlight/drop.
+                     * Hit-test engine rows under a point. Chip + clone share the same labels; `allowClone: false`
+                     * skips clone rows (chip-only hit). For highlight/drop we use `allowClone: true` then map to
+                     * primary via `resolvePrimaryEngineRowByLabel` so dragging from either surface works.
                      */
                     const findEngineRowUnderPoint = (clientX, clientY, { allowClone = true } = {}) => {
                         const stack = document.elementsFromPoint(clientX, clientY);
@@ -4859,7 +4853,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (ifCloneAllowed && ec.contains(ifCloneAllowed) && ifCloneAllowed !== primaryOnly) {
                                     loggedCloneHighlightMismatchThisDrag = true;
                                     defaultBadgeCloneHighlightLog(
-                                        'clone row would have been highlighted first under cursor (chip drag uses primary list only)',
+                                        'clone row hit before primary under cursor (debug)',
                                         {
                                             cloneRowLabel: getEngineLabel(ifCloneAllowed),
                                             primaryRowLabel: primaryOnly ? getEngineLabel(primaryOnly) : null,
@@ -4870,7 +4864,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
                         }
-                        const item = findEngineRowUnderPoint(clientX, clientY, { allowClone: false });
+                        const rowUnder = findEngineRowUnderPoint(clientX, clientY, { allowClone: true });
+                        const item = rowUnder ? resolvePrimaryEngineRowByLabel(getEngineLabel(rowUnder)) : null;
                         if (!item) {
                             if (lastPrimaryDragHighlightLabel) {
                                 defaultBadgeDragLog('main switcher (chip) .highlighted cleared — no engine row under point', {
@@ -4882,6 +4877,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         const hlLabel = getEngineLabel(item);
                         item.classList.add('highlighted');
+                        const cloneEcHi = cloneEcForBadge();
+                        if (cloneEcHi) {
+                            const cloneHiRow = Array.from(cloneEcHi.querySelectorAll('.dropdown-item')).find(
+                                (r) =>
+                                    r.querySelector('.dropdown-engine-label') && getEngineLabel(r) === hlLabel
+                            );
+                            if (cloneHiRow) cloneHiRow.classList.add('highlighted');
+                        }
                         if (hlLabel !== lastPrimaryDragHighlightLabel) {
                             lastPrimaryDragHighlightLabel = hlLabel;
                             defaultBadgeDragLog('main switcher (chip) drop-target .highlighted', {
@@ -4890,7 +4893,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 clientY,
                             });
                         }
-                        const lr = labelRectForBadgeGhost(item);
+                        /* Ghost rect from the row actually under the cursor (often the visible clone); primary row
+                         * can be clipped when the chip dropdown is closed so its label box is a poor anchor. */
+                        const lr = labelRectForBadgeGhost(rowUnder);
                         if (!lr || lr.width < 1) return;
                         ghostEl.style.display = 'block';
                         ghostEl.style.width = `${wrapRect.width}px`;
@@ -5002,9 +5007,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         placeholderEl.remove();
                         lastCloneHoverStackLabel = '';
                         lastPrimaryDragHighlightLabel = '';
-                        const item = findEngineRowUnderPoint(ev.clientX, ev.clientY, { allowClone: false });
+                        const rowUnder = findEngineRowUnderPoint(ev.clientX, ev.clientY, { allowClone: true });
                         clearHighlight();
-                        const lab = item ? getEngineLabel(item) : '';
+                        const lab = rowUnder ? getEngineLabel(rowUnder) : '';
                         const primaryTarget = lab ? resolvePrimaryEngineRowByLabel(lab) : null;
                         const willApply =
                             primaryTarget &&
@@ -5042,9 +5047,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     document.addEventListener('mousemove', onMove);
                     document.addEventListener('mouseup', onUp);
-                },
-                true
-            );
+            };
+            searchSwitcherDropdown.addEventListener('mousedown', handleDefaultBadgeDragMouseDown, true);
             searchSwitcherDropdown.addEventListener('mousemove', () => {
                 if (searchSwitcherButton.classList.contains('switcher-suppress-hover')) {
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
