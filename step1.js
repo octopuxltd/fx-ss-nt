@@ -1239,7 +1239,10 @@ function logSearchSettingsEngineSelectChanged(columnLabel, value) {
     console.log('[search-settings] default engine changed via dropdown: ' + columnLabel + ' → "' + value + '"');
 }
 
-/** Logs whenever a search engine switcher opens (main page or iframe). Not gated by localStorage. */
+/**
+ * Logs when the **chip** search switcher opens (user toggles the engine button so the dropdown mounts/opens).
+ * Does **not** run when you only hover or toggle the ••• toolbar (primary or pinned clone). Not gated by localStorage.
+ */
 function logSearchSwitcherOpenedDefault(searchSwitcherButton) {
     const input = getDefaultSearchEngineSurfaceLabel();
     const key = getDefaultSearchEngineStorageKeyForPage();
@@ -2570,6 +2573,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let closingSwitcherWithoutSuggestions = false;
     /** True between mousedown and mouseup on the pinned-right engine panel (avoids premature blur close). */
     let pinnedRightHostPointerActive = false;
+    /** Set by the engine-reorder block when `enginesContainer` exists; starts drag from pinned clone rows. */
+    let engineReorderHandlePinnedCloneMousedown = null;
 
     function restoreFocusAndOpaqueSuggestions() {
         restoringFocusFromSwitcher = true;
@@ -2897,7 +2902,9 @@ document.addEventListener('DOMContentLoaded', () => {
             delete dropdownForLock.dataset.switcherReorderWidthLock;
         }
         if (searchSwitcherButton) {
-            searchSwitcherButton.classList.toggle('search-engines-controls-open', openPrimary);
+            /* Reorder drag listener on *primary* `.dropdown-search-engines` gates on this class; clone-only •••
+             * must still set it so forwarded mousedown can start a drag from the pinned duplicate. */
+            searchSwitcherButton.classList.toggle('search-engines-controls-open', openPrimary || openPinned);
             /* Overflow-only (chip): show row/badge drag affordances immediately (no lilac panel slide). */
             if (overflowOpenPrimary && !controlsPanelOpenPrimary) {
                 searchSwitcherButton.classList.add('search-engines-controls-panel-revealed');
@@ -3505,26 +3512,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const handle = e.target.closest('.dropdown-item-drag-handle');
         if (handle) {
-            const item = handle.closest('.dropdown-item');
-            const label = getEngineLabel(item);
-            const primaryRow = Array.from(
-                searchSwitcherButton?.querySelectorAll('.dropdown-search-engines .dropdown-item') || []
-            ).find((r) => getEngineLabel(r) === label);
-            const primaryHandle = primaryRow?.querySelector('.dropdown-item-drag-handle');
-            if (primaryHandle) {
+            if (typeof engineReorderHandlePinnedCloneMousedown === 'function') {
                 e.preventDefault();
                 e.stopPropagation();
-                primaryHandle.dispatchEvent(
-                    new MouseEvent('mousedown', {
-                        bubbles: true,
-                        cancelable: true,
-                        clientX: e.clientX,
-                        clientY: e.clientY,
-                        button: e.button,
-                        buttons: e.buttons,
-                    })
-                );
-                requestAnimationFrame(() => refreshPinnedRightSwitcherPanel());
+                engineReorderHandlePinnedCloneMousedown(e);
             }
             return;
         }
@@ -3559,7 +3550,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!sd || !mutations?.length) return false;
         if (mutations.some((m) => m.type === 'childList')) return false;
 
-        if (mutations.every((m) => m.type === 'attributes' && m.attributeName === 'style' && m.target === sd)) {
+        /**
+         * `syncSearchSwitcherDropdownWidth` sets inline `style` on the dropdown root and descendants
+         * (e.g. `.dropdown-search-info-shell` display toggles during measurement). Those are not
+         * structural — only sync pinned width. Skipping full re-clone here stops an observer feedback
+         * loop: re-clone → width sync → style mutations → debounced refresh → re-clone → …
+         */
+        if (
+            mutations.every((m) => {
+                if (m.type !== 'attributes' || m.attributeName !== 'style') return false;
+                const t = m.target;
+                return t instanceof Element && sd.contains(t);
+            })
+        ) {
             syncPinnedRightDropdownWidthFromPrimary(sd);
             return true;
         }
@@ -4566,7 +4569,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = e.target.closest('.suggestion-item, .suggestions-heading');
             const switcherTooltipPinned = tooltipPinned && activeTrigger?.closest('.search-switcher-dropdown');
             if (target && searchSwitcherButton.classList.contains('open') && !switcherTooltipPinned && !window._searchEngineDragging) {
-                console.log('[SUGGESTION ITEM HOVER] Closing switcher dropdown');
                 forceCloseSearchSwitcherSubPanels();
                 searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
                 beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
@@ -5001,6 +5003,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let dragOriginalIndex = -1;
             /** Hit-test surface for list/grid geometry (clone when chip list is not painted; primary otherwise). */
             let dragHitEnginesContainer = null;
+            /** True when the dragged row came from the pinned-right clone (ghost is clone DOM; primary row stays until endDrag). */
+            let engineReorderDragFromPinnedClone = false;
 
             const getPrimaryEngineItems = () =>
                 Array.from(enginesContainer.children).filter(
@@ -5136,28 +5140,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 dragHitEnginesContainer = null;
                 window._searchEngineDragging = false;
 
-                const items = getPrimaryEngineItems();
-                const currentIndex = dragOriginalIndex;
                 const sortSectionEl = enginesContainer.querySelector('.engines-sort-section');
-                const wouldChange = dropIndex >= 0 && dropIndex !== currentIndex && dropIndex !== currentIndex + 1;
-                if (wouldChange) {
-                    if (dropIndex >= items.length) {
-                        enginesContainer.insertBefore(draggedItem, sortSectionEl || null);
-                    } else {
-                        enginesContainer.insertBefore(draggedItem, items[dropIndex]);
+                const primaryItemsAll = getPrimaryEngineItems();
+
+                if (engineReorderDragFromPinnedClone) {
+                    const ghost = draggedItem;
+                    const lab = getEngineLabel(ghost);
+                    const primaryRow = primaryItemsAll.find((r) => getEngineLabel(r) === lab);
+                    const currentIndex = dragOriginalIndex;
+                    const wouldChange =
+                        primaryRow &&
+                        dropIndex >= 0 &&
+                        dropIndex !== currentIndex &&
+                        dropIndex !== currentIndex + 1;
+                    if (primaryRow && wouldChange) {
+                        const without = primaryItemsAll.filter((r) => r !== primaryRow);
+                        if (dropIndex >= without.length) {
+                            enginesContainer.insertBefore(primaryRow, sortSectionEl || null);
+                        } else {
+                            enginesContainer.insertBefore(primaryRow, without[dropIndex]);
+                        }
                     }
+                    ghost.remove();
+                    engineReorderDragFromPinnedClone = false;
                 } else {
-                    if (currentIndex >= items.length) {
-                        enginesContainer.insertBefore(draggedItem, sortSectionEl || null);
+                    const items = primaryItemsAll;
+                    const currentIndex = dragOriginalIndex;
+                    const wouldChange = dropIndex >= 0 && dropIndex !== currentIndex && dropIndex !== currentIndex + 1;
+                    if (wouldChange) {
+                        if (dropIndex >= items.length) {
+                            enginesContainer.insertBefore(draggedItem, sortSectionEl || null);
+                        } else {
+                            enginesContainer.insertBefore(draggedItem, items[dropIndex]);
+                        }
                     } else {
-                        enginesContainer.insertBefore(draggedItem, items[currentIndex]);
+                        if (currentIndex >= items.length) {
+                            enginesContainer.insertBefore(draggedItem, sortSectionEl || null);
+                        } else {
+                            enginesContainer.insertBefore(draggedItem, items[currentIndex]);
+                        }
                     }
+                    draggedItem.classList.remove('dragging');
+                    draggedItem.style.left = '';
+                    draggedItem.style.top = '';
+                    draggedItem.style.width = '';
                 }
                 if (dropMarker?.parentNode) dropMarker.remove();
-                draggedItem.classList.remove('dragging');
-                draggedItem.style.left = '';
-                draggedItem.style.top = '';
-                draggedItem.style.width = '';
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
                 saveEngineOrder();
@@ -5239,28 +5267,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 endDrag();
             };
 
-            enginesContainer.addEventListener('mousedown', (e) => {
-                const item = e.target.closest('.dropdown-item');
+            const scheduleEngineReorderHold = (e, item, fromPinnedClone) => {
                 if (!item || !item.querySelector('.dropdown-engine-label')) return;
-                /* Reorder drag only while the controls panel is open (drag handles are shown then). */
                 if (!searchSwitcherButton.classList.contains('search-engines-controls-open')) return;
-                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin, .dropdown-item-open-new-window, .dropdown-item-row-action')) return;
+                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin, .dropdown-item-open-new-window, .dropdown-item-row-action')) {
+                    return;
+                }
                 e.preventDefault();
 
                 const rect = item.getBoundingClientRect();
                 const anchorEl = ['.dropdown-item-drag-handle', '.dropdown-item-pin-empty', '.dropdown-item-pin']
-                    .map(sel => item.querySelector(sel))
-                    .find(el => el && el.getBoundingClientRect().width > 0);
+                    .map((sel) => item.querySelector(sel))
+                    .find((el) => el && el.getBoundingClientRect().width > 0);
                 if (anchorEl) {
                     const anchorRect = anchorEl.getBoundingClientRect();
-                    dragOffsetX = (anchorRect.left - rect.left) - 20;
-                    dragOffsetY = (anchorRect.top - rect.top) + anchorRect.height / 2;
+                    dragOffsetX = anchorRect.left - rect.left - 20;
+                    dragOffsetY = anchorRect.top - rect.top + anchorRect.height / 2;
                 } else {
                     const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
                     if (iconEl) {
                         const iconRect = iconEl.getBoundingClientRect();
-                        dragOffsetX = (iconRect.left - rect.left) + iconRect.width / 2;
-                        dragOffsetY = (iconRect.top - rect.top) + iconRect.height / 2;
+                        dragOffsetX = iconRect.left - rect.left + iconRect.width / 2;
+                        dragOffsetY = iconRect.top - rect.top + iconRect.height / 2;
                     } else {
                         dragOffsetX = e.clientX - rect.left;
                         dragOffsetY = e.clientY - rect.top;
@@ -5269,19 +5297,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 dragHoldTimer = setTimeout(() => {
                     dragHoldTimer = null;
+                    engineReorderDragFromPinnedClone = fromPinnedClone;
+                    if (fromPinnedClone) {
+                        const hitEc = pinnedRightHost?.querySelector('.search-switcher-dropdown .dropdown-search-engines');
+                        if (!hitEc || !hitEc.contains(item)) {
+                            engineReorderDragFromPinnedClone = false;
+                            return;
+                        }
+                        dragHitEnginesContainer = hitEc;
+                        const pri = getPrimaryEngineItems();
+                        const lab = getEngineLabel(item);
+                        const pr = pri.find((r) => getEngineLabel(r) === lab);
+                        dragOriginalIndex = pr != null ? pri.indexOf(pr) : -1;
+                        dragHitEnginesContainer.classList.add('engines-dragging');
+                    } else {
+                        dragHitEnginesContainer = getHitTestEnginesContainer();
+                        dragHitEnginesContainer.classList.add('engines-dragging');
+                        enginesContainer.classList.add('engines-dragging');
+                        dragOriginalIndex = getPrimaryEngineItems().indexOf(item);
+                    }
+
                     draggedItem = item;
                     window._searchEngineDragging = true;
                     document.body.style.cursor = 'grabbing';
                     document.body.style.userSelect = 'none';
-                    dragHitEnginesContainer = getHitTestEnginesContainer();
-                    dragHitEnginesContainer.classList.add('engines-dragging');
-                    enginesContainer.classList.add('engines-dragging');
-                    dragOriginalIndex = getPrimaryEngineItems().indexOf(item);
                     document.body.appendChild(draggedItem);
                     draggedItem.classList.add('dragging');
                     draggedItem.style.width = rect.width + 'px';
-                    draggedItem.style.left = (e.clientX - dragOffsetX) + 'px';
-                    draggedItem.style.top = (e.clientY - dragOffsetY) + 'px';
+                    draggedItem.style.left = e.clientX - dragOffsetX + 'px';
+                    draggedItem.style.top = e.clientY - dragOffsetY + 'px';
                     if (isGridMode()) {
                         const grid = getGridDrop(e.clientX, e.clientY);
                         updateDropMarker(grid.index);
@@ -5297,7 +5341,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.addEventListener('mouseup', onDragEnd);
                     document.addEventListener('mouseleave', onDragEnd);
                 }, 200);
+            };
+
+            enginesContainer.addEventListener('mousedown', (e) => {
+                const item = e.target.closest('.dropdown-item');
+                scheduleEngineReorderHold(e, item, false);
             });
+
+            engineReorderHandlePinnedCloneMousedown = (e) => {
+                const handle = e.target.closest('.dropdown-item-drag-handle');
+                if (!handle) return;
+                const item = handle.closest('.dropdown-item');
+                if (!item || !pinnedRightHost?.contains(item)) return;
+                scheduleEngineReorderHold(e, item, true);
+            };
 
             document.addEventListener('mouseup', () => {
                 if (dragHoldTimer) {
