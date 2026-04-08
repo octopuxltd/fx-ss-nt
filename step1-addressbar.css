@@ -110,6 +110,8 @@ html:has(body.addressbar),
 body.addressbar {
     background: transparent;
     background-image: none;
+    /* Iframe: shell tint uses white as page key so the pill stays a clean light surface over the parent page. */
+    --page-bg-solid: #ffffff;
 }
 
 body.addressbar .addressbar-row .search-container {
@@ -153,7 +155,7 @@ body.addressbar .search-box-wrapper-outer:has(.search-input:focus),
 body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning),
 body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) {
     box-shadow: none;
-    background-color: #fff;
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
 /* Same ring thickness as base .search-box-wrapper-outer::before (2px) and as standalone iframe */
@@ -199,6 +201,7 @@ body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-
 }
 
 body.addressbar .search-box-wrapper {
+    background-color: #fff;
     transition: none;
     box-sizing: border-box;
     height: 35px;

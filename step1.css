@@ -14,8 +14,6 @@
     --color-text-secondary: #6B7280;
     --color-placeholder: rgba(0, 0, 0, 0.6);
     --color-white: white;
-    --color-white-35: rgba(255, 255, 255, 0.35);
-    --color-white-66: rgba(255, 255, 255, 0.66);
     --color-white-90: rgba(255, 255, 255, 0.9);
     --search-border-ring-color: #BBA0FF;
     /* Search engine chip: light top → slightly darker bottom (button-like depth) */
@@ -32,6 +30,8 @@
     --switcher-dropdown-close-max-height-duration: 0.55s;
     /* ease-out on max-height collapses most height at the start (list zips away) and only the top/header lingers; linear keeps the whole panel moving at one rate */
     --switcher-dropdown-close-max-height-easing: linear;
+    /* Representative page hue for gradient wallpaper (slightly deeper so 50/50 mix with white reads tinted, not paper white). */
+    --page-bg-solid: #9eb0cc;
 }
 
 * {
@@ -53,17 +53,51 @@ body {
 
 body[data-background="grey"] {
     background-image: none;
-    background-color: #D1D5DB;
+    background-color: #d1d5db;
+    --page-bg-solid: #d1d5db;
 }
 
 body[data-background="blue"] {
     background-image: none;
-    background-color: #E0F2FB;
+    background-color: #e0f2fb;
+    --page-bg-solid: #e0f2fb;
 }
 
 body[data-background="beige"] {
     background-image: none;
-    background-color: #F0E6D8;
+    background-color: #f0e6d8;
+    --page-bg-solid: #f0e6d8;
+}
+
+/* Purple gradient wallpaper (swatch clears data-background on main page only). */
+body:not([data-background]):not(.addressbar) .search-box-wrapper-outer,
+body:not([data-background]):not(.addressbar) .search-box-wrapper-outer:has(.search-input:focus),
+body:not([data-background]):not(.addressbar)
+    .search-container.focused
+    .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)),
+body:not([data-background]):not(.addressbar) .search-container.search-has-typed-input .search-box-wrapper-outer,
+body:not([data-background]):not(.addressbar)
+    .search-container.search-has-typed-input
+    .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)),
+body:not([data-background]):not(.addressbar) .one-off-buttons {
+    background-color: #f59efb;
+}
+
+body:not([data-background]):not(.addressbar) .main-screen-brand-attribution,
+body:not([data-background]):not(.addressbar) .main-screen-brand-engine-name,
+body:not([data-background]):not(.addressbar) .main-screen-brand-firefox-name,
+body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-sep,
+body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link {
+    color: #fff;
+}
+
+body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:hover {
+    color: #fff;
+    opacity: 0.92;
+}
+
+body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:focus-visible {
+    outline-color: #fff;
 }
 
 .addressbar-band {
@@ -221,19 +255,19 @@ body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-d
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, calc(-50% - 132px + var(--search-drag-offset-y, 0px)));
+    transform: translate(-50%, calc(-50% - 142px + var(--search-drag-offset-y, 0px)));
     opacity: 1;
     transition: transform 0.42s ease-out, opacity 0.42s linear;
     z-index: 0;
 }
 
-/* Fixed-height slot so the strapline stays put when logo max dimensions change (engine / aspect ratio). */
+/* Fixed slot height for all engines so the strapline does not move when switching wordmark vs chip-icon heroes. */
 .main-screen-engine-wordmark-slot {
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    height: 58px;
+    height: 87px;
     width: min(90vw, 352px);
 }
 
@@ -246,11 +280,44 @@ body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-d
     max-height: 58px;
     object-fit: contain;
     object-position: center;
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 56px rgba(255, 255, 255, 0.62))
+        drop-shadow(0 0 100px rgba(255, 255, 255, 0.32));
 }
 
 .main-screen-brand-logos .main-screen-engine-wordmark[data-wordmark-hero-size='standard'] {
     max-width: min(90vw, 220px);
     max-height: 36px;
+}
+
+/* Chip-only engines: wider track; height matches default slot so strapline stays aligned with full wordmarks. */
+.main-screen-engine-wordmark-slot--icon-fallback {
+    width: min(90vw, 528px);
+}
+
+.main-screen-engine-wordmark-slot--icon-fallback.main-screen-engine-wordmark-slot--standard-icon {
+    width: min(90vw, 330px);
+}
+
+.main-screen-brand-logos .main-screen-engine-wordmark-slot--icon-fallback .main-screen-engine-wordmark {
+    height: 87px;
+    width: auto;
+    max-width: min(90vw, 528px);
+    max-height: 87px;
+    object-fit: contain;
+    object-position: center;
+}
+
+.main-screen-brand-logos
+    .main-screen-engine-wordmark-slot--icon-fallback.main-screen-engine-wordmark-slot--standard-icon
+    .main-screen-engine-wordmark {
+    height: 54px;
+    max-height: 54px;
+    max-width: min(90vw, 330px);
+}
+
+body[data-main-screen-hero-logo='firefox'] .main-screen-engine-wordmark-slot--icon-fallback {
+    height: 88px;
+    width: min(90vw, 352px);
 }
 
 .main-screen-firefox-hero-logo {
@@ -259,6 +326,8 @@ body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-d
     width: auto;
     max-width: min(90vw, 352px);
     object-fit: contain;
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 56px rgba(255, 255, 255, 0.62))
+        drop-shadow(0 0 100px rgba(255, 255, 255, 0.32));
 }
 
 body[data-main-screen-hero-logo='firefox'] .main-screen-engine-wordmark-slot {
@@ -278,6 +347,8 @@ body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
 }
 
 .main-screen-brand-firefox-row {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -344,7 +415,7 @@ body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
 }
 
 body:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translate(-50%, calc(-50% - 127px + var(--search-drag-offset-y, 0px))) scale(0.8);
+    transform: translate(-50%, calc(-50% - 137px + var(--search-drag-offset-y, 0px))) scale(0.8);
 }
 
 body.search-bar-dragged-down:has(.search-container.focused) .main-screen-brand-logos {
@@ -466,7 +537,7 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
 .search-box-wrapper-outer {
     display: flex;
     flex-direction: column;
-    background-color: rgba(255, 255, 255, 0.35);
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
     border-radius: 10px;
     padding: 0;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
@@ -499,17 +570,17 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
 
 .search-box-wrapper-outer:has(.search-input:focus) {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    background-color: rgba(255, 255, 255, 0.66);
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
-/* Switcher open calls `searchInput.blur()` — keep the same shell as focused input (not the unfocused 0.35 shell). */
+/* Switcher open calls `searchInput.blur()` — keep the same shell as focused input. */
 .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    background-color: rgba(255, 255, 255, 0.66);
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
 .search-container.focused .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)) {
-    background-color: rgba(255, 255, 255, 1);
+    background-color: #fff;
 }
 
 .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing))::before {
@@ -536,12 +607,12 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
 }
 
 .search-container.search-has-typed-input .search-box-wrapper-outer {
-    background-color: #fff;
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
-/* Beat switcher-open shell rule when the user has typed (outer must stay #fff). */
+/* Beat switcher-open shell rule when the user has typed (outer must stay on shell tint). */
 .search-container.search-has-typed-input .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) {
-    background-color: #fff;
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
 .search-box-wrapper-outer:has(.search-input:focus)::before {
@@ -585,11 +656,12 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
     transition: none;
 }
 
+/* Inner search row stays white; .search-box-wrapper-outer carries the page-tinted fill behind suggestions (and one-off strip). */
 .search-box-wrapper {
     display: flex;
     align-items: center;
     gap: 10px;
-    background-color: rgba(255, 255, 255, 0.35);
+    background-color: #fff;
     border-radius: 10px;
     position: relative;
     z-index: 1;
@@ -600,7 +672,7 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
 }
 
 .search-box-wrapper:has(.search-input:focus) {
-    background-color: rgba(255, 255, 255, 1);
+    background-color: #fff;
     transition: background-color 0s 0s;
 }
 
@@ -3515,7 +3587,7 @@ body.reduced-motion .main-screen-brand-logos {
 }
 
 body.reduced-motion:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translate(-50%, calc(-50% - 132px + var(--search-drag-offset-y, 0px)));
+    transform: translate(-50%, calc(-50% - 142px + var(--search-drag-offset-y, 0px)));
 }
 
 body.reduced-motion.search-bar-near-top .main-screen-brand-logos {
@@ -3588,7 +3660,7 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .main-scr
     overflow: hidden;
     margin-top: 0;
     padding: 0 10px;
-    background-color: #fff;
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
     color: rgba(0, 0, 0, 0.5);
     font-size: 14px;
     border-radius: 0 0 10px 10px;

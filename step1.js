@@ -2458,7 +2458,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const logoHeight = mainScreenBrandLogos.getBoundingClientRect().height;
         if (rect.top < LOGO_NEAR_TOP_THRESHOLD) {
             document.body.classList.add('search-bar-near-top');
-            document.documentElement.style.setProperty('--logo-near-top-y', (searchCenterY - logoHeight / 2 + 45) + 'px');
+            document.documentElement.style.setProperty('--logo-near-top-y', (searchCenterY - logoHeight / 2 + 35) + 'px');
         } else {
             document.body.classList.remove('search-bar-near-top');
         }
@@ -2723,6 +2723,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncMainScreenBrandFromSwitcherItem(item) {
         const container = document.querySelector('.main-screen-brand-logos');
         if (!container) return;
+        const slot = container.querySelector('.main-screen-engine-wordmark-slot');
         const wordmark = container.querySelector('.main-screen-engine-wordmark');
         const attribution = container.querySelector('.main-screen-brand-attribution');
         const engineNameEl = container.querySelector('.main-screen-brand-engine-name');
@@ -2730,11 +2731,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const label = getEngineLabel(item);
         if (!label) return;
         const heroFirefox = getMainScreenHeroLogoMode() === 'firefox';
+        const clearIconFallbackLayout = () => {
+            wordmark.removeAttribute('data-wordmark-icon-fallback');
+            slot?.classList.remove(
+                'main-screen-engine-wordmark-slot--icon-fallback',
+                'main-screen-engine-wordmark-slot--standard-icon'
+            );
+        };
         const localSources = ['Bookmarks', 'History', 'Tabs', 'Actions'];
         if (localSources.includes(label)) {
             if (!heroFirefox) {
                 wordmark.dataset.wordmarkHeroSize = 'large';
+                clearIconFallbackLayout();
                 wordmark.src = 'icons/google-logo.svg';
+            } else {
+                clearIconFallbackLayout();
             }
             engineNameEl.textContent = 'Google';
             return;
@@ -2748,6 +2759,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!heroFirefox) {
             wordmark.dataset.wordmarkHeroSize = heroSize;
             wordmark.src = src;
+            if (MAIN_SCREEN_HORIZONTAL_ENGINE_LOGOS[label]) {
+                clearIconFallbackLayout();
+            } else {
+                wordmark.setAttribute('data-wordmark-icon-fallback', 'true');
+                slot?.classList.add('main-screen-engine-wordmark-slot--icon-fallback');
+                if (heroSize === 'standard') {
+                    slot?.classList.add('main-screen-engine-wordmark-slot--standard-icon');
+                } else {
+                    slot?.classList.remove('main-screen-engine-wordmark-slot--standard-icon');
+                }
+            }
+        } else {
+            clearIconFallbackLayout();
         }
         engineNameEl.textContent = straplineSearchEngineDisplayName(label);
     }
@@ -3827,8 +3851,19 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    function refreshPinnedRightSwitcherPanel() {
+    function refreshPinnedRightSwitcherPanel(opts = {}) {
         if (!pinnedRightHost || !searchSwitcherButton) return;
+        const cancelPinnedSlideAnim = () => {
+            const a = pinnedRightHost._pinnedSlideAnim;
+            if (!a) return;
+            const list = Array.isArray(a) ? a : [a];
+            for (const anim of list) {
+                try {
+                    anim.cancel();
+                } catch (_) {}
+            }
+            pinnedRightHost._pinnedSlideAnim = null;
+        };
         if (window._searchEngineDragging) return;
         /* Badge float + placeholder mutate the primary dropdown; re-clone would replace the pinned copy and drop `engines-dragging`. */
         if (window._defaultBadgeDragging) return;
@@ -3836,12 +3871,68 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.contains('search-engine-list-mode-pinned-right') &&
             searchContainer?.classList.contains('focused');
         if (!show) {
+            const shouldSlideOut =
+                !!opts.slideOutPinned &&
+                pinnedRightHost.querySelector('.search-switcher-dropdown') &&
+                !pinnedRightHost.hidden;
+
+            if (shouldSlideOut) {
+                cancelPinnedSlideAnim();
+                let w = pinnedRightHost.getBoundingClientRect().width;
+                if (w < 8) {
+                    try {
+                        const src = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
+                        if (src) {
+                            const mw = measurePinnedDropdownBaseWidth(src);
+                            if (mw > 0) w = mw;
+                        }
+                    } catch (_) {}
+                }
+                if (w < 8) w = 280;
+                const endX = -(w + 12);
+                pinnedRightHost.style.zIndex = '4';
+                void pinnedRightHost.offsetWidth;
+                requestAnimationFrame(() => {
+                    const duration = 450;
+                    const slideEasing = 'cubic-bezier(0.22, 1, 0.36, 1)';
+                    const animOp = pinnedRightHost.animate(
+                        [{ opacity: 1 }, { opacity: 0 }],
+                        { duration, easing: 'linear', fill: 'forwards' }
+                    );
+                    const animX = pinnedRightHost.animate(
+                        [{ transform: 'translateX(0px)' }, { transform: `translateX(${endX}px)` }],
+                        { duration, easing: slideEasing, fill: 'forwards' }
+                    );
+                    const ourPair = [animOp, animX];
+                    pinnedRightHost._pinnedSlideAnim = ourPair;
+                    Promise.all([animOp.finished, animX.finished]).finally(() => {
+                        if (pinnedRightHost._pinnedSlideAnim === ourPair) {
+                            pinnedRightHost._pinnedSlideAnim = null;
+                        }
+                        try {
+                            animOp.cancel();
+                            animX.cancel();
+                        } catch (_) {}
+                        pinnedRightHost.style.visibility = '';
+                        pinnedRightHost.style.pointerEvents = '';
+                        pinnedRightHost.style.zIndex = '';
+                        pinnedRightHost.hidden = true;
+                        pinnedRightHost.innerHTML = '';
+                        syncEngineDragHandlesForControlsPanel();
+                    });
+                });
+                return;
+            }
+
+            cancelPinnedSlideAnim();
+            pinnedRightHost.style.visibility = '';
+            pinnedRightHost.style.pointerEvents = '';
+            pinnedRightHost.style.zIndex = '';
             pinnedRightHost.hidden = true;
             pinnedRightHost.innerHTML = '';
             syncEngineDragHandlesForControlsPanel();
             return;
         }
-        pinnedRightHost.hidden = false;
         pinnedRightHost.setAttribute('aria-hidden', 'true');
         const source = searchSwitcherButton.querySelector('.search-switcher-dropdown');
         if (!source) return;
@@ -3873,6 +3964,62 @@ document.addEventListener('DOMContentLoaded', () => {
         ensurePinnedRightMutationObserver();
         syncPinnedRightPanelLayoutAfterAppend(clone);
         syncEngineDragHandlesForControlsPanel();
+        const slideInFromSuggestions =
+            !!opts.slideInFromSuggestions &&
+            !document.body.classList.contains('reduced-motion') &&
+            !!searchContainer?.classList.contains('focused') &&
+            !!document.querySelector('.search-container .suggestions-list')?.classList.contains('suggestions-revealed');
+
+        cancelPinnedSlideAnim();
+
+        if (slideInFromSuggestions) {
+            pinnedRightHost.hidden = false;
+            pinnedRightHost.style.visibility = 'hidden';
+            pinnedRightHost.style.pointerEvents = 'none';
+            void pinnedRightHost.offsetWidth;
+            let w = pinnedRightHost.getBoundingClientRect().width;
+            if (w < 8) {
+                try {
+                    const m = measurePinnedDropdownBaseWidth(source);
+                    if (m > 0) w = m;
+                } catch (_) {}
+            }
+            if (w < 8) w = 280;
+            const startX = -(w + 12);
+            pinnedRightHost.style.visibility = '';
+            pinnedRightHost.style.pointerEvents = '';
+            pinnedRightHost.style.zIndex = '4';
+            void pinnedRightHost.offsetWidth;
+            requestAnimationFrame(() => {
+                const duration = 450;
+                const slideEasing = 'cubic-bezier(0.22, 1, 0.36, 1)';
+                const animOp = pinnedRightHost.animate(
+                    [{ opacity: 0 }, { opacity: 1 }],
+                    { duration, easing: 'linear', fill: 'forwards' }
+                );
+                const animX = pinnedRightHost.animate(
+                    [
+                        { transform: `translateX(${startX}px)` },
+                        { transform: 'translateX(0px)' }
+                    ],
+                    { duration, easing: slideEasing, fill: 'forwards' }
+                );
+                const ourPair = [animOp, animX];
+                pinnedRightHost._pinnedSlideAnim = ourPair;
+                Promise.all([animOp.finished, animX.finished]).finally(() => {
+                    if (pinnedRightHost._pinnedSlideAnim === ourPair) {
+                        pinnedRightHost._pinnedSlideAnim = null;
+                    }
+                    try {
+                        animOp.cancel();
+                        animX.cancel();
+                    } catch (_) {}
+                    pinnedRightHost.style.zIndex = '';
+                });
+            });
+        } else {
+            pinnedRightHost.hidden = false;
+        }
         requestAnimationFrame(() => {
             syncPinnedRightPanelLayoutAfterAppend(clone);
             syncPinnedRightDropdownWidthFromPrimary(source);
@@ -6665,16 +6812,29 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, m);
         } catch (_) {}
+        const slideOutPinnedEligible =
+            !!options.animate &&
+            m !== 'pinned-right' &&
+            document.body.classList.contains('search-engine-list-mode-pinned-right') &&
+            !!searchContainer?.classList.contains('focused') &&
+            pinnedRightHost &&
+            !pinnedRightHost.hidden &&
+            !!pinnedRightHost.querySelector('.search-switcher-dropdown') &&
+            !document.body.classList.contains('reduced-motion') &&
+            !!document.querySelector('.search-container .suggestions-list')?.classList.contains('suggestions-revealed');
         document.body.classList.toggle('search-engine-list-mode-pinned-right', m === 'pinned-right');
         applyPinnedMenuState(m === 'pinned-left', options);
-        refreshPinnedRightSwitcherPanel();
+        refreshPinnedRightSwitcherPanel({
+            slideInFromSuggestions: m === 'pinned-right' && !!options.animate,
+            slideOutPinned: slideOutPinnedEligible,
+        });
         syncSearchSwitcherPanelPinToggle();
     };
     function toggleSearchSwitcherPanelPin() {
         const cur = getSearchEngineListMode();
         const next = cur === 'pinned-right' ? 'closed' : 'pinned-right';
         applySearchEngineListMode(next, { animate: true });
-        if (searchInput) searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        /* Do not dispatch synthetic `input` — it re-runs suggestion generation and flickers the panel (e.g. From Firefox) during the clone transition even though the query is unchanged. */
     }
     const searchEngineListModeSelect = document.getElementById('search-engine-list-mode-select');
     let newtabPinFromUrl = false;
@@ -6695,7 +6855,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const next = searchEngineListModeSelect.value;
             logPinMenu('search engine list mode select', { next });
             applySearchEngineListMode(next, { animate: true });
-            if (searchInput) searchInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
     }
 
