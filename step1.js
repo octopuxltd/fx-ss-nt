@@ -2613,6 +2613,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let switcherHoveredIndex = -1;
     let restoringFocusFromSwitcher = false;
     let closingSwitcherWithoutSuggestions = false;
+    /** Pin panel while suggestions were closed: focus handler must not strip suggestions-revealed. */
+    let openingSuggestionsForPinPanel = false;
     /** True between mousedown and mouseup on the pinned-right engine panel (avoids premature blur close). */
     let pinnedRightHostPointerActive = false;
     /** Set by the engine-reorder block when `enginesContainer` exists; starts drag from pinned clone rows. */
@@ -6874,7 +6876,50 @@ document.addEventListener('DOMContentLoaded', () => {
     function toggleSearchSwitcherPanelPin() {
         const cur = getSearchEngineListMode();
         const next = cur === 'pinned-right' ? 'closed' : 'pinned-right';
+        let openedSuggestionsForPin = false;
+        if (next === 'pinned-right') {
+            const revealed = suggestionsList?.classList.contains('suggestions-revealed');
+            const focused = searchContainer?.classList.contains('focused');
+            if (!revealed || !focused) {
+                openedSuggestionsForPin = true;
+                searchContainer?.classList.add('focused');
+                suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+                if (searchInput && !searchInput.value?.trim()) {
+                    const label = searchSwitcherButton?.querySelector('.switcher-button-label');
+                    const inLocalSourceMode = label && !label.hidden;
+                    if (!inLocalSourceMode) {
+                        const defaultSuggestions = [
+                            'hoka',
+                            '13 in macbook air',
+                            'coffee machines for sale',
+                            'taylor swift',
+                            'coffee grinder',
+                        ];
+                        updateSuggestions(defaultSuggestions);
+                    } else {
+                        suggestionsList?.classList.add('suggestions-suppress-until-typed');
+                        updateSuggestions([]);
+                    }
+                }
+                suggestionsList?.classList.add('suggestions-revealed');
+            }
+        }
         applySearchEngineListMode(next, { animate: true });
+        if (openedSuggestionsForPin) {
+            openingSuggestionsForPinPanel = true;
+            try {
+                searchInput?.focus({ preventScroll: true });
+            } catch (_) {}
+            if (openingSuggestionsForPinPanel) {
+                openingSuggestionsForPinPanel = false;
+                searchContainer?.classList.add('focused');
+                suggestionsList?.classList.add('suggestions-revealed');
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true }))
+                );
+                refreshPinnedRightSwitcherPanel();
+            }
+        }
         /* Do not dispatch synthetic `input` — it re-runs suggestion generation and flickers the panel (e.g. From Firefox) during the clone transition even though the query is unchanged. */
     }
     const searchEngineListModeSelect = document.getElementById('search-engine-list-mode-select');
@@ -8049,6 +8094,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (closingSwitcherWithoutSuggestions) {
                 closingSwitcherWithoutSuggestions = false;
                 searchInput?.blur();
+                refreshPinnedRightSwitcherPanel();
+                return;
+            }
+            if (openingSuggestionsForPinPanel) {
+                openingSuggestionsForPinPanel = false;
+                searchContainer.classList.add('focused');
+                if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
+                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
                 refreshPinnedRightSwitcherPanel();
                 return;
             }

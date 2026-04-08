@@ -1158,7 +1158,7 @@ body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-
     outline: none;
 }
 
-/* Stacked outline + filled; hover previews the other state (cf. .dropdown-item-pin-empty). Hollow outline uses 5° clockwise. */
+/* Stacked outline + filled; hover/focus only changes button background, not the icon variant. Hollow outline uses 5° clockwise. */
 
 .search-switcher-more-menu-button-icon {
     display: block;
@@ -1197,18 +1197,6 @@ body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-
     visibility: hidden;
 }
 
-.search-engines-pin-default-toggle[aria-pressed="false"]:hover .search-engines-pin-default-toggle-icon--outline,
-.search-engines-pin-default-toggle[aria-pressed="false"]:focus-visible .search-engines-pin-default-toggle-icon--outline {
-    opacity: 0;
-    visibility: hidden;
-}
-
-.search-engines-pin-default-toggle[aria-pressed="false"]:hover .search-engines-pin-default-toggle-icon--filled,
-.search-engines-pin-default-toggle[aria-pressed="false"]:focus-visible .search-engines-pin-default-toggle-icon--filled {
-    opacity: 1;
-    visibility: visible;
-}
-
 .search-engines-pin-default-toggle[aria-pressed="true"] .search-engines-pin-default-toggle-icon--outline {
     opacity: 0;
     visibility: hidden;
@@ -1216,19 +1204,6 @@ body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-
 
 .search-engines-pin-default-toggle[aria-pressed="true"] .search-engines-pin-default-toggle-icon--filled {
     opacity: 0.55;
-    visibility: visible;
-}
-
-/* Pinned: keep the filled icon on hover (no outline swap / rotation) so size stays stable like ••• / settings. */
-.search-engines-pin-default-toggle[aria-pressed="true"]:hover .search-engines-pin-default-toggle-icon--outline,
-.search-engines-pin-default-toggle[aria-pressed="true"]:focus-visible .search-engines-pin-default-toggle-icon--outline {
-    opacity: 0;
-    visibility: hidden;
-}
-
-.search-engines-pin-default-toggle[aria-pressed="true"]:hover .search-engines-pin-default-toggle-icon--filled,
-.search-engines-pin-default-toggle[aria-pressed="true"]:focus-visible .search-engines-pin-default-toggle-icon--filled {
-    opacity: 1;
     visibility: visible;
 }
 
