@@ -2458,7 +2458,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const logoHeight = mainScreenBrandLogos.getBoundingClientRect().height;
         if (rect.top < LOGO_NEAR_TOP_THRESHOLD) {
             document.body.classList.add('search-bar-near-top');
-            document.documentElement.style.setProperty('--logo-near-top-y', (searchCenterY - logoHeight / 2 + 35) + 'px');
+            document.documentElement.style.setProperty('--logo-near-top-y', (searchCenterY - logoHeight / 2 + 25) + 'px');
         } else {
             document.body.classList.remove('search-bar-near-top');
         }
@@ -2719,6 +2719,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return s || label;
     }
 
+    /** After `src` is set: show the hero wordmark (used when hiding cross-layout flashes). */
+    function revealMainScreenWordmarkWhenReady(img) {
+        const show = () => {
+            img.style.removeProperty('opacity');
+        };
+        if (typeof img.decode === 'function') {
+            img.decode().then(show, show);
+        } else {
+            const done = () => {
+                img.onload = null;
+                img.onerror = null;
+                show();
+            };
+            img.onload = done;
+            img.onerror = done;
+            if (img.complete && img.naturalWidth > 0) {
+                done();
+            }
+        }
+    }
+
     /** Main-page hero wordmark + strapline track the switcher’s selected web search engine (full SVG wordmarks for Google / DuckDuckGo). */
     function syncMainScreenBrandFromSwitcherItem(item) {
         const container = document.querySelector('.main-screen-brand-logos');
@@ -2741,9 +2762,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const localSources = ['Bookmarks', 'History', 'Tabs', 'Actions'];
         if (localSources.includes(label)) {
             if (!heroFirefox) {
+                const fromIconFallback = wordmark.hasAttribute('data-wordmark-icon-fallback');
+                if (fromIconFallback) {
+                    wordmark.style.opacity = '0';
+                }
                 wordmark.dataset.wordmarkHeroSize = 'large';
                 clearIconFallbackLayout();
                 wordmark.src = 'icons/google-logo.svg';
+                if (fromIconFallback) {
+                    revealMainScreenWordmarkWhenReady(wordmark);
+                } else {
+                    wordmark.style.removeProperty('opacity');
+                }
             } else {
                 clearIconFallbackLayout();
             }
@@ -2756,9 +2786,16 @@ document.addEventListener('DOMContentLoaded', () => {
             src = iconEl ? iconEl.getAttribute('src') || iconEl.src : 'icons/google-logo.svg';
         }
         const heroSize = label === 'Bing' || label === 'Wikipedia (en)' ? 'standard' : 'large';
+        const nextIconFallback = !MAIN_SCREEN_HORIZONTAL_ENGINE_LOGOS[label];
+        const prevIconFallback = wordmark.hasAttribute('data-wordmark-icon-fallback');
+        const crossIconWordmarkLayout = nextIconFallback !== prevIconFallback;
         if (!heroFirefox) {
+            if (crossIconWordmarkLayout) {
+                wordmark.style.opacity = '0';
+            } else {
+                wordmark.style.removeProperty('opacity');
+            }
             wordmark.dataset.wordmarkHeroSize = heroSize;
-            wordmark.src = src;
             if (MAIN_SCREEN_HORIZONTAL_ENGINE_LOGOS[label]) {
                 clearIconFallbackLayout();
             } else {
@@ -2769,6 +2806,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     slot?.classList.remove('main-screen-engine-wordmark-slot--standard-icon');
                 }
+            }
+            wordmark.src = src;
+            if (crossIconWordmarkLayout) {
+                revealMainScreenWordmarkWhenReady(wordmark);
             }
         } else {
             clearIconFallbackLayout();

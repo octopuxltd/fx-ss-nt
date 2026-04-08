@@ -255,7 +255,7 @@ body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-d
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, calc(-50% - 142px + var(--search-drag-offset-y, 0px)));
+    transform: translate(-50%, calc(-50% - 152px + var(--search-drag-offset-y, 0px)));
     opacity: 1;
     transition: transform 0.42s ease-out, opacity 0.42s linear;
     z-index: 0;
@@ -269,6 +269,7 @@ body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-d
     flex-shrink: 0;
     height: 87px;
     width: min(90vw, 352px);
+    transform: translateY(15px);
 }
 
 /* Hero wordmarks: default 60% larger than legacy box; Bing + Wikipedia stay on the smaller “standard” box. */
@@ -415,7 +416,7 @@ body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
 }
 
 body:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translate(-50%, calc(-50% - 137px + var(--search-drag-offset-y, 0px))) scale(0.8);
+    transform: translate(-50%, calc(-50% - 147px + var(--search-drag-offset-y, 0px))) scale(0.8);
 }
 
 body.search-bar-dragged-down:has(.search-container.focused) .main-screen-brand-logos {
@@ -3587,7 +3588,7 @@ body.reduced-motion .main-screen-brand-logos {
 }
 
 body.reduced-motion:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translate(-50%, calc(-50% - 142px + var(--search-drag-offset-y, 0px)));
+    transform: translate(-50%, calc(-50% - 152px + var(--search-drag-offset-y, 0px)));
 }
 
 body.reduced-motion.search-bar-near-top .main-screen-brand-logos {
