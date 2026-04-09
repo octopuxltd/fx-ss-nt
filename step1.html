@@ -19,6 +19,7 @@
             } catch (e) {}
         })();
     </script>
+    <div class="prototype-browser-chrome-stack">
     <div class="window-chrome-tab-strip" aria-hidden="true">
         <div class="window-chrome-tab-strip-inner">
             <div class="window-chrome-traffic-lights" role="presentation">
@@ -59,10 +60,15 @@
             </div>
         </div>
     </div>
+    <div class="prototype-browser-chrome-toolbar-slot">
     <div class="addressbar-band" aria-hidden="true"></div>
     <div class="addressbar-area">
-        <iframe src="step1-addressbar.html" class="addressbar-iframe" title="Address bar" tabindex="-1"></iframe>
-        <iframe src="step1-standalonesearchbox.html" class="standalone-search-box-iframe" title="Standalone search box" tabindex="-1"></iframe>
+        <div class="addressbar-iframe-anchor">
+            <iframe src="step1-addressbar.html" class="addressbar-iframe" title="Address bar" tabindex="-1"></iframe>
+        </div>
+        <div class="standalone-search-box-iframe-anchor">
+            <iframe src="step1-standalonesearchbox.html" class="standalone-search-box-iframe" title="Standalone search box" tabindex="-1"></iframe>
+        </div>
         <div class="addressbar-toolbar-icons">
             <button type="button" class="addressbar-toolbar-icon" aria-label="Account" title="Account" tabindex="-1">
                 <img src="icons/person.svg" alt="" width="17" height="17">
@@ -74,6 +80,8 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 6.912h16.5"/><path d="M3.75 13.412h16.5"/><path d="M3.75 19.912h16.5"/></svg>
             </button>
         </div>
+    </div>
+    </div>
     </div>
     <script>
         // Apply reduced motion class immediately to body before any rendering
@@ -128,6 +136,19 @@
         } catch (_) {}
     </script>
     <div class="search-container">
+        <div class="main-screen-brand-logos">
+            <div class="main-screen-engine-wordmark-slot" aria-hidden="true">
+                <img src="icons/google-logo.svg" alt="" class="main-screen-engine-wordmark">
+                <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="main-screen-firefox-hero-logo">
+            </div>
+            <div class="main-screen-brand-firefox-row">
+                <span class="main-screen-brand-attribution">Start your <span class="main-screen-brand-engine-name">Google</span> search right here in </span>
+                <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="firefox-logo">
+                <span class="main-screen-brand-firefox-name">Firefox</span>
+                <span class="main-screen-brand-read-why-sep" aria-hidden="true"> • </span>
+                <a class="main-screen-brand-read-why-link" href="#">Read why</a>
+            </div>
+        </div>
         <div class="search-container-top-row">
         <div class="search-box-wrapper-outer">
         <div class="search-box-wrapper">
@@ -281,6 +302,7 @@
                     </svg>
                 </button>
             </div>
+        <div class="search-suggestions-drop">
         <ul class="suggestions-list">
                 <div class="suggestions-content">
                     <li class="suggestion-item gmail-item">
@@ -322,10 +344,6 @@
                     </li>
                 </div>
             </ul>
-        </div>
-        <div class="search-switcher-pinned-right-host" hidden aria-hidden="true"></div>
-        </div>
-
         <div class="one-off-buttons">
             <div class="one-off-engine-icons">
                 <span class="one-off-buttons-label">Search with</span>
@@ -343,8 +361,139 @@
                 <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with YouTube"><img src="icons/YouTube.svg" alt="YouTube"></button>
             </div>
         </div>
+        </div>
+        </div>
+        <div class="search-switcher-pinned-right-host" hidden aria-hidden="true"></div>
+        </div>
         <div class="search-container-drag-handle"></div>
     </div>
+
+    <div class="nt-home-feed" aria-label="New tab content">
+        <div class="nt-home-feed__inner">
+            <nav class="nt-home-feed__shortcuts" aria-label="Shortcuts">
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="favicons/Amazon - Light.svg" alt=""></span><span class="nt-home-feed__shortcut-text">Amazon</span><span class="nt-home-feed__shortcut-tag">Sponsored</span></a>
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="icons/Spotify.svg" alt=""></span><span class="nt-home-feed__shortcut-text">Spotify</span><span class="nt-home-feed__shortcut-tag">Sponsored</span></a>
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="icons/Airbnb.svg" alt=""></span><span class="nt-home-feed__shortcut-text">Airbnb</span><span class="nt-home-feed__shortcut-tag">Sponsored</span></a>
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="icons/Reddit.svg" alt=""></span><span class="nt-home-feed__shortcut-text">Reddit</span></a>
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="icons/YouTube.svg" alt=""></span><span class="nt-home-feed__shortcut-text">YouTube</span></a>
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="icons/Google Docs.svg" alt=""></span><span class="nt-home-feed__shortcut-text">Google Docs</span></a>
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="icons/Startpage.svg" alt=""></span><span class="nt-home-feed__shortcut-text">NY Times</span></a>
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="icons/IMDb.svg" alt=""></span><span class="nt-home-feed__shortcut-text">IMDb</span></a>
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="icons/Wikipedia.svg" alt=""></span><span class="nt-home-feed__shortcut-text">Wikipedia</span></a>
+                <a class="nt-home-feed__shortcut" href="#"><span class="nt-home-feed__shortcut-icon"><img src="icons/Yelp.svg" alt=""></span><span class="nt-home-feed__shortcut-text">Yelp</span></a>
+            </nav>
+
+            <section class="nt-home-feed__section" aria-labelledby="nt-feed-widgets-heading">
+                <div class="nt-home-feed__section-head">
+                    <h2 class="nt-home-feed__section-title" id="nt-feed-widgets-heading">Widgets</h2>
+                    <button type="button" class="nt-home-feed__section-chevron" aria-label="Expand widgets" tabindex="-1"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                    <button type="button" class="nt-home-feed__section-more" aria-label="More" tabindex="-1"><svg width="16" height="4" viewBox="0 0 16 4" fill="currentColor" aria-hidden="true"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="14" cy="2" r="1.5"/></svg></button>
+                </div>
+                <div class="nt-home-feed__grid nt-home-feed__grid--widgets">
+                    <article class="nt-home-feed__card nt-home-feed__card--widget">
+                        <div class="nt-home-feed__timer">
+                            <button type="button" class="nt-home-feed__timer-play" aria-label="Start" tabindex="-1"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M3 2l8 5-8 5V2z"/></svg></button>
+                            <div class="nt-home-feed__timer-display">
+                                <button type="button" class="nt-home-feed__timer-step" tabindex="-1">−</button>
+                                <span class="nt-home-feed__timer-value">25:00</span>
+                                <button type="button" class="nt-home-feed__timer-step" tabindex="-1">+</button>
+                            </div>
+                            <div class="nt-home-feed__timer-modes">
+                                <span class="nt-home-feed__pill nt-home-feed__pill--on">Focus</span>
+                                <span class="nt-home-feed__pill">Break</span>
+                            </div>
+                        </div>
+                    </article>
+                    <article class="nt-home-feed__card nt-home-feed__card--widget">
+                        <div class="nt-home-feed__widget-head"><span class="nt-home-feed__widget-title">Checklist</span><button type="button" class="nt-home-feed__add" aria-label="Add" tabindex="-1">+</button></div>
+                        <ul class="nt-home-feed__checklist">
+                            <li><label><input type="checkbox" checked disabled> Set Firefox as default browser</label></li>
+                            <li><label><input type="checkbox" disabled> Change wallpaper</label></li>
+                            <li><label><input type="checkbox" disabled> Create Mozilla account</label></li>
+                        </ul>
+                    </article>
+                    <article class="nt-home-feed__card nt-home-feed__card--widget">
+                        <div class="nt-home-feed__widget-head"><span class="nt-home-feed__widget-title">World clock</span></div>
+                        <div class="nt-home-feed__clocks">
+                            <div class="nt-home-feed__clock"><span class="nt-home-feed__clock-tz">BER</span><span class="nt-home-feed__clock-time">13:44</span></div>
+                            <div class="nt-home-feed__clock"><span class="nt-home-feed__clock-tz">SYD</span><span class="nt-home-feed__clock-time">23:44</span></div>
+                            <div class="nt-home-feed__clock"><span class="nt-home-feed__clock-tz">NYC</span><span class="nt-home-feed__clock-time">23:44</span></div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="nt-home-feed__section" aria-labelledby="nt-feed-popular-heading">
+                <div class="nt-home-feed__section-head">
+                    <h2 class="nt-home-feed__section-title" id="nt-feed-popular-heading">Popular Today</h2>
+                    <button type="button" class="nt-home-feed__add" aria-label="Add section" tabindex="-1">+</button>
+                    <button type="button" class="nt-home-feed__section-more" aria-label="More" tabindex="-1"><svg width="16" height="4" viewBox="0 0 16 4" fill="currentColor" aria-hidden="true"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="14" cy="2" r="1.5"/></svg></button>
+                </div>
+                <div class="nt-home-feed__grid nt-home-feed__grid--popular">
+                    <article class="nt-home-feed__card nt-home-feed__card--hero">
+                        <div class="nt-home-feed__card-media"><img src="https://images.unsplash.com/photo-1509391366360-2e959784a276?w=640&h=360&fit=crop" alt="" loading="lazy"></div>
+                        <div class="nt-home-feed__card-body">
+                            <h3 class="nt-home-feed__headline">Is solar jet fuel ready for takeoff?</h3>
+                            <p class="nt-home-feed__lede">New plants are scaling production of sustainable aviation fuel—here is what travelers should know.</p>
+                            <div class="nt-home-feed__source"><img src="icons/CBC.svg" alt="" class="nt-home-feed__source-icon"> CBC</div>
+                        </div>
+                    </article>
+                    <div class="nt-home-feed__popular-stack">
+                        <article class="nt-home-feed__card nt-home-feed__card--compact">
+                            <div class="nt-home-feed__card-media nt-home-feed__card-media--sm"><img src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=200&h=120&fit=crop" alt="" loading="lazy"></div>
+                            <div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--sm">Quiet towns lead the way on climate policy</h3><div class="nt-home-feed__source nt-home-feed__source--muted">NY Times</div></div>
+                        </article>
+                        <article class="nt-home-feed__card nt-home-feed__card--compact">
+                            <div class="nt-home-feed__card-media nt-home-feed__card-media--sm"><img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=200&h=120&fit=crop" alt="" loading="lazy"></div>
+                            <div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--sm">Design notes from the weekend desk</h3><div class="nt-home-feed__source nt-home-feed__source--muted">Monocle</div></div>
+                        </article>
+                    </div>
+                    <article class="nt-home-feed__card nt-home-feed__card--hero">
+                        <div class="nt-home-feed__card-media"><img src="https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=640&h=360&fit=crop" alt="" loading="lazy"></div>
+                        <div class="nt-home-feed__card-body">
+                            <h3 class="nt-home-feed__headline">Make hard look easy</h3>
+                            <div class="nt-home-feed__source">Nike <span class="nt-home-feed__sponsored">· Sponsored</span></div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="nt-home-feed__section" aria-labelledby="nt-feed-food-heading">
+                <div class="nt-home-feed__section-head">
+                    <h2 class="nt-home-feed__section-title" id="nt-feed-food-heading">Food</h2>
+                    <button type="button" class="nt-home-feed__add" aria-label="Add section" tabindex="-1">+</button>
+                    <button type="button" class="nt-home-feed__section-more" aria-label="More" tabindex="-1"><svg width="16" height="4" viewBox="0 0 16 4" fill="currentColor" aria-hidden="true"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="14" cy="2" r="1.5"/></svg></button>
+                </div>
+                <div class="nt-home-feed__grid nt-home-feed__grid--food">
+                    <article class="nt-home-feed__card nt-home-feed__card--tile"><div class="nt-home-feed__card-media nt-home-feed__card-media--tile"><img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=280&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--tile">Summer salads that stay crisp</h3><div class="nt-home-feed__source nt-home-feed__source--muted">Bon Appétit</div></div></article>
+                    <article class="nt-home-feed__card nt-home-feed__card--tile"><div class="nt-home-feed__card-media nt-home-feed__card-media--tile"><img src="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=280&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--tile">Build a recipe site in an afternoon</h3><div class="nt-home-feed__source nt-home-feed__source--muted">Solo AI <span class="nt-home-feed__sponsored">· Sponsored</span></div></div></article>
+                    <article class="nt-home-feed__card nt-home-feed__card--tile"><div class="nt-home-feed__card-media nt-home-feed__card-media--tile"><img src="https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=280&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--tile">The egg trick chefs swear by</h3><div class="nt-home-feed__source nt-home-feed__source--muted">NYT Cooking</div></div></article>
+                    <article class="nt-home-feed__card nt-home-feed__card--tile"><div class="nt-home-feed__card-media nt-home-feed__card-media--tile"><img src="https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=400&h=280&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--tile">Bake day: sourdough basics</h3><div class="nt-home-feed__source nt-home-feed__source--muted">Spruce Eats</div></div></article>
+                </div>
+            </section>
+
+            <section class="nt-home-feed__section" aria-labelledby="nt-feed-home-heading">
+                <div class="nt-home-feed__section-head">
+                    <h2 class="nt-home-feed__section-title" id="nt-feed-home-heading">Home &amp; Garden</h2>
+                    <button type="button" class="nt-home-feed__add" aria-label="Add section" tabindex="-1">+</button>
+                    <button type="button" class="nt-home-feed__section-more" aria-label="More" tabindex="-1"><svg width="16" height="4" viewBox="0 0 16 4" fill="currentColor" aria-hidden="true"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="14" cy="2" r="1.5"/></svg></button>
+                </div>
+                <div class="nt-home-feed__grid nt-home-feed__grid--home">
+                    <div class="nt-home-feed__home-col nt-home-feed__home-col--narrow">
+                        <article class="nt-home-feed__card nt-home-feed__card--compact"><div class="nt-home-feed__card-media nt-home-feed__card-media--sm"><img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=200&h=120&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--sm">Paint trends for small rooms</h3><div class="nt-home-feed__source nt-home-feed__source--muted">Pinterest</div></div></article>
+                        <article class="nt-home-feed__card nt-home-feed__card--compact"><div class="nt-home-feed__card-media nt-home-feed__card-media--sm"><img src="https://images.unsplash.com/photo-1615876234886-fd9a39fda97f?w=200&h=120&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--sm">Minimal desks that fit anywhere</h3><div class="nt-home-feed__source nt-home-feed__source--muted">Medium</div></div></article>
+                    </div>
+                    <article class="nt-home-feed__card nt-home-feed__card--tall"><div class="nt-home-feed__card-media nt-home-feed__card-media--tall"><img src="https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?w=400&h=520&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline">When life gives you lemons</h3><div class="nt-home-feed__source nt-home-feed__source--muted">The Verge</div></div></article>
+                    <article class="nt-home-feed__card nt-home-feed__card--tall nt-home-feed__card--sponsored-tile"><div class="nt-home-feed__card-media nt-home-feed__card-media--tall"><img src="https://images.unsplash.com/photo-1543353071-873f17a7a8d9?w=400&h=520&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline">HelloFresh · meal kits delivered</h3><div class="nt-home-feed__source">HelloFresh <span class="nt-home-feed__sponsored">· Sponsored</span></div></div></article>
+                    <div class="nt-home-feed__home-col nt-home-feed__home-col--narrow">
+                        <article class="nt-home-feed__card nt-home-feed__card--compact"><div class="nt-home-feed__card-media nt-home-feed__card-media--sm"><img src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=200&h=120&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--sm">Sofa layouts for open plans</h3><div class="nt-home-feed__source nt-home-feed__source--muted">Pinterest</div></div></article>
+                        <article class="nt-home-feed__card nt-home-feed__card--compact"><div class="nt-home-feed__card-media nt-home-feed__card-media--sm"><img src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=200&h=120&fit=crop" alt="" loading="lazy"></div><div class="nt-home-feed__card-body"><h3 class="nt-home-feed__headline nt-home-feed__headline--sm">Warm minimalism on a budget</h3><div class="nt-home-feed__source nt-home-feed__source--muted">Medium</div></div></article>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
     <div class="bottom-left-panel">
         <div class="bottom-left-panel-content">
             <div class="bottom-left-panel-heading-row">
@@ -419,20 +568,6 @@
                     <span>Numbers when switcher opened with opt-⬇️</span>
                 </label>
             </div>
-        </div>
-    </div>
-    
-    <div class="main-screen-brand-logos">
-        <div class="main-screen-engine-wordmark-slot" aria-hidden="true">
-            <img src="icons/google-logo.svg" alt="" class="main-screen-engine-wordmark">
-            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="main-screen-firefox-hero-logo">
-        </div>
-        <div class="main-screen-brand-firefox-row">
-            <span class="main-screen-brand-attribution">Start your <span class="main-screen-brand-engine-name">Google</span> search right here in </span>
-            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="firefox-logo">
-            <span class="main-screen-brand-firefox-name">Firefox</span>
-            <span class="main-screen-brand-read-why-sep" aria-hidden="true"> • </span>
-            <a class="main-screen-brand-read-why-link" href="#">Read why</a>
         </div>
     </div>
 

@@ -2648,24 +2648,9 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.value = '';
     }
     const searchContainer = document.querySelector('.search-container');
-    const mainScreenBrandLogos = document.querySelector('.main-screen-brand-logos');
 
     // Repositionable search bar (testing)
     const searchDragHandle = document.querySelector('.search-container-drag-handle');
-    const LOGO_NEAR_TOP_THRESHOLD = 250;
-    function updateLogoPositionForSearchBar(opts = {}) {
-        if (!searchContainer || !mainScreenBrandLogos) return;
-        if (opts.skipWhenLogoOnLeft && document.body.classList.contains('search-bar-near-top')) return;
-        const rect = searchContainer.getBoundingClientRect();
-        const searchCenterY = rect.top + rect.height / 2;
-        const logoHeight = mainScreenBrandLogos.getBoundingClientRect().height;
-        if (rect.top < LOGO_NEAR_TOP_THRESHOLD) {
-            document.body.classList.add('search-bar-near-top');
-            document.documentElement.style.setProperty('--logo-near-top-y', (searchCenterY - logoHeight / 2 + 25) + 'px');
-        } else {
-            document.body.classList.remove('search-bar-near-top');
-        }
-    }
     if (searchDragHandle && searchContainer) {
         let searchDragOffsetY = 0;
         const updateDraggedClasses = () => {
@@ -2683,17 +2668,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.removeEventListener('pointerup', onPointerUp);
             document.removeEventListener('pointercancel', onPointerUp);
             searchContainer.style.transition = '';
-            const wasNearTop = document.body.classList.contains('search-bar-near-top');
-            if (wasNearTop && mainScreenBrandLogos) {
-                mainScreenBrandLogos.style.transition = 'none';
-            }
-            updateLogoPositionForSearchBar();
-            if (wasNearTop && mainScreenBrandLogos) {
-                mainScreenBrandLogos.offsetHeight;
-                requestAnimationFrame(() => {
-                    mainScreenBrandLogos.style.transition = '';
-                });
-            }
         };
         let pointerId;
         searchDragHandle.addEventListener('pointerdown', (e) => {
@@ -2706,8 +2680,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.addEventListener('pointercancel', onPointerUp);
         });
     }
-    updateLogoPositionForSearchBar();
-    window.addEventListener('resize', updateLogoPositionForSearchBar);
     const searchBoxWrapper = document.querySelector('.search-box-wrapper');
     const searchBoxWrapperOuter = document.querySelector('.search-box-wrapper-outer');
 
@@ -2800,6 +2772,62 @@ document.addEventListener('DOMContentLoaded', () => {
     const reducedMotionCheckbox = document.querySelector('.reduced-motion-checkbox');
     const suggestionsList = document.querySelector('.suggestions-list');
     const suggestionItems = document.querySelectorAll('.suggestion-item');
+
+    function isAddressBarSurface() {
+        return document.body.classList.contains('addressbar');
+    }
+
+    function clearMainTabSearchPanelPresentation() {
+        document.body.classList.remove('nt-home-feed-dimmed');
+        searchContainer?.classList.remove('suggestions-max-height-ready');
+    }
+
+    /** Main new tab: expand list + dim feed immediately (restore / inspect / reduced motion). */
+    function syncMainTabSearchPanelPresentationImmediate() {
+        if (!searchContainer || isAddressBarSurface()) return;
+        searchContainer.classList.add('suggestions-max-height-ready');
+        document.body.classList.add('nt-home-feed-dimmed');
+    }
+
+    /**
+     * Main new tab: defer expanding the suggestions list and dimming the feed by one frame so CSS transitions run.
+     * @param {boolean} expandSuggestionList false when suggestions are suppressed (empty local-source mode).
+     */
+    function queueMainTabSearchPanelOpenTransitions(expandSuggestionList) {
+        if (!searchContainer || isAddressBarSurface()) return;
+        const reduced = document.body.classList.contains('reduced-motion');
+        if (reduced) {
+            if (expandSuggestionList) searchContainer.classList.add('suggestions-max-height-ready');
+            document.body.classList.add('nt-home-feed-dimmed');
+            return;
+        }
+        if (expandSuggestionList) {
+            searchContainer.classList.remove('suggestions-max-height-ready');
+            void searchContainer.offsetHeight;
+        }
+        requestAnimationFrame(() => {
+            if (!searchContainer.classList.contains('focused') || searchContainer.classList.contains('collapsing-suggestions')) return;
+            if (expandSuggestionList) {
+                searchContainer.classList.add('suggestions-max-height-ready');
+            }
+            document.body.classList.add('nt-home-feed-dimmed');
+        });
+    }
+
+    /** Re-run list max-height open animation when the panel is already focused (e.g. leaving local-source suppress). */
+    function ensureMainTabSuggestionListExpandAnimated() {
+        if (isAddressBarSurface() || document.body.classList.contains('reduced-motion')) {
+            searchContainer?.classList.add('suggestions-max-height-ready');
+            return;
+        }
+        if (!searchContainer?.classList.contains('focused')) return;
+        searchContainer.classList.remove('suggestions-max-height-ready');
+        void searchContainer.offsetHeight;
+        requestAnimationFrame(() => {
+            if (!searchContainer.classList.contains('focused')) return;
+            searchContainer.classList.add('suggestions-max-height-ready');
+        });
+    }
     let selectedSuggestionIndex = -1;
     let originalTypedText = '';
     let hoveredSuggestionIndex = -1;
@@ -2836,13 +2864,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeSuggestionsPanel() {
         if (!searchContainer) return;
-        searchContainer.classList.remove('focused');
+        const isMainPage = !document.body.classList.contains('addressbar');
+        if (!searchContainer.classList.contains('focused')) {
+            if (isMainPage) {
+                console.log('[main-search-close]', 'skip: not focused');
+            }
+            clearMainTabSearchPanelPresentation();
+            refreshPinnedRightSwitcherPanel();
+            return;
+        }
+        if (searchContainer.classList.contains('collapsing-suggestions')) {
+            if (isMainPage) {
+                console.log('[main-search-close]', 'skip: already collapsing-suggestions');
+            }
+            return;
+        }
+
+        const reducedMotion = document.body.classList.contains('reduced-motion');
+        const suggestionsDrop = searchContainer.querySelector('.search-suggestions-drop');
+        /** @type {number} performance.now() when main-tab close transition starts; used for logging only */
+        let closePerfStart = 0;
+
         let logoUpdateDone = false;
         const runLogoUpdate = () => {
             if (!logoUpdateDone) {
                 logoUpdateDone = true;
                 searchContainer.removeEventListener('transitionend', onTransitionEnd);
-                updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true });
             }
         };
         const onTransitionEnd = (e) => {
@@ -2850,9 +2897,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 runLogoUpdate();
             }
         };
-        searchContainer.addEventListener('transitionend', onTransitionEnd);
-        const blurTransitionMs = document.body.classList.contains('reduced-motion') ? 350 : 250;
-        setTimeout(runLogoUpdate, blurTransitionMs + 50);
+
+        const attachPostUnfocusListeners = () => {
+            searchContainer.addEventListener('transitionend', onTransitionEnd);
+            const blurTransitionMs = document.body.classList.contains('reduced-motion') ? 350 : 250;
+            setTimeout(runLogoUpdate, blurTransitionMs + 50);
+        };
+
+        let unfocusFinalized = false;
+        let collapseFallbackTimer = null;
+
+        function onDropCollapseEnd(e) {
+            if (!suggestionsDrop || e.target !== suggestionsDrop || e.propertyName !== 'max-height') return;
+            if (isMainPage) {
+                console.log('[main-search-close]', 'suggestions-drop transitionend', e.propertyName);
+            }
+            finalizeUnfocus({ skipAttachPostUnfocus: true, closeLogReason: 'drop-max-height-transitionend' });
+        }
+
+        const finalizeUnfocus = (opts = {}) => {
+            if (unfocusFinalized) return;
+            unfocusFinalized = true;
+            if (isMainPage && closePerfStart > 0) {
+                const elapsed = Math.round(performance.now() - closePerfStart);
+                console.log(
+                    '[main-search-close]',
+                    'finalize',
+                    opts.closeLogReason || '(no reason)',
+                    `${elapsed}ms`
+                );
+                closePerfStart = 0;
+            }
+            clearMainTabSearchPanelPresentation();
+            if (collapseFallbackTimer != null) {
+                clearTimeout(collapseFallbackTimer);
+                collapseFallbackTimer = null;
+            }
+            if (suggestionsDrop) {
+                suggestionsDrop.removeEventListener('transitionend', onDropCollapseEnd);
+            }
+            searchContainer.classList.remove('collapsing-suggestions');
+            searchContainer.classList.remove('focused');
+            if (!opts.skipAttachPostUnfocus) {
+                attachPostUnfocusListeners();
+            }
+            refreshPinnedRightSwitcherPanel();
+        };
+
         suggestionsList?.classList.remove('suggestions-revealed');
         firstHoverDone = false;
         if (suggestionsList) {
@@ -2863,7 +2954,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 suggestionsList.classList.remove('transitioning');
             }, closeDuration);
         }
+
+        /* Main new tab: shrink width with the panel (like pre-sticky behavior). Keep .collapsing-suggestions until
+         * max-height hits 0 so the drop can finish animating without focused-only layout. Address bar / reduced motion: unfocus immediately. */
+        if (!isMainPage || reducedMotion || !suggestionsDrop) {
+            if (isMainPage) {
+                closePerfStart = performance.now();
+                console.log('[main-search-close]', 'start immediate finalize', {
+                    reducedMotion,
+                    hasSuggestionsDrop: !!suggestionsDrop,
+                });
+                finalizeUnfocus({
+                    closeLogReason: reducedMotion
+                        ? 'immediate-reduced-motion'
+                        : 'immediate-no-suggestions-drop',
+                });
+            } else {
+                finalizeUnfocus();
+            }
+            return;
+        }
+
+        closePerfStart = performance.now();
+        console.log('[main-search-close]', 'start staged close', {
+            path: 'collapsing-suggestions + width until drop max-height',
+        });
+        attachPostUnfocusListeners();
+        searchContainer.classList.add('collapsing-suggestions');
+        searchContainer.classList.remove('focused');
         refreshPinnedRightSwitcherPanel();
+
+        suggestionsDrop.addEventListener('transitionend', onDropCollapseEnd);
+        collapseFallbackTimer = setTimeout(() => {
+            if (isMainPage) {
+                console.log('[main-search-close]', 'fallback timer fired (~520ms)');
+            }
+            finalizeUnfocus({ skipAttachPostUnfocus: true, closeLogReason: 'fallback-timeout-520ms' });
+        }, 520);
+
+        requestAnimationFrame(() => {
+            void suggestionsDrop.offsetHeight;
+        });
     }
 
     /** Close chip dropdown + suggestions + blur; hides the cloned panel but keeps pinned-right mode (reopens on input focus). */
@@ -2923,6 +3054,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
                         updateSuggestions(defaultSuggestions);
                         suggestionsList?.classList.add('suggestions-revealed');
+                        ensureMainTabSuggestionListExpandAnimated();
                     }
                 }
             }
@@ -7299,9 +7431,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 openingSuggestionsForPinPanel = false;
                 searchContainer?.classList.add('focused');
                 suggestionsList?.classList.add('suggestions-revealed');
-                requestAnimationFrame(() =>
-                    requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true }))
-                );
                 refreshPinnedRightSwitcherPanel();
             }
         }
@@ -8276,6 +8405,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (inLocalSourceMode) {
                     console.log('[INPUT] Empty field, in local source mode - suppress suggestions');
                     suggestionsList?.classList.add('suggestions-suppress-until-typed');
+                    searchContainer?.classList.remove('suggestions-max-height-ready');
                     updateSuggestions([]);
                     currentDisplayedSuggestions = [];
                     return;
@@ -8285,6 +8415,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
                 updateSuggestions(defaultSuggestions);
                 currentDisplayedSuggestions = defaultSuggestions;
+                if (searchContainer?.classList.contains('focused')) {
+                    ensureMainTabSuggestionListExpandAnimated();
+                }
                 return;
             }
 
@@ -8468,11 +8601,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchInput && searchContainer) {
         let autoOpenedSwitcherOnFocus = false;
         searchInput.addEventListener('focus', () => {
+            searchContainer.classList.remove('collapsing-suggestions');
+            clearMainTabSearchPanelPresentation();
             if (restoringFocusFromSwitcher) {
                 restoringFocusFromSwitcher = false;
                 searchContainer.classList.add('focused');
+                syncMainTabSearchPanelPresentationImmediate();
                 if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
-                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
                 refreshPinnedRightSwitcherPanel();
                 return;
             }
@@ -8485,22 +8620,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (openingSuggestionsForPinPanel) {
                 openingSuggestionsForPinPanel = false;
                 searchContainer.classList.add('focused');
+                syncMainTabSearchPanelPresentationImmediate();
                 if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
-                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
                 refreshPinnedRightSwitcherPanel();
                 return;
             }
             if (isRestoringFocus) {
                 isRestoringFocus = false;
                 searchContainer.classList.add('focused');
+                syncMainTabSearchPanelPresentationImmediate();
                 if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
-                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
                 refreshPinnedRightSwitcherPanel();
                 return;
             }
             // Add focused class to expand width
             searchContainer.classList.add('focused');
-            requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
             suggestionsList?.classList.remove('suggestions-revealed');
             
             // Reset first hover flag
@@ -8512,11 +8646,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (inLocalSourceMode && inputEmpty) {
                 suggestionsList?.classList.add('suggestions-suppress-until-typed');
                 updateSuggestions([]);
+                queueMainTabSearchPanelOpenTransitions(false);
                 refreshPinnedRightSwitcherPanel();
                 return;
             }
             suggestionsList?.classList.remove('suggestions-suppress-until-typed');
-            
+
+            queueMainTabSearchPanelOpenTransitions(true);
+
             // Disable hover states during transition
             if (suggestionsList) {
                 suggestionsList.classList.add('transitioning');
@@ -8848,6 +8985,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (inspectSuggestions) {
                         searchContainer.classList.add('focused');
+                        syncMainTabSearchPanelPresentationImmediate();
                         suggestionsList?.classList.add('suggestions-revealed');
                         suggestionsList?.classList.remove('suggestions-suppress-until-typed');
                         searchInput.value = 'x';
@@ -8861,6 +8999,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateTypedState();
                         // Keep the panel open and re-render the "recent searches" after reset.
                         searchContainer?.classList.add('focused');
+                        syncMainTabSearchPanelPresentationImmediate();
                         suggestionsList?.classList.add('suggestions-revealed');
                         suggestionsList?.classList.remove('suggestions-suppress-until-typed');
 
@@ -8906,8 +9045,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         '[prototype-reset] reloaded embedded search iframes (address bar / standalone). Open each switcher to log [search-switcher] with engineListOrder.'
                     );
 
-                    requestAnimationFrame(() => updateLogoPositionForSearchBar());
-
                     if (clearCacheSuccessTimer) {
                         clearTimeout(clearCacheSuccessTimer);
                         clearCacheSuccessTimer = null;
@@ -8928,6 +9065,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Inspect mode: keep suggestions panel open for HTML inspection (blur is skipped above)
         if (inspectSuggestions) {
             searchContainer.classList.add('focused');
+            syncMainTabSearchPanelPresentationImmediate();
             suggestionsList?.classList.add('suggestions-revealed');
             suggestionsList?.classList.remove('suggestions-suppress-until-typed');
             searchInput.value = 'x';

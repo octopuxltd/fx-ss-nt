@@ -33,6 +33,8 @@
     /* Representative page hue for gradient wallpaper (slightly deeper so 50/50 mix with white reads tinted, not paper white). */
     --page-bg-solid: #9eb0cc;
     --window-chrome-tab-strip-height: 48px;
+    /* Main new tab: one-row toolbar chrome (fixed compact height; iframe UI can paint below). */
+    --prototype-toolbar-row-height: 47px;
 }
 
 * {
@@ -43,13 +45,34 @@ body {
     margin: 0;
     font-family: system-ui, -apple-system, sans-serif;
     min-height: 100vh;
-    overflow: hidden;
-    overscroll-behavior: none;
     background-image: url('bg.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
+}
+
+/* Main new-tab page: allow normal document scroll (feed + rest of page). */
+body:not(.addressbar) {
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* Distance from viewport top to main content below prototype tab strip + toolbar row (fixed row height, not iframe suggestion height). */
+body:not(.addressbar):not(.browser-chrome-hidden) {
+    --prototype-chrome-content-inset-top: calc(
+        var(--window-chrome-tab-strip-height, 48px) + var(--prototype-toolbar-row-height)
+    );
+}
+
+body.browser-chrome-hidden:not(.addressbar) {
+    --prototype-chrome-content-inset-top: 0px;
+}
+
+/* Address bar / standalone iframes: keep chrome-sized surfaces from growing a page scrollbar. */
+body.addressbar {
+    overflow: hidden;
+    overscroll-behavior: none;
 }
 
 body[data-background="grey"] {
@@ -310,10 +333,118 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     .window-chrome-tab-close {
         transition: none;
     }
+
+    body:not(.addressbar) .nt-home-feed {
+        transition: none;
+    }
+
+    body:not(.addressbar).nt-home-feed-dimmed .nt-home-feed {
+        transition: none;
+    }
 }
 
 .window-chrome-tab-close svg {
     display: block;
+}
+
+/* Main new tab: tab strip + address/iframe toolbar (step1.html .prototype-browser-chrome-stack) scroll as one sticky header. */
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-stack {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    isolation: isolate;
+}
+
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-stack > .window-chrome-tab-strip {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    z-index: 2;
+}
+
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-toolbar-slot {
+    position: relative;
+    margin-top: 0;
+    z-index: 0;
+    height: var(--prototype-toolbar-row-height);
+    overflow: visible;
+}
+
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-toolbar-slot > .addressbar-band {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: auto;
+    z-index: 0;
+}
+
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-toolbar-slot > .addressbar-area {
+    margin-top: 0;
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    min-height: 0;
+    overflow: visible;
+    align-items: stretch;
+    padding-top: 3px;
+}
+
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-toolbar-slot .addressbar-toolbar-icons {
+    top: 3px;
+    height: 36px;
+}
+
+/* Layout height = one toolbar row; iframes are position:absolute so tall suggestion panels do not stretch the sticky chrome. */
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-toolbar-slot .addressbar-iframe-anchor {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    align-self: stretch;
+    overflow: visible;
+    margin-left: 20px;
+}
+
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-toolbar-slot .addressbar-iframe-anchor .addressbar-iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin-left: 0;
+    align-self: unset;
+}
+
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-toolbar-slot .standalone-search-box-iframe-anchor {
+    position: relative;
+    display: none;
+    flex-shrink: 0;
+    width: 310px;
+    max-width: 31vw;
+    min-height: 0;
+    height: auto;
+    align-self: stretch;
+    overflow: visible;
+    margin-left: auto;
+    transform: translateX(-85px);
+}
+
+body.standalone-search-box-visible:not(.addressbar):not(.browser-chrome-hidden)
+    .prototype-browser-chrome-toolbar-slot
+    .standalone-search-box-iframe-anchor {
+    display: block;
+}
+
+body:not(.addressbar):not(.browser-chrome-hidden) .prototype-browser-chrome-toolbar-slot .standalone-search-box-iframe-anchor .standalone-search-box-iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin-left: 0;
+    transform: none;
+    align-self: unset;
 }
 
 .addressbar-band {
@@ -369,6 +500,7 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     transform: translateX(-85px);
 }
 
+/* Main page: visibility toggled on the anchor so layout row stays one line (see .standalone-search-box-iframe-anchor). */
 body.standalone-search-box-visible .standalone-search-box-iframe {
     display: block;
 }
@@ -378,12 +510,7 @@ body.browser-chrome-hidden {
     --window-chrome-tab-strip-height: 0px;
 }
 
-body.browser-chrome-hidden .window-chrome-tab-strip {
-    display: none;
-}
-
-body.browser-chrome-hidden .addressbar-band,
-body.browser-chrome-hidden .addressbar-area {
+body.browser-chrome-hidden .prototype-browser-chrome-stack {
     display: none;
 }
 
@@ -495,19 +622,17 @@ body:not(.search-border-radius-large) .suggestion-item.is-selected::after {
     border-radius: 3px;
 }
 
-.main-screen-brand-logos {
+/* Main new tab: first child inside .search-container so wordmark + strapline sit above the search row. */
+body:not(.addressbar) .search-container > .main-screen-brand-logos {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 22px;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, calc(-50% - 152px + var(--search-drag-offset-y, 0px)));
-    opacity: 1;
-    transition: transform 0.42s ease-out, opacity 0.42s linear;
-    z-index: 0;
+    width: 100%;
+    margin: 0 0 16px;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 /* Fixed slot height for all engines so the strapline does not move when switching wordmark vs chip-icon heroes. */
@@ -664,41 +789,658 @@ body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
     flex-shrink: 0;
 }
 
-body:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translate(-50%, calc(-50% - 147px + var(--search-drag-offset-y, 0px))) scale(0.8);
-}
-
-body.search-bar-dragged-down:has(.search-container.focused) .main-screen-brand-logos {
-    opacity: 0;
-}
-
-body.search-bar-near-top .main-screen-brand-logos {
-    left: 40px;
-    top: var(--logo-near-top-y, 0);
-    transform: translateY(-50%) scale(1);
-    transition: none;
-}
-
-body.search-bar-near-top:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translateY(-50%) scale(1);
-    transition: none;
-}
-
 /* body:has(.search-input:focus) .main-screen-brand-logos {
     opacity: 0;
     transition: opacity 0.1s linear 0s;
 } */
 
 .search-container {
+    width: 57.6%;
+    max-width: 576px;
+    transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.25s ease-out, top 0.25s ease-out;
+    z-index: 1;
+}
+
+/* Address bar / standalone iframe: centered fixed search (unchanged) */
+body.addressbar .search-container {
     position: fixed;
     top: calc(50% - 60px + var(--search-drag-offset-y, 0px));
     left: 50%;
     transform: translateX(-50%);
-    width: 57.6%;
-    max-width: 576px;
-    transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.25s ease-out, top 0.25s ease-out;
-    /* Above .main-screen-brand-logos (DOM was reordered; logos follow search in markup). */
-    z-index: 1;
+}
+
+/* Main new-tab page: search scrolls with document until focused; then sticky overlay (input + suggestions + pinned switcher) */
+body:not(.addressbar) .search-container {
+    position: relative;
+    left: auto;
+    top: auto;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 16px;
+    margin-bottom: 40px;
+    transform: translateY(var(--search-drag-offset-y, 0px));
+    z-index: 5;
+    /* Avoid scroll anchoring fighting sticky→relative when the panel height changes */
+    overflow-anchor: none;
+}
+
+body:not(.addressbar) .search-container.focused {
+    position: sticky;
+    top: calc(var(--prototype-chrome-content-inset-top, 95px) + 12px + var(--search-drag-offset-y, 0px));
+    width: 69.12%;
+    max-width: 691.2px;
+    transform: none;
+    margin-top: 16px;
+    margin-bottom: 40px;
+    z-index: 30;
+}
+
+/* Stay above the feed while the suggestions drop finishes collapsing after .focused is removed */
+body:not(.addressbar) .search-container.collapsing-suggestions {
+    z-index: 30;
+}
+
+/*
+ * Main new tab + focused: suggestions + one-offs overlay the feed (no document height).
+ * Ring: ::before wraps only the outer’s short box (input row); .search-suggestions-drop carries left/right/bottom
+ * strokes (padding-box clip so the ring sits outside the tinted fill). .search-box-wrapper stacks above the drop so the switcher
+ * dropdown paints in front.
+ */
+body:not(.addressbar) .search-container.focused .search-box-wrapper-outer,
+body:not(.addressbar) .search-container.collapsing-suggestions:not(.focused) .search-box-wrapper-outer {
+    overflow: visible;
+    border-radius: var(--search-box-wrapper-radius, 10px) var(--search-box-wrapper-radius, 10px) 0 0;
+}
+
+body:not(.addressbar) .search-container.focused .search-box-wrapper-outer::before {
+    border-radius: var(--outer-border-radius, 12px) var(--outer-border-radius, 12px) 0 0;
+    /* Strip the ring’s bottom edge (panel carries the seam). WebKit needs both clip properties with mask. */
+    -webkit-clip-path: inset(-2px -2px 6px -2px round var(--outer-border-radius, 12px) var(--outer-border-radius, 12px) 0 0);
+    clip-path: inset(-2px -2px 6px -2px round var(--outer-border-radius, 12px) var(--outer-border-radius, 12px) 0 0);
+    /* Stay visible after input blur until .collapsing-suggestions runs (then fades with panel borders). */
+    opacity: 1;
+    transition: opacity 0.25s linear;
+}
+
+body:not(.addressbar) .search-container.focused .search-box-wrapper {
+    position: relative;
+    z-index: 2;
+    /* Full pill so bottom-left / bottom-right stay white when suggestions sit below */
+    border-radius: var(--search-box-wrapper-radius, 10px);
+}
+
+body:not(.addressbar) .search-container.focused .search-suggestions-drop,
+body:not(.addressbar) .search-container.collapsing-suggestions:not(.focused) .search-suggestions-drop {
+    --search-pill-curve-overlap: var(--search-box-wrapper-radius, 10px);
+    position: absolute;
+    /* Widen by 2px each side so side strokes align with the search row ::before ring */
+    left: -2px;
+    right: -2px;
+    /* Tuck under the white pill curve so corners read solid white; pad down so list content clears the overlap */
+    top: 100%;
+    margin-top: calc(-1 * var(--search-pill-curve-overlap));
+    padding-top: var(--search-pill-curve-overlap);
+    z-index: 0;
+    max-height: min(72vh, 640px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
+    box-sizing: border-box;
+    background-clip: padding-box;
+    border-left: 2px solid var(--search-border-ring-color, #BBA0FF);
+    border-right: 2px solid var(--search-border-ring-color, #BBA0FF);
+    border-bottom: 2px solid var(--search-border-ring-color, #BBA0FF);
+    border-top: none;
+    border-radius: 0 0 var(--outer-border-radius, 12px) var(--outer-border-radius, 12px);
+    /* White under the rounded bar, then shell tint for suggestions / one-offs */
+    background: linear-gradient(
+        to bottom,
+        #fff 0,
+        #fff var(--search-pill-curve-overlap),
+        color-mix(in oklab, var(--page-bg-solid) 50%, white 50%) var(--search-pill-curve-overlap)
+    );
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+}
+
+/* Phase 1 of close (main page): collapse suggestions upward; .focused may already be removed so width shrinks in parallel */
+body:not(.addressbar) .search-container.collapsing-suggestions .search-suggestions-drop {
+    max-height: 0 !important;
+    overflow: hidden !important;
+    overflow-y: hidden;
+    margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    background: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
+    border-left-color: transparent;
+    border-right-color: transparent;
+    border-bottom-color: transparent;
+    box-shadow: none;
+    border-radius: 0 0 var(--outer-border-radius, 12px) var(--outer-border-radius, 12px);
+    transition:
+        max-height 0.38s cubic-bezier(0.33, 1, 0.68, 1),
+        border-color 0.22s ease,
+        box-shadow 0.22s ease;
+}
+
+/* Fade input-row purple ring in step with suggestion border (same duration, start of collapse). */
+body:not(.addressbar) .search-container.collapsing-suggestions .search-box-wrapper-outer::before {
+    border-radius: var(--outer-border-radius, 12px) var(--outer-border-radius, 12px) 0 0;
+    -webkit-clip-path: inset(-2px -2px 6px -2px round var(--outer-border-radius, 12px) var(--outer-border-radius, 12px) 0 0);
+    clip-path: inset(-2px -2px 6px -2px round var(--outer-border-radius, 12px) var(--outer-border-radius, 12px) 0 0);
+    opacity: 0;
+    transition: opacity 0.22s ease;
+}
+
+/* !important beats inline border-radius from updateBorderRadius() (large pill mode) until collapse ends. */
+body:not(.addressbar) .search-container.collapsing-suggestions .search-box-wrapper {
+    position: relative;
+    z-index: 2;
+    border-radius: var(--search-box-wrapper-radius, 10px) var(--search-box-wrapper-radius, 10px) 0 0 !important;
+}
+
+body:not(.addressbar) .search-container.collapsing-suggestions .search-box-wrapper-outer {
+    overflow: visible;
+    border-radius: var(--search-box-wrapper-radius, 10px) var(--search-box-wrapper-radius, 10px) 0 0 !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
+}
+
+body:not(.addressbar) .search-container.collapsing-suggestions .suggestions-list {
+    max-height: 0 !important;
+    transition: max-height 0.38s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Figma-aligned new tab feed — in document flow below the search module; page scrolls as a whole */
+body:not(.addressbar) .nt-home-feed {
+    position: relative;
+    left: auto;
+    transform: none;
+    top: auto;
+    width: min(100% - 32px, 960px);
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 0;
+    max-height: none;
+    overflow: visible;
+    z-index: 0;
+    padding: 8px 16px 120px;
+    opacity: 1;
+    transition: opacity 0.28s ease-out;
+}
+
+body.reduced-motion:not(.addressbar) .nt-home-feed {
+    transition: none;
+}
+
+body.reduced-motion:not(.addressbar).nt-home-feed-dimmed .nt-home-feed {
+    transition: none;
+}
+
+/* Dim is toggled via body.nt-home-feed-dimmed on the frame after .focused (see step1.js) so opacity can interpolate. */
+body:not(.addressbar).nt-home-feed-dimmed .nt-home-feed {
+    opacity: 0.35;
+    pointer-events: none;
+    transition: opacity 0.28s ease-out;
+}
+
+body:not(.addressbar) .nt-home-feed__inner {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+body:not(.addressbar) .nt-home-feed__shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 20px;
+    padding: 4px 0 8px;
+}
+
+body:not(.addressbar) .nt-home-feed__shortcut {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 72px;
+    text-decoration: none;
+    color: inherit;
+    font-size: 11px;
+    gap: 6px;
+    cursor: default;
+}
+
+body:not(.addressbar) .nt-home-feed__shortcut-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+body:not(.addressbar) .nt-home-feed__shortcut-icon img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+body:not(.addressbar) .nt-home-feed__shortcut-text {
+    font-weight: 500;
+    color: var(--color-text-primary);
+    text-align: center;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body:not(.addressbar) .nt-home-feed__shortcut-tag {
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    line-height: 1;
+}
+
+body:not(.addressbar) .nt-home-feed__shortcut:not(:has(.nt-home-feed__shortcut-tag)) .nt-home-feed__shortcut-text {
+    margin-top: 2px;
+}
+
+body:not(.addressbar) .nt-home-feed__section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+body:not(.addressbar) .nt-home-feed__section-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+}
+
+body:not(.addressbar) .nt-home-feed__section-chevron {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: default;
+    border-radius: 6px;
+}
+
+body:not(.addressbar) .nt-home-feed__section-more {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: default;
+    border-radius: 6px;
+}
+
+body:not(.addressbar) .nt-home-feed__add {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: rgba(115, 56, 226, 0.12);
+    color: var(--color-hint-accent);
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body:not(.addressbar) .nt-home-feed__section-head:has(> .nt-home-feed__add) {
+    gap: 10px;
+}
+
+body:not(.addressbar) .nt-home-feed__section-head:has(> .nt-home-feed__add) > .nt-home-feed__section-title {
+    margin-right: auto;
+}
+
+body:not(.addressbar) .nt-home-feed__section-head:has(> .nt-home-feed__add) > .nt-home-feed__add {
+    margin-left: 0;
+    order: 2;
+}
+
+body:not(.addressbar) .nt-home-feed__section-head:has(> .nt-home-feed__add) > .nt-home-feed__section-more {
+    margin-left: 0;
+    order: 3;
+}
+
+body:not(.addressbar) .nt-home-feed__card {
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+body:not(.addressbar) .nt-home-feed__card-body {
+    padding: 12px 14px 14px;
+}
+
+body:not(.addressbar) .nt-home-feed__card-media {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: #e5e7eb;
+}
+
+body:not(.addressbar) .nt-home-feed__card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+body:not(.addressbar) .nt-home-feed__headline {
+    margin: 0 0 8px;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-text-primary);
+}
+
+body:not(.addressbar) .nt-home-feed__headline--sm {
+    font-size: 13px;
+    margin: 0 0 6px;
+}
+
+body:not(.addressbar) .nt-home-feed__headline--tile {
+    font-size: 14px;
+    margin: 0 0 8px;
+}
+
+body:not(.addressbar) .nt-home-feed__lede {
+    margin: 0 0 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-text-secondary);
+}
+
+body:not(.addressbar) .nt-home-feed__source {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+body:not(.addressbar) .nt-home-feed__source--muted {
+    color: var(--color-text-secondary);
+    font-weight: 400;
+}
+
+body:not(.addressbar) .nt-home-feed__source-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+}
+
+body:not(.addressbar) .nt-home-feed__sponsored {
+    color: var(--color-text-secondary);
+    font-weight: 400;
+}
+
+body:not(.addressbar) .nt-home-feed__grid--widgets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+body:not(.addressbar) .nt-home-feed__card--widget {
+    padding: 14px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+}
+
+body:not(.addressbar) .nt-home-feed__widget-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+body:not(.addressbar) .nt-home-feed__widget-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+body:not(.addressbar) .nt-home-feed__widget-head .nt-home-feed__add {
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+    margin: 0;
+}
+
+body:not(.addressbar) .nt-home-feed__timer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex: 1;
+}
+
+body:not(.addressbar) .nt-home-feed__timer-play {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--color-text-primary);
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body:not(.addressbar) .nt-home-feed__timer-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+body:not(.addressbar) .nt-home-feed__timer-step {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: #fff;
+    font-size: 16px;
+    line-height: 1;
+    cursor: default;
+    color: var(--color-text-secondary);
+}
+
+body:not(.addressbar) .nt-home-feed__timer-modes {
+    display: flex;
+    gap: 8px;
+}
+
+body:not(.addressbar) .nt-home-feed__pill {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--color-text-secondary);
+}
+
+body:not(.addressbar) .nt-home-feed__pill--on {
+    background: rgba(115, 56, 226, 0.15);
+    color: var(--color-hint-accent);
+}
+
+body:not(.addressbar) .nt-home-feed__checklist {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--color-text-primary);
+}
+
+body:not(.addressbar) .nt-home-feed__checklist li {
+    margin-bottom: 8px;
+}
+
+body:not(.addressbar) .nt-home-feed__checklist label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    cursor: default;
+    line-height: 1.35;
+}
+
+body:not(.addressbar) .nt-home-feed__clocks {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+body:not(.addressbar) .nt-home-feed__clock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+}
+
+body:not(.addressbar) .nt-home-feed__clock-tz {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.04em;
+}
+
+body:not(.addressbar) .nt-home-feed__clock-time {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+body:not(.addressbar) .nt-home-feed__grid--popular {
+    display: grid;
+    grid-template-columns: 1.2fr 0.85fr 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+body:not(.addressbar) .nt-home-feed__popular-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+body:not(.addressbar) .nt-home-feed__card--compact {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+}
+
+body:not(.addressbar) .nt-home-feed__card--compact .nt-home-feed__card-body {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+body:not(.addressbar) .nt-home-feed__card-media--sm {
+    width: 88px;
+    min-width: 88px;
+    aspect-ratio: 4 / 3;
+    height: auto;
+    align-self: stretch;
+}
+
+body:not(.addressbar) .nt-home-feed__grid--food {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+body:not(.addressbar) .nt-home-feed__card-media--tile {
+    aspect-ratio: 10 / 7;
+}
+
+body:not(.addressbar) .nt-home-feed__card--tile .nt-home-feed__card-body {
+    padding: 12px;
+}
+
+body:not(.addressbar) .nt-home-feed__grid--home {
+    display: grid;
+    grid-template-columns: 0.9fr 1fr 1fr 0.9fr;
+    gap: 12px;
+    align-items: start;
+}
+
+body:not(.addressbar) .nt-home-feed__home-col--narrow {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+body:not(.addressbar) .nt-home-feed__card--tall .nt-home-feed__card-media--tall {
+    aspect-ratio: 3 / 4;
+    max-height: 280px;
+}
+
+body:not(.addressbar) .nt-home-feed__card--tall .nt-home-feed__card-body {
+    padding: 12px 14px 14px;
+}
+
+@media (max-width: 900px) {
+    body:not(.addressbar) .nt-home-feed__grid--widgets {
+        grid-template-columns: 1fr;
+    }
+
+    body:not(.addressbar) .nt-home-feed__grid--popular {
+        grid-template-columns: 1fr;
+    }
+
+    body:not(.addressbar) .nt-home-feed__grid--food {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    body:not(.addressbar) .nt-home-feed__grid--home {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    body:not(.addressbar) .nt-home-feed__grid--food {
+        grid-template-columns: 1fr;
+    }
+
+    body:not(.addressbar) .nt-home-feed__shortcut {
+        width: 64px;
+    }
 }
 
 body.switcher-outside-search-box-enabled .search-box-wrapper-outer {
@@ -756,30 +1498,39 @@ body.reduced-motion body.switcher-outside-search-box-enabled .search-box-wrapper
     z-index: 100;
 }
 
-.search-container.focused {
+body.addressbar .search-container.focused {
     top: calc(50% - 60px);
     width: 69.12%;
     max-width: 691.2px;
     transform: translate(-50%, -55px);
 }
 
-body.search-bar-dragged-up .search-container.focused {
+body.addressbar.search-bar-dragged-up .search-container.focused {
     top: calc(50% - 60px + var(--search-drag-offset-y, 0px));
     transform: translateX(-50%);
 }
 
-body.reduced-motion .search-container {
+body.reduced-motion body.addressbar .search-container {
     transition: width 0.35s ease-out, max-width 0.35s ease-out, top 0.35s ease-out;
 }
 
-body.reduced-motion .search-container.focused {
+body.reduced-motion body.addressbar .search-container.focused {
     top: calc(50% - 60px);
     transform: translateX(-50%);
 }
 
-body.reduced-motion.search-bar-dragged-up .search-container.focused {
+body.reduced-motion body.addressbar.search-bar-dragged-up .search-container.focused {
     top: calc(50% - 60px + var(--search-drag-offset-y, 0px));
     transform: translateX(-50%);
+}
+
+body.reduced-motion body:not(.addressbar) .search-container {
+    transition: width 0.35s ease-out, max-width 0.35s ease-out, transform 0.35s ease-out;
+}
+
+body.reduced-motion body:not(.addressbar) .search-container.focused {
+    top: calc(var(--prototype-chrome-content-inset-top, 95px) + 12px + var(--search-drag-offset-y, 0px));
+    transform: none;
 }
 
 /* Fallback radii when JS updateBorderRadius is off; JS overwrites these via --* vars + inline styles when on.
@@ -795,6 +1546,13 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     z-index: 10;
     transition: box-shadow 0.25s ease-out, background-color 0.25s linear;
     isolation: isolate;
+}
+
+/* Suggestions + one-off strip; on the main new tab page this becomes an overlay when .focused (see below). */
+.search-suggestions-drop {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .search-box-wrapper-outer::before {
@@ -1050,7 +1808,8 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
 }
 
 .search-switcher-button.open .search-switcher-dropdown.dropdown-revealed,
-.search-container.focused .suggestions-list.suggestions-revealed {
+.search-container.focused .suggestions-list.suggestions-revealed,
+body:not(.addressbar) .search-container.collapsing-suggestions .suggestions-list.suggestions-revealed {
     overflow: visible;
 }
 
@@ -3798,18 +4557,14 @@ body:not(.keyboard-switcher-numbers-enabled) .search-switcher-button.switcher-op
     display: none;
 }
 
-body.reduced-motion .search-container {
+body.reduced-motion body.addressbar .search-container {
     width: 69.12%;
     max-width: 691.2px;
 }
 
-body.reduced-motion .search-container.focused {
+body.reduced-motion body.addressbar .search-container.focused {
     width: 69.12%;
     max-width: 691.2px;
-}
-
-body.reduced-motion:has(.search-container.focused) .main-screen-brand-logos {
-    opacity: 1;
 }
 
 body.reduced-motion .suggestions-list {
@@ -3846,22 +4601,6 @@ body.reduced-motion .search-button svg {
 }
 
 body.reduced-motion .main-screen-brand-logos {
-    transition: none;
-}
-
-body.reduced-motion:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translate(-50%, calc(-50% - 152px + var(--search-drag-offset-y, 0px)));
-}
-
-body.reduced-motion.search-bar-near-top .main-screen-brand-logos {
-    left: 40px;
-    top: var(--logo-near-top-y, 0);
-    transform: translateY(-50%) scale(1);
-    transition: none;
-}
-
-body.reduced-motion.search-bar-near-top:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translateY(-50%) scale(1);
     transition: none;
 }
 
@@ -3902,13 +4641,21 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .main-scr
     z-index: 1;
 }
 
-.search-container.focused .suggestions-list {
+/* Main new tab: JS adds .suggestions-max-height-ready on the next animation frame so max-height animates after .focused
+ * (absolute suggestions drop + sticky search otherwise apply 0→600px in one flush and the transition is skipped). */
+body:not(.addressbar) .search-container.focused:not(.suggestions-max-height-ready) .suggestions-list {
+    max-height: 0 !important;
+    transition: max-height 0.42s ease-out;
+}
+
+body:not(.addressbar) .search-container.focused.suggestions-max-height-ready .suggestions-list,
+body.addressbar .search-container.focused .suggestions-list {
     max-height: 600px;
     transition: max-height 0.42s ease-out;
 }
 
 .search-container.focused .suggestions-list.suggestions-suppress-until-typed {
-    max-height: 0;
+    max-height: 0 !important;
 }
 
 .search-container.focused .suggestions-list.suggestions-suppress-until-typed .gmail-item,
@@ -3943,7 +4690,8 @@ body.reduced-motion .one-off-buttons {
 
 /* Disable transitions when restoring focus after window blur (one-off buttons already open) */
 .search-container.restoring-focus .suggestions-list,
-.search-container.restoring-focus .one-off-buttons {
+.search-container.restoring-focus .one-off-buttons,
+.search-container.restoring-focus .search-suggestions-drop {
     transition: none !important;
 }
 
