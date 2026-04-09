@@ -61,7 +61,9 @@
     </div>
     <div class="addressbar-band" aria-hidden="true"></div>
     <div class="addressbar-area">
+        <div class="addressbar-iframe-anchor">
         <iframe src="step1-addressbar.html" class="addressbar-iframe" title="Address bar" tabindex="-1"></iframe>
+        </div>
         <iframe src="step1-standalonesearchbox.html" class="standalone-search-box-iframe" title="Standalone search box" tabindex="-1"></iframe>
         <div class="addressbar-toolbar-icons">
             <button type="button" class="addressbar-toolbar-icon" aria-label="Account" title="Account" tabindex="-1">
@@ -127,9 +129,24 @@
             }
         } catch (_) {}
     </script>
+    <div class="main-hero-stack">
+    <div class="main-screen-brand-logos">
+        <div class="main-screen-engine-wordmark-slot" aria-hidden="true">
+            <img src="icons/google-logo.svg" alt="" class="main-screen-engine-wordmark">
+            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="main-screen-firefox-hero-logo">
+        </div>
+        <div class="main-screen-brand-firefox-row">
+            <span class="main-screen-brand-attribution">Start your <span class="main-screen-brand-engine-name">Google</span> search right here in </span>
+            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="firefox-logo">
+            <span class="main-screen-brand-firefox-name">Firefox</span>
+            <span class="main-screen-brand-read-why-sep" aria-hidden="true"> • </span>
+            <a class="main-screen-brand-read-why-link" href="#">Read why</a>
+        </div>
+    </div>
     <div class="search-container">
         <div class="search-container-top-row">
         <div class="search-box-wrapper-outer">
+        <div class="search-suggestions-anchor">
         <div class="search-box-wrapper">
                 <div class="search-switcher-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-label="Choose search engine">
                 <img src="icons/Google.svg" alt="Google" class="google-icon">
@@ -323,9 +340,6 @@
                 </div>
             </ul>
         </div>
-        <div class="search-switcher-pinned-right-host" hidden aria-hidden="true"></div>
-        </div>
-
         <div class="one-off-buttons">
             <div class="one-off-engine-icons">
                 <span class="one-off-buttons-label">Search with</span>
@@ -343,8 +357,16 @@
                 <button type="button" class="one-off-engine-icon" tabindex="-1" title="Search with YouTube"><img src="icons/YouTube.svg" alt="YouTube"></button>
             </div>
         </div>
-        <div class="search-container-drag-handle"></div>
+        </div>
+        <div class="search-switcher-pinned-right-host" hidden aria-hidden="true"></div>
+        </div>
     </div>
+    </div>
+    <section class="page-content-placeholder" aria-label="Placeholder page content">
+        <div class="page-content-placeholder-inner">
+            <p class="page-content-placeholder-label">Placeholder page content (two screens tall)</p>
+        </div>
+    </section>
     <div class="bottom-left-panel">
         <div class="bottom-left-panel-content">
             <div class="bottom-left-panel-heading-row">
@@ -419,20 +441,6 @@
                     <span>Numbers when switcher opened with opt-⬇️</span>
                 </label>
             </div>
-        </div>
-    </div>
-    
-    <div class="main-screen-brand-logos">
-        <div class="main-screen-engine-wordmark-slot" aria-hidden="true">
-            <img src="icons/google-logo.svg" alt="" class="main-screen-engine-wordmark">
-            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="main-screen-firefox-hero-logo">
-        </div>
-        <div class="main-screen-brand-firefox-row">
-            <span class="main-screen-brand-attribution">Start your <span class="main-screen-brand-engine-name">Google</span> search right here in </span>
-            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="firefox-logo">
-            <span class="main-screen-brand-firefox-name">Firefox</span>
-            <span class="main-screen-brand-read-why-sep" aria-hidden="true"> • </span>
-            <a class="main-screen-brand-read-why-link" href="#">Read why</a>
         </div>
     </div>
 
@@ -628,7 +636,11 @@
             </div>
         </div>
     </div>
-    
+
+    <footer class="page-footer" role="contentinfo">
+        <p class="page-footer-text">New Tab search · UI prototype</p>
+    </footer>
+
     <script src="step1.js"></script>
 </body>
 </html>

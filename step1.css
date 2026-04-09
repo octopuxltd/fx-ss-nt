@@ -43,8 +43,8 @@ body {
     margin: 0;
     font-family: system-ui, -apple-system, sans-serif;
     min-height: 100vh;
-    overflow: hidden;
-    overscroll-behavior: none;
+    display: flex;
+    flex-direction: column;
     background-image: url('bg.png');
     background-size: cover;
     background-position: center;
@@ -68,6 +68,33 @@ body[data-background="beige"] {
     background-image: none;
     background-color: #f0e6d8;
     --page-bg-solid: #f0e6d8;
+}
+
+.page-footer {
+    margin-top: auto;
+    flex-shrink: 0;
+    padding: 20px 24px 32px;
+    text-align: center;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.45) 0%, transparent 100%);
+}
+
+body:not([data-background]):not(.addressbar) .page-footer {
+    border-top-color: rgba(255, 255, 255, 0.28);
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.12) 0%, transparent 100%);
+}
+
+.page-footer-text {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.02em;
+}
+
+body:not([data-background]):not(.addressbar) .page-footer-text {
+    color: rgba(255, 255, 255, 0.88);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Purple gradient wallpaper (swatch clears data-background on main page only). */
@@ -321,11 +348,12 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     top: var(--window-chrome-tab-strip-height, 48px);
     left: 0;
     right: 0;
-    /* ~73% of (20px + iframe-reported bar height); var still updated by step1.js */
-    height: calc(0.73 * (20px + var(--addressbar-band-bar-height, 58px)));
+    /* Fixed chrome height — not derived from iframe measurements (avoids focus/layout jitter). */
+    height: 45px;
     background-color: #f9f9fb;
     border-bottom: 1px solid #cccccc;
-    z-index: 0;
+    /* Above in-flow page content when scrolling; below tab strip (2) and toolbar row (5). */
+    z-index: 1;
 }
 
 /* Toolbar icons are position:absolute so they stay in the top chrome row when the address bar
@@ -337,23 +365,39 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     align-items: flex-start;
     align-content: flex-start;
     gap: 12px;
-    margin-top: calc(var(--window-chrome-tab-strip-height, 48px) + 2px);
-    margin-left: 20px;
-    margin-right: 20px;
+    position: fixed;
+    top: calc(var(--window-chrome-tab-strip-height, 48px) + 2px);
+    left: 20px;
+    right: 20px;
+    margin: 0;
     padding-right: var(--addressbar-toolbar-icons-slot);
-    position: relative;
     /* Above .search-container (z-index: 1) so address bar / standalone iframe switcher dropdowns paint over the main search when they overlap. */
     z-index: 5;
+    /* Let address bar iframe paint suggestions below its fixed height without clipping by this flex row */
+    overflow: visible;
 }
 
-.addressbar-iframe {
-    display: block;
-    width: 100%;
-    height: 56px; /* Set by JS from iframe content; fallback until loaded */
-    border: none;
-    flex-shrink: 0;
+/* Fixed slot height keeps the toolbar flex row one line tall; the iframe is absolutely positioned so it can grow downward with suggestions without stretching the row. */
+.addressbar-iframe-anchor {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
     align-self: flex-start;
     margin-left: 20px;
+    height: 45px;
+    overflow: visible;
+}
+
+.addressbar-iframe-anchor .addressbar-iframe {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 45px; /* Set by JS from iframe content; fallback until loaded */
+    border: none;
+    margin: 0;
+    overflow: visible;
 }
 
 .standalone-search-box-iframe {
@@ -495,18 +539,96 @@ body:not(.search-border-radius-large) .suggestion-item.is-selected::after {
     border-radius: 3px;
 }
 
+/* Logo + strapline + search: first in-flow content; fixed toolbar paints on top (expect overlap until scroll). */
+.main-hero-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    margin-top: 100px;
+    padding: 0 24px 32px;
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 0;
+}
+
+/* Main new tab: scrollable placeholder above the footer; dims while the search card is focused.
+   Stack below .main-hero-stack so overlay suggestions (absolute) paint over this block, not under it. */
+body:not(.addressbar) .main-hero-stack {
+    z-index: 1;
+}
+
+body:not(.addressbar) .page-content-placeholder {
+    position: relative;
+    z-index: 0;
+    flex-shrink: 0;
+    width: 100%;
+    max-width: min(90vw, 720px);
+    margin: 0 auto;
+    padding: 8px 24px 32px;
+    box-sizing: border-box;
+    transition: opacity 0.25s ease-out;
+    opacity: 1;
+}
+
+body:not(.addressbar):has(.search-container.focused) .page-content-placeholder {
+    opacity: 0.5;
+}
+
+body.reduced-motion:not(.addressbar) .page-content-placeholder {
+    transition: none;
+}
+
+body:not(.addressbar) .page-content-placeholder-inner {
+    min-height: 200vh;
+    border-radius: 12px;
+    border: 1px dashed rgba(0, 0, 0, 0.12);
+    background: repeating-linear-gradient(
+        -12deg,
+        rgba(0, 0, 0, 0.03),
+        rgba(0, 0, 0, 0.03) 12px,
+        transparent 12px,
+        transparent 24px
+    );
+    padding: 24px;
+}
+
+body:not([data-background]):not(.addressbar) .page-content-placeholder-inner {
+    border-color: rgba(255, 255, 255, 0.35);
+    background: repeating-linear-gradient(
+        -12deg,
+        rgba(255, 255, 255, 0.06),
+        rgba(255, 255, 255, 0.06) 12px,
+        transparent 12px,
+        transparent 24px
+    );
+}
+
+.page-content-placeholder-label {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+}
+
+body:not([data-background]):not(.addressbar) .page-content-placeholder-label {
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
 .main-screen-brand-logos {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 22px;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, calc(-50% - 152px + var(--search-drag-offset-y, 0px)));
+    position: relative;
+    width: 100%;
+    max-width: min(90vw, 720px);
+    margin: 0;
+    transform: none;
     opacity: 1;
-    transition: transform 0.42s ease-out, opacity 0.42s linear;
     z-index: 0;
 }
 
@@ -664,41 +786,28 @@ body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
     flex-shrink: 0;
 }
 
-body:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translate(-50%, calc(-50% - 147px + var(--search-drag-offset-y, 0px))) scale(0.8);
-}
-
-body.search-bar-dragged-down:has(.search-container.focused) .main-screen-brand-logos {
-    opacity: 0;
-}
-
-body.search-bar-near-top .main-screen-brand-logos {
-    left: 40px;
-    top: var(--logo-near-top-y, 0);
-    transform: translateY(-50%) scale(1);
-    transition: none;
-}
-
-body.search-bar-near-top:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translateY(-50%) scale(1);
-    transition: none;
-}
-
 /* body:has(.search-input:focus) .main-screen-brand-logos {
     opacity: 0;
     transition: opacity 0.1s linear 0s;
 } */
 
 .search-container {
-    position: fixed;
-    top: calc(50% - 60px + var(--search-drag-offset-y, 0px));
-    left: 50%;
-    transform: translateX(-50%);
+    position: relative;
+    left: auto;
+    top: auto;
     width: 57.6%;
     max-width: 576px;
-    transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.25s ease-out, top 0.25s ease-out;
-    /* Above .main-screen-brand-logos (DOM was reordered; logos follow search in markup). */
+    margin: 0;
+    transform: none;
+    transition: width 0.25s ease-out, max-width 0.25s ease-out;
+    flex-shrink: 0;
+    /* Above sibling brand block for hit-testing / stacking when needed */
     z-index: 1;
+}
+
+/* Main new-tab hero only: lift search when focused (not address bar / standalone iframes — they use body.addressbar). */
+body:not(.addressbar) .search-container {
+    transition: width 0.25s ease-out, max-width 0.25s ease-out, transform 0.25s ease-out;
 }
 
 body.switcher-outside-search-box-enabled .search-box-wrapper-outer {
@@ -745,41 +854,35 @@ body.reduced-motion body.switcher-outside-search-box-enabled .search-box-wrapper
     transition: background 0s 0s, border-radius 0s 0s, transform 0s;
 }
 
-.search-container-drag-handle {
-    position: absolute;
-    left: 100%;
-    margin-left: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 44px;
-    height: 44px;
-    z-index: 100;
-}
-
 .search-container.focused {
-    top: calc(50% - 60px);
     width: 69.12%;
     max-width: 691.2px;
-    transform: translate(-50%, -55px);
 }
 
-body.search-bar-dragged-up .search-container.focused {
-    top: calc(50% - 60px + var(--search-drag-offset-y, 0px));
-    transform: translateX(-50%);
+body:not(.addressbar) .search-container.focused {
+    transform: translateY(-55px);
+    z-index: 40;
+}
+
+/* Hero wordmark + strapline: move/shrink with focused search (same timing as .search-container). */
+body:not(.addressbar) .main-screen-engine-wordmark-slot {
+    transition: transform 0.25s ease-out;
+}
+
+body:not(.addressbar) .main-screen-brand-firefox-row {
+    transition: transform 0.25s ease-out;
+}
+
+body:not(.addressbar):has(.search-container.focused) .main-screen-engine-wordmark-slot {
+    transform: translateY(28px) scale(0.82);
+}
+
+body:not(.addressbar):has(.search-container.focused) .main-screen-brand-firefox-row {
+    transform: translateY(-3px) scale(0.78);
 }
 
 body.reduced-motion .search-container {
-    transition: width 0.35s ease-out, max-width 0.35s ease-out, top 0.35s ease-out;
-}
-
-body.reduced-motion .search-container.focused {
-    top: calc(50% - 60px);
-    transform: translateX(-50%);
-}
-
-body.reduced-motion.search-bar-dragged-up .search-container.focused {
-    top: calc(50% - 60px + var(--search-drag-offset-y, 0px));
-    transform: translateX(-50%);
+    transition: width 0.35s ease-out, max-width 0.35s ease-out;
 }
 
 /* Fallback radii when JS updateBorderRadius is off; JS overwrites these via --* vars + inline styles when on.
@@ -795,6 +898,36 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     z-index: 10;
     transition: box-shadow 0.25s ease-out, background-color 0.25s linear;
     isolation: isolate;
+}
+
+/* Main new tab only: suggestions anchor to the input row and overlay page content (no layout shift below the card). */
+body:not(.addressbar) .search-suggestions-anchor {
+    position: relative;
+    width: 100%;
+    flex-shrink: 0;
+    align-self: stretch;
+    min-width: 0;
+}
+
+body:not(.addressbar) .search-suggestions-anchor > .suggestions-list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    width: 100%;
+    z-index: 22;
+    box-sizing: border-box;
+    margin-top: 0;
+    /* Match .search-box-wrapper-outer::before ring bottom radius (large mode sets --outer-border-radius in step1.js). */
+    border-radius: 0 0 var(--outer-border-radius, 12px) var(--outer-border-radius, 12px);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
+}
+
+body:not(.addressbar) .search-box-wrapper-outer > .one-off-buttons {
+    position: relative;
+    z-index: 24;
+    border-radius: 0 0 var(--outer-border-radius, 12px) var(--outer-border-radius, 12px);
 }
 
 .search-box-wrapper-outer::before {
@@ -816,6 +949,16 @@ body.reduced-motion.search-bar-dragged-up .search-container.focused {
     opacity: 0;
     transition: opacity 0.25s linear;
     z-index: -1;
+}
+
+/* Main page: suggestions are position:absolute (overlay), so they do not grow the outer box — extend the ring to
+   the painted bottom of the list (see --suggestions-ring-extend in step1.js). Address bar / standalone keep inset. */
+body:not(.addressbar) .search-box-wrapper-outer::before {
+    inset: unset;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: calc(-2px - var(--suggestions-ring-extend, 0px));
 }
 
 .search-box-wrapper-outer:has(.search-input:focus) {
@@ -917,8 +1060,29 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
     z-index: 1;
     padding: 8px 10px 8px 10px;
     width: 100%;
-    transition: background-color 0.25s linear;
+    transition: background-color 0.25s linear, border-radius 0.22s ease-out;
     cursor: text;
+}
+
+/* Square bottom as soon as the panel can open (focused + not suppress), before max-height finishes — instant radius so it leads the panel transition. Large mode: inline radii from step1.js; keep border-radius transition 0s here. */
+.search-container.focused .search-box-wrapper-outer:has(.suggestions-list:not(.suggestions-suppress-until-typed)) .search-box-wrapper {
+    border-radius: 10px 10px 0 0;
+    transition: background-color 0.25s linear, border-radius 0s;
+}
+
+/* While the panel collapses (no .focused yet), keep the input bottom square until closeSuggestionsPanel clears this class. */
+.search-container.search-container--suggestions-panel-collapsing .search-box-wrapper-outer:has(.suggestions-list:not(.suggestions-suppress-until-typed)) .search-box-wrapper {
+    border-radius: 10px 10px 0 0;
+    transition: background-color 0.25s linear, border-radius 0s;
+}
+
+/* One frame: restore full pill without animating border-radius (used after collapse completes). */
+.search-box-wrapper.search-box-wrapper--instant-border-radius {
+    transition: background-color 0.25s linear;
+}
+
+body.reduced-motion .search-box-wrapper.search-box-wrapper--instant-border-radius {
+    transition: background-color 0s 0s;
 }
 
 .search-box-wrapper:has(.search-input:focus) {
@@ -3808,10 +3972,6 @@ body.reduced-motion .search-container.focused {
     max-width: 691.2px;
 }
 
-body.reduced-motion:has(.search-container.focused) .main-screen-brand-logos {
-    opacity: 1;
-}
-
 body.reduced-motion .suggestions-list {
     transition: none;
 }
@@ -3825,7 +3985,7 @@ body.reduced-motion .suggestions-list.first-hover-fade .suggestion-item {
 }
 
 body.reduced-motion .search-box-wrapper {
-    transition: background-color 0s 0s;
+    transition: background-color 0s 0s, border-radius 0s 0s;
 }
 
 body.reduced-motion .search-switcher-button {
@@ -3849,19 +4009,8 @@ body.reduced-motion .main-screen-brand-logos {
     transition: none;
 }
 
-body.reduced-motion:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translate(-50%, calc(-50% - 152px + var(--search-drag-offset-y, 0px)));
-}
-
-body.reduced-motion.search-bar-near-top .main-screen-brand-logos {
-    left: 40px;
-    top: var(--logo-near-top-y, 0);
-    transform: translateY(-50%) scale(1);
-    transition: none;
-}
-
-body.reduced-motion.search-bar-near-top:has(.search-container.focused) .main-screen-brand-logos {
-    transform: translateY(-50%) scale(1);
+body.reduced-motion:not(.addressbar) .main-screen-engine-wordmark-slot,
+body.reduced-motion:not(.addressbar) .main-screen-brand-firefox-row {
     transition: none;
 }
 

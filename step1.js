@@ -2343,27 +2343,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (iframe) {
             /* Ignore collapsed / not-yet-laid-out measurements (e.g. address bar display:none while ?chrome=0). */
-            const MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT = 36;
-            const updateBandHeight = (h) => {
-                if (typeof h !== 'number' || !Number.isFinite(h) || h < MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT) return;
-                document.documentElement.style.setProperty('--addressbar-band-bar-height', h + 'px');
-            };
+            const MIN_ADDRESSBAR_IFRAME_HEIGHT = 36;
+            /* Toolbar row + .addressbar-band height are fixed in CSS (45px); iframe height still grows for suggestions. */
             const remeasureAddressbarBandFromIframe = () => {
                 try {
                     const doc = iframe.contentDocument;
                     const container = doc?.querySelector('.search-container');
                     if (container) {
                         const h = container.getBoundingClientRect().height + 4;
-                        if (h >= MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT) {
+                        if (h >= MIN_ADDRESSBAR_IFRAME_HEIGHT) {
                             iframe.style.height = h + 'px';
-                            updateBandHeight(h);
                             lastAddressbarReportedHeight = h;
                             sendPrototypeOptionsToIframes();
                             return;
                         }
                     }
                 } catch (_) { /* cross-origin */ }
-                document.documentElement.style.setProperty('--addressbar-band-bar-height', '58px');
                 sendPrototypeOptionsToIframes();
             };
             window.__prototypeRemeasureAddressbarBand = remeasureAddressbarBandFromIframe;
@@ -2391,10 +2386,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 h = Math.min(h, maxAllowed);
                             }
                         } catch (_) {}
-                        if (addressbarSwitcherOpen || h >= MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT) {
+                        if (addressbarSwitcherOpen || h >= MIN_ADDRESSBAR_IFRAME_HEIGHT) {
                             iframe.style.height = h + 'px';
                         }
-                        updateBandHeight(h);
                     } else if (standaloneIframe && e.source === standaloneIframe.contentWindow) {
                         lastStandaloneReportedHeight = h;
                         try {
@@ -2440,7 +2434,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             const bottomPadding = 8;
                             const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
                             targetIframe.style.height = maxAllowed + 'px';
-                            if (targetIframe === iframe) updateBandHeight(maxAllowed);
                         } catch (_) {}
                     }
                     if (targetIframe && e.data?.open === false) {
@@ -2459,14 +2452,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (typeof restoreH === 'number') {
                                 restoreH = Math.min(restoreH, maxAllowed);
                                 targetIframe.style.height = restoreH + 'px';
-                                if (targetIframe === iframe) updateBandHeight(restoreH);
                             }
                         } catch (_) {}
                     }
                 }
             };
             updateIframeSize();
-            document.documentElement.style.setProperty('--addressbar-band-bar-height', '58px');
             window.addEventListener('resize', updateIframeSize);
             window.addEventListener('message', setHeight);
             iframe.addEventListener('load', () => {
@@ -2477,9 +2468,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const container = doc?.querySelector('.search-container');
                     if (container) {
                         const h = container.getBoundingClientRect().height + 4;
-                        if (h >= MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT) {
+                        if (h >= MIN_ADDRESSBAR_IFRAME_HEIGHT) {
                             iframe.style.height = h + 'px';
-                            updateBandHeight(h);
                             lastAddressbarReportedHeight = h;
                         }
                     }
@@ -2648,80 +2638,82 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.value = '';
     }
     const searchContainer = document.querySelector('.search-container');
-    const mainScreenBrandLogos = document.querySelector('.main-screen-brand-logos');
-
-    // Repositionable search bar (testing)
-    const searchDragHandle = document.querySelector('.search-container-drag-handle');
-    const LOGO_NEAR_TOP_THRESHOLD = 250;
-    function updateLogoPositionForSearchBar(opts = {}) {
-        if (!searchContainer || !mainScreenBrandLogos) return;
-        if (opts.skipWhenLogoOnLeft && document.body.classList.contains('search-bar-near-top')) return;
-        const rect = searchContainer.getBoundingClientRect();
-        const searchCenterY = rect.top + rect.height / 2;
-        const logoHeight = mainScreenBrandLogos.getBoundingClientRect().height;
-        if (rect.top < LOGO_NEAR_TOP_THRESHOLD) {
-            document.body.classList.add('search-bar-near-top');
-            document.documentElement.style.setProperty('--logo-near-top-y', (searchCenterY - logoHeight / 2 + 25) + 'px');
-        } else {
-            document.body.classList.remove('search-bar-near-top');
-        }
-    }
-    if (searchDragHandle && searchContainer) {
-        let searchDragOffsetY = 0;
-        const updateDraggedClasses = () => {
-            document.body.classList.toggle('search-bar-dragged-down', searchDragOffsetY > 0);
-            document.body.classList.toggle('search-bar-dragged-up', searchDragOffsetY < 0);
-        };
-        const onPointerMove = (e) => {
-            searchDragOffsetY += e.movementY;
-            document.documentElement.style.setProperty('--search-drag-offset-y', searchDragOffsetY + 'px');
-            updateDraggedClasses();
-        };
-        const onPointerUp = () => {
-            try { searchDragHandle.releasePointerCapture(pointerId); } catch (_) {}
-            document.removeEventListener('pointermove', onPointerMove);
-            document.removeEventListener('pointerup', onPointerUp);
-            document.removeEventListener('pointercancel', onPointerUp);
-            searchContainer.style.transition = '';
-            const wasNearTop = document.body.classList.contains('search-bar-near-top');
-            if (wasNearTop && mainScreenBrandLogos) {
-                mainScreenBrandLogos.style.transition = 'none';
-            }
-            updateLogoPositionForSearchBar();
-            if (wasNearTop && mainScreenBrandLogos) {
-                mainScreenBrandLogos.offsetHeight;
-                requestAnimationFrame(() => {
-                    mainScreenBrandLogos.style.transition = '';
-                });
-            }
-        };
-        let pointerId;
-        searchDragHandle.addEventListener('pointerdown', (e) => {
-            e.preventDefault();
-            pointerId = e.pointerId;
-            searchDragHandle.setPointerCapture(pointerId);
-            searchContainer.style.transition = 'none';
-            document.addEventListener('pointermove', onPointerMove);
-            document.addEventListener('pointerup', onPointerUp);
-            document.addEventListener('pointercancel', onPointerUp);
-        });
-    }
-    updateLogoPositionForSearchBar();
-    window.addEventListener('resize', updateLogoPositionForSearchBar);
     const searchBoxWrapper = document.querySelector('.search-box-wrapper');
     const searchBoxWrapperOuter = document.querySelector('.search-box-wrapper-outer');
 
+    /* Avoid animating border-radius on first paint when JS applies large-mode inline radii (step1.css transition). */
+    if (searchBoxWrapper) {
+        searchBoxWrapper.classList.add('search-box-wrapper--instant-border-radius');
+    }
+
     function clearJsBorderRadiusStyles() {
         if (searchBoxWrapper) searchBoxWrapper.style.borderRadius = '';
-        if (searchBoxWrapperOuter) searchBoxWrapperOuter.style.borderRadius = '';
+        if (searchBoxWrapperOuter) {
+            searchBoxWrapperOuter.style.borderRadius = '';
+            searchBoxWrapperOuter.style.removeProperty('--suggestions-ring-extend');
+        }
         document.documentElement.style.removeProperty('--search-box-wrapper-radius');
         document.documentElement.style.removeProperty('--outer-border-radius');
         document.documentElement.style.removeProperty('--switcher-button-radius');
         document.documentElement.style.removeProperty('--suggestion-item-radius');
+        syncSearchBoxWrapperCornersForSuggestionsPanel();
+    }
+
+    /** Main page only: overlay suggestions do not expand .search-box-wrapper-outer — extend the focus ring to the list bottom. */
+    function updateSuggestionsRingExtend() {
+        if (document.body.classList.contains('addressbar')) {
+            searchBoxWrapperOuter?.style.removeProperty('--suggestions-ring-extend');
+            return;
+        }
+        const outer = searchBoxWrapperOuter;
+        const list = document.querySelector('.suggestions-list');
+        if (!outer) return;
+        if (!list) {
+            outer.style.removeProperty('--suggestions-ring-extend');
+            return;
+        }
+        const outerRect = outer.getBoundingClientRect();
+        const listRect = list.getBoundingClientRect();
+        const extra = Math.max(0, Math.round(listRect.bottom - outerRect.bottom));
+        outer.style.setProperty('--suggestions-ring-extend', `${extra}px`);
+    }
+
+    /** True while the suggestions strip can show (.focused + not suppress), or while the panel is collapsing so
+     * bottom corners stay square until max-height finishes (see closeSuggestionsPanel). */
+    function shouldSquareSearchInputBottomForSuggestions() {
+        const list = document.querySelector('.suggestions-list');
+        if (!list) return false;
+        if (searchContainer?.classList.contains('search-container--suggestions-panel-collapsing')) return true;
+        return (
+            !!searchContainer?.classList.contains('focused') &&
+            !list.classList.contains('suggestions-suppress-until-typed')
+        );
+    }
+
+    function applySearchBoxWrapperBorderRadius(wrapperRoundedPx) {
+        if (!searchBoxWrapper || wrapperRoundedPx == null || !Number.isFinite(wrapperRoundedPx)) return;
+        const sq = shouldSquareSearchInputBottomForSuggestions();
+        searchBoxWrapper.style.borderRadius = sq
+            ? `${wrapperRoundedPx}px ${wrapperRoundedPx}px 0 0`
+            : `${wrapperRoundedPx}px`;
+    }
+
+    function syncSearchBoxWrapperCornersForSuggestionsPanel() {
+        if (!searchBoxWrapper) return;
+        if (getSearchBorderRadiusMode() === 'large') {
+            const h = searchBoxWrapper.offsetHeight;
+            if (h <= 0) return;
+            applySearchBoxWrapperBorderRadius(h / 2);
+        } else {
+            searchBoxWrapper.style.borderRadius = shouldSquareSearchInputBottomForSuggestions() ? '10px 10px 0 0' : '';
+        }
     }
 
     function updateBorderRadius() {
-        if (getSearchBorderRadiusMode() !== 'large') return;
+        if (getSearchBorderRadiusMode() !== 'large') {
+            syncSearchBoxWrapperCornersForSuggestionsPanel();
+            return;
+        }
         let wrapperRadiusPx = null;
         if (searchBoxWrapper && searchBoxWrapperOuter) {
             const wrapperHeight = searchBoxWrapper.offsetHeight;
@@ -2729,7 +2721,7 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapperRadiusPx = borderRadius;
             const gradientBorderRadius = borderRadius + 2;
 
-            searchBoxWrapper.style.borderRadius = `${borderRadius}px`;
+            applySearchBoxWrapperBorderRadius(borderRadius);
             searchBoxWrapperOuter.style.borderRadius = `${borderRadius}px`;
             document.documentElement.style.setProperty('--search-box-wrapper-radius', `${borderRadius}px`);
             document.documentElement.style.setProperty('--outer-border-radius', `${gradientBorderRadius}px`);
@@ -2773,10 +2765,55 @@ document.addEventListener('DOMContentLoaded', () => {
             clearJsBorderRadiusStyles();
         }
         syncSearchBorderRadiusSwatches();
+        requestAnimationFrame(() => {
+            updateSuggestionsRingExtend();
+            syncSearchBoxWrapperCornersForSuggestionsPanel();
+        });
     }
 
     refreshSearchBorderRadiusMode();
-    window.addEventListener('resize', updateBorderRadius);
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            searchBoxWrapper?.classList.remove('search-box-wrapper--instant-border-radius');
+        });
+    });
+
+    window.addEventListener('resize', () => {
+        updateBorderRadius();
+        requestAnimationFrame(() => {
+            updateSuggestionsRingExtend();
+            syncSearchBoxWrapperCornersForSuggestionsPanel();
+        });
+    });
+
+    if (typeof ResizeObserver !== 'undefined' && searchBoxWrapperOuter && !document.body.classList.contains('addressbar')) {
+        const listForRing = document.querySelector('.suggestions-list');
+        if (listForRing) {
+            const scheduleSearchCardLayoutSync = () =>
+                requestAnimationFrame(() => {
+                    updateSuggestionsRingExtend();
+                    syncSearchBoxWrapperCornersForSuggestionsPanel();
+                });
+            const ringExtendObserver = new ResizeObserver(scheduleSearchCardLayoutSync);
+            ringExtendObserver.observe(listForRing);
+            ringExtendObserver.observe(searchBoxWrapperOuter);
+            scheduleSearchCardLayoutSync();
+        }
+    }
+
+    if (searchContainer) {
+        new MutationObserver(() => requestAnimationFrame(syncSearchBoxWrapperCornersForSuggestionsPanel)).observe(
+            searchContainer,
+            { attributes: true, attributeFilter: ['class'] }
+        );
+    }
+    const suggestionsListForCornerSync = document.querySelector('.suggestions-list');
+    if (suggestionsListForCornerSync) {
+        new MutationObserver(() => requestAnimationFrame(syncSearchBoxWrapperCornersForSuggestionsPanel)).observe(
+            suggestionsListForCornerSync,
+            { attributes: true, attributeFilter: ['class'] }
+        );
+    }
 
     document.querySelectorAll('.search-border-radius-swatch').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -2820,6 +2857,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let openingSuggestionsForPinPanel = false;
     /** True between mousedown and mouseup on the pinned-right engine panel (avoids premature blur close). */
     let pinnedRightHostPointerActive = false;
+    /** Leaving pinned-right: refocus search without running the full focus path (preserves suggestions state). */
+    let focusAfterUnpinPinnedRight = false;
     /** Set by the engine-reorder block when `enginesContainer` exists; starts drag from pinned clone rows. */
     let engineReorderHandlePinnedCloneMousedown = null;
     /** Assigned when the default-badge drag mousedown listener is installed; pinned clone calls this instead of forwarding to the chip. */
@@ -2836,33 +2875,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeSuggestionsPanel() {
         if (!searchContainer) return;
-        searchContainer.classList.remove('focused');
-        let logoUpdateDone = false;
-        const runLogoUpdate = () => {
-            if (!logoUpdateDone) {
-                logoUpdateDone = true;
-                searchContainer.removeEventListener('transitionend', onTransitionEnd);
-                updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true });
-            }
-        };
-        const onTransitionEnd = (e) => {
-            if (e.target === searchContainer && (e.propertyName === 'top' || e.propertyName === 'transform')) {
-                runLogoUpdate();
-            }
-        };
-        searchContainer.addEventListener('transitionend', onTransitionEnd);
-        const blurTransitionMs = document.body.classList.contains('reduced-motion') ? 350 : 250;
-        setTimeout(runLogoUpdate, blurTransitionMs + 50);
-        suggestionsList?.classList.remove('suggestions-revealed');
-        firstHoverDone = false;
-        if (suggestionsList) {
-            suggestionsList.classList.add('transitioning');
-            suggestionsList.classList.remove('first-hover-fade');
-            const closeDuration = document.body.classList.contains('addressbar') ? 320 : 250;
-            setTimeout(() => {
-                suggestionsList.classList.remove('transitioning');
-            }, closeDuration);
+        const list = suggestionsList;
+        const closeDuration = document.body.classList.contains('addressbar') ? 320 : 250;
+        const reducedMotion = document.body.classList.contains('reduced-motion');
+
+        if (!list) {
+            searchContainer.classList.remove('focused');
+            searchContainer.classList.remove('search-container--suggestions-panel-collapsing');
+            suggestionsList?.classList.remove('suggestions-revealed');
+            firstHoverDone = false;
+            syncSearchBoxWrapperCornersForSuggestionsPanel();
+            refreshPinnedRightSwitcherPanel();
+            return;
         }
+
+        searchContainer.classList.add('search-container--suggestions-panel-collapsing');
+        searchContainer.classList.remove('focused');
+        list.classList.remove('suggestions-revealed');
+        firstHoverDone = false;
+
+        let collapseRoundingSettled = false;
+        let collapseRoundingFallbackTimer = null;
+
+        const finishPanelCollapseRounding = () => {
+            if (!searchContainer.classList.contains('search-container--suggestions-panel-collapsing')) return;
+            searchContainer.classList.remove('search-container--suggestions-panel-collapsing');
+            if (searchBoxWrapper) {
+                searchBoxWrapper.classList.add('search-box-wrapper--instant-border-radius');
+                syncSearchBoxWrapperCornersForSuggestionsPanel();
+                requestAnimationFrame(() => {
+                    searchBoxWrapper.classList.remove('search-box-wrapper--instant-border-radius');
+                });
+            } else {
+                syncSearchBoxWrapperCornersForSuggestionsPanel();
+            }
+        };
+
+        const settleCollapseRounding = () => {
+            if (collapseRoundingSettled) return;
+            collapseRoundingSettled = true;
+            list.removeEventListener('transitionend', onSuggestionsCollapseTransitionEnd);
+            if (collapseRoundingFallbackTimer != null) {
+                clearTimeout(collapseRoundingFallbackTimer);
+                collapseRoundingFallbackTimer = null;
+            }
+            finishPanelCollapseRounding();
+        };
+
+        const onSuggestionsCollapseTransitionEnd = (e) => {
+            if (e.target !== list || e.propertyName !== 'max-height') return;
+            settleCollapseRounding();
+        };
+
+        list.addEventListener('transitionend', onSuggestionsCollapseTransitionEnd);
+        const waitMs = reducedMotion ? 0 : closeDuration + 40;
+        collapseRoundingFallbackTimer = setTimeout(settleCollapseRounding, waitMs);
+
+        list.classList.add('transitioning');
+        list.classList.remove('first-hover-fade');
+        setTimeout(() => {
+            list.classList.remove('transitioning');
+        }, closeDuration);
+
         refreshPinnedRightSwitcherPanel();
     }
 
@@ -7240,10 +7314,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, m);
         } catch (_) {}
+        const wasPinnedRight = document.body.classList.contains('search-engine-list-mode-pinned-right');
         const slideOutPinnedEligible =
             !!options.animate &&
             m !== 'pinned-right' &&
-            document.body.classList.contains('search-engine-list-mode-pinned-right') &&
+            wasPinnedRight &&
             !!searchContainer?.classList.contains('focused') &&
             pinnedRightHost &&
             !pinnedRightHost.hidden &&
@@ -7257,6 +7332,20 @@ document.addEventListener('DOMContentLoaded', () => {
             slideOutPinned: slideOutPinnedEligible,
         });
         syncSearchSwitcherPanelPinToggle();
+        if (wasPinnedRight && m !== 'pinned-right' && searchInput && searchContainer) {
+            searchContainer.classList.add('focused');
+            refreshPinnedRightSwitcherPanel();
+            if (document.activeElement !== searchInput) {
+                focusAfterUnpinPinnedRight = true;
+                requestAnimationFrame(() => {
+                    try {
+                        searchInput.focus({ preventScroll: true });
+                    } catch (_) {
+                        focusAfterUnpinPinnedRight = false;
+                    }
+                });
+            }
+        }
     };
     function toggleSearchSwitcherPanelPin() {
         const cur = getSearchEngineListMode();
@@ -7299,9 +7388,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 openingSuggestionsForPinPanel = false;
                 searchContainer?.classList.add('focused');
                 suggestionsList?.classList.add('suggestions-revealed');
-                requestAnimationFrame(() =>
-                    requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true }))
-                );
                 refreshPinnedRightSwitcherPanel();
             }
         }
@@ -8166,7 +8252,11 @@ document.addEventListener('DOMContentLoaded', () => {
             suggestionsList.classList.remove('suggestions-suppress-hover');
         }
         // Recalculate suggestion item radius when suggestions change (items may now be visible)
-        requestAnimationFrame(() => updateBorderRadius());
+        requestAnimationFrame(() => {
+            updateBorderRadius();
+            updateSuggestionsRingExtend();
+            syncSearchBoxWrapperCornersForSuggestionsPanel();
+        });
     }
     
     // ===== CLEAR BUTTON =====
@@ -8468,11 +8558,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchInput && searchContainer) {
         let autoOpenedSwitcherOnFocus = false;
         searchInput.addEventListener('focus', () => {
+            searchContainer.classList.remove('search-container--suggestions-panel-collapsing');
             if (restoringFocusFromSwitcher) {
                 restoringFocusFromSwitcher = false;
                 searchContainer.classList.add('focused');
                 if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
-                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
+                syncSearchBoxWrapperCornersForSuggestionsPanel();
+                refreshPinnedRightSwitcherPanel();
+                return;
+            }
+            if (focusAfterUnpinPinnedRight) {
+                focusAfterUnpinPinnedRight = false;
+                searchContainer.classList.add('focused');
                 refreshPinnedRightSwitcherPanel();
                 return;
             }
@@ -8486,7 +8583,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 openingSuggestionsForPinPanel = false;
                 searchContainer.classList.add('focused');
                 if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
-                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
+                syncSearchBoxWrapperCornersForSuggestionsPanel();
                 refreshPinnedRightSwitcherPanel();
                 return;
             }
@@ -8494,13 +8591,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 isRestoringFocus = false;
                 searchContainer.classList.add('focused');
                 if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
-                requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
+                syncSearchBoxWrapperCornersForSuggestionsPanel();
                 refreshPinnedRightSwitcherPanel();
                 return;
             }
             // Add focused class to expand width
             searchContainer.classList.add('focused');
-            requestAnimationFrame(() => requestAnimationFrame(() => updateLogoPositionForSearchBar({ skipWhenLogoOnLeft: true })));
             suggestionsList?.classList.remove('suggestions-revealed');
             
             // Reset first hover flag
@@ -8516,7 +8612,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             suggestionsList?.classList.remove('suggestions-suppress-until-typed');
-            
+            syncSearchBoxWrapperCornersForSuggestionsPanel();
+
             // Disable hover states during transition
             if (suggestionsList) {
                 suggestionsList.classList.add('transitioning');
@@ -8614,6 +8711,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                     if (pinnedRightHostPointerActive) {
+                        return;
+                    }
+                    /* App / tab switch: input blurs before the window is inactive; don't remove .focused or the hero
+                     * reverts to full size and re-animates when returning. Real in-page blur still has document focus. */
+                    if (!document.body.classList.contains('addressbar') && !document.hasFocus()) {
                         return;
                     }
                     closeSuggestionsPanel();
@@ -8905,8 +9007,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log(
                         '[prototype-reset] reloaded embedded search iframes (address bar / standalone). Open each switcher to log [search-switcher] with engineListOrder.'
                     );
-
-                    requestAnimationFrame(() => updateLogoPositionForSearchBar());
 
                     if (clearCacheSuccessTimer) {
                         clearTimeout(clearCacheSuccessTimer);
@@ -9337,6 +9437,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (suggestionsList) suggestionsList.style.transition = 'none';
                 const logo = document.querySelector('.main-screen-brand-logos');
                 if (logo) logo.style.transition = 'none';
+                const heroWordmarkSlot = document.querySelector('.main-screen-engine-wordmark-slot');
+                const heroStraplineRow = document.querySelector('.main-screen-brand-firefox-row');
+                if (heroWordmarkSlot) heroWordmarkSlot.style.transition = 'none';
+                if (heroStraplineRow) heroStraplineRow.style.transition = 'none';
                 const oneOffButtons = document.querySelector('.one-off-buttons');
                 if (oneOffButtons) oneOffButtons.style.transition = 'none';
 
@@ -9386,6 +9490,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchContainer.style.transition = '';
                     if (suggestionsList) suggestionsList.style.transition = '';
                     if (logo) logo.style.transition = '';
+                    if (heroWordmarkSlot) heroWordmarkSlot.style.transition = '';
+                    if (heroStraplineRow) heroStraplineRow.style.transition = '';
                     if (oneOffButtons) oneOffButtons.style.transition = '';
                     if (switcherDropdownForRestore) switcherDropdownForRestore.style.transition = '';
                 }, 100);
