@@ -373,6 +373,20 @@ body.standalone-search-box-visible .standalone-search-box-iframe {
     display: block;
 }
 
+/* Prototype: hide tab strip + full address bar row (grey band, iframes, toolbar icons). Toggle or ?chrome=0 */
+body.browser-chrome-hidden {
+    --window-chrome-tab-strip-height: 0px;
+}
+
+body.browser-chrome-hidden .window-chrome-tab-strip {
+    display: none;
+}
+
+body.browser-chrome-hidden .addressbar-band,
+body.browser-chrome-hidden .addressbar-area {
+    display: none;
+}
+
 .addressbar-toolbar-icons {
     position: absolute;
     top: 0;
@@ -3272,6 +3286,7 @@ body.reduced-motion .bottom-left-panel-content {
 }
 
 .reduced-motion-checkbox,
+.prototype-browser-chrome-checkbox,
 .underline-search-engines-checkbox,
 .keyboard-switcher-numbers-checkbox,
 .search-engines-count-radio {

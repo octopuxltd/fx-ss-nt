@@ -1500,6 +1500,7 @@ const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
 const SEARCH_SWITCHER_CONTROLS_VISIBLE_BY_DEFAULT_KEY = 'search_switcher_controls_visible_by_default';
 const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
+const PROTOTYPE_BROWSER_CHROME_VISIBLE_KEY = 'prototype_browser_chrome_visible';
 
 function readStandaloneSearchBoxVisibleFromStorage() {
     try {
@@ -2341,13 +2342,31 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         if (iframe) {
-            let bandHeightSet = false;
+            /* Ignore collapsed / not-yet-laid-out measurements (e.g. address bar display:none while ?chrome=0). */
+            const MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT = 36;
             const updateBandHeight = (h) => {
-                if (!bandHeightSet) {
-                    bandHeightSet = true;
-                    document.documentElement.style.setProperty('--addressbar-band-bar-height', h + 'px');
-                }
+                if (typeof h !== 'number' || !Number.isFinite(h) || h < MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT) return;
+                document.documentElement.style.setProperty('--addressbar-band-bar-height', h + 'px');
             };
+            const remeasureAddressbarBandFromIframe = () => {
+                try {
+                    const doc = iframe.contentDocument;
+                    const container = doc?.querySelector('.search-container');
+                    if (container) {
+                        const h = container.getBoundingClientRect().height + 4;
+                        if (h >= MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT) {
+                            iframe.style.height = h + 'px';
+                            updateBandHeight(h);
+                            lastAddressbarReportedHeight = h;
+                            sendPrototypeOptionsToIframes();
+                            return;
+                        }
+                    }
+                } catch (_) { /* cross-origin */ }
+                document.documentElement.style.setProperty('--addressbar-band-bar-height', '58px');
+                sendPrototypeOptionsToIframes();
+            };
+            window.__prototypeRemeasureAddressbarBand = remeasureAddressbarBandFromIframe;
             const updateIframeSize = () => {
                 const addressbarW = Math.max(0, Math.min(window.innerWidth * 0.93, 930) - 160);
                 iframe.style.width = addressbarW + 'px';
@@ -2372,7 +2391,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 h = Math.min(h, maxAllowed);
                             }
                         } catch (_) {}
-                        iframe.style.height = h + 'px';
+                        if (addressbarSwitcherOpen || h >= MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT) {
+                            iframe.style.height = h + 'px';
+                        }
                         updateBandHeight(h);
                     } else if (standaloneIframe && e.source === standaloneIframe.contentWindow) {
                         lastStandaloneReportedHeight = h;
@@ -2456,8 +2477,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const container = doc?.querySelector('.search-container');
                     if (container) {
                         const h = container.getBoundingClientRect().height + 4;
-                        iframe.style.height = h + 'px';
-                        updateBandHeight(h);
+                        if (h >= MIN_ADDRESSBAR_BAND_REPORTED_HEIGHT) {
+                            iframe.style.height = h + 'px';
+                            updateBandHeight(h);
+                            lastAddressbarReportedHeight = h;
+                        }
                     }
                 } catch (_) { /* cross-origin */ }
             });
@@ -6152,6 +6176,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const prototypeBrowserChromeCheckbox = document.querySelector('.prototype-browser-chrome-checkbox');
+    if (prototypeBrowserChromeCheckbox) {
+        prototypeBrowserChromeCheckbox.checked = !document.body.classList.contains('browser-chrome-hidden');
+        prototypeBrowserChromeCheckbox.addEventListener('change', (e) => {
+            const on = e.target.checked;
+            if (on) {
+                document.body.classList.remove('browser-chrome-hidden');
+                try {
+                    localStorage.setItem(PROTOTYPE_BROWSER_CHROME_VISIBLE_KEY, 'true');
+                } catch (_) {}
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        try {
+                            window.__prototypeRemeasureAddressbarBand?.();
+                        } catch (_) {}
+                    });
+                });
+            } else {
+                document.body.classList.add('browser-chrome-hidden');
+                try {
+                    localStorage.setItem(PROTOTYPE_BROWSER_CHROME_VISIBLE_KEY, 'false');
+                } catch (_) {}
+            }
+        });
+    }
+
     // Search border colour swatches (solid ring on focus)
     const searchBorderSwatches = document.querySelectorAll('.search-border-swatch');
     if (searchBorderSwatches.length) {
@@ -8591,6 +8641,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const keysToRemove = [
                         'ai_provider',
                         'reduced_motion_enabled',
+                        PROTOTYPE_BROWSER_CHROME_VISIBLE_KEY,
                         BACKGROUND_SWATCH_KEY,
                         'pale_grey_background_enabled',
                         SEARCH_BORDER_COLOR_KEY,
@@ -8698,6 +8749,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         reducedMotionCheckbox.checked = false;
                         document.body.classList.remove('reduced-motion');
                     }
+                    document.body.classList.remove('browser-chrome-hidden');
+                    const prototypeBrowserChromeCbReset = document.querySelector('.prototype-browser-chrome-checkbox');
+                    if (prototypeBrowserChromeCbReset) prototypeBrowserChromeCbReset.checked = true;
                     document.body.classList.remove('pin-default-enabled');
                     updateDefaultBadge();
 

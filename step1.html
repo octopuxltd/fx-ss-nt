@@ -9,6 +9,16 @@
     <script src="suggestion-words.js"></script>
 </head>
 <body>
+    <script>
+        (function () {
+            try {
+                var q = (new URLSearchParams(window.location.search).get('chrome') || '').toLowerCase();
+                var urlHide = q === '0' || q === 'false';
+                var storedOff = localStorage.getItem('prototype_browser_chrome_visible') === 'false';
+                if (urlHide || storedOff) document.body.classList.add('browser-chrome-hidden');
+            } catch (e) {}
+        })();
+    </script>
     <div class="window-chrome-tab-strip" aria-hidden="true">
         <div class="window-chrome-tab-strip-inner">
             <div class="window-chrome-traffic-lights" role="presentation">
@@ -386,6 +396,10 @@
                 <label class="reduced-motion-control">
                     <input type="checkbox" class="reduced-motion-checkbox">
                     <span>Reduced motion</span>
+                </label>
+                <label class="prototype-browser-chrome-control">
+                    <input type="checkbox" class="prototype-browser-chrome-checkbox">
+                    <span>Show browser chrome</span>
                 </label>
                 <div class="search-engines-count-control" role="group" aria-labelledby="search-engines-count-label">
                     <span id="search-engines-count-label" class="search-engines-count-heading">Number of SEs</span>
