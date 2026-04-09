@@ -7463,7 +7463,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ===== ICON ASSIGNMENT =====
     
-    // Icon mappings for lightning icon (popular/trending suggestions)
+    // Icon mappings for trending suggestions (zigzag arrow in icons/lightning.svg)
     const iconMappings = {
         lightning: ['taylor swift', 'trump', 'weather', 'youtube', 'news', 'spotify', 'amazon', 'netflix', 'tiktok'],
         search: []
@@ -7480,7 +7480,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // AI suggestions check for special mappings
             if (aiSuggestionsSet.has(textLower)) {
-                // Check if it's a lightning-worthy suggestion (popular/trending)
+                // Check if it's a trending-suggestion match (popular / first in sort order)
                 if (iconMappings.lightning && iconMappings.lightning.includes(textLower)) {
                     return 'icons/lightning.svg';
                 } else if (iconMappings.search && iconMappings.search.includes(textLower)) {

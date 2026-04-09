@@ -3055,15 +3055,16 @@ body.reduced-motion .dropdown-item.dragging {
 }
 
 .search-clear-button.clearing svg {
-    animation: clear-button-spin-fade 0.8s linear forwards;
+    transition: none;
+    transform: none;
+    animation: clear-button-fade-out 0.8s linear forwards;
 }
 
-@keyframes clear-button-spin-fade {
-    70% {
-        opacity: 0;
+@keyframes clear-button-fade-out {
+    from {
+        opacity: 1;
     }
-    100% {
-        transform: rotate(-180deg);
+    to {
         opacity: 0;
     }
 }
@@ -3862,7 +3863,7 @@ body.reduced-motion.search-bar-near-top:has(.search-container.focused) .main-scr
 }
 
 .suggestions-content {
-    padding: 8px 10px;
+    padding: 8px 10px 12px;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -4045,6 +4046,8 @@ body.reduced-motion .one-off-buttons {
     font-size: 12px;
     padding: 0 3.36px;
     display: none;
+    position: relative;
+    top: 1px;
 }
 
 .suggestion-item .suggestion-hint-text {
@@ -4052,6 +4055,8 @@ body.reduced-motion .one-off-buttons {
     color: var(--color-hint-accent);
     white-space: nowrap;
     display: none;
+    position: relative;
+    top: 1px;
 }
 
 .suggestion-item:hover .suggestion-separator,
@@ -4062,6 +4067,11 @@ body.reduced-motion .one-off-buttons {
 .suggestion-item.firefox-suggest-item .suggestion-separator,
 .suggestion-item.firefox-suggest-item .suggestion-hint-text {
     display: block;
+}
+
+.suggestion-item.firefox-suggest-item .suggestion-hint-text {
+    /* Room for dotted underline on .suggestion-hint-date-part (overflow hidden on row + hint area) */
+    padding-bottom: 4px;
 }
 
 .suggestion-item.is-selected .suggestion-separator,
@@ -4149,7 +4159,13 @@ body.reduced-motion .one-off-buttons {
 }
 
 .suggestion-hint-date-part {
-    text-decoration: underline dotted;
+    cursor: pointer;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: currentColor;
+    text-underline-offset: 0.12em;
+    text-decoration-thickness: 1px;
+    text-decoration-skip-ink: none;
 }
 
 .firefox-switch-tab-button {
@@ -4167,6 +4183,8 @@ body.reduced-motion .one-off-buttons {
     gap: 6px;
     line-height: 1;
     min-height: 0;
+    position: relative;
+    top: -0.5px;
 }
 
 .suggestions-list.first-hover-fade .suggestion-item::before {

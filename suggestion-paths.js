@@ -1720,7 +1720,7 @@ const suggestionPaths = {
 // ICON TYPES:
 // -----------
 // 1. lightning (icons/lightning.svg) - Trending/popular searches
-//    - Filled lightning bolt icon
+//    - Zigzag trending arrow (icons/lightning.svg)
 //    - Displayed FIRST in suggestion lists
 //    - Use for: Popular searches, trending topics, frequently accessed sites
 //
