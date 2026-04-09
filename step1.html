@@ -102,6 +102,11 @@
                 }
             }
         } catch (_) {}
+        try {
+            if (localStorage.getItem('dismissable_strapline_enabled') === 'true') {
+                document.body.classList.add('dismissable-strapline-enabled');
+            }
+        } catch (_) {}
         (function () {
             const BLACK20 = 'rgba(0, 0, 0, 0.2)';
             const DEF = '#BBA0FF';
@@ -136,11 +141,14 @@
             <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="main-screen-firefox-hero-logo">
         </div>
         <div class="main-screen-brand-firefox-row">
-            <span class="main-screen-brand-attribution">Start your <span class="main-screen-brand-engine-name">Google</span> search right here in </span>
-            <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="firefox-logo">
-            <span class="main-screen-brand-firefox-name">Firefox</span>
-            <span class="main-screen-brand-read-why-sep" aria-hidden="true"> • </span>
-            <a class="main-screen-brand-read-why-link" href="#">Read why</a>
+            <div class="main-screen-brand-firefox-row-pill">
+                <span class="main-screen-brand-attribution">Start your <span class="main-screen-brand-engine-name">Google</span> search right here in </span>
+                <img src="icons/Fx-Browser-icon-fullColor-256.png" alt="" class="firefox-logo">
+                <span class="main-screen-brand-firefox-name">Firefox</span>
+                <span class="main-screen-brand-read-why-sep" aria-hidden="true"> • </span>
+                <a class="main-screen-brand-read-why-link" href="#">Read why</a>
+            </div>
+            <button type="button" class="main-screen-brand-dismiss" aria-label="Dismiss message" title="Dismiss"></button>
         </div>
     </div>
     <div class="search-container">
@@ -422,6 +430,10 @@
                 <label class="prototype-browser-chrome-control">
                     <input type="checkbox" class="prototype-browser-chrome-checkbox">
                     <span>Show browser chrome</span>
+                </label>
+                <label class="dismissable-strapline-control">
+                    <input type="checkbox" class="dismissable-strapline-checkbox">
+                    <span>Dismissable strapline</span>
                 </label>
                 <div class="search-engines-count-control" role="group" aria-labelledby="search-engines-count-label">
                     <span id="search-engines-count-label" class="search-engines-count-heading">Number of SEs</span>

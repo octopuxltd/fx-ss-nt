@@ -718,6 +718,7 @@ body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
     display: none;
 }
 
+/* Default: legacy strapline (no bar border, no close control). Prototype “Dismissable strapline” adds body.dismissable-strapline-enabled. */
 .main-screen-brand-firefox-row {
     position: relative;
     z-index: 1;
@@ -725,8 +726,43 @@ body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 0.3em;
     font-size: 11px;
+    max-width: 100%;
+}
+
+body.dismissable-strapline-enabled .main-screen-brand-firefox-row {
+    display: inline-flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0;
+}
+
+.main-screen-brand-firefox-row[hidden] {
+    display: none !important;
+}
+
+/* Tight to the text line + horizontal padding; Firefox logo uses negative margin-block to extend past top/bottom. */
+.main-screen-brand-firefox-row-pill {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3em;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    padding: 3px 12px;
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+    box-shadow: none;
+    overflow: visible;
+}
+
+body.dismissable-strapline-enabled .main-screen-brand-firefox-row-pill {
+    border-radius: 9999px 0 0 9999px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-right: none;
 }
 
 .main-screen-brand-attribution {
@@ -784,6 +820,63 @@ body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
     height: auto;
     display: block;
     flex-shrink: 0;
+}
+
+.main-screen-brand-firefox-row-pill .firefox-logo {
+    width: auto;
+    height: 2.4em;
+    margin-block: -0.58em;
+    position: relative;
+    z-index: 1;
+}
+
+.main-screen-brand-dismiss {
+    display: none;
+}
+
+body.dismissable-strapline-enabled .main-screen-brand-dismiss {
+    display: block;
+    position: relative;
+    flex: 0 0 22px;
+    width: 22px;
+    min-width: 22px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-left: none;
+    border-radius: 0 9999px 9999px 0;
+    background-color: rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    box-sizing: border-box;
+    align-self: stretch;
+    min-height: 22px;
+}
+
+body.dismissable-strapline-enabled .main-screen-brand-dismiss::before,
+body.dismissable-strapline-enabled .main-screen-brand-dismiss::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 45%;
+    max-width: 10px;
+    height: 1.5px;
+    background-color: rgba(0, 0, 0, 0.3);
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+body.dismissable-strapline-enabled .main-screen-brand-dismiss::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+body.dismissable-strapline-enabled .main-screen-brand-dismiss:hover {
+    filter: brightness(0.92);
+}
+
+body.dismissable-strapline-enabled .main-screen-brand-dismiss:focus-visible {
+    outline: 2px solid var(--color-text-secondary);
+    outline-offset: 1px;
+    border-radius: 0 9999px 9999px 0;
 }
 
 /* body:has(.search-input:focus) .main-screen-brand-logos {
@@ -4049,6 +4142,12 @@ body.reduced-motion:not(.addressbar) .main-screen-brand-firefox-row {
 .search-container.search-has-typed-input .search-box-wrapper {
     position: relative;
     z-index: 1;
+}
+
+/* Overlay suggestions (see .search-suggestions-anchor > .suggestions-list, z-index 22) sit after this row in the DOM.
+   The switcher dropdown lives inside the row; lift the row while open so the panel stacks above the suggestions list. */
+body:not(.addressbar) .search-container .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)) {
+    z-index: 30;
 }
 
 .search-container.focused .suggestions-list {

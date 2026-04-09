@@ -1530,6 +1530,10 @@ const BACKGROUND_SWATCH_KEY = 'background_swatch';
 /** Default when no stored preference (matches step1.html swatches + reset prototype). */
 const DEFAULT_BACKGROUND_SWATCH = 'blue';
 const MAIN_SCREEN_HERO_LOGO_MODE_KEY = 'main_screen_hero_logo_mode';
+/** Main-page strapline (“Start your Google search…”) dismissed via the attached close control. */
+const MAIN_SCREEN_BRAND_STRAPLINE_DISMISSED_KEY = 'main_screen_brand_strapline_dismissed';
+/** Bordered strapline bar + close control (prototype); off = legacy flat strapline without border. */
+const DISMISSABLE_STRAPLINE_ENABLED_KEY = 'dismissable_strapline_enabled';
 /** `'search_engine'` = dynamic horizontal wordmarks; `'firefox'` = Firefox icon only (classic hero). */
 const DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE = 'search_engine';
 
@@ -1916,6 +1920,30 @@ function beginSwitcherClosingShapeHoldUntilDropdownAnimation(button) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const brandStraplineDismiss = document.querySelector('.main-screen-brand-dismiss');
+    const brandStraplineRow = document.querySelector('.main-screen-brand-firefox-row');
+    const dismissableStraplineOn = document.body.classList.contains('dismissable-strapline-enabled');
+    if (brandStraplineRow) {
+        if (dismissableStraplineOn) {
+            try {
+                if (localStorage.getItem(MAIN_SCREEN_BRAND_STRAPLINE_DISMISSED_KEY) === 'true') {
+                    brandStraplineRow.hidden = true;
+                }
+            } catch (_) {}
+        } else {
+            brandStraplineRow.hidden = false;
+        }
+    }
+    if (brandStraplineDismiss && brandStraplineRow) {
+        brandStraplineDismiss.addEventListener('click', () => {
+            if (!document.body.classList.contains('dismissable-strapline-enabled')) return;
+            brandStraplineRow.hidden = true;
+            try {
+                localStorage.setItem(MAIN_SCREEN_BRAND_STRAPLINE_DISMISSED_KEY, 'true');
+            } catch (_) {}
+        });
+    }
+
     let underlineSearchEnginesEnabled = localStorage.getItem(UNDERLINE_SEARCH_ENGINES_ENABLED_KEY) === 'true';
     const keyboardSwitcherNumbersEnabled = localStorage.getItem(KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY) !== 'false';
     document.body.classList.toggle('keyboard-switcher-numbers-enabled', keyboardSwitcherNumbersEnabled);
@@ -6250,6 +6278,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const dismissableStraplineCheckbox = document.querySelector('.dismissable-strapline-checkbox');
+    const applyDismissableStraplinePrototype = (on) => {
+        document.body.classList.toggle('dismissable-strapline-enabled', on);
+        const row = document.querySelector('.main-screen-brand-firefox-row');
+        if (row) {
+            if (on) {
+                try {
+                    row.hidden = localStorage.getItem(MAIN_SCREEN_BRAND_STRAPLINE_DISMISSED_KEY) === 'true';
+                } catch (_) {
+                    row.hidden = false;
+                }
+            } else {
+                row.hidden = false;
+            }
+        }
+        try {
+            localStorage.setItem(DISMISSABLE_STRAPLINE_ENABLED_KEY, on ? 'true' : 'false');
+        } catch (_) {}
+    };
+    if (dismissableStraplineCheckbox) {
+        dismissableStraplineCheckbox.checked = document.body.classList.contains('dismissable-strapline-enabled');
+        dismissableStraplineCheckbox.addEventListener('change', (e) => {
+            applyDismissableStraplinePrototype(!!e.target.checked);
+        });
+    }
+
     const prototypeBrowserChromeCheckbox = document.querySelector('.prototype-browser-chrome-checkbox');
     if (prototypeBrowserChromeCheckbox) {
         prototypeBrowserChromeCheckbox.checked = !document.body.classList.contains('browser-chrome-hidden');
@@ -8754,6 +8808,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         UNDERLINE_SEARCH_ENGINES_ENABLED_KEY,
                         KEYBOARD_SWITCHER_NUMBERS_ENABLED_KEY,
                         MAIN_SCREEN_HERO_LOGO_MODE_KEY,
+                        MAIN_SCREEN_BRAND_STRAPLINE_DISMISSED_KEY,
+                        DISMISSABLE_STRAPLINE_ENABLED_KEY,
                         TWELVE_SEARCH_ENGINES_ENABLED_KEY,
                         SEARCH_ENGINES_COUNT_KEY,
                         SEARCH_ENGINE_LIST_MODE_KEY,
@@ -8893,6 +8949,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE);
                     } catch (_) {}
+                    document.body.classList.remove('dismissable-strapline-enabled');
+                    const dismissableStraplineCbReset = document.querySelector('.dismissable-strapline-checkbox');
+                    if (dismissableStraplineCbReset) dismissableStraplineCbReset.checked = false;
+                    const straplineRowAfterReset = document.querySelector('.main-screen-brand-firefox-row');
+                    if (straplineRowAfterReset) straplineRowAfterReset.hidden = false;
                     syncMainScreenHeroLogoRadiosToMode(DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE);
                     const pinnedHeroReset = searchSwitcherButton?.querySelector('.dropdown-search-engines .dropdown-item-pinned');
                     if (pinnedHeroReset) syncMainScreenBrandFromSwitcherItem(pinnedHeroReset);
