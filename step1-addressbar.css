@@ -1,22 +1,45 @@
 /* Overrides for step1-addressbar.html */
+
+/* Suggestions list + one-off strip (address bar & standalone iframes): text 30% larger than prior iframe scale. */
+body.addressbar {
+    --addr-suggest-text-scale: 1.3;
+}
+
 body.addressbar .addressbar-row {
     position: fixed;
     top: 2px;
     left: 2px;
     right: 2px;
     display: flex;
-    align-items: flex-start;
-    align-content: flex-start;
+    align-items: center;
+    align-content: center;
     gap: 12px;
     z-index: 10;
 }
 
+/* Address bar iframe only: nav + search share a row; align-items:center would vertically center
+ * the nav in the row when .search-container grows (suggestions), pushing buttons down.
+ * Standalone iframe has no .addressbar-nav, so it keeps center without this issue. */
+body.addressbar:not(.standalone-search-box) .addressbar-row {
+    align-items: flex-start;
+    align-content: flex-start;
+}
+
 body.addressbar .addressbar-nav {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 2px;
     flex-shrink: 0;
+    align-self: center;
+}
+
+body.addressbar:not(.standalone-search-box) .addressbar-nav {
     align-self: flex-start;
+    background-color: #f9f9fb;
+    padding: 2px 6px 2px 4px;
+    border-radius: 10px;
+    box-sizing: border-box;
+    transform: translateY(-2px);
 }
 
 body.addressbar .addressbar-back,
@@ -81,11 +104,12 @@ body.addressbar .addressbar-row .search-container {
     flex: 1;
     min-width: 0;
     position: relative;
-    align-self: flex-start;
+    align-self: center;
 }
 
 /* Shift only the search pill right; keep back/forward/reload at the iframe’s left edge. */
 body.addressbar:not(.standalone-search-box) .addressbar-row .search-container {
+    align-self: flex-start;
     margin-left: clamp(48px, 9vw, 120px);
 }
 
@@ -145,10 +169,13 @@ body.addressbar.reduced-motion .suggestions-list {
 
 body.addressbar .search-box-wrapper-outer {
     box-shadow: none;
+    background-color: #ececee;
+    transition: none;
 }
 
-body.addressbar .search-box-wrapper-outer {
-    transition: none;
+/* Idle typed state (no input focus): keep shell on #ececee; focus/switcher rules below override. */
+body.addressbar .search-container.search-has-typed-input .search-box-wrapper-outer:not(:has(.search-input:focus)) {
+    background-color: #ececee;
 }
 
 body.addressbar .search-box-wrapper-outer:has(.search-input:focus),
@@ -201,7 +228,7 @@ body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-
 }
 
 body.addressbar .search-box-wrapper {
-    background-color: #fff;
+    background-color: #ececee;
     transition: none;
     box-sizing: border-box;
     height: 35px;
@@ -228,7 +255,7 @@ body.addressbar .search-switcher-button .chevron {
 }
 
 body.addressbar .search-switcher-button {
-    padding: 5px 6px 5px 5px;
+    padding: 5px 6px 5px 8px;
     gap: 3px;
 }
 
@@ -245,7 +272,7 @@ body.addressbar .dropdown-content {
 }
 
 body.addressbar .dropdown-label {
-    padding: 4px 10px;
+    padding: 4px 10px 4px 13px;
     font-size: 9px;
     position: relative;
     z-index: 1;
@@ -365,21 +392,30 @@ body.addressbar .suggestion-item.is-selected::after {
     border-radius: var(--suggestion-item-radius, 10px);
 }
 
+body.addressbar:not(.search-border-radius-large) .suggestion-item:hover::after,
+body.addressbar:not(.search-border-radius-large) .suggestion-item.is-selected::after {
+    border-radius: 3px;
+}
+
 body.addressbar .suggestion-item .suggestion-separator,
 body.addressbar .suggestion-item .suggestion-hint-text {
-    font-size: 8px;
+    font-size: calc(8px * var(--addr-suggest-text-scale, 1.3));
     padding: 0 2px;
 }
 
 body.addressbar .suggestions-heading,
 body.addressbar .firefox-suggest-section-heading {
-    font-size: 8px;
+    font-size: calc(8px * var(--addr-suggest-text-scale, 1.3));
     padding: 5px 7px 3px 7px;
     margin: 1px 0;
 }
 
+body.addressbar .one-off-buttons {
+    font-size: calc(14px * var(--addr-suggest-text-scale, 1.3));
+}
+
 body.addressbar .one-off-buttons-label {
-    font-size: 8px;
+    font-size: calc(8px * var(--addr-suggest-text-scale, 1.3));
 }
 
 body.addressbar .dropdown-default-badge {
@@ -408,13 +444,17 @@ body.addressbar .suggestion-icon-wrapper .firefox-suggest-type-icon {
 }
 
 body.addressbar .suggestion-label {
-    font-size: 10px;
+    font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
 }
 
 body.addressbar .firefox-suggest-more-icon {
     width: 14px;
     height: 14px;
-    font-size: 10px;
+    font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
+}
+
+body.addressbar .firefox-switch-tab-button {
+    font-size: calc(11px * var(--addr-suggest-text-scale, 1.3));
 }
 
 body.addressbar .suggestion-hint-area {

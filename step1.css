@@ -32,6 +32,7 @@
     --switcher-dropdown-close-max-height-easing: linear;
     /* Representative page hue for gradient wallpaper (slightly deeper so 50/50 mix with white reads tinted, not paper white). */
     --page-bg-solid: #9eb0cc;
+    --window-chrome-tab-strip-height: 48px;
 }
 
 * {
@@ -100,25 +101,246 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     outline-color: #fff;
 }
 
-.addressbar-band {
+/* Top window chrome: traffic lights, separator, tabs — full strip #eaeaed */
+.window-chrome-tab-strip {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
+    height: var(--window-chrome-tab-strip-height, 48px);
+    background-color: #eaeaed;
+    z-index: 2;
+    display: flex;
+    align-items: stretch;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+
+.window-chrome-tab-strip-inner {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    min-width: 0;
+    padding-left: 14px;
+    padding-right: 24px;
+    gap: 0;
+}
+
+.window-chrome-traffic-lights {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    align-self: center;
+    margin-right: 80px;
+}
+
+.window-chrome-tab-strip-sep {
+    flex-shrink: 0;
+    width: 1px;
+    align-self: stretch;
+    min-height: 100%;
+    margin-right: 5px;
+    background-color: #c5c5cd;
+}
+
+.window-chrome-traffic-light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+}
+
+.window-chrome-traffic-light--close {
+    background-color: #ff5f57;
+}
+
+.window-chrome-traffic-light--minimize {
+    background-color: #ffbd2e;
+}
+
+.window-chrome-traffic-light--zoom {
+    background-color: #28c840;
+}
+
+.window-chrome-tabs {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+    align-self: stretch;
+    padding: 0 20px 0 0;
+    pointer-events: auto;
+    box-sizing: border-box;
+}
+
+.window-chrome-tab-favicon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: block;
+    object-fit: contain;
+    border-radius: 3px;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.window-chrome-tabs-plus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    margin-left: 2px;
+    color: #000000;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+    border-radius: 6px;
+}
+
+.window-chrome-tabs-plus:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+    color: #000000;
+}
+
+.window-chrome-tabs-plus-icon {
+    display: block;
+}
+
+.window-chrome-tabs-chevron {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 32px;
+    margin-left: auto;
+    color: #000000;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+    border-radius: 6px;
+}
+
+.window-chrome-tabs-chevron:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+    color: #000000;
+}
+
+.window-chrome-tabs-chevron-icon {
+    display: block;
+}
+
+.window-chrome-tab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
+    flex-shrink: 0;
+    height: 36px;
+    padding: 0 12px 0 14px;
+    border-radius: 8px;
+    border: none;
+    background-color: transparent;
+    box-shadow: none;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.window-chrome-tab:hover {
+    background-color: rgba(0, 0, 0, 0.11);
+}
+
+.window-chrome-tab--new {
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 1px 1px rgba(0, 0, 0, 0.06);
+}
+
+.window-chrome-tab--new:hover {
+    background-color: #fafafb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.window-chrome-tab-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.72);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+    flex: 1;
+    min-width: 0;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.window-chrome-tab-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin-right: -5px;
+    color: #000000;
+    opacity: 1;
+    cursor: default;
+    pointer-events: auto;
+    border-radius: 5px;
+    background-color: transparent;
+    transition: background-color 0.1s ease;
+}
+
+.window-chrome-tab-close:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .window-chrome-tab-close {
+        transition: none;
+    }
+}
+
+.window-chrome-tab-close svg {
+    display: block;
+}
+
+.addressbar-band {
+    position: fixed;
+    top: var(--window-chrome-tab-strip-height, 48px);
+    left: 0;
+    right: 0;
     /* ~73% of (20px + iframe-reported bar height); var still updated by step1.js */
     height: calc(0.73 * (20px + var(--addressbar-band-bar-height, 58px)));
-    background-color: #E7E7EA;
+    background-color: #f9f9fb;
+    border-bottom: 1px solid #cccccc;
     z-index: 0;
 }
 
+/* Toolbar icons are position:absolute so they stay in the top chrome row when the address bar
+ * iframe height grows (suggestions). Flex align-items:flex-start alone is unreliable across
+ * engines for iframe flex items; reserved padding-right matches former gap + icon strip width. */
 .addressbar-area {
+    --addressbar-toolbar-icons-slot: calc(12px + 3 * 35px + 2 * 5px);
     display: flex;
     align-items: flex-start;
     align-content: flex-start;
     gap: 12px;
-    margin-top: 2px;
+    margin-top: calc(var(--window-chrome-tab-strip-height, 48px) + 2px);
     margin-left: 20px;
     margin-right: 20px;
+    padding-right: var(--addressbar-toolbar-icons-slot);
     position: relative;
     /* Above .search-container (z-index: 1) so address bar / standalone iframe switcher dropdowns paint over the main search when they overlap. */
     z-index: 5;
@@ -131,6 +353,7 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     border: none;
     flex-shrink: 0;
     align-self: flex-start;
+    margin-left: 20px;
 }
 
 .standalone-search-box-iframe {
@@ -142,28 +365,25 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     flex-shrink: 0;
     margin-left: auto;
     align-self: flex-start;
-    /* Nudge slightly left toward the address bar (flex keeps laid-out position; auto margin unchanged) */
-    transform: translateX(-5px);
+    /* Shift left from auto-right edge (was -5px; additional 80px left per layout request) */
+    transform: translateX(-85px);
 }
 
 body.standalone-search-box-visible .standalone-search-box-iframe {
     display: block;
 }
 
-/* When standalone is off, toolbar alone absorbs leading flex space; when on, standalone has margin-left: auto so standalone + toolbar sit at the right edge. */
-body:not(.standalone-search-box-visible) .addressbar-toolbar-icons {
-    margin-left: auto;
-}
-
 .addressbar-toolbar-icons {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 6;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     /* Slightly looser than iframe nav gap (2px) so three icons read clearly */
     gap: 5px;
-    flex-shrink: 0;
-    align-self: flex-start;
-    /* Nudge up to align with address-bar nav row (iframe top: 2px + pill) */
-    transform: translateY(1px);
+    /* ~nav cluster height (35px buttons + addressbar-nav vertical padding); centers 35px hit targets */
+    height: 39px;
 }
 
 .addressbar-toolbar-icon {
@@ -202,9 +422,16 @@ body:not(.standalone-search-box-visible) .addressbar-toolbar-icons {
     stroke: none;
 }
 
+.addressbar-toolbar-icon img {
+    width: 17px;
+    height: 17px;
+    display: block;
+    opacity: 0.6;
+}
+
 /* "Small corners" border mode: rounded-square controls (large mode keeps fully rounded / pill shapes via JS). */
 body:not(.search-border-radius-large) {
-    --switcher-button-radius: 9px;
+    --switcher-button-radius: 7px;
 }
 
 body:not(.search-border-radius-large) .addressbar-toolbar-icon {
@@ -244,6 +471,14 @@ body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-d
 
 body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-display-grid .dropdown-firefox-suggestions .dropdown-item-firefox-suggestion {
     border-radius: 9px;
+}
+
+/* Suggestion row hover / keyboard-selected highlight: tighter radius than the row shell in small-corners mode. */
+body:not(.search-border-radius-large) .suggestion-item:hover::before,
+body:not(.search-border-radius-large) .suggestion-item:hover::after,
+body:not(.search-border-radius-large) .suggestion-item.is-selected::before,
+body:not(.search-border-radius-large) .suggestion-item.is-selected::after {
+    border-radius: 3px;
 }
 
 .main-screen-brand-logos {
@@ -686,7 +921,7 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
     /* Inset ring: one continuous stroke on the gradient (physical borders can look uneven on rounded rects). */
     box-shadow: inset 0 0 0 1px var(--search-switcher-chip-edge);
     border-radius: var(--switcher-button-radius, 7px);
-    padding: 6px 8px 6px 6px;
+    padding: 6px 8px 6px 10px;
     transition: background 0.25s linear, border-radius 0s 0.25s, box-shadow 0.2s linear;
     cursor: pointer;
     position: relative;
@@ -815,7 +1050,7 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    padding: 5px 12px;
+    padding: 5px 12px 5px 15px;
     min-height: 38px;
     font-size: 12px;
     color: var(--color-text-secondary);
@@ -1583,6 +1818,13 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     padding: 14px 16px 12px;
     border-bottom: 1px solid rgba(75, 50, 120, 0.1);
     flex-shrink: 0;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.search-settings-modal-header.search-settings-modal-header--dragging {
+    cursor: grabbing;
 }
 
 .search-settings-modal-title {
@@ -1804,6 +2046,30 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     min-width: 9.5rem;
     padding: 8px 10px;
     vertical-align: middle;
+}
+
+.search-settings-grid tbody td.search-settings-cell--placeholder-preview {
+    text-align: left;
+    min-width: 11rem;
+    max-width: 18rem;
+    padding: 8px 10px;
+    vertical-align: middle;
+}
+
+.search-settings-placeholder-preview {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font-size: 10px;
+    line-height: 1.3;
+    font-weight: 400;
+    color: rgba(45, 30, 75, 0.75);
+    border: 1px solid rgba(75, 50, 120, 0.15);
+    border-radius: 4px;
+    background-color: rgba(250, 248, 255, 0.9);
+    cursor: default;
 }
 
 .search-settings-engine-select {
@@ -2855,6 +3121,11 @@ body.reduced-motion .dropdown-item.dragging {
     top: 1px;
     transition: transform 0.25s ease-out;
     transform-origin: center center;
+}
+
+.search-switcher-button .chevron {
+    margin-right: 4px;
+    top: 0;
 }
 
 .search-switcher-button.open .chevron {
@@ -3923,7 +4194,7 @@ body.reduced-motion .one-off-buttons {
 .suggestions-heading {
     font-size: 11px;
     letter-spacing: normal;
-    color: #6B7280;
+    color: rgba(0, 0, 0, 0.7);
     padding: 8px 10px 4px 10px;
     margin: 2px 0;
     font-weight: 500;
@@ -3939,7 +4210,7 @@ body.reduced-motion .one-off-buttons {
     gap: 6px;
     font-size: 11px;
     letter-spacing: normal;
-    color: #6B7280;
+    color: rgba(0, 0, 0, 0.7);
     padding: 8px 10px 4px 10px;
     margin: 2px 0;
     font-weight: 500;

@@ -1036,13 +1036,34 @@ function getSearchEngineOrderStorage() {
 /** Main New Tab / Homepage: when `false`, hide “From Firefox” in that switcher (Search settings → Navigate). */
 const SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY = 'search_settings_navigate_new_tab';
 const SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY = 'search_settings_navigate_private';
+/** Address bar row: when `'false'`, Search column is off (placeholder omits “Search with …”). */
+const SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY = 'search_settings_search_address_bar';
+
+const SEARCH_ACCESS_POINT_SETTING_KEYS = [
+    SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
+    SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY,
+    SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY,
+];
+
+/** Parent `localStorage` snapshot for iframe mirror (opaque iframes may not share storage with top). */
+function getSearchAccessPointSettingsKeysForMirror() {
+    const out = {};
+    try {
+        const ls = localStorage;
+        for (const k of SEARCH_ACCESS_POINT_SETTING_KEYS) {
+            const v = ls.getItem(k);
+            out[k] = v === null ? null : String(v);
+        }
+    } catch (_) {}
+    return out;
+}
 
 function isNavigateEnabledForCurrentSwitcherSurface() {
     if (typeof document === 'undefined' || !document.body) return true;
     if (document.body.classList.contains('standalone-search-box')) return false;
     if (document.body.classList.contains('addressbar')) return true;
     try {
-        return localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
+        return getDefaultSearchEngineLocalStorage().getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
     } catch (_) {
         return false;
     }
@@ -1061,6 +1082,118 @@ function applySwitcherFromFirefoxSectionVisibility() {
                 window.dispatchEvent(new Event('resize'));
             } catch (_) {}
         });
+    }
+}
+
+function isSearchEnabledForAccessPoint(surface) {
+    if (surface === 'address-bar') {
+        try {
+            return getDefaultSearchEngineLocalStorage().getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY) !== 'false';
+        } catch (_) {
+            return true;
+        }
+    }
+    return true;
+}
+
+function isNavigateEnabledForAccessPoint(surface) {
+    const ls = getDefaultSearchEngineLocalStorage();
+    if (surface === 'address-bar') return true;
+    if (surface === 'standalone') return false;
+    if (surface === 'new-tab') {
+        try {
+            return ls.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
+        } catch (_) {
+            return false;
+        }
+    }
+    if (surface === 'private') {
+        try {
+            return ls.getItem(SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY) === 'true';
+        } catch (_) {
+            return false;
+        }
+    }
+    return false;
+}
+
+/**
+ * @param {'address-bar'|'new-tab'|'standalone'|'private'} surface
+ * @param {string} engineLabel
+ */
+function buildAccessPointPlaceholderText(surface, engineLabel) {
+    const label = String(engineLabel || 'Google').trim() || 'Google';
+    const searchOn = isSearchEnabledForAccessPoint(surface);
+    const navigateOn = isNavigateEnabledForAccessPoint(surface);
+    const localSources = ['Bookmarks', 'History', 'Tabs', 'Actions'];
+    const prep = localSources.includes(label) ? 'in' : 'with';
+
+    if (searchOn && navigateOn) {
+        return `Search ${prep} ${label} or enter a web address`;
+    }
+    if (searchOn && !navigateOn) {
+        return `Search ${prep} ${label}`;
+    }
+    if (!searchOn && navigateOn) {
+        return 'Enter a web address';
+    }
+    return '';
+}
+
+function getSearchAccessPointSurfaceForDocument() {
+    if (typeof document === 'undefined' || !document.body) return 'new-tab';
+    if (document.body.classList.contains('standalone-search-box')) return 'standalone';
+    if (document.body.classList.contains('addressbar')) return 'address-bar';
+    return 'new-tab';
+}
+
+/**
+ * @param {string | null | undefined} selectedEngineLabel — from switcher row; falls back to stored default for this page
+ */
+function applySearchInputPlaceholderFromAccessPointSettings(selectedEngineLabel) {
+    const input = document.querySelector('.search-input');
+    if (!input) return;
+    const surface = getSearchAccessPointSurfaceForDocument();
+    const label =
+        selectedEngineLabel != null && String(selectedEngineLabel).trim()
+            ? String(selectedEngineLabel).trim()
+            : getDefaultSearchEngineLabelFromStorage();
+    input.placeholder = buildAccessPointPlaceholderText(surface, label);
+}
+
+function syncSearchSettingsPlaceholderPreviewFields() {
+    if (typeof document === 'undefined' || window !== window.top) return;
+    const matrix = getEffectiveSearchDefaultsFromStorage();
+    const snap = getSearchSettingsOverlaySelectSnapshot();
+    const selPrivate = document.getElementById('search-settings-default-engine-private');
+    const privateEngine = (selPrivate && selPrivate.value) || matrix.newTab;
+
+    const rows = [
+        { id: 'search-settings-placeholder-preview-address-bar', surface: 'address-bar', engine: snap?.addressBar ?? matrix.addressBar },
+        { id: 'search-settings-placeholder-preview-new-tab', surface: 'new-tab', engine: snap?.newTab ?? matrix.newTab },
+        { id: 'search-settings-placeholder-preview-standalone', surface: 'standalone', engine: snap?.standalone ?? matrix.standalone },
+        { id: 'search-settings-placeholder-preview-private', surface: 'private', engine: privateEngine },
+    ];
+    for (const { id, surface, engine } of rows) {
+        const el = document.getElementById(id);
+        if (el) el.value = buildAccessPointPlaceholderText(surface, engine);
+    }
+}
+
+function broadcastSearchAccessPointPlaceholderRefresh() {
+    if (typeof document === 'undefined' || window !== window.top) return;
+    try {
+        applySearchInputPlaceholderFromAccessPointSettings(null);
+    } catch (_) {}
+    const keys = getSearchAccessPointSettingsKeysForMirror();
+    const iframes = [
+        document.querySelector('.addressbar-iframe'),
+        document.querySelector('.standalone-search-box-iframe'),
+    ].filter(Boolean);
+    for (const f of iframes) {
+        try {
+            f.contentWindow?.postMessage({ type: 'refresh-search-access-point-placeholder', keys }, '*');
+        } catch (_) {}
     }
 }
 
@@ -1924,7 +2057,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return underlineSearchEnginesEnabled;
     };
 
-    // Address bar iframe: parent sets width (matches ~62% / 620px cap); iframe reports height (including dropdown)
+    // Address bar iframe: parent sets width (~93% / 930px cap, minus 160px); iframe reports height (including dropdown)
     if (window !== window.top) {
         window.addEventListener('message', (e) => {
             if (e.data?.type === 'search-border-color') {
@@ -2008,6 +2141,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             applySearchSwitcherUIFromStoredDefault();
                         } catch (_) {}
+                        try {
+                            applySearchInputPlaceholderFromAccessPointSettings(null);
+                        } catch (_) {}
                     });
                 }
             } else if (e.data?.type === 'seed-default-search-engine-keys' && e.data.keys && typeof e.data.keys === 'object') {
@@ -2028,6 +2164,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         applySearchSwitcherUIFromStoredDefault();
                     } catch (_) {}
+                    try {
+                        applySearchInputPlaceholderFromAccessPointSettings(null);
+                    } catch (_) {}
                 });
             } else if (e.data?.type === 'clear-local-storage-key' && typeof e.data.key === 'string') {
                 /* Opaque `file://` iframes keep their own `localStorage`; parent reset clears top only — clear here too. */
@@ -2040,6 +2179,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     applySearchSwitcherUIFromStoredDefault();
                 }
+            } else if (e.data?.type === 'refresh-search-access-point-placeholder') {
+                const keys = e.data.keys;
+                if (keys && typeof keys === 'object') {
+                    try {
+                        for (const k of SEARCH_ACCESS_POINT_SETTING_KEYS) {
+                            if (!Object.prototype.hasOwnProperty.call(keys, k)) continue;
+                            const v = keys[k];
+                            if (v == null || v === '') {
+                                try {
+                                    localStorage.removeItem(k);
+                                } catch (_) {}
+                            } else {
+                                try {
+                                    localStorage.setItem(k, String(v));
+                                } catch (_) {}
+                            }
+                        }
+                    } catch (_) {}
+                }
+                try {
+                    applySearchInputPlaceholderFromAccessPointSettings(null);
+                } catch (_) {}
             }
         });
         const reportAddressbarHeight = () => {
@@ -2160,6 +2321,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (standaloneIframe) sendViewportToIframe(standaloneIframe);
             if (iframe) pushDefaultSearchEngineKeysToIframe(iframe.contentWindow);
             if (standaloneIframe) pushDefaultSearchEngineKeysToIframe(standaloneIframe.contentWindow);
+            const placeholderKeys = getSearchAccessPointSettingsKeysForMirror();
+            if (iframe) {
+                try {
+                    iframe.contentWindow?.postMessage(
+                        { type: 'refresh-search-access-point-placeholder', keys: placeholderKeys },
+                        '*'
+                    );
+                } catch (_) {}
+            }
+            if (standaloneIframe) {
+                try {
+                    standaloneIframe.contentWindow?.postMessage(
+                        { type: 'refresh-search-access-point-placeholder', keys: placeholderKeys },
+                        '*'
+                    );
+                } catch (_) {}
+            }
         };
 
         if (iframe) {
@@ -2171,10 +2349,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
             const updateIframeSize = () => {
-                const w = Math.min(window.innerWidth * 0.62, 620);
-                iframe.style.width = w + 'px';
+                const addressbarW = Math.max(0, Math.min(window.innerWidth * 0.93, 930) - 160);
+                iframe.style.width = addressbarW + 'px';
                 if (standaloneIframe) {
-                    standaloneIframe.style.width = Math.round(w / 2) + 'px';
+                    const standaloneW = Math.min(window.innerWidth * 0.62, 620);
+                    standaloneIframe.style.width = Math.round(standaloneW / 2) + 'px';
                 }
             };
             const setHeight = (e) => {
@@ -2663,6 +2842,37 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshPinnedRightSwitcherPanel();
     }
 
+    /** Close chip dropdown + suggestions + blur; hides the cloned panel but keeps pinned-right mode (reopens on input focus). */
+    function collapseSearchUiPreservingPinned() {
+        if (!searchSwitcherButton) {
+            closeSuggestionsPanel();
+            try {
+                searchInput?.blur?.();
+            } catch (_) {}
+            return;
+        }
+        restoringFocusFromSwitcher = false;
+        closingSwitcherWithoutSuggestions = false;
+        if (searchSwitcherButton.classList.contains('open')) {
+            const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+            beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
+            searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
+            dropdown?.classList.remove('dropdown-revealed');
+            switcherHighlightedIndex = -1;
+            searchSwitcherButton.classList.remove('switcher-suppress-hover');
+            searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+            forceCloseSearchSwitcherSubPanels();
+            searchSwitcherButton.classList.remove('open');
+        } else {
+            forceCloseSearchSwitcherSubPanels();
+        }
+        autoOpenedSwitcherOnFocus = false;
+        closeSuggestionsPanel();
+        try {
+            searchInput?.blur?.();
+        } catch (_) {}
+    }
+
     function applySelectedSearchSource(item) {
         if (!item) return;
         if (item.id === 'quick-buttons-toggle') return;
@@ -2692,13 +2902,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            const preposition = localSources.includes(label) ? 'in' : 'with';
             if (searchInput) {
-                const isAddressbar = document.body.classList.contains('addressbar');
-                const isStandalone = document.body.classList.contains('standalone-search-box');
-                searchInput.placeholder = isAddressbar && !isStandalone
-                    ? 'Search ' + preposition + ' ' + label + ' or enter address'
-                    : 'Search ' + preposition + ' ' + label;
+                applySearchInputPlaceholderFromAccessPointSettings(label);
             }
             // Update "Search with X" hints on existing suggestion items
             const hint = 'Search with ' + label;
@@ -3910,6 +4115,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window._searchEngineDragging) return;
         /* Badge float + placeholder mutate the primary dropdown; re-clone would replace the pinned copy and drop `engines-dragging`. */
         if (window._defaultBadgeDragging) return;
+        /* Show clone when pinned-right mode is on and the search UI is expanded (focused). Outside-click collapse
+         * removes focused and hides the clone without changing pin mode; focusing the input again reopens it. */
         const show =
             document.body.classList.contains('search-engine-list-mode-pinned-right') &&
             searchContainer?.classList.contains('focused');
@@ -4821,6 +5028,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     e.preventDefault();
                     e.stopPropagation();
                 }
+                return;
+            }
+            // Pinned mode: click outside the clone and outside the search pill collapses UI and hides the clone; pin mode stays on so focusing the input reopens the clone.
+            if (
+                document.body.classList.contains('search-engine-list-mode-pinned-right') &&
+                pinnedRightHost &&
+                !pinnedRightHost.hidden &&
+                e.target &&
+                !e.target.closest?.('.search-switcher-pinned-right-host') &&
+                !e.target.closest?.('.search-box-wrapper-outer')
+            ) {
+                collapseSearchUiPreservingPinned();
                 return;
             }
             if (document.body.classList.contains('switcher-outside-search-box-enabled')) {
@@ -6362,6 +6581,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const searchSettingsModal = document.getElementById('search-settings-modal');
     let searchSettingsModalPreviousFocus = null;
+    let searchSettingsModalPanelDrag = { x: 0, y: 0 };
+    const applySearchSettingsModalPanelTransform = () => {
+        const panel = searchSettingsModal?.querySelector('.search-settings-modal-panel');
+        if (!panel) return;
+        if (searchSettingsModalPanelDrag.x === 0 && searchSettingsModalPanelDrag.y === 0) {
+            panel.style.removeProperty('transform');
+        } else {
+            panel.style.transform = `translate(${searchSettingsModalPanelDrag.x}px, ${searchSettingsModalPanelDrag.y}px)`;
+        }
+    };
     const onSearchSettingsModalKeydown = (e) => {
         if (e.key === 'Escape' && searchSettingsModal && !searchSettingsModal.hidden) {
             e.preventDefault();
@@ -6383,6 +6612,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const openSearchSettingsModal = () => {
         if (!searchSettingsModal) return;
+        searchSettingsModalPanelDrag.x = 0;
+        searchSettingsModalPanelDrag.y = 0;
+        applySearchSettingsModalPanelTransform();
         if (window === window.top) {
             try {
                 hideTooltip();
@@ -6428,6 +6660,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 navigatePrivateCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY) === 'true';
             } catch (_) {}
         }
+        const searchAddressBarCbOpen = document.getElementById('search-settings-search-address-bar');
+        if (searchAddressBarCbOpen) {
+            try {
+                searchAddressBarCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY) !== 'false';
+            } catch (_) {}
+        }
         const standaloneToggleOpen = document.getElementById('search-settings-standalone-visibility-toggle');
         if (standaloneToggleOpen) {
             const v = readStandaloneSearchBoxVisibleFromStorage();
@@ -6435,6 +6673,7 @@ document.addEventListener('DOMContentLoaded', () => {
             standaloneToggleOpen.classList.toggle('search-settings-standalone-visibility-toggle--on', v);
         }
         logSearchSettingsOverlayOpened();
+        syncSearchSettingsPlaceholderPreviewFields();
         searchSettingsModalPreviousFocus = document.activeElement;
         searchSettingsModal.hidden = false;
         searchSettingsModal.setAttribute('aria-hidden', 'false');
@@ -6451,6 +6690,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeSearchSettingsModal();
             });
         });
+        const searchSettingsModalHeader = searchSettingsModal.querySelector('.search-settings-modal-header');
+        const searchSettingsModalPanel = searchSettingsModal.querySelector('.search-settings-modal-panel');
+        if (searchSettingsModalHeader && searchSettingsModalPanel) {
+            searchSettingsModalHeader.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0) return;
+                if (e.target.closest('.search-settings-modal-close')) return;
+                e.preventDefault();
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const ox = searchSettingsModalPanelDrag.x;
+                const oy = searchSettingsModalPanelDrag.y;
+                searchSettingsModalHeader.setPointerCapture(e.pointerId);
+                searchSettingsModalHeader.classList.add('search-settings-modal-header--dragging');
+                const onMove = (ev) => {
+                    searchSettingsModalPanelDrag.x = ox + (ev.clientX - startX);
+                    searchSettingsModalPanelDrag.y = oy + (ev.clientY - startY);
+                    applySearchSettingsModalPanelTransform();
+                };
+                const onUp = (ev) => {
+                    searchSettingsModalHeader.classList.remove('search-settings-modal-header--dragging');
+                    try {
+                        searchSettingsModalHeader.releasePointerCapture(ev.pointerId);
+                    } catch (_) {}
+                    searchSettingsModalHeader.removeEventListener('pointermove', onMove);
+                    searchSettingsModalHeader.removeEventListener('pointerup', onUp);
+                    searchSettingsModalHeader.removeEventListener('pointercancel', onUp);
+                };
+                searchSettingsModalHeader.addEventListener('pointermove', onMove);
+                searchSettingsModalHeader.addEventListener('pointerup', onUp);
+                searchSettingsModalHeader.addEventListener('pointercancel', onUp);
+            });
+        }
         const selAddr = document.getElementById('search-settings-default-engine-address-bar');
         const selMain = document.getElementById('search-settings-default-engine-new-tab');
         const selStandalone = document.getElementById('search-settings-default-engine-standalone');
@@ -6485,6 +6756,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 logSearchSettingsEngineSelectChanged('Address bar', v);
                 mirrorKeyToIframe(addressbarIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR, v);
                 postRefreshSearchSwitcherToIframe(addressbarIframeForSettings?.contentWindow, oldAddrEff);
+                syncSearchSettingsPlaceholderPreviewFields();
+                broadcastSearchAccessPointPlaceholderRefresh();
             });
         }
         if (selMain) {
@@ -6503,6 +6776,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 mirrorKeyToIframe(standaloneIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
                 postRefreshSearchSwitcherToIframe(addressbarIframeForSettings?.contentWindow, oldAddrEff);
                 postRefreshSearchSwitcherToIframe(standaloneIframeForSettings?.contentWindow, oldStandEff);
+                syncSearchSettingsPlaceholderPreviewFields();
+                broadcastSearchAccessPointPlaceholderRefresh();
             });
         }
         if (selStandalone) {
@@ -6516,6 +6791,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 logSearchSettingsEngineSelectChanged('Standalone search box', v);
                 mirrorKeyToIframe(standaloneIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, v);
                 postRefreshSearchSwitcherToIframe(standaloneIframeForSettings?.contentWindow, oldStandEff);
+                syncSearchSettingsPlaceholderPreviewFields();
+                broadcastSearchAccessPointPlaceholderRefresh();
+            });
+        }
+        const selPrivate = document.getElementById('search-settings-default-engine-private');
+        if (selPrivate) {
+            selPrivate.addEventListener('change', () => {
+                syncSearchSettingsPlaceholderPreviewFields();
             });
         }
         const navigateNewTabCb = document.getElementById('search-settings-navigate-new-tab');
@@ -6531,6 +6814,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
                 } catch (_) {}
                 applySwitcherFromFirefoxSectionVisibility();
+                syncSearchSettingsPlaceholderPreviewFields();
+                broadcastSearchAccessPointPlaceholderRefresh();
             });
         }
         const navigatePrivateCb = document.getElementById('search-settings-navigate-private');
@@ -6545,6 +6830,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         navigatePrivateCb.checked ? 'true' : 'false'
                     );
                 } catch (_) {}
+                syncSearchSettingsPlaceholderPreviewFields();
+                broadcastSearchAccessPointPlaceholderRefresh();
+            });
+        }
+        const searchAddressBarCb = document.getElementById('search-settings-search-address-bar');
+        if (searchAddressBarCb) {
+            try {
+                searchAddressBarCb.checked = localStorage.getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY) !== 'false';
+            } catch (_) {}
+            searchAddressBarCb.addEventListener('change', () => {
+                try {
+                    localStorage.setItem(
+                        SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY,
+                        searchAddressBarCb.checked ? 'true' : 'false'
+                    );
+                } catch (_) {}
+                syncSearchSettingsPlaceholderPreviewFields();
+                broadcastSearchAccessPointPlaceholderRefresh();
             });
         }
         applySwitcherFromFirefoxSectionVisibility();
@@ -6565,8 +6868,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    const addressbarPuzzleButton = document.getElementById('addressbar-toolbar-puzzle-button');
+    if (addressbarPuzzleButton && searchSettingsModal) {
+        addressbarPuzzleButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openSearchSettingsModal();
+        });
+    }
     window.addEventListener('storage', (e) => {
         if (e.storageArea !== localStorage) return;
+        if (
+            e.key === SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY ||
+            e.key === SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY ||
+            e.key === SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY
+        ) {
+            try {
+                applySearchInputPlaceholderFromAccessPointSettings(null);
+            } catch (_) {}
+            syncSearchSettingsPlaceholderPreviewFields();
+            broadcastSearchAccessPointPlaceholderRefresh();
+            return;
+        }
         if (
             e.key !== DEFAULT_SEARCH_ENGINE_KEY_MAIN &&
             e.key !== DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR &&
@@ -6599,12 +6922,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     e.source?.postMessage?.({ type: 'mirror-default-search-engine', key, value }, '*');
                 } catch (_) {}
+                try {
+                    e.source?.postMessage?.(
+                        {
+                            type: 'refresh-search-access-point-placeholder',
+                            keys: getSearchAccessPointSettingsKeysForMirror(),
+                        },
+                        '*'
+                    );
+                } catch (_) {}
                 return;
             }
             if (e.data?.type === 'default-search-engine-changed') {
                 // Same-origin iframes; do not rely on e.source === iframe.contentWindow (timing can fail).
                 if (e.origin === window.location.origin || e.origin === 'null') {
                     syncSearchSettingsDefaultEngineSelects();
+                    syncSearchSettingsPlaceholderPreviewFields();
+                    broadcastSearchAccessPointPlaceholderRefresh();
                 }
                 return;
             }
@@ -8276,6 +8610,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         SEARCH_ENGINE_ORDER_KEY,
                         SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
                         SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY,
+                        SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY,
                         FIREFOX_SUGGESTIONS_ENABLED_KEY,
                         'inspectSuggestions'
                     ];
@@ -9008,4 +9343,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    try {
+        applySearchInputPlaceholderFromAccessPointSettings(null);
+    } catch (_) {}
 });

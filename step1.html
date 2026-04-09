@@ -9,16 +9,56 @@
     <script src="suggestion-words.js"></script>
 </head>
 <body>
+    <div class="window-chrome-tab-strip" aria-hidden="true">
+        <div class="window-chrome-tab-strip-inner">
+            <div class="window-chrome-traffic-lights" role="presentation">
+                <span class="window-chrome-traffic-light window-chrome-traffic-light--close"></span>
+                <span class="window-chrome-traffic-light window-chrome-traffic-light--minimize"></span>
+                <span class="window-chrome-traffic-light window-chrome-traffic-light--zoom"></span>
+            </div>
+            <div class="window-chrome-tab-strip-sep" aria-hidden="true"></div>
+            <div class="window-chrome-tabs" role="presentation">
+                <div class="window-chrome-tab">
+                    <img src="favicons/Wikipedia.svg" alt="" class="window-chrome-tab-favicon" width="16" height="16">
+                    <span class="window-chrome-tab-label">Wikipedia</span>
+                    <span class="window-chrome-tab-close" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M2.5 2.5L7.5 7.5M7.5 2.5L2.5 7.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                </div>
+                <div class="window-chrome-tab window-chrome-tab--new">
+                    <img src="icons/Firefox.svg" alt="" class="window-chrome-tab-favicon" width="16" height="16">
+                    <span class="window-chrome-tab-label">New Tab</span>
+                    <span class="window-chrome-tab-close" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M2.5 2.5L7.5 7.5M7.5 2.5L2.5 7.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                </div>
+                <span class="window-chrome-tabs-plus" role="presentation">
+                    <svg class="window-chrome-tabs-plus-icon" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M7 1.75v10.5M1.75 7h10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                <span class="window-chrome-tabs-chevron" role="presentation">
+                    <svg class="window-chrome-tabs-chevron-icon" width="12" height="11" viewBox="0 0 12 11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M1.2 3.35L6 8.35L10.8 3.35" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+            </div>
+        </div>
+    </div>
     <div class="addressbar-band" aria-hidden="true"></div>
     <div class="addressbar-area">
         <iframe src="step1-addressbar.html" class="addressbar-iframe" title="Address bar" tabindex="-1"></iframe>
         <iframe src="step1-standalonesearchbox.html" class="standalone-search-box-iframe" title="Standalone search box" tabindex="-1"></iframe>
         <div class="addressbar-toolbar-icons">
             <button type="button" class="addressbar-toolbar-icon" aria-label="Account" title="Account" tabindex="-1">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9" r="2.5"/><path d="M6.5 19.5c.6-2 2.4-3.5 5-3.5s4.4 1.5 5 3.5"/></svg>
+                <img src="icons/person.svg" alt="" width="17" height="17">
             </button>
-            <button type="button" class="addressbar-toolbar-icon" aria-label="Extensions" title="Extensions" tabindex="-1">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 8c-.971 0-1 1-1.75 1a.765.765 0 0 1-.75-.75V5a1 1 0 0 0-1-1H7.75A.765.765 0 0 1 7 3.25c0-.75 1-.779 1-1.75C8 .635 7.1 0 6 0S4 .635 4 1.5c0 .971 1 1 1 1.75a.765.765 0 0 1-.75.75H1a1 1 0 0 0-1 1v2.25A.765.765 0 0 0 .75 8c.75 0 .779-1 1.75-1C3.365 7 4 7.9 4 9s-.635 2-1.5 2c-.971 0-1-1-1.75-1a.765.765 0 0 0-.75.75V15a1 1 0 0 0 1 1h3.25a.765.765 0 0 0 .75-.75c0-.75-1-.779-1-1.75 0-.865.9-1.5 2-1.5s2 .635 2 1.5c0 .971-1 1-1 1.75a.765.765 0 0 0 .75.75H11a1 1 0 0 0 1-1v-3.25a.765.765 0 0 1 .75-.75c.75 0 .779 1 1.75 1 .865 0 1.5-.9 1.5-2s-.635-2-1.5-2z"/></svg>
+            <button type="button" id="addressbar-toolbar-puzzle-button" class="addressbar-toolbar-icon" aria-label="Search settings" title="Search settings" tabindex="-1">
+                <img src="icons/puzzle.svg" alt="" width="17" height="17">
             </button>
             <button type="button" class="addressbar-toolbar-icon" aria-label="Menu" title="Menu" tabindex="-1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 6.912h16.5"/><path d="M3.75 13.412h16.5"/><path d="M3.75 19.912h16.5"/></svg>
@@ -397,6 +437,7 @@
                             <th scope="col">Navigate</th>
                             <th scope="col">Search</th>
                             <th scope="col">Default search engine</th>
+                            <th scope="col">Placeholder preview</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -406,7 +447,7 @@
                                 <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
                             </td>
                             <td class="search-settings-cell">
-                                <input type="checkbox" class="search-settings-cell-checkbox" checked aria-label="Search, Address bar">
+                                <input type="checkbox" id="search-settings-search-address-bar" class="search-settings-cell-checkbox" checked aria-label="Search, Address bar">
                             </td>
                             <td class="search-settings-cell search-settings-cell--engine-select">
                                 <select id="search-settings-default-engine-address-bar" class="search-settings-engine-select" aria-label="Default search engine, Address bar">
@@ -423,6 +464,16 @@
                                     <option value="Wikipedia (en)">Wikipedia (en)</option>
                                     <option value="YouTube">YouTube</option>
                                 </select>
+                            </td>
+                            <td class="search-settings-cell search-settings-cell--placeholder-preview">
+                                <input
+                                    type="text"
+                                    id="search-settings-placeholder-preview-address-bar"
+                                    class="search-settings-placeholder-preview"
+                                    readonly
+                                    tabindex="-1"
+                                    aria-label="Placeholder preview, Address bar"
+                                />
                             </td>
                         </tr>
                         <tr>
@@ -460,6 +511,16 @@
                                     <option value="Wikipedia (en)">Wikipedia (en)</option>
                                     <option value="YouTube">YouTube</option>
                                 </select>
+                            </td>
+                            <td class="search-settings-cell search-settings-cell--placeholder-preview">
+                                <input
+                                    type="text"
+                                    id="search-settings-placeholder-preview-new-tab"
+                                    class="search-settings-placeholder-preview"
+                                    readonly
+                                    tabindex="-1"
+                                    aria-label="Placeholder preview, New Tab / Homepage"
+                                />
                             </td>
                         </tr>
                         <tr>
@@ -502,6 +563,16 @@
                                     <option value="YouTube">YouTube</option>
                                 </select>
                             </td>
+                            <td class="search-settings-cell search-settings-cell--placeholder-preview">
+                                <input
+                                    type="text"
+                                    id="search-settings-placeholder-preview-standalone"
+                                    class="search-settings-placeholder-preview"
+                                    readonly
+                                    tabindex="-1"
+                                    aria-label="Placeholder preview, Standalone search box"
+                                />
+                            </td>
                         </tr>
                         <tr>
                             <th scope="row">Private window</th>
@@ -526,6 +597,16 @@
                                     <option value="Wikipedia (en)">Wikipedia (en)</option>
                                     <option value="YouTube">YouTube</option>
                                 </select>
+                            </td>
+                            <td class="search-settings-cell search-settings-cell--placeholder-preview">
+                                <input
+                                    type="text"
+                                    id="search-settings-placeholder-preview-private"
+                                    class="search-settings-placeholder-preview"
+                                    readonly
+                                    tabindex="-1"
+                                    aria-label="Placeholder preview, Private window"
+                                />
                             </td>
                         </tr>
                     </tbody>
