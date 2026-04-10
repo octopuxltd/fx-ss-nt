@@ -18,6 +18,7 @@
         (function () {
             const BLACK20 = 'rgba(0, 0, 0, 0.2)';
             const DEF = '#BBA0FF';
+            const savedBg = localStorage.getItem('background_swatch');
             function canon(raw) {
                 const t = (raw || '').trim();
                 if (!t) return null;
@@ -30,7 +31,17 @@
             }
             let c = canon(localStorage.getItem('search_border_color'));
             if (!c && localStorage.getItem('gradient_search_border_enabled') === 'false') c = BLACK20;
-            if (!c) c = DEF;
+            if (!c) {
+                const bgKey =
+                    savedBg === 'gradient'
+                        ? 'gradient'
+                        : savedBg === 'grey' || savedBg === 'beige' || savedBg === 'blue'
+                          ? savedBg
+                          : 'blue';
+                if (bgKey === 'gradient' || bgKey === 'grey') c = BLACK20;
+                else if (bgKey === 'beige') c = '#FF8D5B';
+                else c = DEF;
+            }
             document.documentElement.style.setProperty('--search-border-ring-color', c);
         })();
         document.addEventListener('DOMContentLoaded', function () {
@@ -273,6 +284,7 @@
             </div>
         </div>
     </div>
+        <div class="addressbar-trailing-rect" aria-hidden="true"></div>
     </div>
 
     <script src="step1.js"></script>

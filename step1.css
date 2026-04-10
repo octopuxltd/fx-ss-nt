@@ -33,6 +33,8 @@
     /* Representative page hue for gradient wallpaper (slightly deeper so 50/50 mix with white reads tinted, not paper white). */
     --page-bg-solid: #9eb0cc;
     --window-chrome-tab-strip-height: 48px;
+    /* Extra horizontal space between standalone search field and toolbar icons; keep in sync with step1.js STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX */
+    --standalone-search-toolbar-extra-gap: 90px;
 }
 
 * {
@@ -220,11 +222,25 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     width: 28px;
     height: 32px;
     margin-left: auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: inherit;
     color: #000000;
-    cursor: default;
+    cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
     border-radius: 6px;
+}
+
+.window-chrome-tabs-chevron:focus-visible {
+    outline: 2px solid #0060df;
+    outline-offset: 2px;
+}
+
+body.prototype-iframe-debug-borders .window-chrome-tabs-chevron[aria-pressed='true'] {
+    background-color: rgba(0, 96, 223, 0.12);
+    color: #003070;
 }
 
 .window-chrome-tabs-chevron:hover {
@@ -329,9 +345,7 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     z-index: 1;
 }
 
-/* Toolbar icons are position:absolute so they stay in the top chrome row when the address bar
- * iframe height grows (suggestions). Flex align-items:flex-start alone is unreliable across
- * engines for iframe flex items; reserved padding-right matches former gap + icon strip width. */
+/* Toolbar icons (account / search settings / menu) live inside the standalone search iframe; no right padding here. */
 .addressbar-area {
     --addressbar-toolbar-icons-slot: calc(12px + 3 * 35px + 2 * 5px);
     display: flex;
@@ -341,9 +355,9 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     position: fixed;
     top: calc(var(--window-chrome-tab-strip-height, 48px) + 2px);
     left: 20px;
-    right: 20px;
+    right: 0;
     margin: 0;
-    padding-right: var(--addressbar-toolbar-icons-slot);
+    padding-right: 0;
     /* Above .search-container (z-index: 1) so address bar / standalone iframe switcher dropdowns paint over the main search when they overlap. */
     z-index: 5;
     /* Let address bar iframe paint suggestions below its fixed height without clipping by this flex row */
@@ -370,24 +384,37 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     height: 45px; /* Set by JS from iframe content; fallback until loaded */
     border: none;
     margin: 0;
+    box-sizing: border-box;
+    box-shadow: none;
     overflow: visible;
 }
 
-.standalone-search-box-iframe {
-    display: none;
-    width: 310px;
-    max-width: 31vw;
-    height: 200px;
-    border: none;
-    flex-shrink: 0;
-    margin-left: auto;
-    align-self: flex-start;
-    /* Shift left from auto-right edge (was -5px; additional 80px left per layout request) */
-    transform: translateX(-85px);
+/* Prototype: tab-strip chevron toggles body.prototype-iframe-debug-borders.
+   Inset box-shadow = inner stroke only; does not change layout or shrink the iframe viewport like border does. */
+body.prototype-iframe-debug-borders .addressbar-iframe-anchor .addressbar-iframe {
+    box-shadow: inset 0 0 0 2px #0060df;
 }
 
-body.standalone-search-box-visible .standalone-search-box-iframe {
+/* Always shown: toolbar icons stay in the iframe; search field uses .search-container.standalone-search-field-hidden in the iframe. */
+.standalone-search-box-iframe {
     display: block;
+    min-width: calc(var(--addressbar-toolbar-icons-slot) + 8px + 5px);
+    /* Fallback until JS sets width (full vs icons-only); +5px matches padding-right */
+    width: calc(310px + var(--addressbar-toolbar-icons-slot) + var(--standalone-search-toolbar-extra-gap) + 5px);
+    max-width: calc(31vw + var(--addressbar-toolbar-icons-slot) + var(--standalone-search-toolbar-extra-gap) + 5px);
+    height: 200px;
+    border: none;
+    box-sizing: border-box;
+    box-shadow: none;
+    flex-shrink: 0;
+    margin-left: auto;
+    margin-right: 0;
+    padding-right: 5px;
+    align-self: flex-start;
+}
+
+body.prototype-iframe-debug-borders .standalone-search-box-iframe {
+    box-shadow: inset 0 0 0 2px #d97b00;
 }
 
 /* Prototype: hide tab strip + full address bar row (grey band, iframes, toolbar icons). Toggle or ?chrome=0 */
@@ -404,7 +431,9 @@ body.browser-chrome-hidden .addressbar-area {
     display: none;
 }
 
-.addressbar-toolbar-icons {
+/* Main page / other surfaces: .addressbar-toolbar-* — standalone iframe uses .standalone-search-box-toolbar* (same visuals). */
+.addressbar-toolbar-icons,
+.standalone-search-box-toolbar {
     position: absolute;
     top: 0;
     right: 0;
@@ -417,7 +446,8 @@ body.browser-chrome-hidden .addressbar-area {
     height: 39px;
 }
 
-.addressbar-toolbar-icon {
+.addressbar-toolbar-icon,
+.standalone-search-box-toolbar-icon {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -432,15 +462,18 @@ body.browser-chrome-hidden .addressbar-area {
     flex-shrink: 0;
 }
 
-.addressbar-toolbar-icon:hover {
+.addressbar-toolbar-icon:hover,
+.standalone-search-box-toolbar-icon:hover {
     background-color: rgba(0, 0, 0, 0.05);
 }
 
-.addressbar-toolbar-icon {
+.addressbar-toolbar-icon,
+.standalone-search-box-toolbar-icon {
     color: rgba(0, 0, 0, 0.6);
 }
 
-.addressbar-toolbar-icon svg {
+.addressbar-toolbar-icon svg,
+.standalone-search-box-toolbar-icon svg {
     /* Slightly under iframe nav glyphs (17×1.2) so stroke icons match reload/back weight */
     width: 17px;
     height: 17px;
@@ -448,12 +481,14 @@ body.browser-chrome-hidden .addressbar-area {
     fill: none;
 }
 
-.addressbar-toolbar-icon svg[fill="currentColor"] {
+.addressbar-toolbar-icon svg[fill="currentColor"],
+.standalone-search-box-toolbar-icon svg[fill="currentColor"] {
     fill: currentColor;
     stroke: none;
 }
 
-.addressbar-toolbar-icon img {
+.addressbar-toolbar-icon img,
+.standalone-search-box-toolbar-icon img {
     width: 17px;
     height: 17px;
     display: block;
@@ -465,7 +500,8 @@ body:not(.search-border-radius-large) {
     --switcher-button-radius: 7px;
 }
 
-body:not(.search-border-radius-large) .addressbar-toolbar-icon {
+body:not(.search-border-radius-large) .addressbar-toolbar-icon,
+body:not(.search-border-radius-large) .standalone-search-box-toolbar-icon {
     border-radius: 9px;
 }
 
@@ -4171,18 +4207,26 @@ body.reduced-motion .bottom-left-panel-content {
     color: rgba(255, 255, 255, 0.9);
 }
 
+.prototype-visuals-trailing {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
 .background-swatches {
     display: flex;
     gap: 6px;
-    margin-left: auto;
     justify-content: flex-end;
 }
 
 .background-swatch {
+    box-sizing: border-box;
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    border: none;
+    border: 2px solid rgba(0, 0, 0, 0.2);
     outline: none;
     padding: 0;
     cursor: pointer;
@@ -4204,49 +4248,22 @@ body.reduced-motion .bottom-left-panel-content {
 
 .background-swatch[data-background="gradient"] {
     background: linear-gradient(135deg, #E06BA8 0%, #9B6BCC 40%, #6B4C9E 70%, #4A3572 100%);
+    border-color: rgba(0, 0, 0, 0.2);
 }
 
 .background-swatch[data-background="grey"] {
     background-color: #D1D5DB;
+    border-color: rgba(0, 0, 0, 0.2);
 }
 
 .background-swatch[data-background="blue"] {
     background-color: #E0F2FB;
+    border-color: #BBA0FF;
 }
 
 .background-swatch[data-background="beige"] {
     background-color: #F0E6D8;
-}
-
-.search-border-swatches-control {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    width: 100%;
-    flex-wrap: wrap;
-}
-
-.search-border-swatches-label {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.9);
-}
-
-.search-border-options-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: flex-end;
-    margin-left: auto;
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.search-border-swatches {
-    display: flex;
-    gap: 6px;
-    justify-content: flex-end;
+    border-color: #FF8D5B;
 }
 
 .search-border-radius-swatches {
@@ -4254,7 +4271,7 @@ body.reduced-motion .bottom-left-panel-content {
     gap: 6px;
     align-items: center;
     justify-content: flex-end;
-    margin-left: 28px;
+    margin-left: 0;
 }
 
 .search-border-radius-swatch {
@@ -4300,43 +4317,6 @@ body.reduced-motion .bottom-left-panel-content {
     height: 13px;
     background: rgba(255, 255, 255, 0.88);
     border-radius: 10px 0 0 0;
-}
-
-.search-border-swatch {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: none;
-    outline: none;
-    padding: 0;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: transform 0.15s;
-}
-
-.search-border-swatch:hover {
-    transform: scale(1.1);
-}
-
-.search-border-swatch:focus {
-    outline: none;
-}
-
-.search-border-swatch[aria-pressed="true"] {
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
-}
-
-.search-border-swatch[data-border-color="#BBA0FF"] {
-    background-color: #BBA0FF;
-}
-
-.search-border-swatch[data-border-color="#FF8D5B"] {
-    background-color: #FF8D5B;
-}
-
-.search-border-swatch-black-20 {
-    background-color: rgba(0, 0, 0, 0.2);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 }
 
 /* Hide pin UI when pin-default flag is off */

@@ -18,6 +18,7 @@
         (function () {
             const BLACK20 = 'rgba(0, 0, 0, 0.2)';
             const DEF = '#BBA0FF';
+            const savedBg = localStorage.getItem('background_swatch');
             function canon(raw) {
                 const t = (raw || '').trim();
                 if (!t) return null;
@@ -30,10 +31,25 @@
             }
             let c = canon(localStorage.getItem('search_border_color'));
             if (!c && localStorage.getItem('gradient_search_border_enabled') === 'false') c = BLACK20;
-            if (!c) c = DEF;
+            if (!c) {
+                const bgKey =
+                    savedBg === 'gradient'
+                        ? 'gradient'
+                        : savedBg === 'grey' || savedBg === 'beige' || savedBg === 'blue'
+                          ? savedBg
+                          : 'blue';
+                if (bgKey === 'gradient' || bgKey === 'grey') c = BLACK20;
+                else if (bgKey === 'beige') c = '#FF8D5B';
+                else c = DEF;
+            }
             document.documentElement.style.setProperty('--search-border-ring-color', c);
         })();
         document.addEventListener('DOMContentLoaded', function () {
+            try {
+                if (localStorage.getItem('standalone_search_box_visible') !== 'true') {
+                    document.querySelector('.search-container')?.classList.add('standalone-search-field-hidden');
+                }
+            } catch (e) {}
             if (localStorage.getItem('search_engines_display:standalone') === 'grid') {
                 document
                     .querySelector('.search-switcher-button .search-switcher-dropdown')
@@ -241,6 +257,17 @@
         <div class="search-switcher-pinned-right-host" hidden aria-hidden="true"></div>
         </div>
     </div>
+        <div class="standalone-search-box-toolbar" role="toolbar" aria-label="Standalone search toolbar">
+            <button type="button" class="standalone-search-box-toolbar-icon" aria-label="Account" title="Account" tabindex="-1">
+                <img src="icons/person.svg" alt="" width="17" height="17">
+            </button>
+            <button type="button" id="standalone-search-box-toolbar-search-settings-button" class="standalone-search-box-toolbar-icon" aria-label="Search settings" title="Search settings" tabindex="-1">
+                <img src="icons/puzzle.svg" alt="" width="17" height="17">
+            </button>
+            <button type="button" class="standalone-search-box-toolbar-icon" aria-label="Menu" title="Menu" tabindex="-1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 6.912h16.5"/><path d="M3.75 13.412h16.5"/><path d="M3.75 19.912h16.5"/></svg>
+            </button>
+        </div>
     </div>
 
     <script src="step1.js"></script>

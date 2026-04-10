@@ -1510,12 +1510,31 @@ function readStandaloneSearchBoxVisibleFromStorage() {
     }
 }
 
-/** Prototype: show/hide standalone iframe + persist + sync Search settings switch UI. */
+/**
+ * Same-origin only: toggle `.standalone-search-field-hidden` on the iframe’s `.search-container` synchronously.
+ * `postMessage` runs too late relative to `resize` (which narrows the iframe), which caused one frame of
+ * “full search row squeezed into icons-only width” (pill/switcher over toolbar, icons shoved off-screen).
+ */
+function syncStandaloneSearchFieldHiddenInIframeDocument(standaloneIframe, visible) {
+    if (!standaloneIframe) return false;
+    try {
+        const doc = standaloneIframe.contentDocument || standaloneIframe.contentWindow?.document;
+        const c = doc?.querySelector('.search-container');
+        if (!c) return false;
+        if (visible) {
+            c.classList.remove('standalone-search-field-hidden');
+        } else {
+            c.classList.add('standalone-search-field-hidden');
+        }
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+/** Prototype: show/hide standalone search field inside its iframe (iframe + toolbar icons stay); persist + sync UI. */
 function applyStandaloneSearchBoxPrototypeVisibility(visible) {
     const on = !!visible;
-    if (typeof document !== 'undefined' && document.body) {
-        document.body.classList.toggle('standalone-search-box-visible', on);
-    }
     try {
         localStorage.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, on ? 'true' : 'false');
     } catch (_) {}
@@ -1524,6 +1543,73 @@ function applyStandaloneSearchBoxPrototypeVisibility(visible) {
         toggle.setAttribute('aria-checked', on ? 'true' : 'false');
         toggle.classList.toggle('search-settings-standalone-visibility-toggle--on', on);
     }
+    const standaloneIframe =
+        typeof document !== 'undefined' && window === window.top
+            ? document.querySelector('.standalone-search-box-iframe')
+            : null;
+    try {
+        standaloneIframe?.classList.toggle('standalone-search-box-iframe--field-hidden', !on);
+    } catch (_) {}
+
+    let resized = false;
+    try {
+        if (typeof window !== 'undefined' && window === window.top && standaloneIframe) {
+            let canSync = false;
+            try {
+                const doc = standaloneIframe.contentDocument || standaloneIframe.contentWindow?.document;
+                canSync = !!doc?.querySelector('.search-container');
+            } catch (_) {
+                canSync = false;
+            }
+            if (on) {
+                /* Show: widen first; reveal on the next frame so layout never runs “narrow + full search”. */
+                window.dispatchEvent(new Event('resize'));
+                resized = true;
+                if (canSync) {
+                    requestAnimationFrame(() => {
+                        syncStandaloneSearchFieldHiddenInIframeDocument(standaloneIframe, true);
+                    });
+                }
+            } else {
+                /* Hide: display:none must commit before the parent narrows the iframe; same-turn resize still
+                 * produced row=131 with search at 0×35 (flex squeeze) before paint. Defer narrow 2 rAFs. */
+                if (canSync) {
+                    syncStandaloneSearchFieldHiddenInIframeDocument(standaloneIframe, false);
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            try {
+                                window.dispatchEvent(new Event('resize'));
+                            } catch (_) {}
+                        });
+                    });
+                } else {
+                    /* No contentDocument: send hide first, then narrow on a later macrotask (not before message runs). */
+                    try {
+                        standaloneIframe.contentWindow?.postMessage(
+                            { type: 'standalone-search-box-visible', visible: false },
+                            '*'
+                        );
+                    } catch (_) {}
+                    window.setTimeout(() => {
+                        try {
+                            window.dispatchEvent(new Event('resize'));
+                        } catch (_) {}
+                    }, 0);
+                }
+                resized = true;
+            }
+        }
+    } catch (_) {}
+    try {
+        if (typeof window !== 'undefined' && window === window.top && !resized) {
+            window.dispatchEvent(new Event('resize'));
+        }
+    } catch (_) {}
+
+    try {
+        /* Duplicate post for !canSync hide is harmless; keeps height sync and other listeners consistent. */
+        standaloneIframe?.contentWindow?.postMessage({ type: 'standalone-search-box-visible', visible: on }, '*');
+    } catch (_) {}
 }
 
 const BACKGROUND_SWATCH_KEY = 'background_swatch';
@@ -1565,8 +1651,89 @@ const SEARCH_BORDER_COLOR_KEY = 'search_border_color';
 /** `'small'` = CSS fallbacks; `'large'` = JS measures elements and fully rounds corners. */
 const SEARCH_BORDER_RADIUS_MODE_KEY = 'search_border_radius_mode';
 const SEARCH_BORDER_COLOR_DEFAULT = '#BBA0FF';
+const SEARCH_BORDER_CORAL = '#FF8D5B';
 const SEARCH_BORDER_BLACK_20 = 'rgba(0, 0, 0, 0.2)';
-const SEARCH_BORDER_COLORS = ['#BBA0FF', '#FF8D5B', SEARCH_BORDER_BLACK_20];
+const SEARCH_BORDER_COLORS = [SEARCH_BORDER_COLOR_DEFAULT, SEARCH_BORDER_CORAL, SEARCH_BORDER_BLACK_20];
+
+/** Prototype background swatch (`data-background`) → default search focus ring colour. */
+function defaultSearchBorderColorForBackgroundSwatch(bg) {
+    if (bg === 'gradient' || bg === 'grey') return SEARCH_BORDER_BLACK_20;
+    if (bg === 'beige') return SEARCH_BORDER_CORAL;
+    return SEARCH_BORDER_COLOR_DEFAULT;
+}
+
+function getCurrentBackgroundSwatchFromStorage() {
+    try {
+        const v = localStorage.getItem(BACKGROUND_SWATCH_KEY);
+        if (v === 'gradient') return 'gradient';
+        if (v === 'grey' || v === 'blue' || v === 'beige') return v;
+    } catch (_) {}
+    return DEFAULT_BACKGROUND_SWATCH;
+}
+
+/** Persist ring colour, update swatch UI, notify iframes (shared by border swatches and background pairing). */
+function persistSearchBorderColorForPrototype(rawColor) {
+    const c = canonicalSearchBorderColor(rawColor);
+    try {
+        localStorage.setItem(SEARCH_BORDER_COLOR_KEY, c);
+    } catch (_) {}
+    applySearchBorderColorVariable(c);
+    document.querySelectorAll('.search-border-swatch').forEach((btn) => {
+        const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
+        btn.setAttribute('aria-pressed', bn === c ? 'true' : 'false');
+    });
+    [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+        .filter(Boolean)
+        .forEach((f) => {
+            try {
+                f.contentWindow?.postMessage({ type: 'search-border-color', color: c }, '*');
+            } catch (_) {}
+        });
+    return c;
+}
+
+/** Order matches prototype Visuals swatches (left → right). */
+const PROTOTYPE_BACKGROUND_SWATCH_ORDER = ['gradient', 'grey', 'blue', 'beige'];
+
+function normalizePrototypeBackgroundKey(raw) {
+    if (raw === 'gradient') return 'gradient';
+    if (raw === 'grey' || raw === 'blue' || raw === 'beige') return raw;
+    return null;
+}
+
+function getCurrentPrototypeBackgroundKey() {
+    try {
+        return normalizePrototypeBackgroundKey(localStorage.getItem(BACKGROUND_SWATCH_KEY)) || DEFAULT_BACKGROUND_SWATCH;
+    } catch (_) {
+        return DEFAULT_BACKGROUND_SWATCH;
+    }
+}
+
+function applyPrototypeBackgroundSwatch(bg) {
+    if (!PROTOTYPE_BACKGROUND_SWATCH_ORDER.includes(bg)) return;
+    try {
+        localStorage.setItem(BACKGROUND_SWATCH_KEY, bg);
+    } catch (_) {}
+    if (bg === 'gradient') {
+        delete document.body.dataset.background;
+    } else {
+        document.body.dataset.background = bg;
+    }
+    const current = document.body.dataset.background || 'gradient';
+    document.querySelectorAll('.background-swatch').forEach((btn) => {
+        btn.setAttribute('aria-pressed', btn.dataset.background === current ? 'true' : 'false');
+    });
+    persistSearchBorderColorForPrototype(defaultSearchBorderColorForBackgroundSwatch(bg));
+}
+
+function cyclePrototypeBackgroundSwatch() {
+    const cur = getCurrentPrototypeBackgroundKey();
+    const i = PROTOTYPE_BACKGROUND_SWATCH_ORDER.indexOf(cur);
+    const idx = i >= 0 ? i : 0;
+    const nextBg = PROTOTYPE_BACKGROUND_SWATCH_ORDER[(idx + 1) % PROTOTYPE_BACKGROUND_SWATCH_ORDER.length];
+    applyPrototypeBackgroundSwatch(nextBg);
+}
+
 /** Matches `step1.html` default order (Google remains `.dropdown-item-pinned`). */
 const DEFAULT_MAIN_PAGE_ENGINE_ORDER = [
     'Amazon', 'Bing', 'DuckDuckGo', 'eBay', 'Ecosia', 'Google',
@@ -1651,7 +1818,7 @@ function getStoredSearchBorderColor() {
     if (localStorage.getItem('gradient_search_border_enabled') === 'false') {
         return SEARCH_BORDER_BLACK_20;
     }
-    return SEARCH_BORDER_COLOR_DEFAULT;
+    return defaultSearchBorderColorForBackgroundSwatch(getCurrentBackgroundSwatchFromStorage());
 }
 
 function applySearchBorderColorVariable(hex) {
@@ -2086,7 +2253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return underlineSearchEnginesEnabled;
     };
 
-    // Address bar iframe: parent sets width (~93% / 930px cap, minus 160px); iframe reports height (including dropdown)
+    // Address bar iframe: parent sets width (~93% / 930px cap, minus 160px, plus trailing slot); iframe reports height (including dropdown)
     if (window !== window.top) {
         window.addEventListener('message', (e) => {
             if (e.data?.type === 'search-border-color') {
@@ -2161,6 +2328,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 }
+            } else if (e.data?.type === 'standalone-search-box-visible') {
+                if (!document.body.classList.contains('standalone-search-box')) return;
+                const standaloneSearchContainer = document.querySelector('.search-container');
+                if (e.data.visible) {
+                    standaloneSearchContainer?.classList.remove('standalone-search-field-hidden');
+                } else {
+                    standaloneSearchContainer?.classList.add('standalone-search-field-hidden');
+                }
+                try {
+                    window.__scheduleAddressbarHeightReport?.();
+                } catch (_) {}
             } else if (e.data?.type === 'mirror-default-search-engine') {
                 if (typeof e.data.key === 'string' && typeof e.data.value === 'string') {
                     try {
@@ -2233,6 +2411,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         const reportAddressbarHeight = () => {
+            const standaloneFieldHidden =
+                document.body.classList.contains('standalone-search-box') &&
+                !!document.querySelector('.search-container')?.classList.contains('standalone-search-field-hidden');
+            if (standaloneFieldHidden) {
+                const toolbar = document.querySelector('.standalone-search-box-toolbar');
+                const row = document.querySelector('.addressbar-row');
+                let b = 0;
+                if (toolbar) b = Math.max(b, toolbar.getBoundingClientRect().bottom);
+                if (row) b = Math.max(b, row.getBoundingClientRect().bottom);
+                const h = Math.max(b + 4, 44);
+                window.parent.postMessage(
+                    {
+                        type: 'addressbar-height',
+                        height: h,
+                        pinnedRightChromeOpen: false,
+                    },
+                    '*'
+                );
+                return;
+            }
             const container = document.querySelector('.search-container');
             if (!container) return;
             const rect = container.getBoundingClientRect();
@@ -2255,8 +2453,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            /* Pinned-right clone: position:absolute off .search-container-top-row — does not grow .search-container height. */
+            const pinnedHost = container.querySelector('.search-switcher-pinned-right-host');
+            const pinnedDd =
+                pinnedHost && !pinnedHost.hidden
+                    ? pinnedHost.querySelector('.search-switcher-dropdown.search-switcher-dropdown--pinned-right') ||
+                      pinnedHost.querySelector('.search-switcher-dropdown')
+                    : null;
+            if (pinnedHost && !pinnedHost.hidden) {
+                if (pinnedDd) {
+                    const pinnedRect = pinnedDd.getBoundingClientRect();
+                    const fromScroll = pinnedRect.top + pinnedDd.scrollHeight;
+                    bottom = Math.max(bottom, pinnedRect.bottom, fromScroll);
+                } else {
+                    const hostRect = pinnedHost.getBoundingClientRect();
+                    if (hostRect.height > 0) {
+                        bottom = Math.max(bottom, hostRect.bottom);
+                    }
+                }
+            }
+
             const h = bottom + 4;
-            window.parent.postMessage({ type: 'addressbar-height', height: h }, '*');
+            /* Parent treats chip switcher open as “use viewport” (see switcher-open-state). Pinned column is the same
+             * layout problem (abs positioned) but never toggles .open on the chip — mirror that so the iframe grows. */
+            const pinnedRightChromeOpen = !!(pinnedHost && !pinnedHost.hidden && pinnedDd);
+            window.parent.postMessage(
+                {
+                    type: 'addressbar-height',
+                    height: h,
+                    pinnedRightChromeOpen,
+                },
+                '*'
+            );
         };
         const scheduleHeightReports = () => {
             reportAddressbarHeight();
@@ -2301,12 +2529,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 attributeFilter: ['class']
             });
         }
+        const pinnedHostForHeight = container?.querySelector('.search-switcher-pinned-right-host');
+        if (pinnedHostForHeight) {
+            if (typeof ResizeObserver !== 'undefined') {
+                new ResizeObserver(scheduleHeightReports).observe(pinnedHostForHeight);
+            }
+            new MutationObserver(() => scheduleHeightReports()).observe(pinnedHostForHeight, {
+                attributes: true,
+                attributeFilter: ['hidden', 'class'],
+                childList: true,
+                subtree: true
+            });
+        }
+        window.__scheduleAddressbarHeightReport = scheduleHeightReports;
     } else {
         const iframe = document.querySelector('.addressbar-iframe');
         const standaloneIframe = document.querySelector('.standalone-search-box-iframe');
         const iframes = [iframe, standaloneIframe].filter(Boolean);
         let addressbarSwitcherOpen = false;
+        let addressbarPinnedRightOpen = false;
         let standaloneSwitcherOpen = false;
+        let standalonePinnedRightOpen = false;
         let lastAddressbarReportedHeight = null;
         let lastStandaloneReportedHeight = null;
 
@@ -2366,12 +2609,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         '*'
                     );
                 } catch (_) {}
+                try {
+                    standaloneIframe.contentWindow?.postMessage(
+                        {
+                            type: 'standalone-search-box-visible',
+                            visible: readStandaloneSearchBoxVisibleFromStorage(),
+                        },
+                        '*'
+                    );
+                } catch (_) {}
             }
         };
 
         if (iframe) {
             /* Ignore collapsed / not-yet-laid-out measurements (e.g. address bar display:none while ?chrome=0). */
             const MIN_ADDRESSBAR_IFRAME_HEIGHT = 36;
+            /* Must match `.addressbar-trailing-rect` width in step1-addressbar.css */
+            const ADDRESSBAR_TRAILING_RECT_WIDTH_PX = 230;
+            const ADDRESSBAR_IFRAME_NARROWER_PX = 115;
             /* Toolbar row + .addressbar-band height are fixed in CSS (45px); iframe height still grows for suggestions. */
             const remeasureAddressbarBandFromIframe = () => {
                 try {
@@ -2391,39 +2646,63 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             window.__prototypeRemeasureAddressbarBand = remeasureAddressbarBandFromIframe;
             const updateIframeSize = () => {
-                const addressbarW = Math.max(0, Math.min(window.innerWidth * 0.93, 930) - 160);
+                const addressbarW = Math.max(
+                    0,
+                    Math.min(window.innerWidth * 0.93, 930) -
+                        160 +
+                        ADDRESSBAR_TRAILING_RECT_WIDTH_PX -
+                        ADDRESSBAR_IFRAME_NARROWER_PX
+                );
                 iframe.style.width = addressbarW + 'px';
                 if (standaloneIframe) {
                     const standaloneW = Math.min(window.innerWidth * 0.62, 620);
-                    standaloneIframe.style.width = Math.round(standaloneW / 2) + 'px';
+                    /* Match step1.css --addressbar-toolbar-icons-slot: 12 + 3*35 + 2*5 */
+                    const standaloneToolbarIconsSlotPx = 12 + 3 * 35 + 2 * 5;
+                    /* Match :root --standalone-search-toolbar-extra-gap in step1.css */
+                    const STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX = 90;
+                    /* Match .standalone-search-box-iframe padding-right in step1.css */
+                    const STANDALONE_IFRAME_PADDING_RIGHT_PX = 5;
+                    if (readStandaloneSearchBoxVisibleFromStorage()) {
+                        standaloneIframe.style.width =
+                            Math.round(standaloneW / 2) +
+                            standaloneToolbarIconsSlotPx +
+                            STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX +
+                            STANDALONE_IFRAME_PADDING_RIGHT_PX +
+                            'px';
+                    } else {
+                        standaloneIframe.style.width =
+                            standaloneToolbarIconsSlotPx + 8 + STANDALONE_IFRAME_PADDING_RIGHT_PX + 'px';
+                    }
                 }
             };
             const setHeight = (e) => {
                 if (e.data?.type === 'addressbar-height' && typeof e.data.height === 'number') {
                     let h = e.data.height;
                     if (e.source === iframe.contentWindow) {
+                        addressbarPinnedRightOpen = !!e.data.pinnedRightChromeOpen;
                         lastAddressbarReportedHeight = h;
                         // Clamp to viewport bottom (top window knows its own viewport).
                         try {
                             const r = iframe.getBoundingClientRect();
                             const bottomPadding = 8;
                             const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
-                            if (addressbarSwitcherOpen) {
+                            if (addressbarSwitcherOpen || addressbarPinnedRightOpen) {
                                 h = maxAllowed;
                             } else {
                                 h = Math.min(h, maxAllowed);
                             }
                         } catch (_) {}
-                        if (addressbarSwitcherOpen || h >= MIN_ADDRESSBAR_IFRAME_HEIGHT) {
+                        if (addressbarSwitcherOpen || addressbarPinnedRightOpen || h >= MIN_ADDRESSBAR_IFRAME_HEIGHT) {
                             iframe.style.height = h + 'px';
                         }
                     } else if (standaloneIframe && e.source === standaloneIframe.contentWindow) {
+                        standalonePinnedRightOpen = !!e.data.pinnedRightChromeOpen;
                         lastStandaloneReportedHeight = h;
                         try {
                             const r = standaloneIframe.getBoundingClientRect();
                             const bottomPadding = 8;
                             const maxAllowed = Math.max(0, Math.floor(window.innerHeight - r.top - bottomPadding));
-                            if (standaloneSwitcherOpen) {
+                            if (standaloneSwitcherOpen || standalonePinnedRightOpen) {
                                 h = maxAllowed;
                             } else {
                                 h = Math.min(h, maxAllowed);
@@ -2478,7 +2757,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 restoreH = lastStandaloneReportedHeight;
                             }
                             if (typeof restoreH === 'number') {
-                                restoreH = Math.min(restoreH, maxAllowed);
+                                const pinnedStillOpen =
+                                    (targetIframe === iframe && addressbarPinnedRightOpen) ||
+                                    (targetIframe === standaloneIframe && standalonePinnedRightOpen);
+                                restoreH = pinnedStillOpen ? maxAllowed : Math.min(restoreH, maxAllowed);
                                 targetIframe.style.height = restoreH + 'px';
                             }
                         } catch (_) {}
@@ -2785,6 +3067,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function refreshSearchBorderRadiusMode() {
+        searchBoxWrapper?.classList.add('search-box-wrapper--instant-border-radius');
         const large = getSearchBorderRadiusMode() === 'large';
         document.body.classList.toggle('search-border-radius-large', large);
         if (large) {
@@ -2796,15 +3079,13 @@ document.addEventListener('DOMContentLoaded', () => {
         requestAnimationFrame(() => {
             updateSuggestionsRingExtend();
             syncSearchBoxWrapperCornersForSuggestionsPanel();
+            requestAnimationFrame(() => {
+                searchBoxWrapper?.classList.remove('search-box-wrapper--instant-border-radius');
+            });
         });
     }
 
     refreshSearchBorderRadiusMode();
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            searchBoxWrapper?.classList.remove('search-box-wrapper--instant-border-radius');
-        });
-    });
 
     window.addEventListener('resize', () => {
         updateBorderRadius();
@@ -4296,6 +4577,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         pinnedRightHost.hidden = true;
                         pinnedRightHost.innerHTML = '';
                         syncEngineDragHandlesForControlsPanel();
+                        try {
+                            window.__scheduleAddressbarHeightReport?.();
+                        } catch (_) {}
                     });
                 });
                 return;
@@ -4308,6 +4592,9 @@ document.addEventListener('DOMContentLoaded', () => {
             pinnedRightHost.hidden = true;
             pinnedRightHost.innerHTML = '';
             syncEngineDragHandlesForControlsPanel();
+            try {
+                window.__scheduleAddressbarHeightReport?.();
+            } catch (_) {}
             return;
         }
         pinnedRightHost.setAttribute('aria-hidden', 'true');
@@ -4341,6 +4628,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ensurePinnedRightMutationObserver();
         syncPinnedRightPanelLayoutAfterAppend(clone);
         syncEngineDragHandlesForControlsPanel();
+        try {
+            window.__scheduleAddressbarHeightReport?.();
+        } catch (_) {}
         const slideInFromSuggestions =
             !!opts.slideInFromSuggestions &&
             !document.body.classList.contains('reduced-motion') &&
@@ -4365,7 +4655,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const startX = -(w + 12);
             pinnedRightHost.style.visibility = '';
             pinnedRightHost.style.pointerEvents = '';
-            pinnedRightHost.style.zIndex = '4';
+            /* Do not force a low z-index here — it loses to .search-box-wrapper-outer (10) and the standalone toolbar. */
+            pinnedRightHost.style.zIndex = '';
             void pinnedRightHost.offsetWidth;
             requestAnimationFrame(() => {
                 const duration = 450;
@@ -4392,12 +4683,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         animX.cancel();
                     } catch (_) {}
                     pinnedRightHost.style.zIndex = '';
+                    try {
+                        window.__scheduleAddressbarHeightReport?.();
+                    } catch (_) {}
                 });
             });
         } else {
             pinnedRightHost.hidden = false;
         }
         requestAnimationFrame(() => {
+            try {
+                window.__scheduleAddressbarHeightReport?.();
+            } catch (_) {}
             syncPinnedRightPanelLayoutAfterAppend(clone);
             syncPinnedRightDropdownWidthFromPrimary(source);
             try {
@@ -4857,7 +5154,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.closest('.search-switcher-button') || e.target.closest('.search-button') || e.target.closest('.search-url-button')) {
                 return;
             }
-            searchInput.focus();
+            try {
+                searchInput.focus({
+                    preventScroll: document.body.classList.contains('addressbar'),
+                });
+            } catch (_) {
+                searchInput.focus();
+            }
         });
 
         // Handle search switcher button dropdown
@@ -6330,24 +6633,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Search border colour swatches (solid ring on focus)
+    const iframeDebugChevron = document.querySelector('.window-chrome-tabs-chevron');
+    if (iframeDebugChevron) {
+        document.body.classList.remove('prototype-iframe-debug-borders');
+        iframeDebugChevron.setAttribute('aria-pressed', 'false');
+        iframeDebugChevron.addEventListener('click', () => {
+            const on = document.body.classList.toggle('prototype-iframe-debug-borders');
+            iframeDebugChevron.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+
+    // Search focus ring colour (paired with background swatches in prototype UI; optional legacy colour swatches)
     const searchBorderSwatches = document.querySelectorAll('.search-border-swatch');
+    const initialSearchBorder = getStoredSearchBorderColor();
+    persistSearchBorderColorForPrototype(initialSearchBorder);
     if (searchBorderSwatches.length) {
         const persistAndApply = (hex) => {
-            const c = canonicalSearchBorderColor(hex);
-            localStorage.setItem(SEARCH_BORDER_COLOR_KEY, c);
-            applySearchBorderColorVariable(c);
-            searchBorderSwatches.forEach(btn => {
-                const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
-                btn.setAttribute('aria-pressed', bn === c ? 'true' : 'false');
-            });
-            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
-                .filter(Boolean)
-                .forEach(f => {
-                    try {
-                        f.contentWindow?.postMessage({ type: 'search-border-color', color: c }, '*');
-                    } catch (_) {}
-                });
+            persistSearchBorderColorForPrototype(hex);
             // Main page search bar only: focus search so the ring (:has(.search-input:focus)) stays visible.
             // When suggestions are already open, use the same path as switcher restore so we do not remove
             // suggestions-revealed and replay the open transition.
@@ -6366,20 +6668,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         };
-        const initial = getStoredSearchBorderColor();
-        localStorage.setItem(SEARCH_BORDER_COLOR_KEY, initial);
-        applySearchBorderColorVariable(initial);
-        searchBorderSwatches.forEach(btn => {
-            const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
-            btn.setAttribute('aria-pressed', bn === initial ? 'true' : 'false');
+        searchBorderSwatches.forEach((btn) => {
             btn.addEventListener('click', () => {
                 persistAndApply(btn.dataset.borderColor);
             });
         });
-    } else if (window === window.top) {
-        const initial = getStoredSearchBorderColor();
-        localStorage.setItem(SEARCH_BORDER_COLOR_KEY, initial);
-        applySearchBorderColorVariable(initial);
     }
 
     // Default engine is always the “DEFAULT” badge in the list (list pins for default are retired).
@@ -6756,6 +7049,52 @@ document.addEventListener('DOMContentLoaded', () => {
             applyStandaloneSearchBoxPrototypeVisibility(nextOn);
         });
     }
+    document.addEventListener(
+        'keydown',
+        (e) => {
+            if (window !== window.top) return;
+            if (e.repeat) return;
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            const t = e.target;
+            if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) {
+                return;
+            }
+            if (t && typeof t === 'object' && 'closest' in t && t.closest?.('[contenteditable="true"]')) {
+                return;
+            }
+            if (e.key === '/') {
+                e.preventDefault();
+                applyStandaloneSearchBoxPrototypeVisibility(!readStandaloneSearchBoxVisibleFromStorage());
+                return;
+            }
+            /* Cycle Visuals background swatches (gradient → grey → blue → beige). */
+            if (e.key === ',') {
+                e.preventDefault();
+                cyclePrototypeBackgroundSwatch();
+                return;
+            }
+            /* Toggle large / small corners (prototype panel swatches). */
+            if (e.key === '.') {
+                e.preventDefault();
+                const next = getSearchBorderRadiusMode() === 'large' ? 'small' : 'large';
+                try {
+                    localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, next);
+                } catch (_) {}
+                refreshSearchBorderRadiusMode();
+                if (window === window.top) {
+                    [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+                        .filter(Boolean)
+                        .forEach((f) => {
+                            try {
+                                f.contentWindow?.postMessage({ type: 'search-border-radius-mode', mode: next }, '*');
+                            } catch (_) {}
+                        });
+                }
+                return;
+            }
+        },
+        true
+    );
 
     const searchSettingsModal = document.getElementById('search-settings-modal');
     let searchSettingsModalPreviousFocus = null;
@@ -7046,13 +7385,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    const addressbarPuzzleButton = document.getElementById('addressbar-toolbar-puzzle-button');
-    if (addressbarPuzzleButton && searchSettingsModal) {
-        addressbarPuzzleButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            openSearchSettingsModal();
-        });
+    const standaloneSearchBoxToolbarSearchSettingsButton = document.getElementById(
+        'standalone-search-box-toolbar-search-settings-button'
+    );
+    if (standaloneSearchBoxToolbarSearchSettingsButton) {
+        if (searchSettingsModal) {
+            standaloneSearchBoxToolbarSearchSettingsButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openSearchSettingsModal();
+            });
+        } else if (window !== window.top) {
+            standaloneSearchBoxToolbarSearchSettingsButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try {
+                    window.parent.postMessage({ type: 'open-search-settings' }, '*');
+                } catch (_) {}
+            });
+        }
     }
     window.addEventListener('storage', (e) => {
         if (e.storageArea !== localStorage) return;
@@ -7504,35 +7855,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle background colour swatches
     const backgroundSwatches = document.querySelectorAll('.background-swatch');
     if (backgroundSwatches.length) {
-        const updateSwatchPressed = () => {
-            const current = document.body.dataset.background || 'gradient';
-            backgroundSwatches.forEach(btn => {
-                btn.setAttribute('aria-pressed', btn.dataset.background === current ? 'true' : 'false');
-            });
-        };
-        const savedBg = localStorage.getItem(BACKGROUND_SWATCH_KEY);
-        if (savedBg === 'gradient') {
-            delete document.body.dataset.background;
-        } else if (savedBg) {
-            document.body.dataset.background = savedBg;
-        } else {
-            document.body.dataset.background = DEFAULT_BACKGROUND_SWATCH;
-            try {
-                localStorage.setItem(BACKGROUND_SWATCH_KEY, DEFAULT_BACKGROUND_SWATCH);
-            } catch (_) {}
-        }
-        updateSwatchPressed();
-        backgroundSwatches.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const bg = btn.dataset.background;
-                localStorage.setItem(BACKGROUND_SWATCH_KEY, bg);
-                if (bg === 'gradient') {
-                    delete document.body.dataset.background;
-                } else {
-                    document.body.dataset.background = bg;
-                }
-                updateSwatchPressed();
-            });
+        const savedRaw = localStorage.getItem(BACKGROUND_SWATCH_KEY);
+        const normalized = normalizePrototypeBackgroundKey(savedRaw);
+        applyPrototypeBackgroundSwatch(normalized || DEFAULT_BACKGROUND_SWATCH);
+        backgroundSwatches.forEach((btn) => {
+            btn.addEventListener('click', () => applyPrototypeBackgroundSwatch(btn.dataset.background));
         });
     }
 
@@ -8908,6 +9235,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         document.body.classList.remove('reduced-motion');
                     }
                     document.body.classList.remove('browser-chrome-hidden');
+                    document.body.classList.remove('prototype-iframe-debug-borders');
+                    const iframeDebugChevronReset = document.querySelector('.window-chrome-tabs-chevron');
+                    if (iframeDebugChevronReset) iframeDebugChevronReset.setAttribute('aria-pressed', 'false');
                     const prototypeBrowserChromeCbReset = document.querySelector('.prototype-browser-chrome-checkbox');
                     if (prototypeBrowserChromeCbReset) prototypeBrowserChromeCbReset.checked = true;
                     document.body.classList.remove('pin-default-enabled');
@@ -8936,14 +9266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     applyStandaloneSearchBoxPrototypeVisibility(false);
 
-                    document.body.dataset.background = DEFAULT_BACKGROUND_SWATCH;
-                    try {
-                        localStorage.setItem(BACKGROUND_SWATCH_KEY, DEFAULT_BACKGROUND_SWATCH);
-                    } catch (_) {}
-                    document.querySelectorAll('.background-swatch').forEach((btn) => {
-                        const current = document.body.dataset.background || 'gradient';
-                        btn.setAttribute('aria-pressed', btn.dataset.background === current ? 'true' : 'false');
-                    });
+                    applyPrototypeBackgroundSwatch(DEFAULT_BACKGROUND_SWATCH);
 
                     applyMainScreenHeroLogoMode(DEFAULT_MAIN_SCREEN_HERO_LOGO_MODE);
                     try {
@@ -8958,14 +9281,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const pinnedHeroReset = searchSwitcherButton?.querySelector('.dropdown-search-engines .dropdown-item-pinned');
                     if (pinnedHeroReset) syncMainScreenBrandFromSwitcherItem(pinnedHeroReset);
 
-                    const borderCleared = applySearchBorderColorVariable(SEARCH_BORDER_COLOR_DEFAULT);
-                    try {
-                        localStorage.setItem(SEARCH_BORDER_COLOR_KEY, SEARCH_BORDER_COLOR_DEFAULT);
-                    } catch (_) {}
-                    document.querySelectorAll('.search-border-swatch').forEach((btn) => {
-                        const bn = normalizeSearchBorderColorInput(btn.dataset.borderColor);
-                        btn.setAttribute('aria-pressed', bn === borderCleared ? 'true' : 'false');
-                    });
+                    persistSearchBorderColorForPrototype(SEARCH_BORDER_COLOR_DEFAULT);
                     try {
                         localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, 'large');
                     } catch (_) {}
