@@ -35,6 +35,34 @@
     --window-chrome-tab-strip-height: 48px;
     /* Extra horizontal space between standalone search field and toolbar icons; keep in sync with step1.js STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX */
     --standalone-search-toolbar-extra-gap: 90px;
+    /* Search engine switcher panel: chip dropdown + pinned-right clone share these (see step1-addressbar.css for iframe overrides). */
+    --switcher-dropdown-label-font-size: 14px;
+    --switcher-dropdown-item-font-size: 17px;
+    --switcher-dropdown-lilac-font-size: 14px;
+    --switcher-dropdown-info-font-size: 14px;
+    --switcher-dropdown-info-heading-font-size: 14px;
+    --switcher-dropdown-compact-font-size: 11px;
+    --switcher-dropdown-compact-line-height: 20px;
+    --switcher-dropdown-compact-min-height: 22px;
+    --switcher-dropdown-badge-font-size: 11px;
+    --switcher-chip-secondary-label-font-size: 16px;
+    --switcher-engines-sort-font-size: 15px;
+    --switcher-item-keyboard-num-font-size: 11px;
+    --switcher-display-segment-size: 20px;
+    --switcher-display-segment-icon-size: 12px;
+}
+
+/* Main new-tab hero only: switcher panel a touch smaller than :root (iframes use step1-addressbar.css tokens). */
+body:not(.addressbar) {
+    --switcher-dropdown-label-font-size: 13px;
+    --switcher-dropdown-item-font-size: 16px;
+    --switcher-dropdown-lilac-font-size: 13px;
+    --switcher-dropdown-info-font-size: 13px;
+    --switcher-dropdown-info-heading-font-size: 13px;
+    --switcher-dropdown-compact-font-size: 10px;
+    --switcher-dropdown-badge-font-size: 10px;
+    --switcher-chip-secondary-label-font-size: 15px;
+    --switcher-engines-sort-font-size: 14px;
 }
 
 * {
@@ -82,8 +110,21 @@ body:not([data-background]):not(.addressbar) .search-container.search-has-typed-
 body:not([data-background]):not(.addressbar)
     .search-container.search-has-typed-input
     .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)),
+body:not([data-background]):not(.addressbar)
+    .search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer,
+body:not([data-background]):not(.addressbar)
+    .search-container.search-has-typed-input.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer,
 body:not([data-background]):not(.addressbar) .one-off-buttons {
     background-color: #f59efb;
+}
+
+/* Main new-tab suggestions dropdown (overlay): pale pink on purple gradient wallpaper; outer shell uses #f59efb above. */
+body:not([data-background]):not(.addressbar) .search-suggestions-anchor > .suggestions-list {
+    background-color: #fce8f3;
 }
 
 body:not([data-background]):not(.addressbar) .main-screen-brand-attribution,
@@ -582,7 +623,8 @@ body:not(.addressbar) .page-content-placeholder {
 }
 
 body:not(.addressbar):has(.search-container.focused) .page-content-placeholder {
-    opacity: 0.5;
+    /* Page mock below search: faint while the main search box is focused */
+    opacity: 0.25;
 }
 
 body.reduced-motion:not(.addressbar) .page-content-placeholder {
@@ -1162,6 +1204,21 @@ body:not([data-background]):not(.addressbar) .page-content-placeholder-inner.pag
         drop-shadow(0 0 100px rgba(255, 255, 255, 0.32));
 }
 
+/* Google hero wordmark: grey wallpaper → filled #5D5E5F SVG (`icons/google-logo-grey-hero.svg`); purple gradient → white (`data-main-screen-hero-engine-label` from step1.js). */
+body[data-background='grey'][data-main-screen-hero-engine-label='Google']:not([data-main-screen-hero-logo='firefox'])
+    .main-screen-brand-logos
+    .main-screen-engine-wordmark {
+    filter: none;
+    opacity: 0.8;
+}
+
+body:not([data-background]):not(.addressbar)[data-main-screen-hero-engine-label='Google']:not([data-main-screen-hero-logo='firefox'])
+    .main-screen-brand-logos
+    .main-screen-engine-wordmark {
+    filter: brightness(0) invert(1);
+    opacity: 0.8;
+}
+
 .main-screen-brand-logos .main-screen-engine-wordmark[data-wordmark-hero-size='standard'] {
     max-width: min(90vw, 220px);
     max-height: 36px;
@@ -1220,7 +1277,8 @@ body[data-main-screen-hero-logo='firefox'] .main-screen-engine-wordmark-slot .ma
     display: block;
 }
 
-body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row {
+/* Firefox hero: large mark is in the slot above — keep strapline text + “Firefox” word, omit duplicate mini logo. */
+body[data-main-screen-hero-logo='firefox'] .main-screen-brand-firefox-row-pill .firefox-logo {
     display: none;
 }
 
@@ -1595,17 +1653,27 @@ body:not(.addressbar) .search-box-wrapper-outer::before {
     background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
-/* Switcher open calls `searchInput.blur()` — keep the same shell as focused input. */
-.search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) {
+/* Switcher open calls `searchInput.blur()` — keep the same shell as focused input.
+   Pinned-right clone does the same: chip is closed but the engine panel is still in use. */
+.search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)),
+.search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
-.search-container.focused .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)) {
+.search-container.focused .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)),
+.search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper {
     background-color: #fff;
 }
 
-.search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing))::before {
+.search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing))::before,
+.search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer::before {
     opacity: 1;
 }
 
@@ -1621,7 +1689,8 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
     transition: none;
 }
 
-/* Switcher open blurs the input: de-emphasize suggestions, submit arrow, and placeholder. */
+/* Switcher open blurs the input: de-emphasize suggestions, submit arrow, and placeholder.
+   Pinned-right engine panel alone does not use this — it would read like the 25% page mock dimming applied to suggestions. */
 .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) .suggestions-content,
 .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) .search-button svg,
 .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) .search-input::placeholder {
@@ -1633,7 +1702,10 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
 }
 
 /* Beat switcher-open shell rule when the user has typed (outer must stay on shell tint). */
-.search-container.search-has-typed-input .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) {
+.search-container.search-has-typed-input .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)),
+.search-container.search-has-typed-input.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer {
     background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
@@ -1859,7 +1931,7 @@ body.reduced-motion .search-box-wrapper.search-box-wrapper--instant-border-radiu
     gap: 6px;
     padding: 5px 12px 5px 15px;
     min-height: 38px;
-    font-size: 12px;
+    font-size: var(--switcher-dropdown-label-font-size);
     color: var(--color-text-secondary);
     font-weight: 500;
     position: relative;
@@ -1881,7 +1953,7 @@ body.reduced-motion .search-box-wrapper.search-box-wrapper--instant-border-radiu
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 10;
+    z-index: 20;
     background-color: inherit;
 }
 
@@ -1908,6 +1980,12 @@ body.reduced-motion .search-box-wrapper.search-box-wrapper--instant-border-radiu
     margin-right: 36px;
     position: relative;
     z-index: 1;
+    /* Empty flex area must not steal hits from the absolutely positioned ••• (pinned clone refresh makes that painful). */
+    pointer-events: none;
+}
+
+.dropdown-label-actions .search-engines-display-segmented {
+    pointer-events: auto;
 }
 
 .dropdown-label-overflow-reveal,
@@ -2043,7 +2121,7 @@ body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-
     display: none !important;
 }
 
-/* Total height 19px (1 + 17 + 1 padding) — match .search-engine-list-mode-select in controls row */
+/* Height matches .search-engine-list-mode-select row (--switcher-dropdown-compact-min-height) */
 .search-engines-display-segmented {
     display: inline-flex;
     align-items: stretch;
@@ -2054,8 +2132,8 @@ body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-
     flex-shrink: 0;
     cursor: pointer;
     box-sizing: border-box;
-    min-height: 19px;
-    height: 19px;
+    min-height: var(--switcher-dropdown-compact-min-height);
+    height: var(--switcher-dropdown-compact-min-height);
 }
 
 /* Square hit targets so the active (white) fill reads as a circle inside the track */
@@ -2063,10 +2141,10 @@ body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 17px;
-    height: 17px;
-    min-width: 17px;
-    min-height: 17px;
+    width: var(--switcher-display-segment-size);
+    height: var(--switcher-display-segment-size);
+    min-width: var(--switcher-display-segment-size);
+    min-height: var(--switcher-display-segment-size);
     padding: 0;
     margin: 0;
     border: none;
@@ -2091,8 +2169,8 @@ body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-
 
 .search-engines-display-segment-icon {
     display: block;
-    width: 11px;
-    height: 11px;
+    width: var(--switcher-display-segment-icon-size);
+    height: var(--switcher-display-segment-icon-size);
     opacity: 0.55;
     pointer-events: none;
 }
@@ -2339,7 +2417,7 @@ body.search-switcher-label-compact .dropdown-label-actions [data-search-engines-
     border-radius: 0;
     background: #f4f0fb;
     border: none;
-    font-size: 12px;
+    font-size: var(--switcher-dropdown-lilac-font-size);
     font-weight: 400;
     color: #4b3a6b;
 }
@@ -2379,7 +2457,7 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     border-radius: 0;
     background: #e8f0ff;
     border: none;
-    font-size: 12px;
+    font-size: var(--switcher-dropdown-info-font-size);
     font-weight: 400;
     color: #2c4a7a;
     overflow-wrap: anywhere;
@@ -2393,7 +2471,7 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
 
 .dropdown-search-info-panel-heading {
     margin: 0 0 6px;
-    font-size: 12px;
+    font-size: var(--switcher-dropdown-info-heading-font-size);
     font-weight: 600;
     line-height: 1.25;
     color: inherit;
@@ -2468,14 +2546,14 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     border: 1px solid rgba(75, 50, 120, 0.18);
     border-radius: 4px;
     background: #fff;
-    font-size: 9px;
+    font-size: var(--switcher-dropdown-compact-font-size);
     font-weight: 400;
     color: rgba(75, 50, 120, 0.75);
     cursor: pointer;
     box-sizing: border-box;
-    line-height: 17px;
-    min-height: 19px;
-    height: 19px;
+    line-height: var(--switcher-dropdown-compact-line-height);
+    min-height: var(--switcher-dropdown-compact-min-height);
+    height: var(--switcher-dropdown-compact-min-height);
 }
 
 .search-engine-list-mode-select:hover {
@@ -2514,14 +2592,14 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     border: 1px solid rgba(75, 50, 120, 0.18);
     border-radius: 4px;
     background: #fff;
-    font-size: 9px;
+    font-size: var(--switcher-dropdown-compact-font-size);
     font-weight: 400;
     color: rgba(75, 50, 120, 0.55);
     cursor: pointer;
     box-sizing: border-box;
-    line-height: 17px;
-    min-height: 19px;
-    height: 19px;
+    line-height: var(--switcher-dropdown-compact-line-height);
+    min-height: var(--switcher-dropdown-compact-min-height);
+    height: var(--switcher-dropdown-compact-min-height);
 }
 
 .search-engines-reset-order-button:hover:not(:disabled) {
@@ -3159,7 +3237,7 @@ body.search-switcher-label-compact .dropdown-divider--below-search-label {
     border: 1px solid rgba(0, 0, 0, 0.15);
     border-radius: 6px;
     background: #fff;
-    font-size: 13px;
+    font-size: var(--switcher-engines-sort-font-size);
     font-weight: 500;
     color: var(--color-text-primary);
     cursor: pointer;
@@ -3223,9 +3301,31 @@ body.reduced-motion .dropdown-search-engines {
     display: none !important;
 }
 
+/* Sticky “Restore A-Z” above From Firefox while scrolling the engine list (re-order mode, non-alphabetical only). */
+.dropdown-restore-az-sticky {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    background-color: #fff;
+    flex-shrink: 0;
+    padding: 6px 12px 8px;
+    box-sizing: border-box;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dropdown-restore-az-sticky[hidden] {
+    display: none !important;
+}
+
+.dropdown-restore-az-sticky .search-engines-restore-az-sticky-button {
+    width: 100%;
+}
+
 /* Flow footer after the engine list when either sub-panel is open (not sticky in the scrollport). Lilac: .search-engines-controls-panel-revealed; blue: :has(#search-switcher-info-panel:not([hidden])). */
 .search-switcher-button.search-engines-controls-panel-revealed .dropdown-from-firefox-footer,
-.search-switcher-button:has(#search-switcher-info-panel:not([hidden])) .dropdown-from-firefox-footer {
+.search-switcher-button:has(#search-switcher-info-panel:not([hidden])) .dropdown-from-firefox-footer,
+.search-switcher-button.search-engines-controls-panel-revealed .dropdown-restore-az-sticky,
+.search-switcher-button:has(#search-switcher-info-panel:not([hidden])) .dropdown-restore-az-sticky {
     position: static;
     z-index: auto;
 }
@@ -3235,6 +3335,13 @@ body.reduced-motion .dropdown-search-engines {
     position: sticky;
     bottom: 0;
     z-index: 2;
+    background-color: #fff;
+}
+
+.search-switcher-button.search-switcher-info-panel-footer-flip:has(#search-switcher-info-panel:not([hidden])) .dropdown-restore-az-sticky {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
     background-color: #fff;
 }
 
@@ -3354,7 +3461,7 @@ body.reduced-motion .dropdown-engines-firefox-scroll {
     margin-inline: 6px;
     padding: 6px 6px;
     border-radius: 9999px;
-    font-size: 14px;
+    font-size: var(--switcher-dropdown-item-font-size);
     color: var(--color-text-primary);
     cursor: pointer;
     white-space: nowrap;
@@ -3470,7 +3577,7 @@ body.reduced-motion .dropdown-engines-firefox-scroll {
     border-radius: 3px;
     background: rgba(0, 0, 0, 0.08);
     color: rgba(0, 0, 0, 0.55);
-    font-size: 9px;
+    font-size: var(--switcher-dropdown-badge-font-size);
     font-weight: 400;
     letter-spacing: 0;
     text-transform: uppercase;
@@ -3669,6 +3776,19 @@ body > .dropdown-item.dragging {
     user-select: none;
     background-color: #F3F4F6;
     border-radius: 9999px;
+}
+
+/* Source row stays in the list while the ghost is on body — same footprint, greyed out (chip + pinned clone). */
+.dropdown-search-engines .dropdown-item.dropdown-item--reorder-placeholder {
+    opacity: 0.42;
+    filter: grayscale(1);
+    pointer-events: none;
+    background-color: var(--color-pale-grey, #f3f4f6) !important;
+}
+
+.search-switcher-dropdown.search-engines-display-grid .dropdown-search-engines .dropdown-item.dropdown-item--reorder-placeholder {
+    filter: grayscale(1);
+    opacity: 0.5;
 }
 
 .dropdown-search-engines.engines-dragging .dropdown-item:hover {
@@ -3915,7 +4035,7 @@ body.reduced-motion .dropdown-item.dragging {
 }
 
 .switcher-button-label {
-    font-size: 14px;
+    font-size: var(--switcher-chip-secondary-label-font-size);
     color: var(--color-text-primary);
     font-weight: 500;
     margin-right: 4px;
@@ -4468,7 +4588,7 @@ body.switcher-outside-search-box-enabled .search-container.search-has-typed-inpu
     justify-content: center;
     width: 12px;
     height: 12px;
-    font-size: 9px;
+    font-size: var(--switcher-item-keyboard-num-font-size);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
     color: rgba(0, 0, 0, 0.25);
@@ -4628,7 +4748,11 @@ body.addressbar .search-container.search-has-typed-input .search-box-wrapper {
 
 /* Overlay suggestions (see .search-suggestions-anchor > .suggestions-list, z-index 22) sit after this row in the DOM.
    The switcher dropdown lives inside the row; lift the row while open so the panel stacks above the suggestions list. */
-body:not(.addressbar) .search-container .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)) {
+body:not(.addressbar) .search-container .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)),
+body:not(.addressbar)
+    .search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper {
     z-index: 30;
 }
 

@@ -3,6 +3,26 @@
 /* Suggestions list + one-off strip (address bar & standalone iframes): text 30% larger than prior iframe scale. */
 body.addressbar {
     --addr-suggest-text-scale: 1.3;
+    /* Slightly smaller than main New Tab switcher, but larger than prior 9px/10px iframe scale. */
+    --switcher-dropdown-label-font-size: 11px;
+    --switcher-dropdown-item-font-size: 12px;
+    --switcher-dropdown-lilac-font-size: 11px;
+    --switcher-dropdown-info-font-size: 11px;
+    --switcher-dropdown-info-heading-font-size: 11px;
+    --switcher-dropdown-compact-font-size: 10px;
+    --switcher-dropdown-compact-line-height: 18px;
+    --switcher-dropdown-compact-min-height: 20px;
+    --switcher-dropdown-badge-font-size: 9px;
+    --switcher-chip-secondary-label-font-size: 13px;
+    --switcher-engines-sort-font-size: 11px;
+    --switcher-item-keyboard-num-font-size: 10px;
+    --switcher-display-segment-size: 18px;
+    --switcher-display-segment-icon-size: 11px;
+}
+
+/* Real address bar iframe only: with engines pinned open, the bottom “Search with” icon strip duplicates that UI once you type — hide it. */
+body.addressbar:not(.standalone-search-box).search-engine-list-mode-pinned-right .one-off-buttons {
+    display: none !important;
 }
 
 body.addressbar .addressbar-row {
@@ -246,9 +266,21 @@ body.addressbar .search-container.search-has-typed-input .search-box-wrapper-out
     background-color: #ececee;
 }
 
+/* Pinned engine panel open: same as chip switcher open — input blurs into the clone; keep shell tint. */
+body.addressbar
+    .search-container.search-has-typed-input.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer:not(:has(.search-input:focus)) {
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
+}
+
 body.addressbar .search-box-wrapper-outer:has(.search-input:focus),
 body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning),
-body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)) {
+body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)),
+body.addressbar
+    .search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer {
     box-shadow: none;
     background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
@@ -267,13 +299,21 @@ body.addressbar.reduced-motion .search-box-wrapper-outer::before {
 }
 
 body.addressbar .search-box-wrapper-outer:has(.search-input:focus)::before,
-body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing))::before {
+body.addressbar .search-container.focused .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing))::before,
+body.addressbar
+    .search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer::before {
     opacity: 1;
     transition: none;
 }
 
 body.addressbar .search-box-wrapper:has(.search-input:focus),
-body.addressbar .search-container.focused .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)) {
+body.addressbar .search-container.focused .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)),
+body.addressbar
+    .search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper {
     background-color: #fff;
 }
 
@@ -341,7 +381,7 @@ body.addressbar .dropdown-content {
 
 body.addressbar .dropdown-label {
     padding: 4px 10px 4px 13px;
-    font-size: 9px;
+    font-size: var(--switcher-dropdown-label-font-size);
     position: relative;
     z-index: 1;
     background-color: #fff;
@@ -373,7 +413,7 @@ body.addressbar .dropdown-item {
     padding: 5px 5px;
     border-radius: 9999px;
     gap: 6px;
-    font-size: 10px;
+    font-size: var(--switcher-dropdown-item-font-size);
 }
 
 body.addressbar:not(.search-border-radius-large) .dropdown-item {
@@ -403,7 +443,7 @@ body.addressbar .engines-sort-section {
 
 body.addressbar .engines-sort-alphabetically {
     padding: 6px 12px;
-    font-size: 9px;
+    font-size: var(--switcher-engines-sort-font-size);
 }
 
 body.addressbar .dropdown-engines-firefox-scroll {
@@ -511,7 +551,7 @@ body.addressbar .dropdown-default-badge {
     min-height: 12px;
     height: auto;
     padding: 0 4px;
-    font-size: 8px;
+    font-size: var(--switcher-dropdown-badge-font-size);
     font-weight: 500;
     letter-spacing: 0;
 }
@@ -541,7 +581,12 @@ body.addressbar .firefox-suggest-more-icon {
     font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
 }
 
-body.addressbar .firefox-switch-tab-button {
+/* Match primary suggestion line (`.suggestion-label` uses 10px × scale); 11px here read oversized in the URL bar only. */
+body.addressbar:not(.standalone-search-box) .firefox-switch-tab-button {
+    font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
+}
+
+body.addressbar.standalone-search-box .firefox-switch-tab-button {
     font-size: calc(11px * var(--addr-suggest-text-scale, 1.3));
 }
 
@@ -564,4 +609,59 @@ body.addressbar .skeleton-text {
 
 body.addressbar .search-container.focused .suggestions-list {
     max-height: 360px;
+}
+
+/* Search settings: Address bar “Search” off (navigate-only) — Firefox sources only, no web engine list. */
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-search-engines {
+    display: none !important;
+}
+
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-from-firefox-footer > .dropdown-divider:first-of-type,
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-from-firefox-footer > .dropdown-label {
+    display: none !important;
+}
+
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-divider--below-search-label {
+    display: none !important;
+}
+
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .search-engines-display-segmented,
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .search-engines-pin-default-toggle {
+    display: none !important;
+}
+
+/* Navigate-only: show per-source checkboxes (leading), label after icon */
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-item-firefox-suggestion {
+    gap: 8px;
+}
+
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-item-firefox-suggestion .dropdown-firefox-toggle {
+    display: flex !important;
+    margin-left: 0;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.35);
+    background-color: #fff;
+}
+
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-item-firefox-suggestion .dropdown-firefox-toggle.checked {
+    background-color: var(--color-accent, #0060df);
+    border-color: var(--color-accent, #0060df);
+}
+
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-item-firefox-suggestion .dropdown-firefox-toggle svg {
+    color: #fff;
+    opacity: 1;
+}
+
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-item-firefox-suggestion .dropdown-firefox-toggle:not(.checked) svg {
+    visibility: hidden;
+}
+
+body.addressbar:not(.standalone-search-box).addressbar-navigate-only-menu .dropdown-firefox-suggestion-label {
+    flex: 1;
+    min-width: 0;
 }

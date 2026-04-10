@@ -1038,6 +1038,10 @@ const SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY = 'search_settings_navigate_new_tab';
 const SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY = 'search_settings_navigate_private';
 /** Address bar row: when `'false'`, Search column is off (placeholder omits “Search with …”). */
 const SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY = 'search_settings_search_address_bar';
+/** Chip icon when Address bar is Navigate-only (Search off) in Search settings. */
+const ADDRESSBAR_NAVIGATE_ONLY_SWITCHER_ICON_SRC = 'icons/globe.svg';
+const ADDRESSBAR_SWITCHER_LABEL_DEFAULT = 'Search with';
+const ADDRESSBAR_SWITCHER_LABEL_NAVIGATE_ONLY = 'Include suggestions from';
 
 const SEARCH_ACCESS_POINT_SETTING_KEYS = [
     SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
@@ -1096,6 +1100,20 @@ function isSearchEnabledForAccessPoint(surface) {
     return true;
 }
 
+/** Address bar iframe: Search off → “Include suggestions from”, hide web-search list + “From Firefox” heading; show local rows only. */
+function applyAddressBarNavigateOnlySwitcherChrome() {
+    if (typeof document === 'undefined' || !document.body) return;
+    if (!document.body.classList.contains('addressbar') || document.body.classList.contains('standalone-search-box')) {
+        document.body.classList.remove('addressbar-navigate-only-menu');
+        return;
+    }
+    const navigateOnly = !isSearchEnabledForAccessPoint('address-bar');
+    document.querySelectorAll('.search-switcher-button .dropdown-label-text').forEach((labelEl) => {
+        labelEl.textContent = navigateOnly ? ADDRESSBAR_SWITCHER_LABEL_NAVIGATE_ONLY : ADDRESSBAR_SWITCHER_LABEL_DEFAULT;
+    });
+    document.body.classList.toggle('addressbar-navigate-only-menu', navigateOnly);
+}
+
 function isNavigateEnabledForAccessPoint(surface) {
     const ls = getDefaultSearchEngineLocalStorage();
     if (surface === 'address-bar') return true;
@@ -1129,13 +1147,13 @@ function buildAccessPointPlaceholderText(surface, engineLabel) {
     const prep = localSources.includes(label) ? 'in' : 'with';
 
     if (searchOn && navigateOn) {
-        return `Search ${prep} ${label} or enter a web address`;
+        return `Search ${prep} ${label} or enter web address`;
     }
     if (searchOn && !navigateOn) {
         return `Search ${prep} ${label}`;
     }
     if (!searchOn && navigateOn) {
-        return 'Enter a web address';
+        return 'Enter web address';
     }
     return '';
 }
@@ -1635,6 +1653,9 @@ function applyMainScreenHeroLogoMode(mode) {
     const isFirefox = mode === 'firefox';
     if (isFirefox) {
         document.body.dataset.mainScreenHeroLogo = 'firefox';
+        try {
+            delete document.body.dataset.mainScreenHeroEngineLabel;
+        } catch (_) {}
     } else {
         delete document.body.dataset.mainScreenHeroLogo;
     }
@@ -1724,6 +1745,11 @@ function applyPrototypeBackgroundSwatch(bg) {
         btn.setAttribute('aria-pressed', btn.dataset.background === current ? 'true' : 'false');
     });
     persistSearchBorderColorForPrototype(defaultSearchBorderColorForBackgroundSwatch(bg));
+    try {
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(new Event('prototype-background-swatch-changed'));
+        }
+    } catch (_) {}
 }
 
 function cyclePrototypeBackgroundSwatch() {
@@ -1857,6 +1883,32 @@ const SEARCH_ENGINE_LABELS_12 = [
  * Sources: `icons/google-logo.svg` (Google brand wordmark), `icons/duckduckgo-logo.svg` (DDG site horizontal lockup),
  * Wikimedia Commons — Microsoft_Bing_logo.svg, EBay_logo.svg, Perplexity_AI_logo.svg; en.wikipedia.org static — wikipedia-wordmark-en.svg;
  */
+/** Full-colour horizontal Google wordmark; grey wallpaper uses `icons/google-logo-grey-hero.svg` instead. */
+const MAIN_SCREEN_GOOGLE_LOGO_HERO_SRC = 'icons/google-logo.svg';
+const MAIN_SCREEN_GOOGLE_LOGO_GREY_HERO_SRC = 'icons/google-logo-grey-hero.svg';
+
+function getMainScreenHeroGoogleWordmarkSrc() {
+    try {
+        if (typeof document !== 'undefined' && document.body?.dataset?.background === 'grey') {
+            return MAIN_SCREEN_GOOGLE_LOGO_GREY_HERO_SRC;
+        }
+    } catch (_) {}
+    return MAIN_SCREEN_GOOGLE_LOGO_HERO_SRC;
+}
+
+/** When assigning the hero `google-logo.svg` asset, swap to grey fills on grey wallpaper. */
+function resolveMainScreenHeroGoogleWordmarkSrc(candidateSrc) {
+    const c = String(candidateSrc || '');
+    if (
+        c === MAIN_SCREEN_GOOGLE_LOGO_HERO_SRC ||
+        c.endsWith('/google-logo.svg') ||
+        c.endsWith('google-logo.svg')
+    ) {
+        return getMainScreenHeroGoogleWordmarkSrc();
+    }
+    return candidateSrc;
+}
+
 const MAIN_SCREEN_HORIZONTAL_ENGINE_LOGOS = {
     Google: 'icons/google-logo.svg',
     Bing: 'icons/bing-logo-horizontal.svg',
@@ -2047,6 +2099,43 @@ function populateSearchSettingsEngineSelectOptions(count) {
     }
 }
 const SEARCH_ENGINE_LIST_MODE_KEY = 'search_engine_list_mode';
+/** Address bar iframe only; keeps “pinned list” independent from New Tab (main page). */
+const SEARCH_ENGINE_LIST_MODE_KEY_ADDRESSBAR = 'search_engine_list_mode:addressbar';
+
+function isAddressBarSearchSurfaceDocument() {
+    try {
+        return (
+            typeof document !== 'undefined' &&
+            !!document.body &&
+            document.body.classList.contains('addressbar') &&
+            !document.body.classList.contains('standalone-search-box')
+        );
+    } catch (_) {
+        return false;
+    }
+}
+
+function getSearchEngineListModeStorageKey() {
+    return isAddressBarSearchSurfaceDocument() ? SEARCH_ENGINE_LIST_MODE_KEY_ADDRESSBAR : SEARCH_ENGINE_LIST_MODE_KEY;
+}
+
+function getSearchEngineListMode() {
+    try {
+        const key = getSearchEngineListModeStorageKey();
+        let raw = localStorage.getItem(key);
+        if (key === SEARCH_ENGINE_LIST_MODE_KEY_ADDRESSBAR && (raw === null || raw === '')) {
+            raw = localStorage.getItem(SEARCH_ENGINE_LIST_MODE_KEY);
+        }
+        if (raw === 'closed' || raw === 'pinned-left' || raw === 'pinned-right') return raw;
+        if (key === SEARCH_ENGINE_LIST_MODE_KEY_ADDRESSBAR) {
+            return 'closed';
+        }
+        localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, 'closed');
+        return 'closed';
+    } catch (_) {
+        return 'closed';
+    }
+}
 
 const initialReducedMotion = localStorage.getItem('reduced_motion_enabled');
 
@@ -2170,7 +2259,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const firefoxContainer = dropdown.querySelector('.dropdown-firefox-suggestions');
             if (firefoxContainer) {
                 firefoxContainer.querySelectorAll('.dropdown-item-firefox-suggestion').forEach((item) => {
-                    const textEl = item.querySelector('span');
+                    const textEl =
+                        item.querySelector('.dropdown-firefox-suggestion-label') ||
+                        item.querySelector('span:not(.dropdown-firefox-toggle)');
                     const label = (textEl?.textContent || '').trim();
                     if (label) item.title = label;
                 });
@@ -2351,6 +2442,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             applySearchInputPlaceholderFromAccessPointSettings(null);
                         } catch (_) {}
+                        try {
+                            syncAddressBarNavigateOnlySwitcherIcon();
+                        } catch (_) {}
                     });
                 }
             } else if (e.data?.type === 'seed-default-search-engine-keys' && e.data.keys && typeof e.data.keys === 'object') {
@@ -2374,6 +2468,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         applySearchInputPlaceholderFromAccessPointSettings(null);
                     } catch (_) {}
+                    try {
+                        syncAddressBarNavigateOnlySwitcherIcon();
+                    } catch (_) {}
                 });
             } else if (e.data?.type === 'clear-local-storage-key' && typeof e.data.key === 'string') {
                 /* Opaque `file://` iframes keep their own `localStorage`; parent reset clears top only — clear here too. */
@@ -2386,6 +2483,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     applySearchSwitcherUIFromStoredDefault();
                 }
+                try {
+                    syncAddressBarNavigateOnlySwitcherIcon();
+                } catch (_) {}
             } else if (e.data?.type === 'refresh-search-access-point-placeholder') {
                 const keys = e.data.keys;
                 if (keys && typeof keys === 'object') {
@@ -2407,6 +2507,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 try {
                     applySearchInputPlaceholderFromAccessPointSettings(null);
+                } catch (_) {}
+                try {
+                    syncAddressBarNavigateOnlySwitcherIcon();
                 } catch (_) {}
             }
         });
@@ -2646,34 +2749,50 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             window.__prototypeRemeasureAddressbarBand = remeasureAddressbarBandFromIframe;
             const updateIframeSize = () => {
-                const addressbarW = Math.max(
+                const standaloneW = Math.min(window.innerWidth * 0.62, 620);
+                /* Match step1.css --addressbar-toolbar-icons-slot: 12 + 3*35 + 2*5 */
+                const standaloneToolbarIconsSlotPx = 12 + 3 * 35 + 2 * 5;
+                /* Match :root --standalone-search-toolbar-extra-gap in step1.css */
+                const STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX = 90;
+                /* Match .standalone-search-box-iframe padding-right in step1.css */
+                const STANDALONE_IFRAME_PADDING_RIGHT_PX = 5;
+                const standaloneVisible = readStandaloneSearchBoxVisibleFromStorage();
+                const standaloneWidthWhenVisible =
+                    Math.round(standaloneW / 2) +
+                    standaloneToolbarIconsSlotPx +
+                    STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX +
+                    STANDALONE_IFRAME_PADDING_RIGHT_PX;
+                const standaloneWidthWhenHidden =
+                    standaloneToolbarIconsSlotPx + 8 + STANDALONE_IFRAME_PADDING_RIGHT_PX;
+                const standaloneTargetW = standaloneVisible ? standaloneWidthWhenVisible : standaloneWidthWhenHidden;
+                if (standaloneIframe) {
+                    standaloneIframe.style.width = standaloneTargetW + 'px';
+                }
+                /* .addressbar-area left 20px + .addressbar-iframe-anchor margin-left 20px */
+                const ADDRESSBAR_ROW_LEFT_GUTTER_PX = 40;
+                const ADDRESSBAR_ROW_GAP_PX = 12;
+                const ADDRESSBAR_ROW_RIGHT_BUFFER_PX = 16;
+                const maxAddressbarByViewport = Math.max(
+                    200,
+                    window.innerWidth -
+                        ADDRESSBAR_ROW_LEFT_GUTTER_PX -
+                        ADDRESSBAR_ROW_GAP_PX -
+                        standaloneTargetW -
+                        ADDRESSBAR_ROW_RIGHT_BUFFER_PX
+                );
+                let addressbarW = Math.max(
                     0,
                     Math.min(window.innerWidth * 0.93, 930) -
                         160 +
                         ADDRESSBAR_TRAILING_RECT_WIDTH_PX -
                         ADDRESSBAR_IFRAME_NARROWER_PX
                 );
-                iframe.style.width = addressbarW + 'px';
-                if (standaloneIframe) {
-                    const standaloneW = Math.min(window.innerWidth * 0.62, 620);
-                    /* Match step1.css --addressbar-toolbar-icons-slot: 12 + 3*35 + 2*5 */
-                    const standaloneToolbarIconsSlotPx = 12 + 3 * 35 + 2 * 5;
-                    /* Match :root --standalone-search-toolbar-extra-gap in step1.css */
-                    const STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX = 90;
-                    /* Match .standalone-search-box-iframe padding-right in step1.css */
-                    const STANDALONE_IFRAME_PADDING_RIGHT_PX = 5;
-                    if (readStandaloneSearchBoxVisibleFromStorage()) {
-                        standaloneIframe.style.width =
-                            Math.round(standaloneW / 2) +
-                            standaloneToolbarIconsSlotPx +
-                            STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX +
-                            STANDALONE_IFRAME_PADDING_RIGHT_PX +
-                            'px';
-                    } else {
-                        standaloneIframe.style.width =
-                            standaloneToolbarIconsSlotPx + 8 + STANDALONE_IFRAME_PADDING_RIGHT_PX + 'px';
-                    }
+                /* Reclaim horizontal space when the standalone field is hidden (toolbar-only iframe). */
+                if (!standaloneVisible) {
+                    addressbarW += standaloneWidthWhenVisible - standaloneWidthWhenHidden;
                 }
+                addressbarW = Math.min(addressbarW, maxAddressbarByViewport);
+                iframe.style.width = addressbarW + 'px';
             };
             const setHeight = (e) => {
                 if (e.data?.type === 'addressbar-height' && typeof e.data.height === 'number') {
@@ -3280,6 +3399,35 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {}
     }
 
+    /** Close the chip’s search-switcher dropdown (and sub-panels) while keeping suggestions + input focus — e.g. after pinning the engine list to the right. */
+    function closePrimarySearchSwitcherDropdownKeepingSuggestions() {
+        if (!searchSwitcherButton) return;
+        const wasOpen = searchSwitcherButton.classList.contains('open');
+        if (!wasOpen) {
+            forceCloseSearchSwitcherSubPanels();
+            return;
+        }
+        beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
+        searchSwitcherButton.classList.remove('switcher-opened-by-keyboard');
+        const primaryDd = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+        primaryDd?.classList.remove('dropdown-revealed');
+        switcherHighlightedIndex = -1;
+        searchSwitcherButton.classList.remove('switcher-suppress-hover');
+        searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+        if (searchContainer?.classList.contains('focused')) {
+            restoreFocusAndOpaqueSuggestions();
+        }
+        restoringFocusFromSwitcher = false;
+        closingSwitcherWithoutSuggestions = false;
+        forceCloseSearchSwitcherSubPanels();
+        searchSwitcherButton.classList.remove('open');
+        if (window !== window.top) {
+            try {
+                window.parent.postMessage({ type: 'switcher-open-state', open: false }, '*');
+            } catch (_) {}
+        }
+    }
+
     function applySelectedSearchSource(item) {
         if (!item) return;
         if (item.id === 'quick-buttons-toggle') return;
@@ -3319,12 +3467,26 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             syncMainScreenBrandFromSwitcherItem(item);
         }
+        syncAddressBarNavigateOnlySwitcherIcon();
     }
 
     function getEngineLabel(item) {
         if (!item) return '';
         const labelEl = item.querySelector('.dropdown-engine-label');
-        return labelEl ? labelEl.textContent.trim() : '';
+        if (labelEl) return labelEl.textContent.trim();
+        if (item.classList.contains('dropdown-item-firefox-suggestion')) {
+            const lab = item.querySelector('.dropdown-firefox-suggestion-label');
+            if (lab) return lab.textContent.replace(/\s+/g, ' ').trim();
+            const toggle = item.querySelector('.dropdown-firefox-toggle');
+            for (const node of item.children) {
+                if (node === toggle || node.classList?.contains('dropdown-firefox-toggle')) continue;
+                if (node.tagName === 'SPAN') {
+                    const t = node.textContent.replace(/\s+/g, ' ').trim();
+                    if (t) return t;
+                }
+            }
+        }
+        return '';
     }
 
     /** For strapline copy only: drop parentheticals, e.g. "Wikipedia (en)" → "Wikipedia". */
@@ -3354,6 +3516,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /** Drives CSS hero treatments for Google on grey vs purple-gradient backgrounds (main page only). */
+    function syncMainScreenHeroEngineLabelDatasetForBody(engineLabel, heroFirefox) {
+        if (typeof document === 'undefined' || !document.body) return;
+        if (document.body.classList.contains('addressbar')) return;
+        if (heroFirefox) {
+            delete document.body.dataset.mainScreenHeroEngineLabel;
+        } else {
+            document.body.dataset.mainScreenHeroEngineLabel = engineLabel;
+        }
+    }
+
     /** Main-page hero wordmark + strapline track the switcher’s selected web search engine (full SVG wordmarks for Google / DuckDuckGo). */
     function syncMainScreenBrandFromSwitcherItem(item) {
         const container = document.querySelector('.main-screen-brand-logos');
@@ -3364,7 +3537,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const engineNameEl = container.querySelector('.main-screen-brand-engine-name');
         if (!wordmark || !attribution || !engineNameEl) return;
         const label = getEngineLabel(item);
-        if (!label) return;
+        if (!label) {
+            if (typeof document !== 'undefined' && document.body && !document.body.classList.contains('addressbar')) {
+                try {
+                    delete document.body.dataset.mainScreenHeroEngineLabel;
+                } catch (_) {}
+            }
+            return;
+        }
         const heroFirefox = getMainScreenHeroLogoMode() === 'firefox';
         const clearIconFallbackLayout = () => {
             wordmark.removeAttribute('data-wordmark-icon-fallback');
@@ -3382,7 +3562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 wordmark.dataset.wordmarkHeroSize = 'large';
                 clearIconFallbackLayout();
-                wordmark.src = 'icons/google-logo.svg';
+                wordmark.src = resolveMainScreenHeroGoogleWordmarkSrc(MAIN_SCREEN_GOOGLE_LOGO_HERO_SRC);
                 if (fromIconFallback) {
                     revealMainScreenWordmarkWhenReady(wordmark);
                 } else {
@@ -3392,13 +3572,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearIconFallbackLayout();
             }
             engineNameEl.textContent = 'Google';
+            syncMainScreenHeroEngineLabelDatasetForBody(label, heroFirefox);
             return;
         }
         let src = MAIN_SCREEN_HORIZONTAL_ENGINE_LOGOS[label];
         if (!src) {
             const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
-            src = iconEl ? iconEl.getAttribute('src') || iconEl.src : 'icons/google-logo.svg';
+            src = iconEl ? iconEl.getAttribute('src') || iconEl.src : MAIN_SCREEN_GOOGLE_LOGO_HERO_SRC;
         }
+        src = resolveMainScreenHeroGoogleWordmarkSrc(src);
         const heroSize = label === 'Bing' || label === 'Wikipedia (en)' ? 'standard' : 'large';
         const nextIconFallback = !MAIN_SCREEN_HORIZONTAL_ENGINE_LOGOS[label];
         const prevIconFallback = wordmark.hasAttribute('data-wordmark-icon-fallback');
@@ -3429,6 +3611,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clearIconFallbackLayout();
         }
         engineNameEl.textContent = straplineSearchEngineDisplayName(label);
+        syncMainScreenHeroEngineLabelDatasetForBody(label, heroFirefox);
     }
 
     function iconSrcRoughMatch(a, b) {
@@ -3436,6 +3619,74 @@ document.addEventListener('DOMContentLoaded', () => {
         if (a === b) return true;
         const norm = (s) => s.replace(/^.*\/icons\//, 'icons/').replace(/^\.\//, '');
         return norm(a) === norm(b);
+    }
+
+    /** Row in the switcher that matches the chip (icon or local-source label) — same idea as keyboard engine cycling. */
+    function getDropdownItemMatchingSearchBarChip() {
+        if (!searchSwitcherButton) return null;
+        const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
+        const pinned = enginesContainer?.querySelector('.dropdown-item-pinned') ?? null;
+        if (!enginesContainer) return pinned;
+
+        const engineItems = Array.from(enginesContainer.children).filter(
+            (c) =>
+                c.classList.contains('dropdown-item') &&
+                c.querySelector('.dropdown-engine-label') &&
+                c.style.display !== 'none'
+        );
+
+        const switcherLabel = searchSwitcherButton.querySelector('.switcher-button-label');
+        const switcherIcon = searchSwitcherButton.querySelector('.google-icon');
+
+        if (switcherLabel && !switcherLabel.hidden && switcherLabel.textContent.trim()) {
+            const want = switcherLabel.textContent.trim();
+            const firefoxRows = searchSwitcherButton.querySelectorAll(
+                '.dropdown-firefox-suggestions .dropdown-item-firefox-suggestion'
+            );
+            for (const row of firefoxRows) {
+                if (getEngineLabel(row) === want) return row;
+            }
+            const byLabel = engineItems.find((item) => getEngineLabel(item) === want);
+            if (byLabel) return byLabel;
+            return pinned || engineItems[0] || null;
+        }
+
+        const iconSrc = switcherIcon?.getAttribute('src') || '';
+        const idx = engineItems.findIndex((item) => {
+            const iconEl = item.querySelector('.dropdown-engine-icon, .dropdown-icon');
+            return iconEl && iconSrcRoughMatch(iconEl.getAttribute('src') || '', iconSrc);
+        });
+        if (idx >= 0) return engineItems[idx];
+        return pinned || engineItems[0] || null;
+    }
+
+    /** Address bar iframe: Search settings “Search” off → globe on the chip; Search on → engine icon from current chip selection. */
+    function syncAddressBarNavigateOnlySwitcherIcon() {
+        if (!document.body.classList.contains('addressbar')) return;
+        if (document.body.classList.contains('standalone-search-box')) return;
+        try {
+            applyAddressBarNavigateOnlySwitcherChrome();
+        } catch (_) {}
+        if (document.body.classList.contains('search-engine-list-mode-pinned-right')) {
+            try {
+                refreshPinnedRightSwitcherPanel();
+            } catch (_) {}
+        }
+        const img = searchSwitcherButton?.querySelector('.google-icon');
+        if (!img) return;
+        if (!isSearchEnabledForAccessPoint('address-bar')) {
+            img.src = ADDRESSBAR_NAVIGATE_ONLY_SWITCHER_ICON_SRC;
+            img.alt = '';
+            return;
+        }
+        const row = getDropdownItemMatchingSearchBarChip();
+        if (!row) return;
+        const iconEl = row.querySelector('.dropdown-engine-icon, .dropdown-icon');
+        const lab = getEngineLabel(row);
+        if (iconEl && lab) {
+            img.src = iconEl.getAttribute('src') || iconEl.src || img.src;
+            img.alt = lab;
+        }
     }
 
     /** Ctrl/Cmd + Arrow from the search field: cycle visible engines without opening the switcher. delta: +1 = next, -1 = previous */
@@ -3544,18 +3795,98 @@ document.addEventListener('DOMContentLoaded', () => {
         return labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
     }
 
-    function updateReorderResetButtonState() {
-        const btn = document.getElementById('search-engines-reset-order-button');
-        if (!btn) return;
+    const resetSearchEnginesOrderToAlphabetical = () => {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-        const alphabetical = isEngineListAlphabeticalInContainer(enginesContainer);
-        if (alphabetical) {
-            btn.setAttribute('hidden', '');
-            btn.disabled = true;
-        } else {
-            btn.removeAttribute('hidden');
-            btn.disabled = false;
+        if (!enginesContainer) return;
+        const sortSection = enginesContainer.querySelector('.engines-sort-section');
+        const items = Array.from(enginesContainer.children).filter(
+            (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        );
+        if (!items.length) return;
+        const sorted = [...items].sort((a, b) =>
+            compareEngineLabelsAlphabetically(getEngineLabel(a), getEngineLabel(b))
+        );
+        const before = sortSection || null;
+        sorted.forEach((item) => enginesContainer.insertBefore(item, before));
+        const order = sorted.map((item) => getEngineLabel(item));
+        if (order.length) {
+            try {
+                getSearchEngineOrderStorage().setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
+            } catch (_) {}
         }
+        updateReorderResetButtonState();
+        updateKeyboardNumbers();
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const smooth = !document.body.classList.contains('reduced-motion');
+                enginesContainer.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+                const scrollParent = enginesContainer.closest('.dropdown-engines-firefox-scroll');
+                if (scrollParent) {
+                    scrollParent.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+                }
+            });
+        });
+        try {
+            if (
+                document.body.classList.contains('search-engine-list-mode-pinned-right') &&
+                searchContainer?.classList.contains('focused')
+            ) {
+                requestAnimationFrame(() => {
+                    try {
+                        refreshPinnedRightSwitcherPanel();
+                    } catch (_) {}
+                });
+            }
+        } catch (_) {}
+    };
+
+    function updateReorderResetButtonState() {
+        const panel = document.getElementById('search-engines-controls-panel');
+        const controlsPanelOpenPrimary = !!(panel && !panel.hasAttribute('hidden'));
+        const controlsPanelOpenPinned = isPinnedCloneControlsPanelOpen();
+        const overflowOpenPrimary = !!searchSwitcherButton?.querySelector(
+            '.search-switcher-dropdown .dropdown-label.dropdown-label--overflow-tools-open'
+        );
+        const overflowOpenPinned = !!pinnedRightHost?.querySelector(
+            '.dropdown-label.dropdown-label--overflow-tools-open'
+        );
+        const openPrimary = controlsPanelOpenPrimary || overflowOpenPrimary;
+        const openPinned = controlsPanelOpenPinned || overflowOpenPinned;
+
+        const enginesPrimary = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        const alphabeticalPrimary = isEngineListAlphabeticalInContainer(enginesPrimary);
+
+        const btn = document.getElementById('search-engines-reset-order-button');
+        if (btn) {
+            if (alphabeticalPrimary) {
+                btn.setAttribute('hidden', '');
+                btn.disabled = true;
+            } else {
+                btn.removeAttribute('hidden');
+                btn.disabled = false;
+            }
+        }
+
+        const syncRestoreSticky = (enginesContainer, reorderOpen) => {
+            const scrollWrap = enginesContainer?.closest('.dropdown-engines-firefox-scroll');
+            const sticky = scrollWrap?.querySelector('.dropdown-restore-az-sticky');
+            if (!sticky) return;
+            const alphabetical = isEngineListAlphabeticalInContainer(enginesContainer);
+            const show = !!reorderOpen && !alphabetical;
+            if (show) {
+                sticky.removeAttribute('hidden');
+                sticky.setAttribute('aria-hidden', 'false');
+            } else {
+                sticky.setAttribute('hidden', '');
+                sticky.setAttribute('aria-hidden', 'true');
+            }
+            const sb = sticky.querySelector('.search-engines-restore-az-sticky-button');
+            if (sb) sb.disabled = !show;
+        };
+
+        syncRestoreSticky(enginesPrimary, openPrimary);
+        const enginesPinned = pinnedRightHost?.querySelector('.search-switcher-dropdown .dropdown-search-engines');
+        syncRestoreSticky(enginesPinned, openPinned);
     }
 
     function syncDefaultBadgeDraggableState() {
@@ -3671,6 +4002,9 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         syncDefaultBadgeDraggableState();
         syncPinnedDefaultBadgeDraggableState();
+        try {
+            updateReorderResetButtonState();
+        } catch (_) {}
     }
 
     function clearFromFirefoxFooterFlipStyles() {
@@ -3867,6 +4201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!cloneDd || !primaryDropdown) return;
             const lock = primaryDropdown.dataset.switcherReorderWidthLock;
             const inlineW = parseFloat(String(primaryDropdown.style.width).replace(/px$/i, '')) || 0;
+            const chipSwitcherOpen = searchSwitcherButton?.classList.contains('open');
             if (lock) {
                 const lockW = parseFloat(lock);
                 if (lockW > 0) {
@@ -3875,7 +4210,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
             }
-            if (inlineW > 0) {
+            /* While the chip menu is open, do not mirror its live scrollWidth — it shifts as max-height
+             * finishes and is wider than the pinned column’s collapsed probe (see measurePinnedDropdownBaseWidth). */
+            if (!chipSwitcherOpen && inlineW > 0) {
                 cloneDd.style.width = `${Math.min(Math.max(inlineW, 200), window.innerWidth - 24)}px`;
                 return;
             }
@@ -3896,8 +4233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncSearchSwitcherPanelPinToggle() {
         let mode = 'closed';
         try {
-            const raw = localStorage.getItem(SEARCH_ENGINE_LIST_MODE_KEY);
-            if (raw === 'closed' || raw === 'pinned-left' || raw === 'pinned-right') mode = raw;
+            mode = getSearchEngineListMode();
         } catch (_) {}
         const pinnedRight = mode === 'pinned-right';
         document.querySelectorAll('.search-engines-pin-default-toggle').forEach((btn) => {
@@ -4179,7 +4515,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!pinnedRightHost || pinnedRightHost.hidden || !pinnedRightHost.contains(e.target)) return;
         if (!document.body.classList.contains('search-engine-list-mode-pinned-right')) return;
         const interactive = e.target.closest(
-            'button, [role="button"], .dropdown-item, .dropdown-firefox-toggle, select, .search-engines-display-segment[data-mode]'
+            'button, [role="button"], [role="checkbox"], .dropdown-item, .dropdown-firefox-toggle, select, .search-engines-display-segment[data-mode]'
         );
         if (!interactive || !pinnedRightHost.contains(interactive)) return;
         if (handlePinnedRightPanelInteraction(e.target, e)) {
@@ -4264,6 +4600,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (m.type !== 'attributes' || !(m.target instanceof Element)) return false;
             const an = m.attributeName;
             const el = m.target;
+            /* `updateReorderResetButtonState` syncs this sticky row on primary + clone in the same tick; re-cloning
+             * only from a primary `hidden` flip replaces the pinned DOM under the cursor (••• hover flicker, no click). */
+            if (an === 'hidden' && el.classList?.contains('dropdown-restore-az-sticky')) {
+                return true;
+            }
             if (an === 'hidden' && (el.id === 'search-engines-controls-panel' || el.id === 'search-switcher-info-panel')) {
                 return true;
             }
@@ -4293,7 +4634,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ) {
                 return;
             }
-            /* Primary row is moved to document.body during reorder drag; do not re-clone until drop. */
+            /* Reorder uses a body-level ghost clone; source row stays in the list (grey placeholder). */
             if (window._searchEngineDragging) return;
             /* Default badge is moved to body + placeholder inserted — same idea: keep clone stable until mouseup. */
             if (window._defaultBadgeDragging) return;
@@ -4620,6 +4961,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setDropdownLabelOverflowToolsOpen(cloneLabel, !!preservedCloneOverflowToolbar, { immediate: true });
         }
         pinnedRightHost.replaceChildren(clone);
+        /* Pinned list/grid follows :pinnedRight storage so the user can change it in the clone; seed that key only when entering pinned-right (see applySearchEngineListMode). */
         applySearchEnginesDisplayMode(
             getSearchEnginesDisplayModeForSurface(SEARCH_ENGINES_DISPLAY_SURFACE_PINNED),
             SEARCH_ENGINES_DISPLAY_SURFACE_PINNED,
@@ -4886,7 +5228,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!el) return;
         el.classList.toggle('checked');
         const isChecked = el.classList.contains('checked');
-        el.setAttribute('aria-pressed', isChecked);
+        el.setAttribute('aria-checked', isChecked ? 'true' : 'false');
+        el.removeAttribute('aria-pressed');
         el.title = isChecked ? 'Include in suggestions' : 'Exclude from suggestions';
         const item = el.closest('.dropdown-item-firefox-suggestion');
         const type = item?.getAttribute('data-suggestion-type');
@@ -4902,7 +5245,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!toggle) return;
             const enabled = state[type] !== false;
             toggle.classList.toggle('checked', enabled);
-            toggle.setAttribute('aria-pressed', enabled);
+            toggle.setAttribute('aria-checked', enabled ? 'true' : 'false');
+            toggle.removeAttribute('aria-pressed');
             toggle.title = enabled ? 'Include in suggestions' : 'Exclude from suggestions';
         });
     }
@@ -5687,30 +6031,27 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
                         const rowUnder = findEngineRowUnderPoint(clientX, clientY, { allowClone: true });
-                        const item = rowUnder ? resolvePrimaryEngineRowByLabel(getEngineLabel(rowUnder)) : null;
-                        if (!item) {
+                        if (!rowUnder?.querySelector('.dropdown-engine-label')) {
                             if (lastPrimaryDragHighlightLabel) {
-                                defaultBadgeDragLog('main switcher (chip) .highlighted cleared — no engine row under point', {
+                                defaultBadgeDragLog('default-badge drag .highlighted cleared — no engine row under point', {
                                     wasLabel: lastPrimaryDragHighlightLabel,
                                 });
                                 lastPrimaryDragHighlightLabel = '';
                             }
                             return;
                         }
-                        const hlLabel = getEngineLabel(item);
-                        item.classList.add('highlighted');
-                        const cloneEcHi = cloneEcForBadge();
-                        if (cloneEcHi) {
-                            const cloneHiRow = Array.from(cloneEcHi.querySelectorAll('.dropdown-item')).find(
-                                (r) =>
-                                    r.querySelector('.dropdown-engine-label') && getEngineLabel(r) === hlLabel
-                            );
-                            if (cloneHiRow) cloneHiRow.classList.add('highlighted');
+                        const hlLabel = getEngineLabel(rowUnder);
+                        const item = resolvePrimaryEngineRowByLabel(hlLabel);
+                        if (!item) {
+                            return;
                         }
+                        /* Highlight only the row under the pointer (chip or pinned clone), not the duplicate row in the other panel. */
+                        rowUnder.classList.add('highlighted');
                         if (hlLabel !== lastPrimaryDragHighlightLabel) {
                             lastPrimaryDragHighlightLabel = hlLabel;
-                            defaultBadgeDragLog('main switcher (chip) drop-target .highlighted', {
+                            defaultBadgeDragLog('default-badge drop-target .highlighted', {
                                 label: hlLabel,
+                                surface: cloneEcForBadge()?.contains(rowUnder) ? 'pinned-clone' : 'chip',
                                 clientX,
                                 clientY,
                             });
@@ -5970,6 +6311,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (enginesContainer) {
             let dragHoldTimer = null;
             let draggedItem = null;
+            /** In-list row (greyed) while `draggedItem` is the floating ghost on `document.body`. */
+            let dragSourceRow = null;
             let dragOffsetX = 0, dragOffsetY = 0;
             let dropMarker = null;
             let dropIndex = -1;
@@ -5993,7 +6336,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const getHitEngineItems = () => {
                 const ec = activeHitSurface();
                 return Array.from(ec.children).filter(
-                    (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+                    (c) =>
+                        c.classList.contains('dropdown-item') &&
+                        c.querySelector('.dropdown-engine-label') &&
+                        c !== dragSourceRow
                 );
             };
 
@@ -6012,7 +6358,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (clientY < viewportRect.top) return 0;
                 if (clientY > viewportRect.bottom) return items.length;
                 const rows = Array.from(hitEc.children).filter(
-                    (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+                    (c) =>
+                        c.classList.contains('dropdown-item') &&
+                        c.querySelector('.dropdown-engine-label') &&
+                        c !== dragSourceRow
                 );
                 for (let i = 0; i < rows.length; i++) {
                     const rect = rows[i].getBoundingClientRect();
@@ -6101,7 +6450,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const endDrag = () => {
-                if (!draggedItem) return;
+                if (!draggedItem || !dragSourceRow) return;
                 document.removeEventListener('mousemove', onDragMove);
                 document.removeEventListener('mouseup', onDragEnd);
                 document.removeEventListener('mouseleave', onDragEnd);
@@ -6116,54 +6465,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const sortSectionEl = enginesContainer.querySelector('.engines-sort-section');
                 const primaryItemsAll = getPrimaryEngineItems();
+                const ghostEl = draggedItem;
+                const sourceRow = dragSourceRow;
 
                 if (engineReorderDragFromPinnedClone) {
-                    const ghost = draggedItem;
-                    const lab = getEngineLabel(ghost);
+                    const lab = getEngineLabel(ghostEl);
                     const primaryRow = primaryItemsAll.find((r) => getEngineLabel(r) === lab);
                     const currentIndex = dragOriginalIndex;
+                    const without = primaryItemsAll.filter((r) => r !== primaryRow);
                     const wouldChange =
                         primaryRow &&
                         dropIndex >= 0 &&
                         dropIndex !== currentIndex &&
                         dropIndex !== currentIndex + 1;
                     if (primaryRow && wouldChange) {
-                        const without = primaryItemsAll.filter((r) => r !== primaryRow);
                         if (dropIndex >= without.length) {
                             enginesContainer.insertBefore(primaryRow, sortSectionEl || null);
                         } else {
                             enginesContainer.insertBefore(primaryRow, without[dropIndex]);
                         }
                     }
-                    ghost.remove();
+                    ghostEl.remove();
+                    sourceRow.classList.remove('dropdown-item--reorder-placeholder');
                     engineReorderDragFromPinnedClone = false;
                 } else {
-                    const items = primaryItemsAll;
+                    const workingItems = primaryItemsAll.filter((r) => r !== sourceRow);
                     const currentIndex = dragOriginalIndex;
                     const wouldChange = dropIndex >= 0 && dropIndex !== currentIndex && dropIndex !== currentIndex + 1;
                     if (wouldChange) {
-                        if (dropIndex >= items.length) {
-                            enginesContainer.insertBefore(draggedItem, sortSectionEl || null);
+                        if (dropIndex >= workingItems.length) {
+                            enginesContainer.insertBefore(sourceRow, sortSectionEl || null);
                         } else {
-                            enginesContainer.insertBefore(draggedItem, items[dropIndex]);
-                        }
-                    } else {
-                        if (currentIndex >= items.length) {
-                            enginesContainer.insertBefore(draggedItem, sortSectionEl || null);
-                        } else {
-                            enginesContainer.insertBefore(draggedItem, items[currentIndex]);
+                            enginesContainer.insertBefore(sourceRow, workingItems[dropIndex]);
                         }
                     }
-                    draggedItem.classList.remove('dragging');
-                    draggedItem.style.left = '';
-                    draggedItem.style.top = '';
-                    draggedItem.style.width = '';
+                    ghostEl.remove();
+                    sourceRow.classList.remove('dropdown-item--reorder-placeholder');
+                    sourceRow.style.left = '';
+                    sourceRow.style.top = '';
+                    sourceRow.style.width = '';
                 }
                 if (dropMarker?.parentNode) dropMarker.remove();
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
                 saveEngineOrder();
                 draggedItem = null;
+                dragSourceRow = null;
                 dropMarker = null;
                 dropIndex = -1;
                 window._searchEngineDragOccurred = true;
@@ -6291,15 +6638,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         dragOriginalIndex = getPrimaryEngineItems().indexOf(item);
                     }
 
-                    draggedItem = item;
+                    dragSourceRow = item;
+                    const ghost = item.cloneNode(true);
+                    ghost.querySelectorAll?.('[id]').forEach((el) => el.removeAttribute('id'));
+                    ghost.classList.remove('highlighted');
+                    ghost.classList.add('dragging');
+                    ghost.style.width = rect.width + 'px';
+                    ghost.style.left = e.clientX - dragOffsetX + 'px';
+                    ghost.style.top = e.clientY - dragOffsetY + 'px';
+                    document.body.appendChild(ghost);
+                    draggedItem = ghost;
+                    dragSourceRow.classList.add('dropdown-item--reorder-placeholder');
                     window._searchEngineDragging = true;
                     document.body.style.cursor = 'grabbing';
                     document.body.style.userSelect = 'none';
-                    document.body.appendChild(draggedItem);
-                    draggedItem.classList.add('dragging');
-                    draggedItem.style.width = rect.width + 'px';
-                    draggedItem.style.left = e.clientX - dragOffsetX + 'px';
-                    draggedItem.style.top = e.clientY - dragOffsetY + 'px';
                     if (isGridMode()) {
                         const grid = getGridDrop(e.clientX, e.clientY);
                         updateDropMarker(grid.index);
@@ -6421,8 +6773,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         } catch (_) {}
                         applyMainScreenHeroLogoMode(mode);
                         syncMainScreenHeroLogoRadiosToMode(mode);
-                        const pinned = searchSwitcherButton?.querySelector('.dropdown-search-engines .dropdown-item-pinned');
-                        if (pinned) syncMainScreenBrandFromSwitcherItem(pinned);
+                        const chipItem = getDropdownItemMatchingSearchBarChip();
+                        if (chipItem) syncMainScreenBrandFromSwitcherItem(chipItem);
                     });
                 });
         }
@@ -6526,27 +6878,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 resetOrderBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (resetOrderBtn.hasAttribute('hidden')) return;
-                    const items = getEngineItemsForSort();
-                    const sorted = [...items].sort((a, b) =>
-                        compareEngineLabelsAlphabetically(getEngineLabel(a), getEngineLabel(b))
-                    );
-                    sorted.forEach((item) => enginesContainerForRestore.insertBefore(item, sortSection));
-                    const order = sorted.map((item) => getEngineLabel(item));
-                    if (order.length) {
-                        try {
-                            getSearchEngineOrderStorage().setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
-                        } catch (_) {}
-                    }
-                    updateReorderResetButtonState();
-                    updateKeyboardNumbers();
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(() => {
-                            const smooth = !document.body.classList.contains('reduced-motion');
-                            enginesContainerForRestore.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
-                        });
-                    });
+                    resetSearchEnginesOrderToAlphabetical();
                 });
             }
+
+            document.addEventListener(
+                'click',
+                (e) => {
+                    const b = e.target.closest('.search-engines-restore-az-sticky-button');
+                    if (!b || b.disabled) return;
+                    const sticky = b.closest('.dropdown-restore-az-sticky');
+                    if (!sticky || sticky.hasAttribute('hidden')) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    resetSearchEnginesOrderToAlphabetical();
+                },
+                true
+            );
 
             updateReorderResetButtonState();
             applySearchEnginesCountMode(getStoredSearchEnginesCount());
@@ -7363,6 +7711,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         searchAddressBarCb.checked ? 'true' : 'false'
                     );
                 } catch (_) {}
+                if (window === window.top && !searchAddressBarCb.checked) {
+                    /* Navigate-only address bar: pinned engine list is meaningless — unpin in the iframe only. */
+                    try {
+                        document.querySelector('.addressbar-iframe')?.contentWindow?.postMessage(
+                            { type: 'search-engine-list-mode', mode: 'closed', animate: true },
+                            '*'
+                        );
+                    } catch (_) {}
+                }
                 syncSearchSettingsPlaceholderPreviewFields();
                 broadcastSearchAccessPointPlaceholderRefresh();
             });
@@ -7505,17 +7862,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!DEBUG_PIN_MENU) return;
         const t = typeof performance !== 'undefined' ? performance.now().toFixed(1) : String(Date.now());
         console.log(`[pin-menu +${t}ms]`, msg, detail);
-    };
-    const getSearchEngineListMode = () => {
-        try {
-            const raw = localStorage.getItem(SEARCH_ENGINE_LIST_MODE_KEY);
-            if (raw === 'closed' || raw === 'pinned-left' || raw === 'pinned-right') return raw;
-            // First run with no saved mode: default to closed (do not migrate legacy switcher to pinned-left).
-            localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, 'closed');
-            return 'closed';
-        } catch (_) {
-            return 'closed';
-        }
     };
     /** Address bar iframe: shift the pill right when pinned outside, and counter-shift the chip so it stays put. */
     const syncAddressbarPinnedSwitcherOffset = () => {
@@ -7717,9 +8063,22 @@ document.addEventListener('DOMContentLoaded', () => {
         let m = mode;
         if (m !== 'closed' && m !== 'pinned-left' && m !== 'pinned-right') m = 'closed';
         try {
-            localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, m);
+            localStorage.setItem(getSearchEngineListModeStorageKey(), m);
         } catch (_) {}
         const wasPinnedRight = document.body.classList.contains('search-engine-list-mode-pinned-right');
+        /* One-shot when pinning: copy chip grid/list into :pinnedRight so the clone opens matching the open panel; later refreshes use stored pinned preference only. */
+        if (
+            !wasPinnedRight &&
+            m === 'pinned-right' &&
+            options.seedPinnedDisplayFromPrimary === true &&
+            searchSwitcherButton
+        ) {
+            const primaryDd = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+            const modeFromChip = primaryDd?.classList.contains('search-engines-display-grid') ? 'grid' : 'list';
+            try {
+                localStorage.setItem(getSearchEnginesDisplayKey(SEARCH_ENGINES_DISPLAY_SURFACE_PINNED), modeFromChip);
+            } catch (_) {}
+        }
         const slideOutPinnedEligible =
             !!options.animate &&
             m !== 'pinned-right' &&
@@ -7737,6 +8096,9 @@ document.addEventListener('DOMContentLoaded', () => {
             slideOutPinned: slideOutPinnedEligible,
         });
         syncSearchSwitcherPanelPinToggle();
+        if (m === 'pinned-right') {
+            closePrimarySearchSwitcherDropdownKeepingSuggestions();
+        }
         if (wasPinnedRight && m !== 'pinned-right' && searchInput && searchContainer) {
             searchContainer.classList.add('focused');
             refreshPinnedRightSwitcherPanel();
@@ -7751,6 +8113,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
+        try {
+            const sel = document.getElementById('search-engine-list-mode-select');
+            if (sel && sel.value !== m) sel.value = m;
+        } catch (_) {}
     };
     function toggleSearchSwitcherPanelPin() {
         const cur = getSearchEngineListMode();
@@ -7783,7 +8149,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 suggestionsList?.classList.add('suggestions-revealed');
             }
         }
-        applySearchEngineListMode(next, { animate: true });
+        applySearchEngineListMode(next, {
+            animate: true,
+            seedPinnedDisplayFromPrimary: next === 'pinned-right',
+        });
         if (openedSuggestionsForPin) {
             openingSuggestionsForPinPanel = true;
             try {
@@ -7816,7 +8185,10 @@ document.addEventListener('DOMContentLoaded', () => {
         searchEngineListModeSelect.addEventListener('change', () => {
             const next = searchEngineListModeSelect.value;
             logPinMenu('search engine list mode select', { next });
-            applySearchEngineListMode(next, { animate: true });
+            applySearchEngineListMode(next, {
+                animate: true,
+                seedPinnedDisplayFromPrimary: next === 'pinned-right',
+            });
         });
     }
 
@@ -7825,7 +8197,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.data?.type !== 'search-engine-list-mode') return;
             const m = e.data.mode;
             if (m !== 'closed' && m !== 'pinned-left' && m !== 'pinned-right') return;
-            applySearchEngineListMode(m, { animate: false });
+            applySearchEngineListMode(m, {
+                animate: e.data.animate === true,
+                seedPinnedDisplayFromPrimary: m === 'pinned-right',
+            });
         });
     }
 
@@ -7849,6 +8224,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dd = pinnedRightHost.querySelector('.search-switcher-dropdown');
                 if (dd) syncPinnedRightPanelLayoutAfterAppend(dd);
             }
+        } catch (_) {}
+    });
+
+    window.addEventListener('prototype-background-swatch-changed', () => {
+        if (document.body.classList.contains('addressbar')) return;
+        try {
+            const chipItem = getDropdownItemMatchingSearchBarChip();
+            if (chipItem) syncMainScreenBrandFromSwitcherItem(chipItem);
         } catch (_) {}
     });
 
@@ -9140,6 +9523,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         TWELVE_SEARCH_ENGINES_ENABLED_KEY,
                         SEARCH_ENGINES_COUNT_KEY,
                         SEARCH_ENGINE_LIST_MODE_KEY,
+                        SEARCH_ENGINE_LIST_MODE_KEY_ADDRESSBAR,
                         SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY,
                         STANDALONE_SEARCH_BOX_VISIBLE_KEY,
                         QUICK_BUTTONS_VISIBLE_KEY,
@@ -9207,11 +9591,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (enginesContainerReset) {
                         const sortSection = enginesContainerReset.querySelector('.engines-sort-section');
                         applyCanonicalSearchEngineOrder(enginesContainerReset, sortSection);
-                        const googlePinned = enginesContainerReset.querySelector('.dropdown-item-pinned');
-                        if (googlePinned) {
-                            applySelectedSearchSource(googlePinned);
-                            setPinnedEngine(googlePinned);
-                        }
+                        /* Apply the stored default (Google above), not the previous `.dropdown-item-pinned` row. */
+                        applySearchSwitcherUIFromStoredDefault();
                         ensureRowActions();
                         updateKeyboardNumbers();
                         updateReorderResetButtonState();
