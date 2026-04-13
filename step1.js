@@ -1520,6 +1520,20 @@ const SEARCH_SWITCHER_CONTROLS_VISIBLE_BY_DEFAULT_KEY = 'search_switcher_control
 const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
 const PROTOTYPE_BROWSER_CHROME_VISIBLE_KEY = 'prototype_browser_chrome_visible';
 
+/** Main page only: keep `?content=0` in sync when toggling the mock below the hero (prototype panel). */
+function syncPrototypeNewTabContentUrlParam(show) {
+    if (typeof window === 'undefined' || window !== window.top) return;
+    try {
+        const url = new URL(window.location.href);
+        if (show) {
+            url.searchParams.delete('content');
+        } else {
+            url.searchParams.set('content', '0');
+        }
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch (_) {}
+}
+
 function readStandaloneSearchBoxVisibleFromStorage() {
     try {
         return localStorage.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY) === 'true';
@@ -2805,6 +2819,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX = 90;
                 /* Match .standalone-search-box-iframe padding-right in step1.css */
                 const STANDALONE_IFRAME_PADDING_RIGHT_PX = 5;
+                /** Narrowest standalone iframe with search field + toolbar (px beyond icon strip + padding). */
+                const STANDALONE_VISIBLE_MIN_SEARCH_COLUMN_PX = 140;
                 const standaloneVisible = readStandaloneSearchBoxVisibleFromStorage();
                 const standaloneWidthWhenVisible =
                     Math.round(standaloneW / 2) +
@@ -2813,35 +2829,62 @@ document.addEventListener('DOMContentLoaded', () => {
                     STANDALONE_IFRAME_PADDING_RIGHT_PX;
                 const standaloneWidthWhenHidden =
                     standaloneToolbarIconsSlotPx + 8 + STANDALONE_IFRAME_PADDING_RIGHT_PX;
-                const standaloneTargetW = standaloneVisible ? standaloneWidthWhenVisible : standaloneWidthWhenHidden;
-                if (standaloneIframe) {
-                    standaloneIframe.style.width = standaloneTargetW + 'px';
-                }
+                const standalonePref = standaloneVisible ? standaloneWidthWhenVisible : standaloneWidthWhenHidden;
+                const standaloneMin = standaloneVisible
+                    ? standaloneToolbarIconsSlotPx +
+                      STANDALONE_IFRAME_PADDING_RIGHT_PX +
+                      STANDALONE_VISIBLE_MIN_SEARCH_COLUMN_PX
+                    : standaloneWidthWhenHidden;
+
                 /* .addressbar-area left 20px + .addressbar-iframe-anchor margin-left 20px */
                 const ADDRESSBAR_ROW_LEFT_GUTTER_PX = 40;
                 const ADDRESSBAR_ROW_GAP_PX = 12;
                 const ADDRESSBAR_ROW_RIGHT_BUFFER_PX = 16;
-                const maxAddressbarByViewport = Math.max(
-                    200,
+                const ADDRESSBAR_ADDRESS_IFRAME_MIN_W = 200;
+                const available = Math.max(
+                    0,
                     window.innerWidth -
                         ADDRESSBAR_ROW_LEFT_GUTTER_PX -
                         ADDRESSBAR_ROW_GAP_PX -
-                        standaloneTargetW -
                         ADDRESSBAR_ROW_RIGHT_BUFFER_PX
                 );
-                let addressbarW = Math.max(
+
+                let addressbarPref = Math.max(
                     0,
                     Math.min(window.innerWidth * 0.93, 930) -
                         160 +
                         ADDRESSBAR_TRAILING_RECT_WIDTH_PX -
                         ADDRESSBAR_IFRAME_NARROWER_PX
                 );
-                /* Reclaim horizontal space when the standalone field is hidden (toolbar-only iframe). */
                 if (!standaloneVisible) {
-                    addressbarW += standaloneWidthWhenVisible - standaloneWidthWhenHidden;
+                    addressbarPref += standaloneWidthWhenVisible - standaloneWidthWhenHidden;
                 }
-                addressbarW = Math.min(addressbarW, maxAddressbarByViewport);
-                iframe.style.width = addressbarW + 'px';
+
+                let standaloneTargetW = standalonePref;
+                let addressbarW = addressbarPref;
+                const slack = available - standaloneTargetW - addressbarW;
+                if (slack < 0) {
+                    let deficit = -slack;
+                    const canShrinkStandalone = Math.max(0, standaloneTargetW - standaloneMin);
+                    const takeStandalone = Math.min(canShrinkStandalone, deficit);
+                    standaloneTargetW -= takeStandalone;
+                    deficit -= takeStandalone;
+                    if (deficit > 0) {
+                        const canShrinkAddress = Math.max(0, addressbarW - ADDRESSBAR_ADDRESS_IFRAME_MIN_W);
+                        const takeAddress = Math.min(canShrinkAddress, deficit);
+                        addressbarW -= takeAddress;
+                        deficit -= takeAddress;
+                    }
+                    if (deficit > 0) {
+                        standaloneTargetW = Math.max(standaloneMin, standaloneTargetW - deficit);
+                        addressbarW = Math.max(0, available - standaloneTargetW);
+                    }
+                }
+
+                if (standaloneIframe) {
+                    standaloneIframe.style.width = Math.round(standaloneTargetW) + 'px';
+                }
+                iframe.style.width = Math.round(addressbarW) + 'px';
             };
             const setHeight = (e) => {
                 if (e.data?.type === 'addressbar-height' && typeof e.data.height === 'number') {
@@ -3893,8 +3936,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isEngineListAlphabeticalInContainer(enginesContainer) {
         if (!enginesContainer) return true;
-        const items = Array.from(enginesContainer.children).filter(
-            (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        /* Match `saveEngineOrder` row discovery (tree order), not only direct children — avoids sticky / A–Z mismatch. */
+        const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter((c) =>
+            c.querySelector('.dropdown-engine-label')
         );
         const labels = items.map((i) => getEngineLabel(i));
         const sorted = [...labels].sort(compareEngineLabelsAlphabetically);
@@ -4681,6 +4725,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!pinnedRightHost || pinnedRightHost.hidden) return;
         if (!document.body.classList.contains('search-engine-list-mode-pinned-right')) {
             logPinnedPanel('click capture: skip (not pinned-right mode)');
+            return;
+        }
+        /* Trailing click after engine reorder ends does not bubble through the chip’s `.search-switcher-dropdown`. */
+        if (window._searchEngineDragOccurred) {
+            window._searchEngineDragOccurred = false;
+            e.preventDefault();
+            e.stopPropagation();
             return;
         }
         const hitEl = pinnedRightPanelHitFromEvent(e);
@@ -6535,6 +6586,18 @@ document.addEventListener('DOMContentLoaded', () => {
             /** True when the dragged row came from the pinned-right clone (ghost is clone DOM; primary row stays until endDrag). */
             let engineReorderDragFromPinnedClone = false;
 
+            /** Real node under cursor when `event.target` is retargeted to an ancestor (Firefox: pinned host / dropdown roots). */
+            const reorderPointerHitIn = (e, root) => {
+                if (!root) return null;
+                let p = null;
+                try {
+                    p = document.elementFromPoint(e.clientX, e.clientY);
+                } catch (_) {}
+                if (p instanceof Element && root.contains(p)) return p;
+                if (e.target instanceof Element && root.contains(e.target)) return e.target;
+                return null;
+            };
+
             const getPrimaryEngineItems = () =>
                 Array.from(enginesContainer.children).filter(
                     (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
@@ -6679,6 +6742,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const primaryItemsAll = getPrimaryEngineItems();
                 const ghostEl = draggedItem;
                 const sourceRow = dragSourceRow;
+                let didMutatePrimaryEngineOrder = false;
 
                 if (engineReorderDragFromPinnedClone) {
                     const lab = getEngineLabel(ghostEl);
@@ -6691,6 +6755,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         dropIndex !== currentIndex &&
                         dropIndex !== currentIndex + 1;
                     if (primaryRow && wouldChange) {
+                        didMutatePrimaryEngineOrder = true;
                         if (dropIndex >= without.length) {
                             enginesContainer.insertBefore(primaryRow, sortSectionEl || null);
                         } else {
@@ -6705,6 +6770,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const currentIndex = dragOriginalIndex;
                     const wouldChange = dropIndex >= 0 && dropIndex !== currentIndex && dropIndex !== currentIndex + 1;
                     if (wouldChange) {
+                        didMutatePrimaryEngineOrder = true;
                         if (dropIndex >= workingItems.length) {
                             enginesContainer.insertBefore(sourceRow, sortSectionEl || null);
                         } else {
@@ -6720,7 +6786,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dropMarker?.parentNode) dropMarker.remove();
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
-                saveEngineOrder();
+                saveEngineOrder({ skipStorage: !didMutatePrimaryEngineOrder });
                 draggedItem = null;
                 dragSourceRow = null;
                 dropMarker = null;
@@ -6803,7 +6869,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const scheduleEngineReorderHold = (e, item, fromPinnedClone) => {
                 if (!item || !item.querySelector('.dropdown-engine-label')) return;
                 if (!searchSwitcherButton.classList.contains('search-engines-controls-open')) return;
-                if (e.target.closest('.dropdown-item-pin-empty, .dropdown-item-pin, .dropdown-item-open-new-window, .dropdown-item-row-action')) {
+                const rootForHit = fromPinnedClone
+                    ? pinnedRightHost?.querySelector('.search-switcher-dropdown .dropdown-search-engines')
+                    : enginesContainer;
+                const hit = reorderPointerHitIn(e, rootForHit);
+                if (
+                    hit?.closest(
+                        '.dropdown-item-pin-empty, .dropdown-item-pin, .dropdown-item-open-new-window, .dropdown-item-row-action'
+                    )
+                ) {
                     return;
                 }
                 e.preventDefault();
@@ -6844,7 +6918,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         dragOriginalIndex = pr != null ? pri.indexOf(pr) : -1;
                         dragHitEnginesContainer.classList.add('engines-dragging');
                     } else {
-                        dragHitEnginesContainer = getHitTestEnginesContainer();
+                        /* Always hit-test the primary list: `dragSourceRow` lives there, and `workingItems` /
+                         * `wouldChange` are primary indices. Using the pinned-right clone here breaks
+                         * `getHitEngineItems()` (clone rows never equal `dragSourceRow`), so dropIndex is
+                         * off by one and a no-op release can still mutate order / show Restore A-Z (iframes). */
+                        dragHitEnginesContainer = enginesContainer;
                         dragHitEnginesContainer.classList.add('engines-dragging');
                         enginesContainer.classList.add('engines-dragging');
                         dragOriginalIndex = getPrimaryEngineItems().indexOf(item);
@@ -6882,12 +6960,15 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             enginesContainer.addEventListener('mousedown', (e) => {
-                const item = e.target.closest('.dropdown-item');
+                const hit = reorderPointerHitIn(e, enginesContainer);
+                const item = hit?.closest('.dropdown-item');
                 scheduleEngineReorderHold(e, item, false);
             });
 
             engineReorderHandlePinnedCloneMousedown = (e) => {
-                const handle = e.target.closest('.dropdown-item-drag-handle');
+                const root = pinnedRightHost?.querySelector('.search-switcher-dropdown .dropdown-search-engines');
+                const hit = reorderPointerHitIn(e, root);
+                const handle = hit?.closest('.dropdown-item-drag-handle');
                 if (!handle) return;
                 const item = handle.closest('.dropdown-item');
                 if (!item || !pinnedRightHost?.contains(item)) return;
@@ -6909,14 +6990,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        function saveEngineOrder() {
+        function saveEngineOrder(opts) {
             const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
             if (!enginesContainer) return;
             const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
                 el => el.querySelector('.dropdown-engine-label')
             );
             const order = items.map(item => getEngineLabel(item));
-            if (order.length) {
+            if (order.length && !opts?.skipStorage) {
                 try {
                     getSearchEngineOrderStorage().setItem(SEARCH_ENGINE_ORDER_KEY, JSON.stringify(order));
                 } catch (_) {}
@@ -7097,7 +7178,14 @@ document.addEventListener('DOMContentLoaded', () => {
             document.addEventListener(
                 'click',
                 (e) => {
-                    const b = e.target.closest('.search-engines-restore-az-sticky-button');
+                    let b = e.target.closest('.search-engines-restore-az-sticky-button');
+                    if (!b) {
+                        let el = null;
+                        try {
+                            el = document.elementFromPoint(e.clientX, e.clientY);
+                        } catch (_) {}
+                        b = el?.closest?.('.search-engines-restore-az-sticky-button') ?? null;
+                    }
                     if (!b || b.disabled) return;
                     const sticky = b.closest('.dropdown-restore-az-sticky');
                     if (!sticky || sticky.hasAttribute('hidden')) return;
@@ -7190,6 +7278,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem(PROTOTYPE_BROWSER_CHROME_VISIBLE_KEY, 'false');
                 } catch (_) {}
             }
+        });
+    }
+
+    const prototypeShowNewTabContentCheckbox = document.querySelector('.prototype-show-new-tab-content-checkbox');
+    if (prototypeShowNewTabContentCheckbox) {
+        prototypeShowNewTabContentCheckbox.checked = !document.body.classList.contains(
+            'prototype-new-tab-content-hidden'
+        );
+        prototypeShowNewTabContentCheckbox.addEventListener('change', (e) => {
+            const show = !!e.target.checked;
+            document.body.classList.toggle('prototype-new-tab-content-hidden', !show);
+            syncPrototypeNewTabContentUrlParam(show);
         });
     }
 
@@ -9956,6 +10056,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (iframeDebugChevronReset) iframeDebugChevronReset.setAttribute('aria-pressed', 'false');
                     const prototypeBrowserChromeCbReset = document.querySelector('.prototype-browser-chrome-checkbox');
                     if (prototypeBrowserChromeCbReset) prototypeBrowserChromeCbReset.checked = true;
+                    document.body.classList.remove('prototype-new-tab-content-hidden');
+                    const prototypeShowNewTabCbReset = document.querySelector('.prototype-show-new-tab-content-checkbox');
+                    if (prototypeShowNewTabCbReset) prototypeShowNewTabCbReset.checked = true;
+                    syncPrototypeNewTabContentUrlParam(true);
                     document.body.classList.remove('pin-default-enabled');
                     updateDefaultBadge();
 

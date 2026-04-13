@@ -53,6 +53,15 @@ body.addressbar:not(.standalone-search-box) .addressbar-row {
     align-content: flex-start;
 }
 
+/* Stop the search pill row shrinking below this width when the parent narrows the iframe (address bar vs standalone). */
+body.addressbar:not(.standalone-search-box) .search-container-top-row {
+    min-width: 290px;
+}
+
+body.addressbar.standalone-search-box .search-container:not(.standalone-search-field-hidden) .search-container-top-row {
+    min-width: 280px;
+}
+
 /* Standalone iframe: search + toolbar icons in one row; keep toolbar top-aligned when suggestions grow.
    Top inset matches body.addressbar .addressbar-row (2px) — same as the address bar iframe. */
 body.addressbar.standalone-search-box .addressbar-row {
@@ -63,8 +72,12 @@ body.addressbar.standalone-search-box .addressbar-row {
 body.addressbar.standalone-search-box .addressbar-row .search-container {
     flex: 1;
     min-width: 0;
+    flex-shrink: 0; /* Narrow the iframe: toolbar strip gives way before the search pill (see .standalone-search-box-toolbar). */
     /* Match non-standalone address bar: avoid vertical centering vs toolbar when the column grows on focus. */
     align-self: flex-start;
+    /* `position: relative` comes from body.addressbar .addressbar-row .search-container — z-index keeps the pill
+     * (incl. .search-container-top-row) above the account / extensions / menu strip when the iframe is narrow. */
+    z-index: 1;
 }
 
 /* Pinned-right: keep the whole search column (and pinned clone) above the sibling toolbar. */
@@ -75,18 +88,26 @@ body.addressbar.standalone-search-box.search-engine-list-mode-pinned-right .addr
 
 body.addressbar.standalone-search-box.search-engine-list-mode-pinned-right .standalone-search-box-toolbar {
     position: relative;
+    top: auto;
+    right: auto;
     z-index: 0;
 }
 
 /* Match vertical nudge of address bar nav (body.addressbar:not(.standalone-search-box) .addressbar-nav). */
 body.addressbar.standalone-search-box .standalone-search-box-toolbar {
-    position: static;
-    flex-shrink: 0;
+    /* relative + z-index:0 so this row stacks under .search-container (z-index:1) when they overlap; layout matches static. */
+    position: relative;
+    top: auto;
+    right: auto;
+    z-index: 0;
+    flex-shrink: 1;
+    min-width: 0;
     align-self: flex-start;
     margin-top: 0;
     margin-left: var(--standalone-search-toolbar-extra-gap);
     box-sizing: border-box;
     transform: translateY(-2px);
+    overflow: hidden; /* Icons clip after gap collapses; parent page then shrinks iframe width before the address bar. */
 }
 
 /* .search-box-wrapper-outer uses z-index:10 + isolation — pinned host was z-index:5 so the shell painted over the
@@ -446,9 +467,9 @@ body.addressbar .dropdown-item-pin-empty img {
     height: 11px;
 }
 
-/* Match main page absolute row-action inset: smaller padding + pin in the iframe switcher lists. */
+/* Match main page absolute row-action inset: smaller padding + pin in the iframe switcher lists (+11px toward row edge). */
 body.addressbar .search-container.search-has-typed-input .dropdown-search-engines > .dropdown-item > .dropdown-item-row-action {
-    right: calc(5px + 11px + 2px);
+    right: calc(5px + 2px); /* +11px right vs prior calc(5px + 11px + 2px) */
 }
 
 body.addressbar .dropdown-firefox-toggle svg {

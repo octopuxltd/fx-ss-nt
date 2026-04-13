@@ -12,10 +12,12 @@
     <script>
         (function () {
             try {
-                var q = (new URLSearchParams(window.location.search).get('chrome') || '').toLowerCase();
+                var p = new URLSearchParams(window.location.search);
+                var q = (p.get('chrome') || '').toLowerCase();
                 var urlHide = q === '0' || q === 'false';
                 var storedOff = localStorage.getItem('prototype_browser_chrome_visible') === 'false';
                 if (urlHide || storedOff) document.body.classList.add('browser-chrome-hidden');
+                if (p.get('content') === '0') document.body.classList.add('prototype-new-tab-content-hidden');
             } catch (e) {}
         })();
     </script>
@@ -619,6 +621,10 @@
                     <input type="checkbox" class="prototype-browser-chrome-checkbox">
                     <span>Show browser chrome</span>
                 </label>
+                <label class="prototype-show-new-tab-content-control">
+                    <input type="checkbox" class="prototype-show-new-tab-content-checkbox" checked>
+                    <span>Show New Tab content</span>
+                </label>
                 <label class="dismissable-strapline-control">
                     <input type="checkbox" class="dismissable-strapline-checkbox">
                     <span>Dismissable strapline</span>
@@ -851,16 +857,49 @@
             </button>
             <h2 id="hide-toolbar-help-title" class="hide-toolbar-help-title">To hide the real Firefox toolbar:</h2>
             <ol class="hide-toolbar-help-steps">
-                <li>Go to <strong>about:config</strong> in a new tab</li>
+                <li>Open a new tab and navigate to <strong>about:config</strong></li>
                 <li>Click <strong>&lsquo;Accept the risk and continue&rsquo;</strong></li>
                 <li>
                     Paste this into the text input:
-                    <strong>full-screen-api.ignore-widgets</strong>
+                    <span class="hide-toolbar-help-pref-row">
+                        <strong>full-screen-api.ignore-widgets</strong>
+                        <button
+                            type="button"
+                            class="hide-toolbar-help-copy-pref-button"
+                            aria-label="Copy full-screen-api.ignore-widgets to clipboard"
+                            data-copy-label="Copy"
+                        >
+                            Copy
+                        </button>
+                    </span>
                 </li>
-                <li>Click the double arrow on the right to set it to <strong>&lsquo;true&rsquo;</strong></li>
+                <li>
+                    Click the
+                    <img
+                        src="icons/aboutconfig-toggle.svg"
+                        width="16"
+                        height="16"
+                        alt="Toggle"
+                        class="hide-toolbar-help-aboutconfig-toggle-icon"
+                        decoding="async"
+                    />
+                    icon on the right to set that pref to <strong>&lsquo;true&rsquo;</strong>
+                </li>
                 <li>Close that tab</li>
                 <li>
-                    Press <strong><kbd class="hide-toolbar-help-mod-key">Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></strong> to toggle the toolbar on and off.
+                    <span class="hide-toolbar-help-fullscreen-win">
+                        Press <strong><kbd>F11</kbd></strong> to toggle the toolbar on and off. If that does nothing, try
+                        <strong><kbd>Fn</kbd>+<kbd>F11</kbd></strong> (common on laptops).
+                    </span>
+                    <span class="hide-toolbar-help-fullscreen-mac" hidden>
+                        Press <strong><kbd class="hide-toolbar-help-mod-key">Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></strong> to
+                        toggle the toolbar on and off.
+                    </span>
+                </li>
+                <li>
+                    This has remapped Firefox&rsquo;s <strong>&lsquo;full screen&rsquo;</strong> control to be
+                    <strong>&lsquo;hide toolbar&rsquo;</strong> &ndash; remember to set it back to <strong>false</strong> later
+                    to revert that change.
                 </li>
             </ol>
         </div>
@@ -873,12 +912,20 @@
             var backdrop = root && root.querySelector('.hide-toolbar-help-backdrop');
             var modal = root && root.querySelector('.hide-toolbar-help-modal');
             var closeBtn = root && root.querySelector('.hide-toolbar-help-close');
-            var modKeyEl = root && root.querySelector('.hide-toolbar-help-mod-key');
             if (!root || !openBtn) return;
 
             var isMac =
                 /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '') ||
                 /Mac OS X|Macintosh/i.test(navigator.userAgent || '');
+            var shortcutWin = root.querySelector('.hide-toolbar-help-fullscreen-win');
+            var shortcutMac = root.querySelector('.hide-toolbar-help-fullscreen-mac');
+            if (shortcutWin && shortcutMac) {
+                if (isMac) {
+                    shortcutWin.setAttribute('hidden', '');
+                    shortcutMac.removeAttribute('hidden');
+                }
+            }
+            var modKeyEl = root.querySelector('.hide-toolbar-help-fullscreen-mac .hide-toolbar-help-mod-key');
             if (modKeyEl && isMac) {
                 modKeyEl.textContent = 'Cmd';
             }
@@ -943,6 +990,45 @@
                     closeDialog();
                 }
             });
+
+            var copyPrefBtn = root.querySelector('.hide-toolbar-help-copy-pref-button');
+            var PREF_TO_COPY = 'full-screen-api.ignore-widgets';
+            if (copyPrefBtn) {
+                copyPrefBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var defaultLabel = copyPrefBtn.getAttribute('data-copy-label') || 'Copy';
+                    function showCopied() {
+                        copyPrefBtn.textContent = 'Copied!';
+                        setTimeout(function () {
+                            copyPrefBtn.textContent = defaultLabel;
+                        }, 1500);
+                    }
+                    function fallbackCopy() {
+                        try {
+                            var ta = document.createElement('textarea');
+                            ta.value = PREF_TO_COPY;
+                            ta.setAttribute('readonly', '');
+                            ta.style.position = 'fixed';
+                            ta.style.left = '-9999px';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            var ok = document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            return ok;
+                        } catch (_) {
+                            return false;
+                        }
+                    }
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(PREF_TO_COPY).then(showCopied).catch(function () {
+                            if (fallbackCopy()) showCopied();
+                        });
+                    } else if (fallbackCopy()) {
+                        showCopied();
+                    }
+                });
+            }
         })();
     </script>
     

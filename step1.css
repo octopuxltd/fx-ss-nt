@@ -311,6 +311,44 @@ html.viewport-chrome-indicator-visible .window-chrome-viewport-chrome-indicator 
     font-weight: 700;
 }
 
+.hide-toolbar-help-pref-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.hide-toolbar-help-copy-pref-button {
+    margin: 0;
+    padding: 2px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    border-radius: 6px;
+    background: #f3f4f6;
+    color: #1a1a1a;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.hide-toolbar-help-copy-pref-button:hover {
+    background: #e5e7eb;
+    border-color: rgba(0, 0, 0, 0.22);
+}
+
+.hide-toolbar-help-copy-pref-button:focus-visible {
+    outline: 2px solid #0060df;
+    outline-offset: 2px;
+}
+
+.hide-toolbar-help-aboutconfig-toggle-icon {
+    display: inline-block;
+    vertical-align: -0.2em;
+    margin: 0 3px;
+    opacity: 0.85;
+}
+
 .hide-toolbar-help-steps kbd,
 .prototype-toolbar-restore-hint kbd {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
@@ -735,7 +773,7 @@ body.prototype-iframe-debug-borders .addressbar-iframe-anchor .addressbar-iframe
 /* Always shown: toolbar icons stay in the iframe; search field uses .search-container.standalone-search-field-hidden in the iframe. */
 .standalone-search-box-iframe {
     display: block;
-    min-width: calc(var(--addressbar-toolbar-icons-slot) + 8px + 5px);
+    min-width: 0;
     /* Fallback until JS sets width (full vs icons-only); +5px matches padding-right */
     width: calc(310px + var(--addressbar-toolbar-icons-slot) + var(--standalone-search-toolbar-extra-gap) + 5px);
     max-width: calc(31vw + var(--addressbar-toolbar-icons-slot) + var(--standalone-search-toolbar-extra-gap) + 5px);
@@ -743,7 +781,7 @@ body.prototype-iframe-debug-borders .addressbar-iframe-anchor .addressbar-iframe
     border: none;
     box-sizing: border-box;
     box-shadow: none;
-    flex-shrink: 0;
+    flex-shrink: 1;
     margin-left: auto;
     margin-right: 0;
     padding-right: 5px;
@@ -917,6 +955,15 @@ body:not(.addressbar) .page-content-placeholder {
     box-sizing: border-box;
     transition: opacity 0.25s ease-out;
     opacity: 1;
+}
+
+body.prototype-new-tab-content-hidden:not(.addressbar) .page-content-placeholder {
+    display: none;
+}
+
+/* When the Pocket mock is off, drop the hero so the page does not feel top-heavy (75px below default). */
+body.prototype-new-tab-content-hidden:not(.addressbar) .main-hero-stack {
+    margin-top: calc(130px + 75px);
 }
 
 body:not(.addressbar):has(.search-container.focused) .page-content-placeholder {
@@ -3306,7 +3353,7 @@ body.reduced-motion .search-settings-modal-panel {
     justify-content: center;
     flex-shrink: 0;
     margin-left: auto;
-    margin-right: 0;
+    margin-right: 7px; /* 7px left of default (gap before pin) */
     opacity: 0;
     transition: opacity 0.32s linear;
     pointer-events: none;
@@ -3327,7 +3374,7 @@ body.reduced-motion .search-settings-modal-panel {
     justify-content: center;
     flex-shrink: 0;
     margin-left: auto;
-    margin-right: 0;
+    margin-right: 7px; /* 7px left of default (gap before pin) */
     opacity: 0;
     transition: opacity 0.32s linear;
     pointer-events: none;
@@ -3369,7 +3416,7 @@ body.reduced-motion .search-switcher-pinned-right-host.search-switcher-reorder-u
     display: flex !important;
     position: absolute;
     top: 1px;
-    right: 1px;
+    right: 8px; /* 7px left of prior 1px inset */
     width: 12px;
     height: 12px;
     margin: 0;
@@ -4534,6 +4581,7 @@ body.reduced-motion .bottom-left-panel-content {
 
 .reduced-motion-checkbox,
 .prototype-browser-chrome-checkbox,
+.prototype-show-new-tab-content-checkbox,
 .underline-search-engines-checkbox,
 .keyboard-switcher-numbers-checkbox,
 .search-engines-count-radio {
@@ -4828,6 +4876,7 @@ body:not(.pin-default-enabled) .dropdown-item-drag-handle {
     align-items: center;
     justify-content: center;
     margin-left: auto;
+    margin-right: 7px; /* align inset with reorder-mode handles in .dropdown-search-engines */
     opacity: 0;
     pointer-events: none;
     cursor: grab;
@@ -4898,7 +4947,7 @@ body.switcher-outside-search-box-enabled .search-container.search-has-typed-inpu
 .search-container.search-has-typed-input .dropdown-search-engines > .dropdown-item > .dropdown-item-row-action {
     position: absolute;
     top: 50%;
-    right: calc(6px + 16px + 2px); /* inline padding + .dropdown-item-pin(16) — sit just left of the pin */
+    right: calc(6px + 16px + 2px - 17px); /* +17px toward trailing edge (hero / main page; address bar overrides in step1-addressbar.css) */
     transform: translateY(-50%);
     margin-left: 0;
     margin-right: 0;
@@ -4926,6 +4975,20 @@ body.switcher-outside-search-box-enabled .search-container.search-has-typed-inpu
 .dropdown-item:hover .dropdown-item-row-action {
     opacity: 0.8;
     pointer-events: auto;
+}
+
+/* ••• overflow toolbar open: hide open-in-new-tab row action so drag/reorder handles are usable */
+.search-switcher-dropdown:has(.dropdown-label.dropdown-label--overflow-tools-open)
+    .dropdown-search-engines
+    > .dropdown-item
+    > .dropdown-item-row-action,
+.search-switcher-dropdown:has(.dropdown-label.dropdown-label--overflow-tools-closing)
+    .dropdown-search-engines
+    > .dropdown-item
+    > .dropdown-item-row-action {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 .dropdown-item-open-new-window {
