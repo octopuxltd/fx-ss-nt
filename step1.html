@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="step1.css">
     <script src="config.js" onerror="console.warn('config.js not found. Using example config.'); window.API_CONFIG = window.API_CONFIG || { OPENROUTER_API_KEY: '', OPENAI_API_KEY: '', PEXELS_API_KEY: '' };"></script>
     <script src="suggestion-words.js"></script>
+    <script src="viewport-chrome-shared.js"></script>
 </head>
 <body>
     <script>
@@ -86,8 +87,11 @@
             var helpBtn = document.querySelector('.window-chrome-viewport-chrome-indicator-help');
             function syncViewportChromeIndicator() {
                 try {
-                    var gap = Math.abs(window.innerHeight - window.outerHeight);
-                    var show = gap > 5;
+                    var show =
+                        typeof window.__isViewportChromeIndicatorStripVisible === 'function'
+                            ? window.__isViewportChromeIndicatorStripVisible()
+                            : Math.abs(window.innerHeight - window.outerHeight) >
+                              (window.__VIEWPORT_CHROME_HEIGHT_GAP_THRESHOLD_PX || 60);
                     document.documentElement.classList.toggle('viewport-chrome-indicator-visible', show);
                     if (helpBtn) {
                         helpBtn.tabIndex = show ? 0 : -1;

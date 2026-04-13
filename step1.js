@@ -3035,9 +3035,11 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         const tabStripSimulationRibbon = document.querySelector('.window-chrome-tab-strip-simulation-ribbon');
         const syncPrototypeToolbarRestoreHint = () => {
-            const gap = Math.abs(window.innerHeight - window.outerHeight);
-            /* Same threshold as tab-strip “prototype” ribbon: inner vs outer height within 5px. */
-            const showChromelessViewportUi = gap <= 5;
+            const showChromelessViewportUi =
+                typeof window.__isViewportChromelessPrototypeUi === 'function'
+                    ? window.__isViewportChromelessPrototypeUi()
+                    : Math.abs(window.innerHeight - window.outerHeight) <=
+                      (window.__VIEWPORT_CHROME_HEIGHT_GAP_THRESHOLD_PX ?? 60);
             if (tabStripSimulationRibbon) {
                 tabStripSimulationRibbon.hidden = !showChromelessViewportUi;
             }
