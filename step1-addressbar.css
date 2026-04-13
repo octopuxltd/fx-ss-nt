@@ -90,8 +90,13 @@ body.addressbar.standalone-search-box .standalone-search-box-toolbar {
 }
 
 /* .search-box-wrapper-outer uses z-index:10 + isolation — pinned host was z-index:5 so the shell painted over the
-   engines list where layers overlap; raise the clone above the wrapper in standalone pinned-right only. */
+   engines list where layers overlap; raise the clone above the wrapper whenever pinned-right is open. */
 body.addressbar.standalone-search-box.search-engine-list-mode-pinned-right
+    .search-switcher-pinned-right-host:not([hidden]) {
+    z-index: 25;
+}
+
+body.addressbar:not(.standalone-search-box).search-engine-list-mode-pinned-right
     .search-switcher-pinned-right-host:not([hidden]) {
     z-index: 25;
 }

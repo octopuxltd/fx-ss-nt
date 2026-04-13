@@ -4514,30 +4514,66 @@ document.addEventListener('DOMContentLoaded', () => {
     applySearchSwitcherControlsVisibleLayout();
     applySearchEnginesDisplayMode(undefined, 'all');
 
+    /** Set false to silence `[pinned-right-panel]` console logs. */
+    const DEBUG_PINNED_RIGHT_PANEL_CLICKS = false;
+    const logPinnedPanel = (...args) => {
+        if (DEBUG_PINNED_RIGHT_PANEL_CLICKS) console.log('[pinned-right-panel]', ...args);
+    };
+
+    /**
+     * Firefox can report `click`/`mousedown` `event.target` as `.search-switcher-pinned-right-host`
+     * while `document.elementFromPoint` still returns the real control. `closest()` from the host
+     * never finds descendants, so we resolve the effective node for pinned forwarding.
+     */
+    function pinnedRightPanelHitFromEvent(e) {
+        if (!pinnedRightHost || pinnedRightHost.hidden) return null;
+        let hit = null;
+        try {
+            hit = document.elementFromPoint(e.clientX, e.clientY);
+        } catch (_) {}
+        if (hit instanceof Element && pinnedRightHost.contains(hit)) return hit;
+        if (e.target instanceof Element && pinnedRightHost.contains(e.target)) return e.target;
+        return null;
+    }
+
     /**
      * Run the same actions as the chip dropdown for engines/settings rows (primary DOM).
      * (i) / controls toggles only affect the pinned clone (`togglePinnedRightClone*`).
      */
     function handlePinnedRightPanelInteraction(tgt, e) {
         const primaryDropdown = searchSwitcherButton?.querySelector('.search-switcher-dropdown');
-        if (!primaryDropdown || !pinnedRightHost?.contains(tgt)) return false;
+        if (!primaryDropdown || !pinnedRightHost?.contains(tgt)) {
+            logPinnedPanel('handle: bail (no primary dropdown or target outside host)', {
+                hasPrimaryDropdown: !!primaryDropdown,
+                containsTarget: pinnedRightHost ? pinnedRightHost.contains(tgt) : null,
+                targetTag: tgt?.nodeName,
+            });
+            return false;
+        }
 
         if (tgt.closest('.search-engine-list-mode-select')) {
+            logPinnedPanel('handle: list-mode <select> — native handling (return false)');
             return false;
         }
 
         const segBtn = tgt.closest('.search-engines-display-segment[data-mode]');
         if (segBtn) {
+            logPinnedPanel('handle: list/grid segment', {
+                mode: segBtn.getAttribute('data-mode'),
+                flipFn: typeof flipSearchEnginesDisplayModeForPinned,
+            });
             if (flipSearchEnginesDisplayModeForPinned) flipSearchEnginesDisplayModeForPinned();
             return true;
         }
 
         if (tgt.closest('.search-engines-pin-default-toggle')) {
+            logPinnedPanel('handle: pin-default toggle');
             toggleSearchSwitcherPanelPin();
             return true;
         }
 
         if (tgt.closest('.search-engines-controls-toggle')) {
+            logPinnedPanel('handle: controls toggle', { defaultVisible: isSearchSwitcherControlsVisibleByDefault() });
             if (isSearchSwitcherControlsVisibleByDefault()) {
                 document.getElementById('more-search-settings-button')?.click();
             } else {
@@ -4546,10 +4582,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         }
         if (tgt.closest('.dropdown-label-info-icon')) {
+            logPinnedPanel('handle: (i) info toggle');
             togglePinnedRightCloneInfoPanel();
             return true;
         }
         if (tgt.closest('.search-engines-reset-order-button')) {
+            logPinnedPanel('handle: reset order');
             const btn = document.getElementById('search-engines-reset-order-button');
             if (btn && !btn.hasAttribute('hidden')) {
                 btn.click();
@@ -4557,10 +4595,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         }
         if (tgt.closest('.more-search-settings-button')) {
+            logPinnedPanel('handle: more search settings');
             document.getElementById('more-search-settings-button')?.click();
             return true;
         }
         if (tgt.closest('.search-switcher-more-menu-button')) {
+            logPinnedPanel('handle: ••• overflow menu');
             const mb = tgt.closest('.search-switcher-more-menu-button');
             if (mb) toggleDropdownLabelOverflowTools(mb);
             return true;
@@ -4568,6 +4608,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const firefoxToggle = tgt.closest('.dropdown-firefox-toggle');
         if (firefoxToggle) {
+            logPinnedPanel('handle: Firefox suggestion checkbox');
             toggleFirefoxSuggestionCheckbox(firefoxToggle);
             restoreFirefoxSuggestionsState();
             return true;
@@ -4575,6 +4616,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const openNewTabBtn = tgt.closest('.dropdown-item-open-new-window');
         if (openNewTabBtn) {
+            logPinnedPanel('handle: open in new tab row');
             const row = openNewTabBtn.closest('.dropdown-item');
             const label = row ? getEngineLabel(row) : '';
             const query = (searchInput?.value || '').trim();
@@ -4589,8 +4631,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const item = tgt.closest('.dropdown-item');
         if (item) {
-            if (item.id === 'quick-buttons-toggle') return false;
+            if (item.id === 'quick-buttons-toggle') {
+                logPinnedPanel('handle: quick-buttons-toggle ignored');
+                return false;
+            }
             if (item.closest('.dropdown-item-firefox-suggestion') && !tgt.closest('.dropdown-firefox-toggle')) {
+                logPinnedPanel('handle: firefox suggestion row (not toggle) — ignored');
                 return false;
             }
             const query = (searchInput?.value || '').trim();
@@ -4601,12 +4647,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 primaryRow = primaryDropdown.querySelector('.dropdown-item-pinned');
             }
             if (!primaryRow) {
+                logPinnedPanel('handle: dropdown-item but no primaryRow', { label, isEngineItem });
                 return false;
             }
             const openInBackground = e && (e.metaKey || e.ctrlKey) && isEngineItem && !!query;
             if (openInBackground) {
+                logPinnedPanel('handle: engine search background tab', { label: getEngineLabel(primaryRow), query });
                 runSearchWithEngine(query, getEngineLabel(primaryRow), false);
             } else {
+                logPinnedPanel('handle: engine row', {
+                    label: getEngineLabel(primaryRow),
+                    query,
+                    applySource: true,
+                    runSearch: !!(isEngineItem && query),
+                });
                 applySelectedSearchSource(primaryRow);
                 if (isEngineItem && query) {
                     runSearchWithEngine(query, getEngineLabel(primaryRow), true);
@@ -4619,49 +4673,86 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return true;
         }
+        logPinnedPanel('handle: no matching branch (return false)');
         return false;
     }
 
     function onPinnedRightHostClickCapture(e) {
-        if (!pinnedRightHost || pinnedRightHost.hidden || !pinnedRightHost.contains(e.target)) return;
-        if (!document.body.classList.contains('search-engine-list-mode-pinned-right')) return;
-        const interactive = e.target.closest(
+        if (!pinnedRightHost || pinnedRightHost.hidden) return;
+        if (!document.body.classList.contains('search-engine-list-mode-pinned-right')) {
+            logPinnedPanel('click capture: skip (not pinned-right mode)');
+            return;
+        }
+        const hitEl = pinnedRightPanelHitFromEvent(e);
+        if (!hitEl) return;
+        let topHit = null;
+        try {
+            topHit = document.elementFromPoint(e.clientX, e.clientY);
+        } catch (_) {}
+        logPinnedPanel('click capture', {
+            target: e.target?.nodeName,
+            targetClass: typeof e.target?.className === 'string' ? e.target.className : '',
+            topHit: topHit?.nodeName,
+            topHitClass: typeof topHit?.className === 'string' ? topHit.className : '',
+            targetVsTopHit: e.target !== topHit,
+        });
+        const interactive = hitEl.closest(
             'button, [role="button"], [role="checkbox"], .dropdown-item, .dropdown-firefox-toggle, select, .search-engines-display-segment[data-mode]'
         );
-        if (!interactive || !pinnedRightHost.contains(interactive)) return;
-        if (handlePinnedRightPanelInteraction(e.target, e)) {
+        if (!interactive || !pinnedRightHost.contains(interactive)) {
+            logPinnedPanel('click capture: no interactive match', {
+                hasInteractive: !!interactive,
+                interactiveInHost: interactive ? pinnedRightHost.contains(interactive) : false,
+            });
+            return;
+        }
+        const handled = handlePinnedRightPanelInteraction(hitEl, e);
+        logPinnedPanel('click capture: handlePinnedRightPanelInteraction →', handled);
+        if (handled) {
             e.preventDefault();
             e.stopPropagation();
+            logPinnedPanel('click capture: preventDefault + stopPropagation');
             // (i) / controls / ••• toolbar: clone-only toggles — no refresh here (refresh would reset clone DOM).
-            const isSubpanelChromeToggle = e.target.closest(
+            const isSubpanelChromeToggle = hitEl.closest(
                 '.search-engines-controls-toggle, .dropdown-label-info-icon, .search-switcher-more-menu-button'
             );
             if (!isSubpanelChromeToggle) {
+                logPinnedPanel('click capture: schedule refreshPinnedRightSwitcherPanel');
                 requestAnimationFrame(() => refreshPinnedRightSwitcherPanel());
             }
         }
     }
 
     function onPinnedRightHostChangeCapture(e) {
-        if (!pinnedRightHost || pinnedRightHost.hidden || !pinnedRightHost.contains(e.target)) return;
-        const sel = e.target.closest('.search-engine-list-mode-select');
+        if (!pinnedRightHost || pinnedRightHost.hidden) return;
+        let tgt = e.target instanceof Element ? e.target : null;
+        if (tgt === pinnedRightHost && document.activeElement instanceof Element && pinnedRightHost.contains(document.activeElement)) {
+            tgt = document.activeElement;
+        }
+        if (!tgt || !pinnedRightHost.contains(tgt)) return;
+        const sel = tgt.closest('.search-engine-list-mode-select');
         if (!sel) return;
         const primary = document.getElementById('search-engine-list-mode-select');
         if (!primary || sel === primary) return;
         e.stopPropagation();
+        logPinnedPanel('change capture: clone list-mode select', { value: sel.value, primaryWas: primary.value });
         if (sel.value !== primary.value) {
             primary.value = sel.value;
             primary.dispatchEvent(new Event('change', { bubbles: true }));
+            logPinnedPanel('change capture: synced primary select + dispatched change');
         }
     }
 
     function onPinnedRightHostMouseDownCapture(e) {
-        if (!pinnedRightHost || pinnedRightHost.hidden || !pinnedRightHost.contains(e.target)) return;
+        if (!pinnedRightHost || pinnedRightHost.hidden) return;
         if (!document.body.classList.contains('search-engine-list-mode-pinned-right')) return;
+        const hitEl = pinnedRightPanelHitFromEvent(e);
+        if (!hitEl) return;
+        logPinnedPanel('mousedown capture', { button: e.button, target: e.target?.nodeName });
         if (e.button === 0) {
             pinnedRightHostPointerActive = true;
         }
-        const handle = e.target.closest('.dropdown-item-drag-handle');
+        const handle = hitEl.closest('.dropdown-item-drag-handle');
         if (handle) {
             if (typeof engineReorderHandlePinnedCloneMousedown === 'function') {
                 e.preventDefault();
@@ -4670,7 +4761,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
-        const badge = e.target.closest('.dropdown-default-badge--draggable');
+        const badge = hitEl.closest('.dropdown-default-badge--draggable');
         if (badge) {
             if (typeof handleDefaultBadgeDragMouseDown === 'function') {
                 e.preventDefault();
@@ -8952,7 +9043,7 @@ document.addEventListener('DOMContentLoaded', () => {
             iconWrap.setAttribute('data-tooltip-position', 'top-right');
             const tooltipPop = document.createElement('span');
             tooltipPop.className = 'tooltip-popup';
-            tooltipPop.innerHTML = 'History, bookmarks, and tab suggestions, plus relevant links from trusted sources and the occasional sponsored suggestion (relevant without us selling your data! <a href="https://support.mozilla.org/en-US/kb/firefox-suggest" target="_blank" rel="noopener">Learn how</a>)';
+            tooltipPop.innerHTML = `'From Firefox' includes pages from your history, bookmarks, and open tabs, as well as links to trusted sources and the occasional sponsored suggestion. <a href="https://support.mozilla.org/en-US/kb/firefox-suggest" target="_blank" rel="noopener">Learn how Firefox shows relevant content without selling your data</a>`;
             iconWrap.appendChild(iconSvg);
             iconWrap.appendChild(tooltipPop);
             const span = document.createElement('span');
