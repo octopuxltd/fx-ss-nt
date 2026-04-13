@@ -33,6 +33,8 @@
     /* Representative page hue for gradient wallpaper (slightly deeper so 50/50 mix with white reads tinted, not paper white). */
     --page-bg-solid: #9eb0cc;
     --window-chrome-tab-strip-height: 48px;
+    /* Yellow simulation strip above tabs when inner/outer height differ (see html.viewport-chrome-indicator-visible). */
+    --window-chrome-viewport-indicator-height: 0px;
     /* Extra horizontal space between standalone search field and toolbar icons; keep in sync with step1.js STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX */
     --standalone-search-toolbar-extra-gap: 90px;
     /* Search engine switcher panel: chip dropdown + pinned-right clone share these (see step1-addressbar.css for iframe overrides). */
@@ -80,6 +82,10 @@ body {
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
+    /* Resolves tab strip + optional indicator using values inherited from html / overrides on this body. */
+    --window-chrome-offset-below-fixed-top: calc(
+        var(--window-chrome-tab-strip-height, 48px) + var(--window-chrome-viewport-indicator-height, 0px)
+    );
 }
 
 body[data-background="grey"] {
@@ -144,15 +150,226 @@ body:not([data-background]):not(.addressbar) .main-screen-brand-read-why-link:fo
     outline-color: #fff;
 }
 
-/* Top window chrome: traffic lights, separator, tabs — full strip #eaeaed */
-.window-chrome-tab-strip {
+/* Mock page on gradient: strapline-aligned white for shortcuts, section titles, chevrons/plus, more (⋯). */
+body:not([data-background]):not(.addressbar) .page-content-mock .pcm-shortcut-label,
+body:not([data-background]):not(.addressbar) .page-content-mock .pcm-sponsored {
+    color: #fff;
+}
+
+body:not([data-background]):not(.addressbar) .page-content-mock .pcm-section-title,
+body:not([data-background]):not(.addressbar) .page-content-mock .pcm-section-toggle {
+    color: #fff;
+}
+
+body:not([data-background]):not(.addressbar) .page-content-mock .pcm-section-toggle:not(.pcm-section-toggle--plus)::after {
+    border-top-color: #fff;
+    opacity: 0.95;
+}
+
+body:not([data-background]):not(.addressbar) .page-content-mock .pcm-section-toggle--plus::after {
+    border-color: #fff;
+    color: #fff;
+}
+
+body:not([data-background]):not(.addressbar) .page-content-mock .pcm-section-more {
+    color: rgba(255, 255, 255, 0.92);
+}
+
+html.viewport-chrome-indicator-visible {
+    --window-chrome-viewport-indicator-height: 24px;
+}
+
+html.viewport-chrome-indicator-visible .window-chrome-viewport-chrome-indicator {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Clicks pass through chrome except the help control (parent stack is pointer-events: none). */
+.window-chrome-viewport-chrome-indicator-help {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+    padding: 2px 4px;
+    max-width: min(52%, 280px);
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 9px;
+    line-height: 1.2;
+    font-weight: 400;
+    color: #000;
+    opacity: 0.75;
+    text-decoration: underline;
+    text-align: right;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.window-chrome-viewport-chrome-indicator-help:hover {
+    opacity: 0.95;
+}
+
+.window-chrome-viewport-chrome-indicator-help:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: 2px;
+    opacity: 1;
+}
+
+/* “Hide toolbar” help dialog */
+.hide-toolbar-help-root {
+    position: fixed;
+    inset: 0;
+    z-index: 100100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.hide-toolbar-help-root[hidden] {
+    display: none !important;
+}
+
+.hide-toolbar-help-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    cursor: default;
+}
+
+.hide-toolbar-help-modal {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+    max-height: min(90vh, 560px);
+    overflow: auto;
+    margin: 0;
+    padding: 22px 24px 24px;
+    box-sizing: border-box;
+    background: #fff;
+    color: #1a1a1a;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.hide-toolbar-help-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #444;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hide-toolbar-help-close:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #111;
+}
+
+.hide-toolbar-help-close:focus-visible {
+    outline: 2px solid #0060df;
+    outline-offset: 2px;
+}
+
+.hide-toolbar-help-title {
+    margin: 0 40px 14px 0;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.hide-toolbar-help-steps {
+    margin: 0;
+    padding-left: 1.35em;
+}
+
+.hide-toolbar-help-steps li {
+    margin-bottom: 10px;
+}
+
+.hide-toolbar-help-steps li:last-child {
+    margin-bottom: 0;
+}
+
+.hide-toolbar-help-steps strong {
+    font-weight: 700;
+}
+
+.hide-toolbar-help-steps kbd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    font-size: 0.92em;
+    font-weight: 600;
+    padding: 0.08em 0.35em;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    background: #f3f4f6;
+}
+
+body.hide-toolbar-help-open {
+    overflow: hidden;
+}
+
+/* Fixed stack: optional simulation strip + tab strip (above grey band + in-flow hero so scroll tucks content under chrome). */
+.window-chrome-top-stack {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    pointer-events: none;
+}
+
+.window-chrome-viewport-chrome-indicator {
+    position: relative;
+    pointer-events: none;
+    flex-shrink: 0;
+    width: 100%;
+    height: var(--window-chrome-viewport-indicator-height, 0px);
+    background-color: #ffeb3b;
+    border-bottom: none;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.window-chrome-viewport-chrome-indicator-label {
+    color: #000;
+    font-weight: 700;
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    text-align: center;
+}
+
+/* Top window chrome: traffic lights, separator, tabs — full strip #eaeaed */
+.window-chrome-tab-strip {
+    position: relative;
+    flex-shrink: 0;
+    width: 100%;
     height: var(--window-chrome-tab-strip-height, 48px);
     background-color: #eaeaed;
-    z-index: 2;
     display: flex;
     align-items: stretch;
     box-sizing: border-box;
@@ -375,15 +592,15 @@ body.prototype-iframe-debug-borders .window-chrome-tabs-chevron[aria-pressed='tr
 
 .addressbar-band {
     position: fixed;
-    top: var(--window-chrome-tab-strip-height, 48px);
+    top: var(--window-chrome-offset-below-fixed-top);
     left: 0;
     right: 0;
     /* Fixed chrome height — not derived from iframe measurements (avoids focus/layout jitter). */
     height: 45px;
     background-color: #f9f9fb;
     border-bottom: 1px solid #cccccc;
-    /* Above in-flow page content when scrolling; below tab strip (2) and toolbar row (5). */
-    z-index: 1;
+    /* Above .main-hero-stack (z-index 1) when scrolling; below tab strip (4) and address row (5). */
+    z-index: 3;
 }
 
 /* Toolbar icons (account / search settings / menu) live inside the standalone search iframe; no right padding here. */
@@ -394,7 +611,7 @@ body.prototype-iframe-debug-borders .window-chrome-tabs-chevron[aria-pressed='tr
     align-content: flex-start;
     gap: 12px;
     position: fixed;
-    top: calc(var(--window-chrome-tab-strip-height, 48px) + 2px);
+    top: calc(var(--window-chrome-offset-below-fixed-top) + 2px);
     left: 20px;
     right: 0;
     margin: 0;
@@ -461,9 +678,10 @@ body.prototype-iframe-debug-borders .standalone-search-box-iframe {
 /* Prototype: hide tab strip + full address bar row (grey band, iframes, toolbar icons). Toggle or ?chrome=0 */
 body.browser-chrome-hidden {
     --window-chrome-tab-strip-height: 0px;
+    --window-chrome-viewport-indicator-height: 0px;
 }
 
-body.browser-chrome-hidden .window-chrome-tab-strip {
+body.browser-chrome-hidden .window-chrome-top-stack {
     display: none;
 }
 

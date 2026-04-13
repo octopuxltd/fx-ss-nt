@@ -25,6 +25,15 @@ body.addressbar:not(.standalone-search-box).search-engine-list-mode-pinned-right
     display: none !important;
 }
 
+/* In-flow suggestions open: never stack the one-off “Search with” row under the panel (main page rule can expand it when the eye toggle is on). */
+body.addressbar .search-container:has(.suggestions-list.suggestions-revealed) .one-off-buttons {
+    display: none !important;
+    max-height: 0 !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
 body.addressbar .addressbar-row {
     position: fixed;
     top: 2px;
@@ -614,6 +623,11 @@ body.addressbar .skeleton-text {
 
 body.addressbar .search-container.focused .suggestions-list {
     max-height: 360px;
+}
+
+/* Real address bar column: program/autofocus must not expand the panel until JS adds .suggestions-revealed (after pointerdown). */
+body.addressbar:not(.standalone-search-box) .search-container.focused .suggestions-list:not(.suggestions-revealed) {
+    max-height: 0;
 }
 
 /* Search settings: Address bar “Search” off (navigate-only) — Firefox sources only, no web engine list. */

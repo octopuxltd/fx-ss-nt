@@ -19,6 +19,13 @@
             } catch (e) {}
         })();
     </script>
+    <div class="window-chrome-top-stack" aria-hidden="true">
+    <div class="window-chrome-viewport-chrome-indicator">
+        <span class="window-chrome-viewport-chrome-indicator-label" aria-hidden="true">▼ ▼  BROWSER SIMULATION  ▼ ▼</span>
+        <button type="button" class="window-chrome-viewport-chrome-indicator-help">
+            How to hide the real Firefox toolbar
+        </button>
+    </div>
     <div class="window-chrome-tab-strip" aria-hidden="true">
         <div class="window-chrome-tab-strip-inner">
             <div class="window-chrome-traffic-lights" role="presentation">
@@ -59,6 +66,26 @@
             </div>
         </div>
     </div>
+    </div>
+    <script>
+        (function () {
+            var helpBtn = document.querySelector('.window-chrome-viewport-chrome-indicator-help');
+            function syncViewportChromeIndicator() {
+                try {
+                    var gap = Math.abs(window.innerHeight - window.outerHeight);
+                    var show = gap > 5;
+                    document.documentElement.classList.toggle('viewport-chrome-indicator-visible', show);
+                    if (helpBtn) {
+                        helpBtn.tabIndex = show ? 0 : -1;
+                        helpBtn.setAttribute('aria-hidden', show ? 'false' : 'true');
+                    }
+                } catch (e) {}
+            }
+            syncViewportChromeIndicator();
+            window.addEventListener('resize', syncViewportChromeIndicator);
+            window.addEventListener('orientationchange', syncViewportChromeIndicator);
+        })();
+    </script>
     <div class="addressbar-band" aria-hidden="true"></div>
     <div class="addressbar-area">
         <div class="addressbar-iframe-anchor">
@@ -383,15 +410,15 @@
         <div class="page-content-placeholder-inner page-content-mock">
             <div class="pcm-shortcuts-strip" role="navigation" aria-label="Shortcuts">
                 <a class="pcm-shortcut pcm-shortcut--sponsored" href="#"><span class="pcm-shortcut-icon" aria-hidden="true"><img src="favicons/Amazon - Light.svg" alt=""></span><span class="pcm-shortcut-label">Amazon</span><span class="pcm-sponsored">Sponsored</span></a>
-                <a class="pcm-shortcut pcm-shortcut--sponsored" href="#"><span class="pcm-shortcut-icon pcm-shortcut-icon--letter" aria-hidden="true">Ap</span><span class="pcm-shortcut-label">Apple</span><span class="pcm-sponsored">Sponsored</span></a>
-                <a class="pcm-shortcut pcm-shortcut--sponsored" href="#"><span class="pcm-shortcut-icon pcm-shortcut-icon--letter" aria-hidden="true">A</span><span class="pcm-shortcut-label">Airbnb</span><span class="pcm-sponsored">Sponsored</span></a>
+                <a class="pcm-shortcut pcm-shortcut--sponsored" href="#"><span class="pcm-shortcut-icon" aria-hidden="true"><img src="favicons/Apple.svg" alt=""></span><span class="pcm-shortcut-label">Apple</span><span class="pcm-sponsored">Sponsored</span></a>
+                <a class="pcm-shortcut pcm-shortcut--sponsored" href="#"><span class="pcm-shortcut-icon" aria-hidden="true"><img src="favicons/Airbnb.svg" alt=""></span><span class="pcm-shortcut-label">Airbnb</span><span class="pcm-sponsored">Sponsored</span></a>
                 <a class="pcm-shortcut" href="#"><span class="pcm-shortcut-icon" aria-hidden="true"><img src="favicons/Reddit.svg" alt=""></span><span class="pcm-shortcut-label">Reddit</span></a>
                 <a class="pcm-shortcut" href="#"><span class="pcm-shortcut-icon" aria-hidden="true"><img src="favicons/YouTube.svg" alt=""></span><span class="pcm-shortcut-label">YouTube</span></a>
                 <a class="pcm-shortcut" href="#"><span class="pcm-shortcut-icon" aria-hidden="true"><img src="favicons/Google Docs.svg" alt=""></span><span class="pcm-shortcut-label">Google Docs</span></a>
-                <a class="pcm-shortcut" href="#"><span class="pcm-shortcut-icon pcm-shortcut-icon--letter" aria-hidden="true">NY</span><span class="pcm-shortcut-label">NY Times</span></a>
+                <a class="pcm-shortcut" href="#"><span class="pcm-shortcut-icon" aria-hidden="true"><img src="favicons/NewYorkTimes.svg" alt=""></span><span class="pcm-shortcut-label">NY Times</span></a>
                 <a class="pcm-shortcut" href="#"><span class="pcm-shortcut-icon pcm-shortcut-icon--letter pcm-shortcut-icon--netflix" aria-hidden="true">N</span><span class="pcm-shortcut-label">Netflix</span></a>
                 <a class="pcm-shortcut" href="#"><span class="pcm-shortcut-icon" aria-hidden="true"><img src="favicons/Wikipedia.svg" alt=""></span><span class="pcm-shortcut-label">Wikipedia</span></a>
-                <a class="pcm-shortcut" href="#"><span class="pcm-shortcut-icon pcm-shortcut-icon--letter" aria-hidden="true">E</span><span class="pcm-shortcut-label">Etsy</span></a>
+                <a class="pcm-shortcut" href="#"><span class="pcm-shortcut-icon" aria-hidden="true"><img src="favicons/Etsy.svg" alt=""></span><span class="pcm-shortcut-label">Etsy</span></a>
             </div>
             <div class="pcm-body">
                 <section class="pcm-section" aria-labelledby="pcm-widgets-h">
@@ -798,6 +825,115 @@
         </div>
     </div>
     
+    <div id="hide-toolbar-help-root" class="hide-toolbar-help-root" hidden>
+        <div class="hide-toolbar-help-backdrop" tabindex="-1" aria-hidden="true"></div>
+        <div
+            class="hide-toolbar-help-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="hide-toolbar-help-title"
+            tabindex="-1"
+        >
+            <button type="button" class="hide-toolbar-help-close" aria-label="Close dialog">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            <h2 id="hide-toolbar-help-title" class="hide-toolbar-help-title">To hide the real Firefox toolbar:</h2>
+            <ol class="hide-toolbar-help-steps">
+                <li>Go to <strong>about:config</strong> in a new tab</li>
+                <li>Click <strong>&lsquo;Accept the risk and continue&rsquo;</strong></li>
+                <li>
+                    Paste this into the text input:
+                    <strong>full-screen-api.ignore-widgets</strong>
+                </li>
+                <li>Click the double arrow on the right to set it to <strong>&lsquo;true&rsquo;</strong></li>
+                <li>Close that tab</li>
+                <li>
+                    Press <strong><kbd class="hide-toolbar-help-mod-key">Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></strong> to toggle the toolbar on and off.
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var root = document.getElementById('hide-toolbar-help-root');
+            var openBtn = document.querySelector('.window-chrome-viewport-chrome-indicator-help');
+            var backdrop = root && root.querySelector('.hide-toolbar-help-backdrop');
+            var modal = root && root.querySelector('.hide-toolbar-help-modal');
+            var closeBtn = root && root.querySelector('.hide-toolbar-help-close');
+            var modKeyEl = root && root.querySelector('.hide-toolbar-help-mod-key');
+            if (!root || !openBtn) return;
+
+            var isMac =
+                /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '') ||
+                /Mac OS X|Macintosh/i.test(navigator.userAgent || '');
+            if (modKeyEl && isMac) {
+                modKeyEl.textContent = 'Cmd';
+            }
+
+            function openDialog() {
+                root.hidden = false;
+                root.classList.add('hide-toolbar-help-root--open');
+                document.body.classList.add('hide-toolbar-help-open');
+                if (closeBtn) closeBtn.focus();
+            }
+
+            function closeDialog() {
+                root.classList.remove('hide-toolbar-help-root--open');
+                document.body.classList.remove('hide-toolbar-help-open');
+                root.hidden = true;
+                var frame = document.querySelector('.addressbar-iframe');
+                if (frame && frame.contentWindow) {
+                    try {
+                        frame.contentWindow.postMessage({ type: 'address-bar-reset-focus-like-after-load' }, '*');
+                    } catch (_) {}
+                    try {
+                        frame.focus({ preventScroll: true });
+                    } catch (_) {
+                        try {
+                            frame.focus();
+                        } catch (_) {
+                            if (openBtn) openBtn.focus();
+                        }
+                    }
+                } else if (openBtn) {
+                    openBtn.focus();
+                }
+            }
+
+            openBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                openDialog();
+            });
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    closeDialog();
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', function () {
+                    closeDialog();
+                });
+            }
+
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                });
+            }
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && root.classList.contains('hide-toolbar-help-root--open')) {
+                    closeDialog();
+                }
+            });
+        })();
+    </script>
+
     <script src="step1.js"></script>
 </body>
 </html>

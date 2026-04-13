@@ -2511,6 +2511,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     syncAddressBarNavigateOnlySwitcherIcon();
                 } catch (_) {}
+            } else if (e.data?.type === 'address-bar-reset-focus-like-after-load') {
+                if (!document.body.classList.contains('addressbar') || document.body.classList.contains('standalone-search-box')) {
+                    return;
+                }
+                queueMicrotask(() => {
+                    try {
+                        addressbarSuggestionsOpenEnabled = false;
+                        firstHoverDone = false;
+                        const btn = document.querySelector('.search-switcher-button');
+                        const dropdown = btn?.querySelector('.search-switcher-dropdown');
+                        const container = document.querySelector('.search-container');
+                        const list = document.querySelector('.suggestions-list');
+                        const input = document.querySelector('.search-input');
+                        if (btn?.classList.contains('open')) {
+                            beginSwitcherClosingShapeHoldUntilDropdownAnimation(btn);
+                            forceCloseSearchSwitcherSubPanels();
+                            dropdown?.classList.remove('dropdown-revealed');
+                            btn.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                            btn.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+                        }
+                        if (list) {
+                            list.classList.remove('suggestions-revealed', 'transitioning', 'first-hover-fade');
+                        }
+                        const label = btn?.querySelector('.switcher-button-label');
+                        const inLocalSourceMode = label && !label.hidden;
+                        const inputEmpty = !input?.value?.trim();
+                        if (inLocalSourceMode && inputEmpty) {
+                            list?.classList.add('suggestions-suppress-until-typed');
+                            updateSuggestions([]);
+                        } else {
+                            list?.classList.remove('suggestions-suppress-until-typed');
+                        }
+                        container?.classList.remove('search-container--suggestions-panel-collapsing');
+                        container?.classList.add('focused');
+                        syncSearchBoxWrapperCornersForSuggestionsPanel();
+                        refreshPinnedRightSwitcherPanel();
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                try {
+                                    input?.focus({ preventScroll: true });
+                                } catch (_) {
+                                    try {
+                                        input?.focus();
+                                    } catch (_) {}
+                                }
+                            });
+                        });
+                    } catch (_) {}
+                });
             }
         });
         const reportAddressbarHeight = () => {
@@ -3067,6 +3116,11 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.value = '';
     }
     const searchContainer = document.querySelector('.search-container');
+    const addressbarColumnIframe =
+        document.body.classList.contains('addressbar') &&
+        !document.body.classList.contains('standalone-search-box');
+    /** Address bar column only: suggestions open after first pointerdown in the search UI, not on initial autofocus. */
+    let addressbarSuggestionsOpenEnabled = !addressbarColumnIframe;
     const searchBoxWrapper = document.querySelector('.search-box-wrapper');
     const searchBoxWrapperOuter = document.querySelector('.search-box-wrapper-outer');
 
@@ -3113,6 +3167,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const list = document.querySelector('.suggestions-list');
         if (!list) return false;
         if (searchContainer?.classList.contains('search-container--suggestions-panel-collapsing')) return true;
+        /* Address bar column: suggestions stay visually closed until .suggestions-revealed — keep a full pill on autofocus. */
+        if (addressbarColumnIframe && !list.classList.contains('suggestions-revealed')) {
+            return false;
+        }
         return (
             !!searchContainer?.classList.contains('focused') &&
             !list.classList.contains('suggestions-suppress-until-typed')
@@ -3398,6 +3456,26 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {}
     }
 
+    /** Main new tab only: mousedown outside the hero search card dismisses an open suggestions panel (and switcher). */
+    document.addEventListener(
+        'mousedown',
+        (e) => {
+            if (document.body.classList.contains('addressbar')) return;
+            if (!suggestionsList?.classList.contains('suggestions-revealed')) return;
+            if (!searchContainer?.classList.contains('focused')) return;
+            const t = e.target;
+            if (!t || typeof t.closest !== 'function') return;
+            if (t.closest('.search-container')) return;
+            const helpRoot = document.getElementById('hide-toolbar-help-root');
+            if (helpRoot && !helpRoot.hidden && t.closest('#hide-toolbar-help-root')) return;
+            const ssModal = document.getElementById('search-settings-modal');
+            if (ssModal && !ssModal.hidden && t.closest('#search-settings-modal')) return;
+            if (t.closest('.bottom-left-panel')) return;
+            collapseSearchUiPreservingPinned();
+        },
+        false
+    );
+
     /** Close the chip’s search-switcher dropdown (and sub-panels) while keeping suggestions + input focus — e.g. after pinning the engine list to the right. */
     function closePrimarySearchSwitcherDropdownKeepingSuggestions() {
         if (!searchSwitcherButton) return;
@@ -3452,7 +3530,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (searchInput && !searchInput.value?.trim() && searchContainer?.classList.contains('focused')) {
                         const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
                         updateSuggestions(defaultSuggestions);
-                        suggestionsList?.classList.add('suggestions-revealed');
+                        if (!addressbarColumnIframe || addressbarSuggestionsOpenEnabled) {
+                            suggestionsList?.classList.add('suggestions-revealed');
+                        }
                     }
                 }
             }
@@ -8513,7 +8593,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // ===== FILTERING EXISTING SUGGESTIONS =====
-    
+
+    /**
+     * Keep predefined / local rows first, then append AI search strings (deduped, case-insensitive).
+     * Preserves _firefoxSuggestions from the AI result on the returned array for rendering.
+     */
+    function mergePredefinedWithAiSuggestions(baseStrings, aiResult, maxStrings = 9) {
+        const aiList = Array.isArray(aiResult) ? [...aiResult] : [];
+        const firefoxMeta = aiResult && aiResult._firefoxSuggestions;
+        const out = [];
+        const seen = new Set();
+        const add = (s) => {
+            if (typeof s !== 'string') return;
+            const t = s.trim();
+            if (!t) return;
+            const k = t.toLowerCase();
+            if (seen.has(k)) return;
+            seen.add(k);
+            out.push(s);
+        };
+        (baseStrings || []).forEach(add);
+        aiList.forEach(add);
+        const arr = out.slice(0, maxStrings);
+        if (firefoxMeta && firefoxMeta.length) {
+            arr._firefoxSuggestions = firefoxMeta;
+        }
+        return arr;
+    }
+
     function filterExistingSuggestions(query) {
         if (!suggestionsList || currentDisplayedSuggestions.length === 0) {
             console.log('[FILTER] No suggestions to filter');
@@ -9156,6 +9263,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+            /* Address bar column: panel stays closed on autofocus until click — first typed character opens it like user intent. */
+            if (addressbarColumnIframe && !addressbarSuggestionsOpenEnabled) {
+                addressbarSuggestionsOpenEnabled = true;
+            }
             if (!suggestionsList?.classList.contains('suggestions-revealed')) {
                 suggestionsList?.classList.add('suggestions-revealed');
             }
@@ -9283,11 +9394,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('[INPUT] Query:', valueLower, '| Length:', valueLower.length);
                 
                 // Check if we have existing suggestions to filter
-                const hasExistingSuggestions = currentDisplayedSuggestions.length > 0;
-                console.log('[INPUT] Has existing suggestions:', hasExistingSuggestions, 'count:', currentDisplayedSuggestions.length);
-                
-                if (hasExistingSuggestions) {
-                    // Filter existing suggestions
+                const hadPredefinedOrLocalSuggestions = currentDisplayedSuggestions.length > 0;
+                console.log(
+                    '[INPUT] Had predefined/local suggestions before AI:',
+                    hadPredefinedOrLocalSuggestions,
+                    'count:',
+                    currentDisplayedSuggestions.length
+                );
+
+                if (hadPredefinedOrLocalSuggestions) {
+                    // Filter existing suggestions (pre-defined from suggestionWords, etc.)
                     console.log('[INPUT] Filtering existing suggestions for query:', valueLower);
                     const filteredSuggestions = filterExistingSuggestions(valueLower);
                     console.log('[INPUT] Filtered suggestions count:', filteredSuggestions.length);
@@ -9297,30 +9413,41 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateSuggestions([]);
                     showSkeletonLoaders(9);
                 }
-                
+
                 // Make API call
                 console.log('[INPUT] Making immediate API call for query:', valueLower);
                 lastApiQuery = valueLower;
-                
+
                 try {
                     console.log('[AI] Fetching AI suggestions for:', valueLower);
                     const aiSuggestions = await fetchAISuggestions(valueLower);
                     console.log('[AI] fetchAISuggestions returned:', aiSuggestions);
-                    
+
                     // Only update if query hasn't changed during API call
                     const finalQuery = searchInput.value.toLowerCase().trim();
                     console.log('[AI] Final query check:', finalQuery, '===', valueLower, '?', finalQuery === valueLower);
-                    
+
                     if (finalQuery === valueLower) {
                         console.log('[AI] ✓ Query still matches after API call');
-                        
+
                         if (aiSuggestions && Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
-                            console.log('[AI] Updating with', aiSuggestions.length, 'AI suggestions');
-                            updateSuggestions(aiSuggestions, { suppressHover: true });
-                            currentDisplayedSuggestions = aiSuggestions;
+                            const toShow = hadPredefinedOrLocalSuggestions
+                                ? mergePredefinedWithAiSuggestions(currentDisplayedSuggestions, aiSuggestions, 9)
+                                : aiSuggestions;
+                            console.log(
+                                '[AI] Updating with',
+                                toShow.length,
+                                hadPredefinedOrLocalSuggestions ? 'merged (predefined + AI)' : 'AI-only',
+                                'suggestions'
+                            );
+                            updateSuggestions(toShow, { suppressHover: true });
+                            currentDisplayedSuggestions = Array.isArray(toShow) ? [...toShow] : [];
                         } else {
                             console.log('[AI] No AI suggestions returned');
-                            updateSuggestions([]);
+                            if (!hadPredefinedOrLocalSuggestions) {
+                                updateSuggestions([]);
+                            }
+                            /* If we had predefined rows, keep whatever filterExistingSuggestions left in the list. */
                         }
                     } else {
                         console.log('[AI] Query changed during API call, ignoring results');
@@ -9334,7 +9461,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (searchInput && searchContainer) {
         let autoOpenedSwitcherOnFocus = false;
-        searchInput.addEventListener('focus', () => {
+
+        searchInput.addEventListener('focus', (focusEv) => {
             searchContainer.classList.remove('search-container--suggestions-panel-collapsing');
             if (restoringFocusFromSwitcher) {
                 restoringFocusFromSwitcher = false;
@@ -9367,7 +9495,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isRestoringFocus) {
                 isRestoringFocus = false;
                 searchContainer.classList.add('focused');
-                if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
+                if (suggestionsList) {
+                    if (!addressbarColumnIframe || wasAddressbarSuggestionsRevealedAtBlur) {
+                        suggestionsList.classList.add('suggestions-revealed');
+                    }
+                }
+                wasAddressbarSuggestionsRevealedAtBlur = false;
                 syncSearchBoxWrapperCornersForSuggestionsPanel();
                 refreshPinnedRightSwitcherPanel();
                 return;
@@ -9391,9 +9524,25 @@ document.addEventListener('DOMContentLoaded', () => {
             suggestionsList?.classList.remove('suggestions-suppress-until-typed');
             syncSearchBoxWrapperCornersForSuggestionsPanel();
 
+            if (addressbarColumnIframe && !addressbarSuggestionsOpenEnabled) {
+                /* Autofocus from load: relatedTarget is null — keep panel closed until click.
+                 * Tab from another control: relatedTarget is set — treat as intentional navigation. */
+                if (focusEv.relatedTarget != null) {
+                    addressbarSuggestionsOpenEnabled = true;
+                } else {
+                    refreshPinnedRightSwitcherPanel();
+                    return;
+                }
+            }
+
             // Disable hover states during transition
             if (suggestionsList) {
                 suggestionsList.classList.add('transitioning');
+                if (addressbarColumnIframe) {
+                    /* Address-bar CSS keeps max-height at 0 until .suggestions-revealed, so nothing animates and
+                     * transitionend would never add the class. Apply it here so 0 → expanded can run. */
+                    suggestionsList.classList.add('suggestions-revealed');
+                }
                 const onRevealed = (e) => {
                     if (e.propertyName !== 'max-height') return;
                     suggestionsList.removeEventListener('transitionend', onRevealed);
@@ -9457,6 +9606,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         searchInput.addEventListener('blur', (e) => {
             if (inspectSuggestions) return;
+            if (addressbarColumnIframe) {
+                wasAddressbarSuggestionsRevealedAtBlur = !!suggestionsList?.classList.contains('suggestions-revealed');
+            }
             // Pinned-right panel is beside the pill; focus moves into it on click — not "left search".
             if (e.relatedTarget?.closest?.('.search-switcher-pinned-right-host')) {
                 return;
@@ -9499,7 +9651,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }, 0);
         });
-        
+
+        if (addressbarColumnIframe) {
+            searchContainer.addEventListener(
+                'pointerdown',
+                () => {
+                    addressbarSuggestionsOpenEnabled = true;
+                    /* If focus ran before pointerdown, the focus handler returned early and never attached the
+                     * reveal path — open once pointerdown catches up. */
+                    if (
+                        document.activeElement === searchInput &&
+                        searchContainer.classList.contains('focused') &&
+                        suggestionsList &&
+                        !suggestionsList.classList.contains('suggestions-revealed')
+                    ) {
+                        requestAnimationFrame(() => {
+                            if (document.activeElement !== searchInput || !searchContainer.classList.contains('focused')) {
+                                return;
+                            }
+                            if (suggestionsList.classList.contains('suggestions-revealed')) return;
+                            suggestionsList.classList.add('transitioning');
+                            suggestionsList.classList.add('suggestions-revealed');
+                            setTimeout(() => {
+                                suggestionsList.classList.remove('transitioning');
+                                suggestionsList.classList.add('first-hover-fade');
+                            }, 420);
+                            syncSearchBoxWrapperCornersForSuggestionsPanel();
+                            refreshPinnedRightSwitcherPanel();
+                        });
+                    }
+                },
+                true
+            );
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    try {
+                        searchInput.focus({ preventScroll: true });
+                    } catch (_) {
+                        try {
+                            searchInput.focus();
+                        } catch (_) {}
+                    }
+                });
+            });
+        }
+
         // Track first hover
         suggestionItems.forEach(item => {
             item.addEventListener('mouseenter', () => {
@@ -10161,6 +10357,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let wasFocusedBeforeBlur = false;
     let wasSwitcherFocusedBeforeBlur = false;
     let isRestoringFocus = false;
+    /** Address bar column: window focus restore must not open suggestions unless they were open before blur. */
+    let wasAddressbarSuggestionsRevealedAtBlur = false;
     
     if (searchInput && searchContainer) {
         searchInput.addEventListener('focus', () => {
@@ -10183,6 +10381,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const ae = document.activeElement;
             if (ae === searchInput) {
                 wasFocusedBeforeBlur = true;
+                if (addressbarColumnIframe) {
+                    wasAddressbarSuggestionsRevealedAtBlur = !!suggestionsList?.classList.contains('suggestions-revealed');
+                }
             } else if (searchSwitcherButton && searchSwitcherButton.contains(ae)) {
                 // Show-while-typing / pin switch lives inside the switcher subtree; focus there is not "engine switcher" UX.
                 const searchEngineListModeSelectEl = document.getElementById('search-engine-list-mode-select');
