@@ -3047,8 +3047,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const isMac =
                 /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '') ||
                 /Mac OS X|Macintosh/i.test(navigator.userAgent || '');
-            const mod = isMac ? 'Cmd' : 'Ctrl';
-            prototypeToolbarRestoreHint.innerHTML = `<span class="prototype-toolbar-restore-hint-keys"><kbd>${mod}</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></span><span class="prototype-toolbar-restore-hint-caption">to get the real toolbar back</span>`;
+            /* Win/Linux: Firefox full-screen toggle is F11 (see hide-toolbar help). Mac: keep Cmd+Shift+F. */
+            prototypeToolbarRestoreHint.innerHTML = isMac
+                ? `<span class="prototype-toolbar-restore-hint-keys"><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></span><span class="prototype-toolbar-restore-hint-caption">to get the real toolbar back</span>`
+                : `<span class="prototype-toolbar-restore-hint-keys"><kbd>F11</kbd></span><span class="prototype-toolbar-restore-hint-caption">to get the real toolbar back</span>`;
             prototypeToolbarRestoreHint.hidden = !showChromelessViewportUi;
             if (toolbarRestoreHintChevron) {
                 toolbarRestoreHintChevron.hidden = showChromelessViewportUi;
