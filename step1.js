@@ -3266,7 +3266,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionsList = document.querySelector('.suggestions-list');
     const suggestionItems = document.querySelectorAll('.suggestion-item');
     let selectedSuggestionIndex = -1;
-    let originalTypedText = '';
     let hoveredSuggestionIndex = -1;
     let lastTypedTextInInput = '';
     let lastHoveredItemForInput = null;
@@ -3798,6 +3797,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetSearchEnginesOrderToAlphabetical = () => {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
+        /* Reorder delivers childList mutations → debounced re-clone; cancel so one explicit refresh below wins (avoids stacked re-clones breaking ••• / hover). */
+        if (pinnedRightMutationDebounce) {
+            clearTimeout(pinnedRightMutationDebounce);
+            pinnedRightMutationDebounce = null;
+        }
         const sortSection = enginesContainer.querySelector('.engines-sort-section');
         const items = Array.from(enginesContainer.children).filter(
             (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
@@ -4605,6 +4609,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (an === 'hidden' && el.classList?.contains('dropdown-restore-az-sticky')) {
                 return true;
             }
+            /* Primary-only id; pinned clone has no id — alphabetical restore toggles this without needing another re-clone. */
+            if (an === 'hidden' && el.id === 'search-engines-reset-order-button') {
+                return true;
+            }
             if (an === 'hidden' && (el.id === 'search-engines-controls-panel' || el.id === 'search-switcher-info-panel')) {
                 return true;
             }
@@ -4849,6 +4857,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function refreshPinnedRightSwitcherPanel(opts = {}) {
         if (!pinnedRightHost || !searchSwitcherButton) return;
+        if (pinnedRightMutationDebounce) {
+            clearTimeout(pinnedRightMutationDebounce);
+            pinnedRightMutationDebounce = null;
+        }
         const cancelPinnedSlideAnim = () => {
             const a = pinnedRightHost._pinnedSlideAnim;
             if (!a) return;
@@ -5257,7 +5269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const engineItems = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter(
             el => el.querySelector('.dropdown-engine-label')
         );
-        const openNewWindowHtml = '<span class="dropdown-item-row-action" aria-hidden="true"><span class="dropdown-item-keyboard-num" aria-hidden="true"></span><button type="button" class="dropdown-item-open-new-window" title="Open in a new tab" aria-label="Open in a new tab"><img src="icons/open-in-new-window.svg" alt=""></button></span>';
+        const openNewWindowHtml = '<span class="dropdown-item-row-action" aria-hidden="true"><span class="dropdown-item-keyboard-num" aria-hidden="true"></span><button type="button" class="dropdown-item-open-new-window" title="Run search in a new background tab" aria-label="Run search in a new background tab"><img src="icons/open-in-new-window.svg" alt=""></button></span>';
         engineItems.forEach(item => {
             if (!item.querySelector('.dropdown-item-row-action')) {
                 const pin = item.querySelector('.dropdown-item-pin-empty, .dropdown-item-pin');
@@ -8562,7 +8574,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const suggestionText = labelEl ? labelEl.textContent.trim() : '';
         const typed = typedText || '';
         const isTypedTextItem = suggestionText.toLowerCase() === typed.toLowerCase();
-        
+
         if (isGmailItem) {
             searchInput.value = '';
         } else if (item.classList.contains('firefox-suggest-item')) {
@@ -8614,8 +8626,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (hintText) hintText.style.display = 'block';
             
             if (isKeyboardNavigation && searchInput) {
-                if (!originalTypedText) originalTypedText = searchInput.value.trim();
-                if (originalTypedText) updateSearchInputForItem(selectedItem, originalTypedText);
+                /* Use lastTypedTextInInput (set in updateSuggestions from the real query), not searchInput.value —
+                 * the field may show hover/keyboard-augmented full text, which would make typedLen wrong and select all. */
+                const typedPrefix = (lastTypedTextInInput || '').trim() || searchInput.value.trim();
+                updateSearchInputForItem(selectedItem, typedPrefix);
             }
             
             selectedItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -9113,7 +9127,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== INPUT EVENT HANDLER =====
     if (searchInput) {
         searchInput.addEventListener('input', async (event) => {
-            originalTypedText = ''; // Reset so next keyboard nav captures current typed text
             updateClearButton();
             updateSearchUrlButton();
             updateTypedState();
@@ -9699,7 +9712,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     selectedSuggestionIndex = -1;
                     hoveredSuggestionIndex = -1;
-                    originalTypedText = '';
                     lastTypedTextInInput = '';
                     lastHoveredItemForInput = null;
                     lastApiQuery = '';
@@ -10120,11 +10132,12 @@ document.addEventListener('DOMContentLoaded', () => {
         suggestionsList.addEventListener('mouseover', (e) => {
             const item = e.target.closest('.suggestion-item:not(.skeleton):not(.gmail-item-hidden)');
             if (item) {
+                let hoverIdx = -1;
                 const suggestionsContent = suggestionsList.querySelector('.suggestions-content');
                 if (suggestionsContent) {
                     const items = suggestionsContent.querySelectorAll('.suggestion-item:not(.skeleton):not(.gmail-item-hidden)');
-                    const idx = Array.from(items).indexOf(item);
-                    if (idx >= 0) hoveredSuggestionIndex = idx;
+                    hoverIdx = Array.from(items).indexOf(item);
+                    if (hoverIdx >= 0) hoveredSuggestionIndex = hoverIdx;
                 }
                 if (item !== lastHoveredItemForInput && !suggestionsList.classList.contains('keyboard-navigating') && lastTypedTextInInput) {
                     lastHoveredItemForInput = item;

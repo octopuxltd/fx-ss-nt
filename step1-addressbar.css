@@ -432,6 +432,11 @@ body.addressbar .dropdown-item-pin-empty img {
     height: 11px;
 }
 
+/* Match main page absolute row-action inset: smaller padding + pin in the iframe switcher lists. */
+body.addressbar .search-container.search-has-typed-input .dropdown-search-engines > .dropdown-item > .dropdown-item-row-action {
+    right: calc(5px + 11px + 2px);
+}
+
 body.addressbar .dropdown-firefox-toggle svg {
     width: 9px;
     height: 9px;

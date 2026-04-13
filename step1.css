@@ -4555,6 +4555,40 @@ body.switcher-outside-search-box-enabled .search-container.search-has-typed-inpu
     pointer-events: none;
 }
 
+/* Out of document flow so we do not add a third flex `gap` between label and pin (list pitch jumped when the first
+   character toggled `search-has-typed-input`, especially in pinned iframes). Hover still works on the row. */
+.search-container.search-has-typed-input .dropdown-search-engines > .dropdown-item {
+    position: relative;
+}
+
+.search-container.search-has-typed-input .dropdown-search-engines > .dropdown-item > .dropdown-item-row-action {
+    position: absolute;
+    top: 50%;
+    right: calc(6px + 16px + 2px); /* inline padding + .dropdown-item-pin(16) — sit just left of the pin */
+    transform: translateY(-50%);
+    margin-left: 0;
+    margin-right: 0;
+    align-self: auto;
+    height: auto;
+    min-height: 0;
+    z-index: 2;
+    box-sizing: border-box;
+}
+
+.search-container.search-has-typed-input .dropdown-search-engines > .dropdown-item .dropdown-item-pin-empty,
+.search-container.search-has-typed-input .dropdown-search-engines > .dropdown-item .dropdown-item-pin {
+    position: relative;
+    z-index: 3;
+}
+
+.search-container.search-has-typed-input .dropdown-search-engines > .dropdown-item .dropdown-item-open-new-window {
+    padding: 0 4px;
+    min-height: 0;
+    max-height: none;
+    top: auto;
+    box-sizing: border-box;
+}
+
 .dropdown-item:hover .dropdown-item-row-action {
     opacity: 0.8;
     pointer-events: auto;
@@ -4621,6 +4655,21 @@ body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboa
     display: flex !important;
     opacity: 1 !important;
     pointer-events: auto;
+    margin-left: auto !important;
+    margin-right: -2px !important;
+}
+
+/* Alt+↓: row action stays in normal flex layout with number badges (not absolute). */
+.search-switcher-button.switcher-opened-by-keyboard
+    .dropdown-search-engines
+    > .dropdown-item
+    > .dropdown-item-row-action {
+    position: static;
+    transform: none;
+    top: auto;
+    right: auto;
+    z-index: auto;
+    height: auto;
     margin-left: auto !important;
     margin-right: -2px !important;
 }
