@@ -4956,10 +4956,12 @@ document.addEventListener('DOMContentLoaded', () => {
         /* Badge float + placeholder mutate the primary dropdown; re-clone would replace the pinned copy and drop `engines-dragging`. */
         if (window._defaultBadgeDragging) return;
         /* Show clone when pinned-right mode is on and the search UI is expanded (focused). Outside-click collapse
-         * removes focused and hides the clone without changing pin mode; focusing the input again reopens it. */
+         * removes focused and hides the clone without changing pin mode; focusing the input again reopens it.
+         * Address bar column: same gate as suggestions — stay hidden on reload/autofocus until click or typing. */
         const show =
             document.body.classList.contains('search-engine-list-mode-pinned-right') &&
-            searchContainer?.classList.contains('focused');
+            searchContainer?.classList.contains('focused') &&
+            (!addressbarColumnIframe || addressbarSuggestionsOpenEnabled);
         if (!show) {
             const shouldSlideOut =
                 !!opts.slideOutPinned &&
@@ -9264,11 +9266,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             suggestionsList?.classList.remove('suggestions-suppress-until-typed');
             /* Address bar column: panel stays closed on autofocus until click — first typed character opens it like user intent. */
+            let addressbarJustUnlockedSuggestions = false;
             if (addressbarColumnIframe && !addressbarSuggestionsOpenEnabled) {
                 addressbarSuggestionsOpenEnabled = true;
+                addressbarJustUnlockedSuggestions = true;
             }
             if (!suggestionsList?.classList.contains('suggestions-revealed')) {
                 suggestionsList?.classList.add('suggestions-revealed');
+            }
+            if (addressbarJustUnlockedSuggestions) {
+                refreshPinnedRightSwitcherPanel();
             }
 
             const label = searchSwitcherButton?.querySelector('.switcher-button-label');
@@ -9657,6 +9664,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'pointerdown',
                 () => {
                     addressbarSuggestionsOpenEnabled = true;
+                    refreshPinnedRightSwitcherPanel();
                     /* If focus ran before pointerdown, the focus handler returned early and never attached the
                      * reveal path — open once pointerdown catches up. */
                     if (

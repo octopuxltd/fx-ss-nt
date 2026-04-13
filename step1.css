@@ -5471,6 +5471,9 @@ body.reduced-motion .one-off-buttons {
 .suggestion-item.skeleton {
     pointer-events: none;
     cursor: default;
+    /* Slightly taller rows than regular suggestions while AI / filters load */
+    padding-top: 10px;
+    padding-bottom: 10px;
 }
 
 .skeleton-icon {
