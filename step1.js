@@ -1577,6 +1577,18 @@ function syncSearchSettingsModalUrlParam(open) {
     } catch (_) {}
 }
 
+/** Main top document only: `?se=6`, `?se=12`, or `?se=50` ↔ prototype search-engine row count. */
+function syncSearchEnginesCountUrlParam(count) {
+    if (typeof window === 'undefined' || window !== window.top) return;
+    if (typeof document !== 'undefined' && document.body?.classList.contains('addressbar')) return;
+    if (count !== 6 && count !== 12 && count !== 50) return;
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('se', String(count));
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch (_) {}
+}
+
 function readStandaloneSearchBoxVisibleFromStorage() {
     try {
         return localStorage.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY) === 'true';
@@ -1989,6 +2001,20 @@ function getStoredSearchEnginesCount() {
         return 6;
     }
 }
+
+/** Main top document only: seed `search_engines_count` from `?se=` before the rest of the script reads storage. */
+function applySearchEnginesCountFromUrlParamEarly() {
+    if (typeof window === 'undefined' || window !== window.top) return;
+    try {
+        if (typeof document !== 'undefined' && document.body?.classList.contains('addressbar')) return;
+    } catch (_) {}
+    try {
+        const v = new URLSearchParams(window.location.search).get('se');
+        if (v !== '6' && v !== '12' && v !== '50') return;
+        getDefaultSearchEngineLocalStorage().setItem(SEARCH_ENGINES_COUNT_KEY, v);
+    } catch (_) {}
+}
+applySearchEnginesCountFromUrlParamEarly();
 
 /**
  * 38 additional prototype rows beyond the default 12 — varied names and icons from `/icons`.
@@ -7587,6 +7613,27 @@ document.addEventListener('DOMContentLoaded', () => {
         syncSearchSwitcherPanelPinToggle();
     }
 
+    /** Persist count, apply DOM, sync prototype radios, and mirror to embedded search iframes. */
+    function setPrototypeSearchEnginesCount(n) {
+        if (n !== 6 && n !== 12 && n !== 50) return;
+        try {
+            getDefaultSearchEngineLocalStorage().setItem(SEARCH_ENGINES_COUNT_KEY, String(n));
+        } catch (_) {}
+        applySearchEnginesCountMode(n);
+        document.querySelectorAll('input[name="search-engines-count"]').forEach((radio) => {
+            radio.checked = parseInt(radio.value, 10) === n;
+        });
+        [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+            .filter(Boolean)
+            .forEach((f) => {
+                try {
+                    f.contentWindow?.postMessage({ type: 'search-engines-count', count: n }, '*');
+                    f.contentWindow?.postMessage({ type: 'twelve-search-engines', enabled: n !== 6, count: n }, '*');
+                } catch (_) {}
+            });
+        syncSearchEnginesCountUrlParam(n);
+    }
+
     // Number of search engines: 6 / 12 / 50 (default: 6); scoped by name (Hero logo reuses .search-engines-count-radio).
     const searchEnginesCountRadios = document.querySelectorAll('input[name="search-engines-count"]');
     if (searchEnginesCountRadios.length) {
@@ -7600,23 +7647,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!radio.checked) return;
                 const n = parseInt(radio.value, 10);
                 if (n !== 6 && n !== 12 && n !== 50) return;
-                try {
-                    getDefaultSearchEngineLocalStorage().setItem(SEARCH_ENGINES_COUNT_KEY, String(n));
-                } catch (_) {}
-                applySearchEnginesCountMode(n);
-                [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
-                    .filter(Boolean)
-                    .forEach((f) => {
-                        try {
-                            f.contentWindow?.postMessage({ type: 'search-engines-count', count: n }, '*');
-                            f.contentWindow?.postMessage(
-                                { type: 'twelve-search-engines', enabled: n !== 6, count: n },
-                                '*'
-                            );
-                        } catch (_) {}
-                    });
+                setPrototypeSearchEnginesCount(n);
             });
         });
+    }
+
+    const zoomTrafficLight = document.querySelector('.window-chrome-traffic-light--zoom');
+    if (zoomTrafficLight && window === window.top && !document.body.classList.contains('addressbar')) {
+        zoomTrafficLight.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const next = getStoredSearchEnginesCount() === 50 ? 6 : 50;
+            setPrototypeSearchEnginesCount(next);
+        });
+    }
+
+    if (window === window.top && !document.body.classList.contains('addressbar')) {
+        syncSearchEnginesCountUrlParam(getStoredSearchEnginesCount());
     }
 
     // List/grid segmented control in the switcher label or lilac panel (per-search-bar preference).
@@ -8343,6 +8390,11 @@ document.addEventListener('DOMContentLoaded', () => {
             e.key !== SEARCH_ENGINES_COUNT_KEY
         ) {
             return;
+        }
+        if (e.key === SEARCH_ENGINES_COUNT_KEY) {
+            try {
+                syncSearchEnginesCountUrlParam(getStoredSearchEnginesCount());
+            } catch (_) {}
         }
         syncSearchSettingsDefaultEngineSelects();
     });
@@ -10335,6 +10387,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         getDefaultSearchEngineLocalStorage().setItem(SEARCH_ENGINES_COUNT_KEY, '6');
                     } catch (_) {}
                     applySearchEnginesCountMode(6);
+                    syncSearchEnginesCountUrlParam(6);
 
                     applySearchSwitcherControlsVisibleLayout();
                     try {

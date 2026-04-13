@@ -503,6 +503,8 @@ body.search-border-radius-large .window-chrome-tab-strip {
     align-self: center;
     /* Titlebar “air” sits between the traffic lights and the view button (not between view and the tab sep). */
     margin-right: 40px;
+    /* Strip uses pointer-events: none; re-enable hits for traffic lights (green toggles engine count). */
+    pointer-events: auto;
 }
 
 /* Sits after that gap, tight to the vertical separator. */
@@ -570,6 +572,22 @@ body.search-border-radius-large .window-chrome-tab-strip {
 
 .window-chrome-traffic-light--zoom {
     background-color: #28c840;
+}
+
+button.window-chrome-traffic-light {
+    padding: 0;
+    margin: 0;
+    border: none;
+    font: inherit;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    display: block;
+}
+
+button.window-chrome-traffic-light:focus-visible {
+    outline: 2px solid #0060df;
+    outline-offset: 2px;
 }
 
 .window-chrome-tabs {
