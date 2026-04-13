@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search — Settings</title>
+    <style>
+        :root {
+            --bg-page: #f9f9fb;
+            --bg-sidebar: #f0f0f4;
+            --bg-card: #ffffff;
+            --border-subtle: rgba(0, 0, 0, 0.08);
+            --border-strong: rgba(0, 0, 0, 0.12);
+            --text-primary: #15141a;
+            --text-secondary: #5b5b66;
+            --text-tertiary: #84838d;
+            --accent: #0060df;
+            --accent-soft: rgba(0, 96, 223, 0.12);
+            --accent-text-on-soft: #054096;
+            --success-bg: #dff6de;
+            --success-border: #2ac3a2;
+            --success-text: #006504;
+            --radius-card: 8px;
+            --radius-control: 4px;
+            --radius-pill: 999px;
+            --font: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif;
+            --sidebar-w: 254px;
+            --content-max: 600px;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: var(--font);
+            font-size: 13px;
+            line-height: 1.45;
+            color: var(--text-primary);
+            background: var(--bg-page);
+        }
+
+        /* Shown only when this document is embedded in step1 (gear → overlay iframe). */
+        .search-settings-embed-close {
+            position: fixed;
+            top: 8px;
+            right: 12px;
+            z-index: 1000;
+            margin: 0;
+            padding: 6px 10px;
+            border: none;
+            border-radius: 0;
+            background: transparent;
+            color: var(--text-tertiary);
+            font-family: inherit;
+            font-size: 26px;
+            font-weight: 300;
+            line-height: 1;
+            letter-spacing: 0;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .search-settings-embed-close:hover {
+            color: var(--text-primary);
+            background: transparent;
+        }
+
+        .search-settings-embed-close:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        html.search-settings--embedded .search-settings-embed-close {
+            display: flex;
+        }
+
+        html.search-settings--embedded .page {
+            max-width: 1126px;
+            width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        .page {
+            display: flex;
+            max-width: 1126px;
+            margin: 0 auto;
+            min-height: 100vh;
+            padding: 0 32px 48px;
+            gap: 48px;
+        }
+
+        /* —— Sidebar —— */
+        .sidebar {
+            width: var(--sidebar-w);
+            flex-shrink: 0;
+            padding-top: 24px;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 12px 20px;
+        }
+
+        .sidebar-header img {
+            width: 32px;
+            height: 32px;
+            display: block;
+        }
+
+        .sidebar-header h1 {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .org-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin: 0 0 16px;
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.04);
+            border-radius: var(--radius-card);
+            color: var(--text-secondary);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .org-banner svg {
+            flex-shrink: 0;
+            margin-top: 1px;
+            opacity: 0.75;
+        }
+
+        .nav-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: var(--radius-control);
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+
+        .nav-item:hover {
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .nav-item--active {
+            background: var(--accent-soft);
+            color: var(--accent-text-on-soft);
+            font-weight: 600;
+        }
+
+        .nav-item--active .nav-icon {
+            color: var(--accent);
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            color: var(--text-secondary);
+        }
+
+        .nav-icon img {
+            width: 20px;
+            height: 20px;
+            display: block;
+            opacity: 0.85;
+        }
+
+        .nav-item--active .nav-icon img {
+            opacity: 1;
+        }
+
+        .sidebar-nav-divider {
+            margin: 20px 12px 0;
+            border: none;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .sidebar-footer {
+            margin-top: 16px;
+            padding: 0 12px;
+            padding-top: 16px;
+        }
+
+        .sidebar-footer a {
+            display: block;
+            padding: 6px 0;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .sidebar-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .sidebar-footer a svg {
+            vertical-align: -3px;
+            margin-left: 4px;
+        }
+
+        /* —— Main —— */
+        .main {
+            flex: 1;
+            min-width: 0;
+            max-width: var(--content-max);
+            padding-top: 32px;
+        }
+
+        .search-field-wrap {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .search-field-wrap svg {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--text-tertiary);
+            pointer-events: none;
+        }
+
+        .search-settings-input {
+            width: 100%;
+            height: 34px;
+            padding: 0 12px 0 36px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-control);
+            font: inherit;
+            background: var(--bg-card);
+        }
+
+        .search-settings-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .search-settings-input:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+            border-color: var(--accent);
+        }
+
+        .page-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 24px;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+        }
+
+        .page-title img {
+            width: 28px;
+            height: 28px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-card);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .card-header {
+            margin: 0 0 8px;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .card-desc {
+            margin: 0 0 16px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .entrypoint-engine-rows {
+            display: grid;
+            /* `max-content` for labels: an `auto` first track would grow and push the select column to the right. */
+            grid-template-columns: max-content minmax(0, 248px);
+            justify-content: start;
+            justify-items: start;
+            align-items: center;
+            column-gap: 12px;
+            row-gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .entrypoint-field-label {
+            justify-self: start;
+            text-align: left;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .entrypoint-engine-rows .select-wrap {
+            margin-bottom: 0;
+            width: 100%;
+            max-width: 248px;
+            min-width: 0;
+        }
+
+        .select-wrap {
+            position: relative;
+            max-width: 248px;
+            margin-bottom: 16px;
+        }
+
+        .select-wrap--full {
+            max-width: none;
+        }
+
+        select.ff-select {
+            width: 100%;
+            height: 32px;
+            padding: 0 32px 0 10px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-control);
+            font: inherit;
+            background: var(--bg-card);
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .select-wrap::after {
+            content: "";
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid var(--text-secondary);
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .checkbox-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .checkbox-row input {
+            margin-top: 2px;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .checkbox-row label {
+            flex: 1;
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+
+        .checkbox-row--nested {
+            margin-left: 26px;
+            margin-top: 8px;
+        }
+
+        .checkbox-hint {
+            display: block;
+            margin-top: 4px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .link-inline {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .link-inline:hover {
+            text-decoration: underline;
+        }
+
+        .message-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: var(--radius-control);
+            border: 1px solid var(--success-border);
+            background: var(--success-bg);
+            color: var(--success-text);
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        .message-bar svg {
+            flex-shrink: 0;
+        }
+
+        .message-bar-close {
+            margin-left: auto;
+            border: none;
+            background: transparent;
+            padding: 4px;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.7;
+            border-radius: 4px;
+            line-height: 1;
+            font-size: 18px;
+        }
+
+        .message-bar-close:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.06);
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 32px;
+            padding: 0 14px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-control);
+            background: #f0f0f4;
+            font: inherit;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: #e7e7eb;
+        }
+
+        .btn-ghost {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            height: 32px;
+            padding: 0 12px;
+            border: none;
+            border-radius: var(--radius-control);
+            background: transparent;
+            font: inherit;
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-ghost:hover {
+            background: var(--accent-soft);
+        }
+
+        .engine-list {
+            margin-top: 16px;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-card);
+            overflow: hidden;
+        }
+
+        .engine-row {
+            display: grid;
+            grid-template-columns: 20px 28px 1fr auto;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+        }
+
+        .engine-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .engine-row:last-child {
+            border-bottom: none;
+        }
+
+        .engine-row:hover {
+            background: #fafafa;
+        }
+
+        .drag-handle {
+            width: 20px;
+            height: 20px;
+            opacity: 0.45;
+            cursor: grab;
+        }
+
+        .engine-logo {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+        }
+
+        .engine-meta {
+            min-width: 0;
+        }
+
+        .engine-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .engine-shortcuts {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: var(--radius-control);
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+
+        .icon-btn:hover {
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--text-primary);
+        }
+
+        .toggle {
+            position: relative;
+            width: 40px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .toggle-track {
+            position: absolute;
+            inset: 0;
+            background: #cfcfd8;
+            border-radius: var(--radius-pill);
+            transition: background 0.15s ease;
+        }
+
+        .toggle-thumb {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            transition: transform 0.15s ease;
+        }
+
+        .toggle input:checked + .toggle-track {
+            background: var(--accent);
+        }
+
+        .toggle input:checked + .toggle-track .toggle-thumb {
+            transform: translateX(18px);
+        }
+
+        .toggle input:focus-visible + .toggle-track {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .section-divider {
+            margin: 20px 0 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .section-divider h3 {
+            margin: 0 0 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        @media (max-width: 900px) {
+            .page {
+                flex-direction: column;
+                padding: 0 16px 32px;
+                gap: 0;
+            }
+
+            html.search-settings--embedded .page {
+                padding-left: 0;
+                padding-right: 0;
+            }
+
+            .sidebar {
+                width: 100%;
+                padding-top: 16px;
+            }
+
+            .main {
+                max-width: none;
+                padding-top: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button type="button" id="search-settings-embed-close" class="search-settings-embed-close" aria-label="Close settings" hidden>×</button>
+    <div class="page">
+        <aside class="sidebar" aria-label="Settings categories">
+            <div class="sidebar-header">
+                <img src="icons/Firefox.svg" alt="" width="32" height="32">
+                <h1>Settings</h1>
+            </div>
+            <div class="org-banner" role="note">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 21V10l8-6 8 6v11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M9 21v-6h6v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Your browser is being managed by your organization</span>
+            </div>
+            <nav>
+                <ul class="nav-list">
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><img src="icons/person.svg" alt=""></span> Account and sync</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10.5L12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z"/></svg></span> Home and startup</a></li>
+                    <li><a class="nav-item nav-item--active" href="search-settings.html" aria-current="page"><span class="nav-icon" aria-hidden="true"><img src="icons/search.svg" alt=""></span> Search</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span> Privacy and security</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M12 15v2M9 7V6a3 3 0 0 1 6 0v1"/></svg></span> Passwords and autofill</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span> Appearance</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></span> Downloads</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><img src="icons/tabs.svg" alt=""></span> Tabs and browsing</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2 2"/></svg></span> Accessibility</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 8l6 6M4 14l6-6 2 3M14 4l6 6"/></svg></span> Languages</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></span> AI controls</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span> Permissions and data</a></li>
+                    <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg></span> Firefox Labs</a></li>
+                </ul>
+            </nav>
+            <hr class="sidebar-nav-divider" aria-hidden="true">
+            <div class="sidebar-footer">
+                <a href="#">About Firefox</a>
+                <a href="#">More from Mozilla</a>
+                <a href="#">Extensions and themes
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+                </a>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="search-field-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input type="search" class="search-settings-input" placeholder="Search settings" aria-label="Search settings">
+            </div>
+
+            <h2 class="page-title">
+                <img src="icons/search.svg" alt="">
+                Search
+            </h2>
+
+            <section class="card" aria-labelledby="search-settings-address-bar-heading">
+                <h3 id="search-settings-address-bar-heading" class="card-header">Address bar</h3>
+                <div class="entrypoint-engine-rows">
+                    <label class="entrypoint-field-label" for="default-engine">Search engine:</label>
+                    <div class="select-wrap">
+                        <select id="default-engine" class="ff-select">
+                            <option value="none">No searching from the address bar</option>
+                            <option value="google" selected>Google</option>
+                            <option value="bing">Bing</option>
+                            <option value="duckduckgo">DuckDuckGo</option>
+                            <option value="ebay">eBay</option>
+                            <option value="perplexity">Perplexity</option>
+                            <option value="wikipedia">Wikipedia (en)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="cb-address-terms" name="address_terms">
+                    <label for="cb-address-terms">Show search terms in the address bar on results pages</label>
+                </div>
+            </section>
+
+            <section class="card" aria-labelledby="search-settings-firefox-homepage-heading">
+                <h3 id="search-settings-firefox-homepage-heading" class="card-header">Firefox homepage</h3>
+                <div class="entrypoint-engine-rows">
+                    <label class="entrypoint-field-label" for="firefox-homepage-engine">Search engine:</label>
+                    <div class="select-wrap">
+                        <select id="firefox-homepage-engine" class="ff-select">
+                            <option value="google" selected>Google</option>
+                            <option value="bing">Bing</option>
+                            <option value="duckduckgo">DuckDuckGo</option>
+                            <option value="ebay">eBay</option>
+                            <option value="perplexity">Perplexity</option>
+                            <option value="wikipedia">Wikipedia (en)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="cb-firefox-homepage-search-logo" name="firefox_homepage_search_logo">
+                    <label for="cb-firefox-homepage-search-logo">Show the search engine logo above the search box</label>
+                </div>
+                <div class="checkbox-row">
+                    <input
+                        type="checkbox"
+                        id="cb-firefox-homepage-accept-url-navigation"
+                        name="firefox_homepage_accept_url_navigation"
+                        checked
+                    />
+                    <label for="cb-firefox-homepage-accept-url-navigation">Allow navigation by URL</label>
+                </div>
+            </section>
+
+            <section class="card" aria-labelledby="search-settings-standalone-search-box-heading">
+                <h3 id="search-settings-standalone-search-box-heading" class="card-header">Stand-alone search box</h3>
+                <div class="entrypoint-engine-rows">
+                    <label class="entrypoint-field-label" for="standalone-search-box-engine">Search engine:</label>
+                    <div class="select-wrap">
+                        <select id="standalone-search-box-engine" class="ff-select">
+                            <option value="off" selected>Off</option>
+                            <option value="google">Google</option>
+                            <option value="bing">Bing</option>
+                            <option value="duckduckgo">DuckDuckGo</option>
+                            <option value="ebay">eBay</option>
+                            <option value="perplexity">Perplexity</option>
+                            <option value="wikipedia">Wikipedia (en)</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" aria-labelledby="search-results-pages-heading">
+                <h3 id="search-results-pages-heading" class="card-header">Search results pages</h3>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="cb-search-without-ai-overviews" name="search_without_ai_overviews">
+                    <label for="cb-search-without-ai-overviews">Block AI overviews above search results where possible</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="cb-support-firefox-search-ads" name="support_firefox_search_ads">
+                    <label for="cb-support-firefox-search-ads">
+                        Support Firefox by allowing ads on search results pages to bypass your ad-blocker
+                        <span class="checkbox-hint">Ads on search results pages help fund Firefox&rsquo;s development.</span>
+                    </label>
+                </div>
+            </section>
+
+            <section class="card" aria-labelledby="additional-heading">
+                <h3 id="additional-heading" class="card-header">Additional search engines</h3>
+                <p class="card-desc">Choose which search engines and shortcuts appear in your address bar.</p>
+                <div class="message-bar" role="status">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span>Google custom shortcut successfully updated to &ldquo;@g&rdquo;</span>
+                    <button type="button" class="message-bar-close" aria-label="Dismiss message">&times;</button>
+                </div>
+                <button type="button" class="btn-secondary">+ Add search engine</button>
+
+                <div class="engine-list" role="list">
+                    <div class="engine-row" role="listitem">
+                        <img class="drag-handle" src="icons/drag-handle.svg" alt="" title="Reorder">
+                        <img class="engine-logo" src="icons/Google.svg" alt="">
+                        <div class="engine-meta">
+                            <div class="engine-name">Google</div>
+                            <div class="engine-shortcuts">@google, @g</div>
+                        </div>
+                        <div class="engine-actions">
+                            <button type="button" class="icon-btn" aria-label="Edit Google shortcuts">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            </button>
+                            <label class="toggle"><input type="checkbox" checked aria-label="Enable Google in address bar"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+                        </div>
+                    </div>
+                    <div class="engine-row" role="listitem">
+                        <img class="drag-handle" src="icons/drag-handle.svg" alt="" title="Reorder">
+                        <img class="engine-logo" src="icons/DuckDuckGo.svg" alt="">
+                        <div class="engine-meta">
+                            <div class="engine-name">DuckDuckGo</div>
+                            <div class="engine-shortcuts">@duckduckgo, @ddg</div>
+                        </div>
+                        <div class="engine-actions">
+                            <button type="button" class="icon-btn" aria-label="Edit DuckDuckGo shortcuts">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            </button>
+                            <label class="toggle"><input type="checkbox" checked aria-label="Enable DuckDuckGo in address bar"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>
+                        </div>
+                    </div>
+                    <div class="engine-row" role="listitem">
+                        <img class="drag-handle" src="icons/drag-handle.svg" alt="" title="Reorder">
+                        <img class="engine-logo" src="icons/Figma.svg" alt="">
+                        <div class="engine-meta">
+                            <div class="engine-name">Figma Search</div>
+                            <div class="engine-shortcuts">@Figma</div>
+                        </div>
+                        <div class="engine-actions">
+                            <button type="button" class="icon-btn" aria-label="Edit Figma Search">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            </button>
+                            <button type="button" class="icon-btn" aria-label="Open Figma Search in new tab">
+                                <img src="icons/open-in-new-window.svg" width="16" height="16" alt="">
+                            </button>
+                        </div>
+                    </div>
+                    <div class="engine-row" role="listitem">
+                        <span class="drag-handle" aria-hidden="true"></span>
+                        <img class="engine-logo" src="icons/bookmark.svg" alt="">
+                        <div class="engine-meta">
+                            <div class="engine-name">Bookmarks</div>
+                            <div class="engine-shortcuts">@bookmarks, *</div>
+                        </div>
+                        <div class="engine-actions"></div>
+                    </div>
+                    <div class="engine-row" role="listitem">
+                        <span class="drag-handle" aria-hidden="true"></span>
+                        <img class="engine-logo" src="icons/tabs.svg" alt="">
+                        <div class="engine-meta">
+                            <div class="engine-name">Tabs</div>
+                            <div class="engine-shortcuts">@tabs, %</div>
+                        </div>
+                        <div class="engine-actions"></div>
+                    </div>
+                    <div class="engine-row" role="listitem">
+                        <span class="drag-handle" aria-hidden="true"></span>
+                        <img class="engine-logo" src="icons/history.svg" alt="">
+                        <div class="engine-meta">
+                            <div class="engine-name">History</div>
+                            <div class="engine-shortcuts">@history, ^</div>
+                        </div>
+                        <div class="engine-actions"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" aria-labelledby="suggestions-heading">
+                <h3 id="suggestions-heading" class="card-header">Search engine suggestions</h3>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="cb-show-suggestions" checked>
+                    <label for="cb-show-suggestions">Show search suggestions</label>
+                </div>
+                <div class="checkbox-row checkbox-row--nested">
+                    <input type="checkbox" id="cb-suggestions-before-history" checked>
+                    <label for="cb-suggestions-before-history">Show search suggestions before browsing history in address bar results</label>
+                </div>
+                <div class="checkbox-row checkbox-row--nested">
+                    <input type="checkbox" id="cb-private-suggestions">
+                    <label for="cb-private-suggestions">Search suggestions in private windows</label>
+                </div>
+                <div class="checkbox-row checkbox-row--nested">
+                    <input type="checkbox" id="cb-trending">
+                    <label for="cb-trending">Trending search suggestions <a class="link-inline" href="#">Learn more</a></label>
+                </div>
+            </section>
+
+            <section class="card" aria-labelledby="ff-suggest-heading">
+                <h3 id="ff-suggest-heading" class="card-header">Firefox Suggest</h3>
+                <p class="card-desc">Suggestions from Firefox and our partners in your address bar. <a class="link-inline" href="#">Learn more</a></p>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="ff-browsing" checked>
+                    <label for="ff-browsing">Browsing history</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="ff-bookmarks" checked>
+                    <label for="ff-bookmarks">Bookmarks</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="ff-tabs" checked>
+                    <label for="ff-tabs">Open tabs</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="ff-shortcuts">
+                    <label for="ff-shortcuts">Shortcuts</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="ff-recent">
+                    <label for="ff-recent">Recent searches</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="ff-suggest-engines">
+                    <label for="ff-suggest-engines">Suggest search engines to use</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="ff-quick">
+                    <label for="ff-quick">Quick actions</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="ff-from-firefox">
+                    <label for="ff-from-firefox">
+                        Suggestions from Firefox
+                        <span class="checkbox-hint">Get suggestions from the web related to your search.</span>
+                    </label>
+                </div>
+                <div class="checkbox-row checkbox-row--nested">
+                    <input type="checkbox" id="ff-sponsors">
+                    <label for="ff-sponsors">
+                        Suggestions from sponsors
+                        <span class="checkbox-hint">Occasionally show sponsored suggestions. <a class="link-inline" href="#">Learn more</a></span>
+                    </label>
+                </div>
+                <div class="checkbox-row checkbox-row--nested">
+                    <input type="checkbox" id="ff-mozilla-type">
+                    <label for="ff-mozilla-type">Retrieve suggestions from Mozilla as you type</label>
+                </div>
+
+                <div class="section-divider">
+                    <h3>Dismissed suggestions</h3>
+                    <button type="button" class="btn-ghost">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        Restore suggestions
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        (function () {
+            var DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR = 'default_search_engine:addressbar';
+            var DEFAULT_SEARCH_ENGINE_KEY_MAIN = 'default_search_engine';
+            var DEFAULT_SEARCH_ENGINE_KEY_STANDALONE = 'default_search_engine:standalone';
+            var STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
+            var SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY = 'search_settings_search_address_bar';
+            function getDefaultSearchEngineLocalStorage() {
+                try {
+                    if (typeof window !== 'undefined' && window.top && window.top !== window) {
+                        return window.top.localStorage;
+                    }
+                } catch (e) {}
+                return localStorage;
+            }
+            function selectHasValue(sel, val) {
+                if (!sel) return false;
+                for (var i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value === val) return true;
+                }
+                return false;
+            }
+            function firstNonSpecialEngineValue(sel) {
+                if (!sel) return 'Google';
+                for (var i = 0; i < sel.options.length; i++) {
+                    var v = sel.options[i].value;
+                    if (v !== 'none' && v !== 'off') return v;
+                }
+                return 'Google';
+            }
+            function rebuildEntrypointEngineSelects(labels) {
+                if (!Array.isArray(labels) || labels.length === 0) return;
+                var addr = document.getElementById('default-engine');
+                if (addr) {
+                    addr.innerHTML = '';
+                    var noneOpt = document.createElement('option');
+                    noneOpt.value = 'none';
+                    noneOpt.textContent = 'No searching from the address bar';
+                    addr.appendChild(noneOpt);
+                    labels.forEach(function (lab) {
+                        var o = document.createElement('option');
+                        o.value = lab;
+                        o.textContent = lab;
+                        addr.appendChild(o);
+                    });
+                }
+                var fh = document.getElementById('firefox-homepage-engine');
+                if (fh) {
+                    fh.innerHTML = '';
+                    labels.forEach(function (lab) {
+                        var o = document.createElement('option');
+                        o.value = lab;
+                        o.textContent = lab;
+                        fh.appendChild(o);
+                    });
+                }
+                var st = document.getElementById('standalone-search-box-engine');
+                if (st) {
+                    st.innerHTML = '';
+                    var offOpt = document.createElement('option');
+                    offOpt.value = 'off';
+                    offOpt.textContent = 'Off';
+                    st.appendChild(offOpt);
+                    labels.forEach(function (lab) {
+                        var o = document.createElement('option');
+                        o.value = lab;
+                        o.textContent = lab;
+                        st.appendChild(o);
+                    });
+                }
+                syncAllEntryPointSelectsFromStorage();
+            }
+            function readAddressBarDefaultEngineLabel() {
+                try {
+                    var ls = getDefaultSearchEngineLocalStorage();
+                    return (
+                        ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR) ||
+                        ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN) ||
+                        'Google'
+                    );
+                } catch (e) {
+                    return 'Google';
+                }
+            }
+            function syncAddressBarClassicSelectFromStorage() {
+                var sel = document.getElementById('default-engine');
+                if (!sel) return;
+                var ls = getDefaultSearchEngineLocalStorage();
+                var searchOn = true;
+                try {
+                    searchOn = ls.getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY) !== 'false';
+                } catch (eSearch) {}
+                if (!searchOn) {
+                    sel.value = 'none';
+                    return;
+                }
+                var label = readAddressBarDefaultEngineLabel();
+                if (!selectHasValue(sel, label)) {
+                    label = firstNonSpecialEngineValue(sel);
+                }
+                sel.value = label;
+            }
+            function syncStandaloneClassicSelectFromStorage() {
+                var sel = document.getElementById('standalone-search-box-engine');
+                if (!sel) return;
+                var ls = getDefaultSearchEngineLocalStorage();
+                var visible = false;
+                try {
+                    visible = ls.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY) === 'true';
+                } catch (err) {}
+                if (!visible) {
+                    sel.value = 'off';
+                    return;
+                }
+                var label = 'Google';
+                try {
+                    label =
+                        ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE) ||
+                        ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN) ||
+                        'Google';
+                } catch (err2) {}
+                if (!selectHasValue(sel, label)) {
+                    label = firstNonSpecialEngineValue(sel);
+                }
+                sel.value = label;
+            }
+            function readMainDefaultEngineLabel() {
+                try {
+                    var lsM = getDefaultSearchEngineLocalStorage();
+                    var rawM = lsM.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN);
+                    return rawM && rawM.trim() ? rawM.trim() : 'Google';
+                } catch (eMain) {
+                    return 'Google';
+                }
+            }
+            function syncFirefoxHomepageEngineSelectFromStorage() {
+                var selFh = document.getElementById('firefox-homepage-engine');
+                if (!selFh) return;
+                var labelFh = readMainDefaultEngineLabel();
+                if (!selectHasValue(selFh, labelFh)) {
+                    labelFh = firstNonSpecialEngineValue(selFh);
+                }
+                selFh.value = labelFh;
+            }
+            function syncAllEntryPointSelectsFromStorage() {
+                syncAddressBarClassicSelectFromStorage();
+                syncFirefoxHomepageEngineSelectFromStorage();
+                syncStandaloneClassicSelectFromStorage();
+            }
+            document.addEventListener('change', function (ev) {
+                var t = ev.target;
+                if (!t || !t.id) return;
+                if (t.id === 'default-engine') {
+                    try {
+                        window.parent.postMessage(
+                            { type: 'apply-address-bar-settings-from-html', engineValue: t.value },
+                            '*'
+                        );
+                    } catch (eAddrCh) {}
+                    return;
+                }
+                if (t.id === 'firefox-homepage-engine') {
+                    var labelNt = t.value || 'Google';
+                    try {
+                        window.parent.postMessage(
+                            { type: 'set-default-search-engine', key: DEFAULT_SEARCH_ENGINE_KEY_MAIN, value: labelNt },
+                            '*'
+                        );
+                    } catch (eNt) {}
+                    return;
+                }
+                if (t.id === 'standalone-search-box-engine') {
+                    var v = t.value;
+                    if (v === 'off') {
+                        try {
+                            window.parent.postMessage({ type: 'apply-standalone-from-settings-html', visible: false }, '*');
+                        } catch (err3) {}
+                    } else {
+                        try {
+                            window.parent.postMessage(
+                                { type: 'apply-standalone-from-settings-html', visible: true, engine: v },
+                                '*'
+                            );
+                        } catch (err4) {}
+                    }
+                }
+            });
+            syncAllEntryPointSelectsFromStorage();
+            window.addEventListener('storage', function (e) {
+                if (
+                    e.key === DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR ||
+                    e.key === DEFAULT_SEARCH_ENGINE_KEY_MAIN ||
+                    e.key === SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY
+                ) {
+                    syncAddressBarClassicSelectFromStorage();
+                }
+                if (e.key === DEFAULT_SEARCH_ENGINE_KEY_MAIN) {
+                    syncFirefoxHomepageEngineSelectFromStorage();
+                }
+                if (
+                    e.key === STANDALONE_SEARCH_BOX_VISIBLE_KEY ||
+                    e.key === DEFAULT_SEARCH_ENGINE_KEY_STANDALONE ||
+                    e.key === DEFAULT_SEARCH_ENGINE_KEY_MAIN
+                ) {
+                    syncStandaloneClassicSelectFromStorage();
+                }
+            });
+            window.addEventListener('message', function (e) {
+                if (
+                    e.data &&
+                    e.data.type === 'search-settings-overlay-engine-options' &&
+                    Array.isArray(e.data.labels) &&
+                    e.data.labels.length
+                ) {
+                    if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                    var c = parseInt(e.data.count, 10);
+                    if (c !== 6 && c !== 12 && c !== 50) return;
+                    rebuildEntrypointEngineSelects(e.data.labels);
+                    return;
+                }
+                if (e.data && e.data.type === 'seed-default-search-engine-keys' && e.data.keys && typeof e.data.keys === 'object') {
+                    if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                    try {
+                        Object.entries(e.data.keys).forEach(function (entry) {
+                            var k = entry[0];
+                            var v = entry[1];
+                            if (typeof k !== 'string') return;
+                            if (v != null && String(v).trim() !== '') {
+                                localStorage.setItem(k, String(v));
+                            } else {
+                                try {
+                                    localStorage.removeItem(k);
+                                } catch (eRm) {}
+                            }
+                        });
+                    } catch (eSeedApply) {}
+                    syncAllEntryPointSelectsFromStorage();
+                    return;
+                }
+                if (e.data && e.data.type === 'default-search-engine-changed') {
+                    if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                    syncAllEntryPointSelectsFromStorage();
+                }
+            });
+
+            function requestCloseFromParent() {
+                try {
+                    window.parent.postMessage({ type: 'close-prototype-settings-page-overlay' }, '*');
+                } catch (e) {}
+            }
+            if (window.parent !== window) {
+                document.documentElement.classList.add('search-settings--embedded');
+                var embedClose = document.getElementById('search-settings-embed-close');
+                if (embedClose) {
+                    embedClose.hidden = false;
+                    embedClose.addEventListener('click', requestCloseFromParent);
+                }
+                document.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        requestCloseFromParent();
+                    }
+                });
+            }
+            document.querySelectorAll('.message-bar-close').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var bar = btn.closest('.message-bar');
+                    if (bar) bar.hidden = true;
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

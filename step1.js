@@ -1028,6 +1028,9 @@ function getDefaultSearchEngineLocalStorage() {
     return localStorage;
 }
 
+/** Wired inside `DOMContentLoaded` where switcher helpers live — top-level `syncTopDocument…` must not call nested functions directly. */
+let searchDefaultSync_applySwitcherUIFromStoredDefault = null;
+
 /** Same authority as default-engine keys: prefer `top.localStorage` in embedded pages when allowed. */
 function getSearchEngineOrderStorage() {
     return getDefaultSearchEngineLocalStorage();
@@ -1140,6 +1143,12 @@ function isNavigateEnabledForAccessPoint(surface) {
  * @param {string} engineLabel
  */
 function buildAccessPointPlaceholderText(surface, engineLabel) {
+    if (surface === 'standalone') {
+        const raw = String(engineLabel ?? '').trim();
+        if (!raw || raw === 'Off' || raw === SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE) {
+            return '';
+        }
+    }
     const label = String(engineLabel || 'Google').trim() || 'Google';
     const searchOn = isSearchEnabledForAccessPoint(surface);
     const navigateOn = isNavigateEnabledForAccessPoint(surface);
@@ -1183,8 +1192,8 @@ function syncSearchSettingsPlaceholderPreviewFields() {
     if (typeof document === 'undefined' || window !== window.top) return;
     const matrix = getEffectiveSearchDefaultsFromStorage();
     const snap = getSearchSettingsOverlaySelectSnapshot();
-    const selPrivate = document.getElementById('search-settings-default-engine-private');
-    const privateEngine = (selPrivate && selPrivate.value) || matrix.newTab;
+    /** Private window search is not a separate stored default in this prototype — always match New Tab / Homepage. */
+    const privateEngine = matrix.newTab;
 
     const rows = [
         { id: 'search-settings-placeholder-preview-address-bar', surface: 'address-bar', engine: snap?.addressBar ?? matrix.addressBar },
@@ -1216,7 +1225,7 @@ function broadcastSearchAccessPointPlaceholderRefresh() {
 }
 
 /**
- * Authoritative persistence for the three default-engine keys. Embedded iframes postMessage the parent;
+ * Authoritative persistence for default-engine keys (main, address bar, standalone). Embedded iframes postMessage the parent;
  * the parent writes `localStorage` and mirrors the key/value back so iframe reads work without top access.
  */
 function setDefaultSearchEngineStorageItem(key, value) {
@@ -1237,6 +1246,24 @@ function setDefaultSearchEngineStorageItem(key, value) {
     try {
         localStorage.setItem(key, v);
     } catch (_) {}
+    try {
+        broadcastSearchSettingsHtmlOverlayAfterTopEngineKeyWrite();
+    } catch (_) {}
+}
+
+/** Main document only: keep `search-settings.html` (prototype overlay iframe) in sync when top `localStorage` engine keys change. */
+function broadcastSearchSettingsHtmlOverlayAfterTopEngineKeyWrite() {
+    if (typeof window === 'undefined' || window !== window.top) return;
+    const pspWin = document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow;
+    if (!pspWin) {
+        return;
+    }
+    try {
+        pushDefaultSearchEngineKeysToIframe(pspWin);
+    } catch (_) {}
+    try {
+        pspWin.postMessage({ type: 'default-search-engine-changed' }, '*');
+    } catch (_) {}
 }
 
 /** Parent → iframe: copy parent’s three engine keys so iframe `localStorage` stays in sync for reads. */
@@ -1247,8 +1274,61 @@ function pushDefaultSearchEngineKeysToIframe(contentWindow) {
             [DEFAULT_SEARCH_ENGINE_KEY_MAIN]: localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN),
             [DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR]: localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR),
             [DEFAULT_SEARCH_ENGINE_KEY_STANDALONE]: localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE),
+            [SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY]: localStorage.getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY),
+            [STANDALONE_SEARCH_BOX_VISIBLE_KEY]: localStorage.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY),
         };
         contentWindow.postMessage({ type: 'seed-default-search-engine-keys', keys }, '*');
+    } catch (_) {}
+}
+
+function postRefreshSearchSwitcherToIframeFromTop(contentWindow, oldEffectiveDefault) {
+    try {
+        contentWindow?.postMessage(
+            {
+                type: 'refresh-search-engine-switcher-from-storage',
+                ...(oldEffectiveDefault !== undefined && oldEffectiveDefault !== null
+                    ? { oldEffectiveDefault: String(oldEffectiveDefault) }
+                    : {}),
+            },
+            '*'
+        );
+    } catch (_) {}
+}
+
+/** After top `localStorage` default-engine keys change: matrix, placeholders, address bar + standalone iframes, overlay. */
+function syncTopDocumentSearchSurfacesAfterDefaultEngineKeysChanged(effBefore, changedKey) {
+    if (typeof document === 'undefined' || window !== window.top) return;
+    const addrWin = document.querySelector('.addressbar-iframe')?.contentWindow;
+    const standWin = document.querySelector('.standalone-search-box-iframe')?.contentWindow;
+    const pspWin = document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow;
+
+    syncSearchSettingsDefaultEngineSelects();
+    syncSearchSettingsPlaceholderPreviewFields();
+    broadcastSearchAccessPointPlaceholderRefresh();
+
+    pushDefaultSearchEngineKeysToIframe(addrWin);
+    pushDefaultSearchEngineKeysToIframe(standWin);
+    pushDefaultSearchEngineKeysToIframe(pspWin);
+
+    postRefreshSearchSwitcherToIframeFromTop(addrWin, effBefore.addressBar);
+    postRefreshSearchSwitcherToIframeFromTop(standWin, effBefore.standalone);
+
+    if (changedKey === DEFAULT_SEARCH_ENGINE_KEY_MAIN) {
+        try {
+            if (typeof searchDefaultSync_applySwitcherUIFromStoredDefault === 'function') {
+                searchDefaultSync_applySwitcherUIFromStoredDefault();
+            }
+        } catch (_) {}
+    }
+
+    try {
+        addrWin?.postMessage({ type: 'default-search-engine-changed' }, '*');
+    } catch (_) {}
+    try {
+        standWin?.postMessage({ type: 'default-search-engine-changed' }, '*');
+    } catch (_) {}
+    try {
+        pspWin?.postMessage({ type: 'default-search-engine-changed' }, '*');
     } catch (_) {}
 }
 
@@ -1301,7 +1381,7 @@ function notifyParentDefaultSearchEngineChanged() {
 
 /**
  * Search settings matrix: main / address bar / standalone each reflect their scoped switcher.
- * Private window column is not synced (no switcher in this prototype).
+ * Private window search uses the same default as main (no separate key or `<select>`).
  */
 let applyingSearchSettingsEngineSelectsSync = false;
 function syncSearchSettingsDefaultEngineSelects() {
@@ -1312,8 +1392,10 @@ function syncSearchSettingsDefaultEngineSelects() {
         const main = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN) || 'Google';
         const addr =
             ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR) || main;
-        const standalone =
-            ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE) || main;
+        const standaloneVisible = readStandaloneSearchBoxVisibleFromStorage();
+        const standalone = standaloneVisible
+            ? ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE) || main
+            : SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE;
         setSearchSettingsEngineSelectValue('search-settings-default-engine-new-tab', main);
         setSearchSettingsEngineSelectValue('search-settings-default-engine-address-bar', addr);
         setSearchSettingsEngineSelectValue('search-settings-default-engine-standalone', standalone);
@@ -1364,7 +1446,11 @@ function getEffectiveSearchDefaultsFromStorage() {
     const addrRaw = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR);
     const addr = addrRaw && addrRaw.trim() ? addrRaw.trim() : main;
     const standRaw = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE);
-    const standalone = standRaw && standRaw.trim() ? standRaw.trim() : main;
+    const standalone = readStandaloneSearchBoxVisibleFromStorage()
+        ? standRaw && standRaw.trim()
+            ? standRaw.trim()
+            : main
+        : SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE;
     return { newTab: main, addressBar: addr, standalone };
 }
 
@@ -1518,6 +1604,8 @@ const FIREFOX_SUGGESTIONS_ENABLED_KEY = 'firefox_suggestions_enabled';
 const PIN_DEFAULT_SEARCH_ENGINE_ENABLED_KEY = 'pin_default_search_engine_enabled';
 const SEARCH_SWITCHER_CONTROLS_VISIBLE_BY_DEFAULT_KEY = 'search_switcher_controls_visible_by_default';
 const STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
+/** Matrix + placeholder: first `<option>` on `search-settings-default-engine-standalone` when the box is hidden. */
+const SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE = '__standalone_off__';
 const PROTOTYPE_BROWSER_CHROME_VISIBLE_KEY = 'prototype_browser_chrome_visible';
 
 /** Main page only: keep `?content=0` in sync when toggling the mock below the hero (prototype panel). */
@@ -2180,19 +2268,25 @@ function populateSearchSettingsEngineSelectOptions(count) {
             count = 12;
         }
     }
-    if (lastSearchSettingsEngineSelectOptionsMode === count) return;
-    lastSearchSettingsEngineSelectOptionsMode = count;
+    const optionsModeKey = `${count}:standalone-matrix-off`;
+    if (lastSearchSettingsEngineSelectOptionsMode === optionsModeKey) return;
+    lastSearchSettingsEngineSelectOptionsMode = optionsModeKey;
     const labels = getSearchEngineLabelsForCountMode(count);
     const ids = [
         'search-settings-default-engine-address-bar',
         'search-settings-default-engine-new-tab',
         'search-settings-default-engine-standalone',
-        'search-settings-default-engine-private',
     ];
     for (const id of ids) {
         const sel = document.getElementById(id);
         if (!sel) continue;
         sel.innerHTML = '';
+        if (id === 'search-settings-default-engine-standalone') {
+            const offOpt = document.createElement('option');
+            offOpt.value = SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE;
+            offOpt.textContent = 'Off';
+            sel.appendChild(offOpt);
+        }
         for (const label of labels) {
             const opt = document.createElement('option');
             opt.value = label;
@@ -2201,6 +2295,21 @@ function populateSearchSettingsEngineSelectOptions(count) {
         }
     }
 }
+
+/** Keep `search-settings.html` overlay engine `<select>` lists in sync with 6 / 12 / 50 prototype mode. */
+function postSearchSettingsOverlayEngineOptions(contentWindow) {
+    if (!contentWindow || typeof window === 'undefined' || window !== window.top) return;
+    let n = 6;
+    try {
+        n = getStoredSearchEnginesCount();
+    } catch (_) {}
+    if (n !== 6 && n !== 12 && n !== 50) n = 6;
+    const labels = getSearchEngineLabelsForCountMode(n);
+    try {
+        contentWindow.postMessage({ type: 'search-settings-overlay-engine-options', count: n, labels }, '*');
+    } catch (_) {}
+}
+
 const SEARCH_ENGINE_LIST_MODE_KEY = 'search_engine_list_mode';
 /** Address bar iframe only; keeps “pinned list” independent from New Tab (main page). */
 const SEARCH_ENGINE_LIST_MODE_KEY_ADDRESSBAR = 'search_engine_list_mode:addressbar';
@@ -2848,6 +2957,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (standaloneIframe) sendViewportToIframe(standaloneIframe);
             if (iframe) pushDefaultSearchEngineKeysToIframe(iframe.contentWindow);
             if (standaloneIframe) pushDefaultSearchEngineKeysToIframe(standaloneIframe.contentWindow);
+            const pspIframeSendOpts = document.getElementById('prototype-settings-page-overlay-iframe');
+            if (pspIframeSendOpts?.contentWindow) {
+                pushDefaultSearchEngineKeysToIframe(pspIframeSendOpts.contentWindow);
+            }
             const placeholderKeys = getSearchAccessPointSettingsKeysForMirror();
             if (iframe) {
                 try {
@@ -2872,6 +2985,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         },
                         '*'
                     );
+                } catch (_) {}
+            }
+            if (pspIframeSendOpts?.contentWindow) {
+                try {
+                    pspIframeSendOpts.contentWindow.postMessage(
+                        { type: 'refresh-search-access-point-placeholder', keys: placeholderKeys },
+                        '*'
+                    );
+                } catch (_) {}
+                try {
+                    postSearchSettingsOverlayEngineOptions(pspIframeSendOpts.contentWindow);
+                } catch (_) {}
+                try {
+                    pspIframeSendOpts.contentWindow.postMessage({ type: 'default-search-engine-changed' }, '*');
                 } catch (_) {}
             }
         };
@@ -2902,8 +3029,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.__prototypeRemeasureAddressbarBand = remeasureAddressbarBandFromIframe;
             const updateIframeSize = () => {
                 const standaloneW = Math.min(window.innerWidth * 0.62, 620);
-                /* Match step1.css --addressbar-toolbar-icons-slot: 12 + 3*35 + 2*5 */
-                const standaloneToolbarIconsSlotPx = 12 + 3 * 35 + 2 * 5;
+                /* Match step1.css --addressbar-toolbar-icons-slot: 12 + 4*35 + 3*5 */
+                const standaloneToolbarIconsSlotPx = 12 + 4 * 35 + 3 * 5;
                 /* Match :root --standalone-search-toolbar-extra-gap in step1.css */
                 const STANDALONE_SEARCH_TOOLBAR_EXTRA_GAP_PX = 90;
                 /* Match .standalone-search-box-iframe padding-right in step1.css */
@@ -3088,6 +3215,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (standaloneIframe) {
             standaloneIframe.addEventListener('load', sendPrototypeOptionsToIframes);
+        }
+        const pspIframePrototypeSync = document.getElementById('prototype-settings-page-overlay-iframe');
+        if (pspIframePrototypeSync) {
+            const seedPspFromTopStorage = () => {
+                try {
+                    pushDefaultSearchEngineKeysToIframe(pspIframePrototypeSync.contentWindow);
+                } catch (_) {}
+                try {
+                    pspIframePrototypeSync.contentWindow?.postMessage(
+                        {
+                            type: 'refresh-search-access-point-placeholder',
+                            keys: getSearchAccessPointSettingsKeysForMirror(),
+                        },
+                        '*'
+                    );
+                } catch (_) {}
+                try {
+                    pspIframePrototypeSync.contentWindow?.postMessage({ type: 'default-search-engine-changed' }, '*');
+                } catch (_) {}
+            };
+            pspIframePrototypeSync.addEventListener('load', seedPspFromTopStorage);
+            if (pspIframePrototypeSync.contentDocument?.readyState === 'complete') {
+                queueMicrotask(seedPspFromTopStorage);
+            }
         }
         if (iframes.some(f => f.contentDocument?.readyState === 'complete')) {
             sendPrototypeOptionsToIframes();
@@ -3679,6 +3830,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (helpRoot && !helpRoot.hidden && t.closest('#hide-toolbar-help-root')) return;
             const ssModal = document.getElementById('search-settings-modal');
             if (ssModal && !ssModal.hidden && t.closest('#search-settings-modal')) return;
+            const pspOverlay = document.getElementById('prototype-settings-page-overlay-root');
+            if (pspOverlay && !pspOverlay.hidden && t.closest('#prototype-settings-page-overlay-root')) return;
             if (t.closest('.bottom-left-panel')) return;
             collapseSearchUiPreservingPinned();
         },
@@ -5867,7 +6020,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!match) {
             match = visibleItems.find((item) => getEngineLabel(item) === 'Google') || visibleItems[0];
         }
-        if (!match) return;
+        if (!match) {
+            return;
+        }
         applySelectedSearchSource(match);
         setPinnedEngine(match);
     }
@@ -5887,24 +6042,46 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!match) {
             match = visibleItems.find((item) => getEngineLabel(item) === 'Google') || visibleItems[0];
         }
-        if (!match) return;
+        if (!match) {
+            return;
+        }
         setPinnedEngine(match);
     }
 
     /**
-     * After Search settings changed a stored default: update full switcher chrome only if the user was still
-     * showing the old default as the selected engine; otherwise only move the pinned default row.
+     * After Search settings changed a stored default (iframe / delayed paths): resync switcher from storage.
+     * If the pinned row still matched the **pre-write** stored default (`oldDef`), always full-apply — chip `.google-icon`
+     * alt can reflect a different last-clicked row and must not block updating chip + hero from new storage.
+     * Otherwise: full apply if chip matched old default; else move pin only (session engine differed from old default).
      * @param {string} oldEffectiveDefault — effective default for this surface before the settings write
      */
     function applySearchSwitcherAfterSearchSettingsChange(oldEffectiveDefault) {
         const oldDef = String(oldEffectiveDefault || '').trim();
+        const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+        const pinned = enginesContainer?.querySelector('.dropdown-item-pinned');
         const icon = searchSwitcherButton?.querySelector('.google-icon');
-        const currentSel = (icon?.alt && String(icon.alt).trim()) ? String(icon.alt).trim() : oldDef;
-        if (currentSel === oldDef) {
+        const pinnedLabel = pinned ? String(getEngineLabel(pinned) || '').trim() : '';
+        const iconAlt = (icon?.alt && String(icon.alt).trim()) ? String(icon.alt).trim() : '';
+
+        if (!pinned) {
+            applySearchSwitcherUIFromStoredDefault();
+            return;
+        }
+
+        if (pinnedLabel === oldDef) {
+            applySearchSwitcherUIFromStoredDefault();
+            return;
+        }
+
+        if (!iconAlt || iconAlt === oldDef) {
             applySearchSwitcherUIFromStoredDefault();
         } else {
             applySearchSwitcherPinnedDefaultOnly();
         }
+    }
+
+    if (window === window.top) {
+        searchDefaultSync_applySwitcherUIFromStoredDefault = applySearchSwitcherUIFromStoredDefault;
     }
 
     function updateDefaultBadge() {
@@ -7631,6 +7808,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     f.contentWindow?.postMessage({ type: 'twelve-search-engines', enabled: n !== 6, count: n }, '*');
                 } catch (_) {}
             });
+        try {
+            populateSearchSettingsEngineSelectOptions(n);
+        } catch (_) {}
+        try {
+            syncSearchSettingsDefaultEngineSelects();
+        } catch (_) {}
+        try {
+            postSearchSettingsOverlayEngineOptions(
+                document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow
+            );
+        } catch (_) {}
         syncSearchEnginesCountUrlParam(n);
     }
 
@@ -7994,13 +8182,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     applyStandaloneSearchBoxPrototypeVisibility(readStandaloneSearchBoxVisibleFromStorage());
-    const standaloneVisibilityToggle = document.getElementById('search-settings-standalone-visibility-toggle');
-    if (standaloneVisibilityToggle) {
-        standaloneVisibilityToggle.addEventListener('click', () => {
-            const nextOn = standaloneVisibilityToggle.getAttribute('aria-checked') !== 'true';
-            applyStandaloneSearchBoxPrototypeVisibility(nextOn);
-        });
-    }
     document.addEventListener(
         'keydown',
         (e) => {
@@ -8012,11 +8193,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (t && typeof t === 'object' && 'closest' in t && t.closest?.('[contenteditable="true"]')) {
-                return;
-            }
-            if (e.key === '/') {
-                e.preventDefault();
-                applyStandaloneSearchBoxPrototypeVisibility(!readStandaloneSearchBoxVisibleFromStorage());
                 return;
             }
             /* Cycle Visuals background swatches (gradient → grey → blue → beige). */
@@ -8080,8 +8256,106 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         searchSettingsModalPreviousFocus = null;
     };
+    const prototypeSettingsPageOverlayRoot = document.getElementById('prototype-settings-page-overlay-root');
+    let prototypeSettingsPageOverlayPreviousFocus = null;
+    const onPrototypeSettingsPageOverlayKeydown = (e) => {
+        if (e.key === 'Escape' && prototypeSettingsPageOverlayRoot && !prototypeSettingsPageOverlayRoot.hidden) {
+            e.preventDefault();
+            e.stopPropagation();
+            closePrototypeSettingsPageOverlay();
+        }
+    };
+    const closePrototypeSettingsPageOverlay = () => {
+        if (!prototypeSettingsPageOverlayRoot || prototypeSettingsPageOverlayRoot.hidden) return;
+        prototypeSettingsPageOverlayRoot.hidden = true;
+        prototypeSettingsPageOverlayRoot.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('prototype-settings-page-overlay-open');
+        document.removeEventListener('keydown', onPrototypeSettingsPageOverlayKeydown, true);
+        if (
+            prototypeSettingsPageOverlayPreviousFocus &&
+            typeof prototypeSettingsPageOverlayPreviousFocus.focus === 'function'
+        ) {
+            try {
+                prototypeSettingsPageOverlayPreviousFocus.focus();
+            } catch (_) {}
+        }
+        prototypeSettingsPageOverlayPreviousFocus = null;
+    };
+    const openPrototypeSettingsPageOverlay = () => {
+        if (!prototypeSettingsPageOverlayRoot || window !== window.top) return;
+        closeSearchSettingsModal();
+        try {
+            hideTooltip();
+        } catch (_) {}
+        if (document.activeElement?.closest?.('.bottom-left-panel')) {
+            try {
+                document.activeElement.blur();
+            } catch (_) {}
+        }
+        closeSuggestionsPanel();
+        if (searchSwitcherButton?.classList.contains('open')) {
+            beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
+            searchSwitcherButton.classList.remove('switcher-opened-by-keyboard', 'switcher-suppress-hover');
+            searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
+            switcherHighlightedIndex = -1;
+            searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+            forceCloseSearchSwitcherSubPanels();
+            searchSwitcherButton.classList.remove('open');
+        }
+        restoringFocusFromSwitcher = false;
+        closingSwitcherWithoutSuggestions = false;
+        try {
+            searchInput?.blur?.();
+        } catch (_) {}
+        [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
+            .filter(Boolean)
+            .forEach((f) => {
+                try {
+                    f.contentWindow?.postMessage({ type: 'close-switcher' }, '*');
+                } catch (_) {}
+            });
+        prototypeSettingsPageOverlayPreviousFocus = document.activeElement;
+        prototypeSettingsPageOverlayRoot.hidden = false;
+        prototypeSettingsPageOverlayRoot.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('prototype-settings-page-overlay-open');
+        document.addEventListener('keydown', onPrototypeSettingsPageOverlayKeydown, true);
+        const pspIframeEl = document.getElementById('prototype-settings-page-overlay-iframe');
+        const seedSearchSettingsOverlayStorage = () => {
+            try {
+                pushDefaultSearchEngineKeysToIframe(pspIframeEl?.contentWindow);
+            } catch (_) {}
+            try {
+                postSearchSettingsOverlayEngineOptions(pspIframeEl?.contentWindow);
+            } catch (_) {}
+        };
+        const focusCloseInSettingsIframe = () => {
+            try {
+                pspIframeEl?.contentWindow?.document?.getElementById('search-settings-embed-close')?.focus();
+            } catch (_) {}
+        };
+        if (pspIframeEl) {
+            pspIframeEl.addEventListener('load', seedSearchSettingsOverlayStorage, { once: true });
+            if (pspIframeEl.contentDocument?.readyState === 'complete') {
+                queueMicrotask(() => {
+                    seedSearchSettingsOverlayStorage();
+                    focusCloseInSettingsIframe();
+                });
+            } else {
+                pspIframeEl.addEventListener('load', () => queueMicrotask(focusCloseInSettingsIframe), { once: true });
+            }
+        }
+    };
+    if (prototypeSettingsPageOverlayRoot) {
+        prototypeSettingsPageOverlayRoot.querySelectorAll('[data-close-prototype-settings-page-overlay]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                closePrototypeSettingsPageOverlay();
+            });
+        });
+    }
     const openSearchSettingsModal = () => {
         if (!searchSettingsModal) return;
+        closePrototypeSettingsPageOverlay();
         searchSettingsModalPanelDrag.x = 0;
         searchSettingsModalPanelDrag.y = 0;
         applySearchSettingsModalPanelTransform();
@@ -8135,12 +8409,6 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 searchAddressBarCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY) !== 'false';
             } catch (_) {}
-        }
-        const standaloneToggleOpen = document.getElementById('search-settings-standalone-visibility-toggle');
-        if (standaloneToggleOpen) {
-            const v = readStandaloneSearchBoxVisibleFromStorage();
-            standaloneToggleOpen.setAttribute('aria-checked', v ? 'true' : 'false');
-            standaloneToggleOpen.classList.toggle('search-settings-standalone-visibility-toggle--on', v);
         }
         logSearchSettingsOverlayOpened();
         syncSearchSettingsPlaceholderPreviewFields();
@@ -8242,7 +8510,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
                 syncSearchSettingsDefaultEngineSelects();
                 logSearchSettingsEngineSelectChanged('New tab / Homepage', v);
-                applySearchSwitcherAfterSearchSettingsChange(oldMain);
+                applySearchSwitcherUIFromStoredDefault();
                 mirrorKeyToIframe(addressbarIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
                 mirrorKeyToIframe(standaloneIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
                 postRefreshSearchSwitcherToIframe(addressbarIframeForSettings?.contentWindow, oldAddrEff);
@@ -8257,19 +8525,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const effBefore = getEffectiveSearchDefaultsFromStorage();
                 const oldStandEff = effBefore.standalone;
                 const v = selStandalone.value;
-                setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, v);
+                if (v === SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE) {
+                    applyStandaloneSearchBoxPrototypeVisibility(false);
+                } else {
+                    setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, v);
+                    applyStandaloneSearchBoxPrototypeVisibility(true);
+                }
                 syncSearchSettingsDefaultEngineSelects();
                 logSearchSettingsEngineSelectChanged('Standalone search box', v);
-                mirrorKeyToIframe(standaloneIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, v);
+                if (v !== SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE) {
+                    mirrorKeyToIframe(standaloneIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, v);
+                }
                 postRefreshSearchSwitcherToIframe(standaloneIframeForSettings?.contentWindow, oldStandEff);
                 syncSearchSettingsPlaceholderPreviewFields();
                 broadcastSearchAccessPointPlaceholderRefresh();
-            });
-        }
-        const selPrivate = document.getElementById('search-settings-default-engine-private');
-        if (selPrivate) {
-            selPrivate.addEventListener('change', () => {
-                syncSearchSettingsPlaceholderPreviewFields();
             });
         }
         const navigateNewTabCb = document.getElementById('search-settings-navigate-new-tab');
@@ -8363,10 +8632,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 e.stopPropagation();
                 try {
-                    window.parent.postMessage({ type: 'open-search-settings' }, '*');
+                    window.parent.postMessage({ type: 'open-prototype-settings-page-overlay' }, '*');
                 } catch (_) {}
             });
         }
+    }
+    const standaloneSearchBoxToolbarExtensionsButton = document.getElementById(
+        'standalone-search-box-toolbar-extensions-button'
+    );
+    if (standaloneSearchBoxToolbarExtensionsButton) {
+        standaloneSearchBoxToolbarExtensionsButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (window !== window.top) {
+                try {
+                    window.parent.postMessage({ type: 'open-search-settings' }, '*');
+                } catch (_) {}
+            }
+        });
     }
     window.addEventListener('storage', (e) => {
         if (e.storageArea !== localStorage) return;
@@ -8412,22 +8695,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 ) {
                     return;
                 }
+                const effBefore = getEffectiveSearchDefaultsFromStorage();
+                const trimmed = String(value).trim();
                 try {
-                    localStorage.setItem(key, value);
-                    syncSearchSettingsDefaultEngineSelects();
+                    localStorage.setItem(key, trimmed);
                 } catch (_) {}
+                syncTopDocumentSearchSurfacesAfterDefaultEngineKeysChanged(effBefore, key);
+                return;
+            }
+            if (e.data?.type === 'apply-address-bar-settings-from-html') {
+                if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                const pspIframeAddr = document.getElementById('prototype-settings-page-overlay-iframe');
+                if (!pspIframeAddr || e.source !== pspIframeAddr.contentWindow) return;
+                const raw = e.data.engineValue;
+                if (typeof raw !== 'string') return;
+                const effBeforeAddr = getEffectiveSearchDefaultsFromStorage();
+                const addressBarValueToLabel = {
+                    google: 'Google',
+                    bing: 'Bing',
+                    duckduckgo: 'DuckDuckGo',
+                    ebay: 'eBay',
+                    perplexity: 'Perplexity',
+                    wikipedia: 'Wikipedia (en)',
+                };
                 try {
-                    e.source?.postMessage?.({ type: 'mirror-default-search-engine', key, value }, '*');
+                    if (raw === 'none') {
+                        localStorage.setItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY, 'false');
+                        document.querySelector('.addressbar-iframe')?.contentWindow?.postMessage(
+                            { type: 'search-engine-list-mode', mode: 'closed', animate: true },
+                            '*'
+                        );
+                    } else {
+                        localStorage.setItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY, 'true');
+                        const label =
+                            addressBarValueToLabel[raw] ||
+                            (String(raw).trim() ? String(raw).trim() : '') ||
+                            'Google';
+                        localStorage.setItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR, label);
+                    }
                 } catch (_) {}
-                try {
-                    e.source?.postMessage?.(
-                        {
-                            type: 'refresh-search-access-point-placeholder',
-                            keys: getSearchAccessPointSettingsKeysForMirror(),
-                        },
-                        '*'
-                    );
-                } catch (_) {}
+                syncTopDocumentSearchSurfacesAfterDefaultEngineKeysChanged(
+                    effBeforeAddr,
+                    DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR
+                );
                 return;
             }
             if (e.data?.type === 'default-search-engine-changed') {
@@ -8437,6 +8747,51 @@ document.addEventListener('DOMContentLoaded', () => {
                     syncSearchSettingsPlaceholderPreviewFields();
                     broadcastSearchAccessPointPlaceholderRefresh();
                 }
+                return;
+            }
+            if (e.data?.type === 'close-prototype-settings-page-overlay') {
+                const pspIframeClose = document.getElementById('prototype-settings-page-overlay-iframe');
+                if (pspIframeClose && e.source === pspIframeClose.contentWindow) {
+                    closePrototypeSettingsPageOverlay();
+                }
+                return;
+            }
+            if (e.data?.type === 'apply-standalone-from-settings-html') {
+                const pspIframeStandalone = document.getElementById('prototype-settings-page-overlay-iframe');
+                if (!pspIframeStandalone || e.source !== pspIframeStandalone.contentWindow) return;
+                const vis = !!e.data.visible;
+                const eng = typeof e.data.engine === 'string' ? e.data.engine : null;
+                if (vis && eng) {
+                    setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, eng);
+                    applyStandaloneSearchBoxPrototypeVisibility(true);
+                } else {
+                    applyStandaloneSearchBoxPrototypeVisibility(false);
+                }
+                syncSearchSettingsDefaultEngineSelects();
+                syncSearchSettingsPlaceholderPreviewFields();
+                broadcastSearchAccessPointPlaceholderRefresh();
+                try {
+                    pushDefaultSearchEngineKeysToIframe(pspIframeStandalone.contentWindow);
+                } catch (_) {}
+                try {
+                    document.querySelector('.standalone-search-box-iframe')?.contentWindow?.postMessage(
+                        { type: 'default-search-engine-changed' },
+                        '*'
+                    );
+                } catch (_) {}
+                try {
+                    pspIframeStandalone.contentWindow?.postMessage({ type: 'default-search-engine-changed' }, '*');
+                } catch (_) {}
+                return;
+            }
+            if (e.data?.type === 'open-prototype-settings-page-overlay') {
+                const addressbarIframePsp = document.querySelector('.addressbar-iframe');
+                const standaloneIframePsp = document.querySelector('.standalone-search-box-iframe');
+                const fromTrustedChildPsp =
+                    (addressbarIframePsp && e.source === addressbarIframePsp.contentWindow) ||
+                    (standaloneIframePsp && e.source === standaloneIframePsp.contentWindow);
+                if (!fromTrustedChildPsp) return;
+                openPrototypeSettingsPageOverlay();
                 return;
             }
             if (e.data?.type !== 'open-search-settings') return;
@@ -10280,6 +10635,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
                         SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY,
                         SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY,
+                        'default_search_engine:private',
                         FIREFOX_SUGGESTIONS_ENABLED_KEY,
                         'inspectSuggestions'
                     ];
@@ -10297,6 +10653,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     syncSearchSettingsModalUrlParam(false);
                     try {
                         closeSearchSettingsModal();
+                    } catch (_) {}
+                    try {
+                        closePrototypeSettingsPageOverlay();
                     } catch (_) {}
                     try {
                         localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, 'closed');
@@ -10519,8 +10878,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         const src = f.getAttribute('src');
                         if (src) f.src = src;
                     });
+                    const pspIframeAfterReset = document.getElementById('prototype-settings-page-overlay-iframe');
+                    if (pspIframeAfterReset) {
+                        const pspSrc = pspIframeAfterReset.getAttribute('src');
+                        if (pspSrc) {
+                            try {
+                                pspIframeAfterReset.src = pspSrc;
+                            } catch (_) {}
+                        }
+                    }
                     console.log(
-                        '[prototype-reset] reloaded embedded search iframes (address bar / standalone). Open each switcher to log [search-switcher] with engineListOrder.'
+                        '[prototype-reset] reloaded embedded search iframes (address bar / standalone / search settings overlay). Open each switcher to log [search-switcher] with engineListOrder.'
                     );
 
                     if (clearCacheSuccessTimer) {

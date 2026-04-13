@@ -764,18 +764,6 @@
                             <th scope="row" class="search-settings-surface-row-header">
                                 <div class="search-settings-surface-row-header-inner">
                                     <span class="search-settings-surface-row-title">Standalone search box</span>
-                                    <button
-                                        type="button"
-                                        id="search-settings-standalone-visibility-toggle"
-                                        class="search-settings-standalone-visibility-toggle"
-                                        role="switch"
-                                        aria-checked="false"
-                                        aria-label="Show standalone search box in prototype"
-                                    >
-                                        <span class="search-settings-standalone-visibility-toggle-track" aria-hidden="true">
-                                            <span class="search-settings-standalone-visibility-toggle-thumb"></span>
-                                        </span>
-                                    </button>
                                 </div>
                             </th>
                             <td class="search-settings-cell">
@@ -812,28 +800,19 @@
                             </td>
                         </tr>
                         <tr>
-                            <th scope="row">Private window</th>
+                            <th scope="row">Private window search</th>
                             <td class="search-settings-cell">
-                                <input type="checkbox" id="search-settings-navigate-private" class="search-settings-cell-checkbox search-settings-navigate-column-checkbox" aria-label="Navigate, Private window">
+                                <input type="checkbox" id="search-settings-navigate-private" class="search-settings-cell-checkbox search-settings-navigate-column-checkbox" aria-label="Navigate, Private window search">
                             </td>
                             <td class="search-settings-cell">
                                 <span class="search-settings-state-label search-settings-state-label--on" title="Always on" aria-label="Always on">always<br>on</span>
                             </td>
                             <td class="search-settings-cell search-settings-cell--engine-select">
-                                <select id="search-settings-default-engine-private" class="search-settings-engine-select" aria-label="Default search engine, Private window">
-                                    <option value="Amazon">Amazon</option>
-                                    <option value="Bing">Bing</option>
-                                    <option value="DuckDuckGo">DuckDuckGo</option>
-                                    <option value="eBay">eBay</option>
-                                    <option value="Ecosia">Ecosia</option>
-                                    <option value="Google" selected>Google</option>
-                                    <option value="IMDb">IMDb</option>
-                                    <option value="Perplexity">Perplexity</option>
-                                    <option value="Reddit">Reddit</option>
-                                    <option value="Startpage">Startpage</option>
-                                    <option value="Wikipedia (en)">Wikipedia (en)</option>
-                                    <option value="YouTube">YouTube</option>
-                                </select>
+                                <span
+                                    class="search-settings-state-label"
+                                    title="Uses the same default as New Tab / Homepage"
+                                    aria-label="Private window search uses the same default search engine as New Tab or Homepage"
+                                    >Same as<br>New Tab</span>
                             </td>
                             <td class="search-settings-cell search-settings-cell--placeholder-preview">
                                 <input
@@ -842,13 +821,26 @@
                                     class="search-settings-placeholder-preview"
                                     readonly
                                     tabindex="-1"
-                                    aria-label="Placeholder preview, Private window"
+                                    aria-label="Placeholder preview, Private window search"
                                 />
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- Full-page settings UI (search-settings.html); opened from the gear in the standalone toolbar. Matrix modal stays for the puzzle icon until deprecated. -->
+    <div id="prototype-settings-page-overlay-root" class="prototype-settings-page-overlay-root" hidden aria-hidden="true">
+        <div class="prototype-settings-page-overlay-backdrop" data-close-prototype-settings-page-overlay tabindex="-1" aria-hidden="true"></div>
+        <div class="prototype-settings-page-overlay-frame-wrap">
+            <iframe
+                id="prototype-settings-page-overlay-iframe"
+                class="prototype-settings-page-overlay-iframe"
+                src="search-settings.html"
+                title="Settings"
+            ></iframe>
         </div>
     </div>
     

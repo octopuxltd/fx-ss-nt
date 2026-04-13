@@ -369,6 +369,50 @@ body.hide-toolbar-help-open {
     overflow: hidden;
 }
 
+body.prototype-settings-page-overlay-open {
+    overflow: hidden;
+}
+
+/* Below tab strip + address row (z-index 3–5); hosts search-settings.html in an iframe. */
+.prototype-settings-page-overlay-root {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: calc(var(--window-chrome-offset-below-fixed-top) + 47px);
+    z-index: 2;
+    box-sizing: border-box;
+}
+
+body.browser-chrome-hidden .prototype-settings-page-overlay-root {
+    top: 0;
+}
+
+.prototype-settings-page-overlay-root[hidden] {
+    display: none !important;
+}
+
+.prototype-settings-page-overlay-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.36);
+}
+
+.prototype-settings-page-overlay-frame-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: var(--bg-page, #f9f9fb);
+}
+
+.prototype-settings-page-overlay-iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #f9f9fb;
+}
+
 /* Fixed stack: optional simulation strip + tab strip (above grey band + in-flow hero so scroll tucks content under chrome). */
 .window-chrome-top-stack {
     position: fixed;
@@ -767,9 +811,9 @@ body.search-border-radius-large .addressbar-band {
     border-bottom: 1px solid #d3cdd9;
 }
 
-/* Toolbar icons (account / search settings / menu) live inside the standalone search iframe; no right padding here. */
+/* Toolbar icons (account / search settings / extensions / menu) live inside the standalone search iframe; no right padding here. */
 .addressbar-area {
-    --addressbar-toolbar-icons-slot: calc(12px + 3 * 35px + 2 * 5px);
+    --addressbar-toolbar-icons-slot: calc(12px + 4 * 35px + 3 * 5px);
     display: flex;
     align-items: flex-start;
     align-content: flex-start;
@@ -862,7 +906,7 @@ body.browser-chrome-hidden .addressbar-area {
     z-index: 6;
     display: flex;
     align-items: center;
-    /* Slightly looser than iframe nav gap (2px) so three icons read clearly */
+    /* Slightly looser than iframe nav gap (2px) so toolbar icons read clearly */
     gap: 5px;
     /* ~nav cluster height (35px buttons + addressbar-nav vertical padding); centers 35px hit targets */
     height: 39px;
