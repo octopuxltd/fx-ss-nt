@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Tab Search (phase 1)</title>
+    <title>Firefox Prototype: Search on New Tab</title>
     <link rel="stylesheet" href="step1.css">
     <script src="config.js" onerror="console.warn('config.js not found. Using example config.'); window.API_CONFIG = window.API_CONFIG || { OPENROUTER_API_KEY: '', OPENAI_API_KEY: '', PEXELS_API_KEY: '' };"></script>
     <script src="suggestion-words.js"></script>
@@ -21,7 +21,11 @@
     </script>
     <div class="window-chrome-top-stack" aria-hidden="true">
     <div class="window-chrome-viewport-chrome-indicator">
-        <span class="window-chrome-viewport-chrome-indicator-label" aria-hidden="true">▼ ▼  BROWSER SIMULATION  ▼ ▼</span>
+        <span class="window-chrome-viewport-chrome-indicator-label" aria-hidden="true">
+            <span class="window-chrome-viewport-chrome-indicator-chevron" aria-hidden="true">▼ ▼</span>
+            <span class="window-chrome-viewport-chrome-indicator-core">BROWSER PROTOTYPE</span>
+            <span class="window-chrome-viewport-chrome-indicator-chevron" aria-hidden="true">▼ ▼</span>
+        </span>
         <button type="button" class="window-chrome-viewport-chrome-indicator-help">
             How to hide the real Firefox toolbar
         </button>
@@ -58,11 +62,19 @@
                         <path d="M7 1.75v10.5M1.75 7h10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                     </svg>
                 </span>
-                <button type="button" class="window-chrome-tabs-chevron" aria-label="Toggle iframe debug borders" aria-pressed="false" title="Toggle iframe debug borders (address bar vs standalone)">
-                    <svg class="window-chrome-tabs-chevron-icon" width="12" height="11" viewBox="0 0 12 11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M1.2 3.35L6 8.35L10.8 3.35" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
+                <div class="window-chrome-tabs-trailing">
+                    <p id="prototype-toolbar-restore-hint" class="prototype-toolbar-restore-hint" hidden></p>
+                    <button type="button" class="window-chrome-tabs-chevron" aria-label="Toggle iframe debug borders" aria-pressed="false" title="Toggle iframe debug borders (address bar vs standalone)">
+                        <svg class="window-chrome-tabs-chevron-icon" width="12" height="11" viewBox="0 0 12 11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M1.2 3.35L6 8.35L10.8 3.35" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="window-chrome-tab-strip-ribbon-slot" aria-hidden="true">
+                <div class="window-chrome-tab-strip-ribbon-rotate">
+                    <span class="window-chrome-tab-strip-simulation-ribbon" hidden aria-hidden="true">Prototype</span>
+                </div>
             </div>
         </div>
     </div>
@@ -933,7 +945,7 @@
             });
         })();
     </script>
-
+    
     <script src="step1.js"></script>
 </body>
 </html>

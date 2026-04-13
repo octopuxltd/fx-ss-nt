@@ -2986,6 +2986,33 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             true
         );
+        const prototypeToolbarRestoreHint = document.getElementById('prototype-toolbar-restore-hint');
+        const toolbarRestoreHintChevron = prototypeToolbarRestoreHint?.parentElement?.querySelector(
+            '.window-chrome-tabs-chevron'
+        );
+        const tabStripSimulationRibbon = document.querySelector('.window-chrome-tab-strip-simulation-ribbon');
+        const syncPrototypeToolbarRestoreHint = () => {
+            const gap = Math.abs(window.innerHeight - window.outerHeight);
+            /* Same threshold as tab-strip “prototype” ribbon: inner vs outer height within 5px. */
+            const showChromelessViewportUi = gap <= 5;
+            if (tabStripSimulationRibbon) {
+                tabStripSimulationRibbon.hidden = !showChromelessViewportUi;
+            }
+            if (!prototypeToolbarRestoreHint) return;
+            const isMac =
+                /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '') ||
+                /Mac OS X|Macintosh/i.test(navigator.userAgent || '');
+            const mod = isMac ? 'Cmd' : 'Ctrl';
+            prototypeToolbarRestoreHint.innerHTML = `<span class="prototype-toolbar-restore-hint-keys"><kbd>${mod}</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></span><span class="prototype-toolbar-restore-hint-caption">to get the real toolbar back</span>`;
+            prototypeToolbarRestoreHint.hidden = !showChromelessViewportUi;
+            if (toolbarRestoreHintChevron) {
+                toolbarRestoreHintChevron.hidden = showChromelessViewportUi;
+            }
+        };
+        syncPrototypeToolbarRestoreHint();
+        window.addEventListener('resize', syncPrototypeToolbarRestoreHint);
+        window.addEventListener('orientationchange', syncPrototypeToolbarRestoreHint);
+        window.visualViewport?.addEventListener?.('resize', syncPrototypeToolbarRestoreHint);
     }
 
     // Mouse-positioned tooltips
