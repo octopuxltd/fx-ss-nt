@@ -149,6 +149,14 @@ body.addressbar:not(.standalone-search-box) .addressbar-nav {
     transform: translateY(-2px);
 }
 
+body.addressbar.search-border-radius-large:not(.standalone-search-box) .addressbar-nav {
+    background-color: #ffffff;
+}
+
+body.addressbar.standalone-search-box.search-border-radius-large .standalone-search-box-toolbar {
+    background-color: #ffffff;
+}
+
 body.addressbar .addressbar-back,
 body.addressbar .addressbar-next,
 body.addressbar .addressbar-reload {
@@ -162,7 +170,8 @@ body.addressbar .addressbar-reload {
     border: none;
     border-radius: 50%;
     background: transparent;
-    cursor: pointer;
+    /* Match tab strip chrome: default arrow, not pointer */
+    cursor: default;
     flex-shrink: 0;
 }
 
@@ -296,6 +305,18 @@ body.addressbar .search-box-wrapper-outer {
     transition: none;
 }
 
+/*
+ * Small corners: base step1.css squares the inner pill as soon as `.focused` + suggestions list is not
+ * `suggestions-suppress-until-typed` — true on column load before `.suggestions-revealed`. Keep a full 10px pill
+ * until the strip is actually open.
+ */
+body.addressbar:not(.search-border-radius-large)
+    .search-container.focused
+    .search-box-wrapper-outer:has(.suggestions-list:not(.suggestions-revealed))
+    .search-box-wrapper {
+    border-radius: 10px;
+}
+
 /* Idle typed state (no input focus): keep shell on #ececee; focus/switcher rules below override. */
 body.addressbar .search-container.search-has-typed-input .search-box-wrapper-outer:not(:has(.search-input:focus)) {
     background-color: #ececee;
@@ -378,6 +399,52 @@ body.addressbar .search-box-wrapper {
     min-height: 35px;
     max-height: 35px;
     padding: 5px;
+}
+
+/* Large corners: iframe search pill — white shell + neutral border (replaces gray #ececee fill). */
+body.addressbar.search-border-radius-large .search-box-wrapper-outer {
+    box-sizing: border-box;
+    background-color: #ffffff;
+    border: 1px solid #d3cdd9;
+    box-shadow: none;
+}
+
+body.addressbar.search-border-radius-large .search-box-wrapper {
+    background-color: #ffffff;
+}
+
+body.addressbar.search-border-radius-large
+    .search-container.search-has-typed-input
+    .search-box-wrapper-outer:not(:has(.search-input:focus)) {
+    background-color: #ffffff;
+}
+
+body.addressbar.search-border-radius-large
+    .search-container.search-has-typed-input.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer:not(:has(.search-input:focus)) {
+    background-color: #ffffff;
+}
+
+body.addressbar.search-border-radius-large .search-box-wrapper-outer:has(.search-input:focus),
+body.addressbar.search-border-radius-large .search-box-wrapper-outer:has(.suggestions-list.transitioning),
+body.addressbar.search-border-radius-large
+    .search-container.focused
+    .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)),
+body.addressbar.search-border-radius-large
+    .search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper-outer {
+    background-color: #ffffff;
+    border: 1px solid #d3cdd9;
+    box-shadow: none;
+}
+
+body.addressbar.search-border-radius-large
+    .search-container.focused
+    .search-container-top-row:has(> .search-switcher-pinned-right-host:not([hidden]))
+    .search-box-wrapper {
+    background-color: #ffffff;
 }
 
 body.addressbar .search-input {

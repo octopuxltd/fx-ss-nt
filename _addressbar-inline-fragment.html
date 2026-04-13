@@ -55,10 +55,6 @@
                                         <img src="icons/more-horizontal.svg" alt="" class="search-switcher-more-menu-button-icon" width="14" height="14">
                                     </button>
                             </div>
-                            <div class="dropdown-divider dropdown-divider--below-search-label" aria-hidden="true"></div>
-                            <div class="dropdown-switcher-body">
-                            <div class="dropdown-switcher-subpanels-clip">
-                            <div class="dropdown-switcher-subpanels-clip-inner">
                             <div class="dropdown-search-info-shell">
                                 <div class="dropdown-search-info-shell-inner">
                                     <div id="ab-search-switcher-info-panel" class="dropdown-search-info-panel" hidden aria-labelledby="ab-search-switcher-info-heading">
@@ -71,6 +67,10 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="dropdown-divider dropdown-divider--below-search-label" aria-hidden="true"></div>
+                            <div class="dropdown-switcher-body">
+                            <div class="dropdown-switcher-subpanels-clip">
+                            <div class="dropdown-switcher-subpanels-clip-inner">
                             <div class="dropdown-search-controls-shell">
                                 <div class="dropdown-search-controls-shell-inner">
                             <div id="ab-search-engines-controls-panel" class="dropdown-search-controls" hidden>
@@ -125,16 +125,18 @@
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Wikipedia.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Wikipedia (en)</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/YouTube.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">YouTube</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             </div>
-                            <div class="dropdown-restore-az-sticky" hidden aria-hidden="true">
-                                <button type="button" class="search-engines-restore-az-sticky-button engines-sort-alphabetically">Restore A-Z</button>
+                            <div class="dropdown-restore-az-sticky" aria-hidden="true">
+                                <div class="dropdown-restore-az-sticky-inner">
+                                    <button type="button" class="search-engines-restore-az-sticky-button engines-sort-alphabetically" disabled>Restore A-Z</button>
+                                </div>
                             </div>
                             <div class="dropdown-from-firefox-footer">
                             <div class="dropdown-divider"></div>
                             <div class="dropdown-label">From Firefox</div>
                             <div class="dropdown-firefox-suggestions">
-                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="bookmarks"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/star.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Bookmarks</span></div>
-                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="tabs"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/tabs.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Tabs</span></div>
-                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="history"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/history.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">History</span></div>
+                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="bookmarks"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/internal-star.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Bookmarks</span></div>
+                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="tabs"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/internal-tab.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Tabs</span></div>
+                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="history"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/internal-clock.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">History</span></div>
                             <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="actions"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/actions.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Actions</span></div>
                             </div>
                             </div>

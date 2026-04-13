@@ -40,6 +40,9 @@
                 <span class="window-chrome-traffic-light window-chrome-traffic-light--minimize"></span>
                 <span class="window-chrome-traffic-light window-chrome-traffic-light--zoom"></span>
             </div>
+            <button type="button" class="window-chrome-tab-strip-view-button" aria-label="View" title="View">
+                <img src="icons/view.svg" alt="" class="window-chrome-tab-strip-view-icon" width="16" height="16">
+            </button>
             <div class="window-chrome-tab-strip-sep" aria-hidden="true"></div>
             <div class="window-chrome-tabs" role="presentation">
                 <div class="window-chrome-tab">
@@ -67,11 +70,6 @@
                 </span>
                 <div class="window-chrome-tabs-trailing">
                     <p id="prototype-toolbar-restore-hint" class="prototype-toolbar-restore-hint" hidden></p>
-                    <button type="button" class="window-chrome-tabs-chevron" aria-label="Toggle iframe debug borders" aria-pressed="false" title="Toggle iframe debug borders (address bar vs standalone)">
-                        <svg class="window-chrome-tabs-chevron-icon" width="12" height="11" viewBox="0 0 12 11" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <path d="M1.2 3.35L6 8.35L10.8 3.35" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
                 </div>
             </div>
             <div class="window-chrome-tab-strip-ribbon-slot" aria-hidden="true">
@@ -178,10 +176,10 @@
         })();
         try {
             const brm = localStorage.getItem('search_border_radius_mode');
-            if (brm === 'small') {
-                document.body.classList.remove('search-border-radius-large');
-            } else {
+            if (brm === 'large') {
                 document.body.classList.add('search-border-radius-large');
+            } else {
+                document.body.classList.remove('search-border-radius-large');
             }
         } catch (_) {}
     </script>
@@ -243,10 +241,6 @@
                                         <img src="icons/more-horizontal.svg" alt="" class="search-switcher-more-menu-button-icon" width="14" height="14">
                                     </button>
                             </div>
-                            <div class="dropdown-divider dropdown-divider--below-search-label" aria-hidden="true"></div>
-                            <div class="dropdown-switcher-body">
-                            <div class="dropdown-switcher-subpanels-clip">
-                            <div class="dropdown-switcher-subpanels-clip-inner">
                             <div class="dropdown-search-info-shell">
                                 <div class="dropdown-search-info-shell-inner">
                                     <div id="search-switcher-info-panel" class="dropdown-search-info-panel" hidden aria-labelledby="search-switcher-info-heading">
@@ -259,6 +253,10 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="dropdown-divider dropdown-divider--below-search-label" aria-hidden="true"></div>
+                            <div class="dropdown-switcher-body">
+                            <div class="dropdown-switcher-subpanels-clip">
+                            <div class="dropdown-switcher-subpanels-clip-inner">
                             <div class="dropdown-search-controls-shell">
                                 <div class="dropdown-search-controls-shell-inner">
                             <div id="search-engines-controls-panel" class="dropdown-search-controls" hidden>
@@ -313,16 +311,18 @@
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/Wikipedia.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">Wikipedia (en)</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             <div class="dropdown-item dropdown-item-search-engine"><img src="icons/YouTube.svg" alt="" class="dropdown-icon dropdown-engine-icon"><span class="dropdown-engine-label">YouTube</span><span class="dropdown-item-pin-empty" title="Make default"><img src="icons/pin.svg" alt="" class="pin-outline" aria-hidden="true"><img src="icons/pin-filled.svg" alt="" class="pin-filled" aria-hidden="true"></span></div>
                             </div>
-                            <div class="dropdown-restore-az-sticky" hidden aria-hidden="true">
-                                <button type="button" class="search-engines-restore-az-sticky-button engines-sort-alphabetically">Restore A-Z</button>
+                            <div class="dropdown-restore-az-sticky" aria-hidden="true">
+                                <div class="dropdown-restore-az-sticky-inner">
+                                    <button type="button" class="search-engines-restore-az-sticky-button engines-sort-alphabetically" disabled>Restore A-Z</button>
+                                </div>
                             </div>
                             <div class="dropdown-from-firefox-footer">
                             <div class="dropdown-divider"></div>
                             <div class="dropdown-label">From Firefox</div>
                             <div class="dropdown-firefox-suggestions">
-                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="bookmarks"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/star.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Bookmarks</span></div>
-                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="tabs"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/tabs.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Tabs</span></div>
-                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="history"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/history.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">History</span></div>
+                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="bookmarks"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/internal-star.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Bookmarks</span></div>
+                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="tabs"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/internal-tab.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Tabs</span></div>
+                            <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="history"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/internal-clock.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">History</span></div>
                             <div class="dropdown-item dropdown-item-firefox-suggestion" data-suggestion-type="actions"><span class="dropdown-firefox-toggle checked" title="Include in suggestions" role="checkbox" tabindex="0" aria-checked="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span><img src="icons/actions.svg" alt="" class="dropdown-icon"><span class="dropdown-firefox-suggestion-label">Actions</span></div>
                             </div>
                             </div>
@@ -601,10 +601,10 @@
                             <button type="button" class="background-swatch" data-background="beige" title="Warm beige, coral search ring"></button>
                         </div>
                         <div class="search-border-radius-swatches" role="group" aria-label="Corner radius">
-                            <button type="button" class="search-border-radius-swatch search-border-radius-swatch--small" data-search-border-radius="small" title="Small corners" aria-pressed="false">
+                            <button type="button" class="search-border-radius-swatch search-border-radius-swatch--small" data-search-border-radius="small" title="Small corners" aria-pressed="true">
                                 <span class="search-border-radius-swatch-visual" aria-hidden="true"></span>
                             </button>
-                            <button type="button" class="search-border-radius-swatch search-border-radius-swatch--large" data-search-border-radius="large" title="Large corners" aria-pressed="true">
+                            <button type="button" class="search-border-radius-swatch search-border-radius-swatch--large" data-search-border-radius="large" title="Large corners" aria-pressed="false">
                                 <span class="search-border-radius-swatch-visual" aria-hidden="true"></span>
                             </button>
                         </div>
@@ -918,9 +918,18 @@
             var closeBtn = root && root.querySelector('.hide-toolbar-help-close');
             if (!root || !openBtn) return;
 
-            var isMac =
-                /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '') ||
-                /Mac OS X|Macintosh/i.test(navigator.userAgent || '');
+            function isPrototypeMacLikeOsForFullscreenToolbarShortcut() {
+                var ua = navigator.userAgent || '';
+                var p = navigator.platform || '';
+                if (/Win/i.test(ua) || /^Win/i.test(p) || p === 'Win32' || p === 'Win64') {
+                    return false;
+                }
+                return (
+                    /Mac|iPhone|iPad|iPod/i.test(p) ||
+                    /Mac OS X|Macintosh/i.test(ua)
+                );
+            }
+            var isMac = isPrototypeMacLikeOsForFullscreenToolbarShortcut();
             var shortcutWin = root.querySelector('.hide-toolbar-help-fullscreen-win');
             var shortcutMac = root.querySelector('.hide-toolbar-help-fullscreen-mac');
             if (shortcutWin && shortcutMac) {

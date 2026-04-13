@@ -1534,6 +1534,49 @@ function syncPrototypeNewTabContentUrlParam(show) {
     } catch (_) {}
 }
 
+/** Main page only: `?chrome=0` / `chrome=false` (see step1.html) ↔ “Show browser chrome” off. */
+function syncPrototypeBrowserChromeUrlParam(showChrome) {
+    if (typeof window === 'undefined' || window !== window.top) return;
+    try {
+        const url = new URL(window.location.href);
+        if (showChrome) {
+            url.searchParams.delete('chrome');
+        } else {
+            url.searchParams.set('chrome', '0');
+        }
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch (_) {}
+}
+
+/** Main top document only: `?newtab=pin` seeds pinned-right list mode (see search-engine-list-mode init). */
+function syncSearchEngineListModeNewtabUrlParam(mode) {
+    if (typeof window === 'undefined' || window !== window.top) return;
+    if (typeof document !== 'undefined' && document.body?.classList.contains('addressbar')) return;
+    try {
+        const url = new URL(window.location.href);
+        if (mode === 'pinned-right') {
+            url.searchParams.set('newtab', 'pin');
+        } else {
+            url.searchParams.delete('newtab');
+        }
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch (_) {}
+}
+
+/** Main page only: `?settings=1` opens Search settings on load; keep the bar in sync when opening/closing the modal. */
+function syncSearchSettingsModalUrlParam(open) {
+    if (typeof window === 'undefined' || window !== window.top) return;
+    try {
+        const url = new URL(window.location.href);
+        if (open) {
+            url.searchParams.set('settings', '1');
+        } else {
+            url.searchParams.delete('settings');
+        }
+        history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch (_) {}
+}
+
 function readStandaloneSearchBoxVisibleFromStorage() {
     try {
         return localStorage.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY) === 'true';
@@ -1844,10 +1887,10 @@ function getSearchBorderRadiusMode() {
     try {
         const v = localStorage.getItem(SEARCH_BORDER_RADIUS_MODE_KEY);
         if (v === 'large' || v === 'small') return v;
-        localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, 'large');
-        return 'large';
+        localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, 'small');
+        return 'small';
     } catch (_) {
-        return 'large';
+        return 'small';
     }
 }
 
@@ -1934,11 +1977,13 @@ const MAIN_SCREEN_HORIZONTAL_ENGINE_LOGOS = {
 
 function getStoredSearchEnginesCount() {
     try {
-        const raw = localStorage.getItem(SEARCH_ENGINES_COUNT_KEY);
+        /* Same authority as `getSearchEngineOrderStorage()` so embedded iframes stay in sync with the parent (order + count). */
+        const ls = getDefaultSearchEngineLocalStorage();
+        const raw = ls.getItem(SEARCH_ENGINES_COUNT_KEY);
         if (raw === '6' || raw === '12' || raw === '50') return parseInt(raw, 10);
-        const legacy = localStorage.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY);
+        const legacy = ls.getItem(TWELVE_SEARCH_ENGINES_ENABLED_KEY);
         const fallback = legacy === 'true' ? 12 : 6;
-        localStorage.setItem(SEARCH_ENGINES_COUNT_KEY, String(fallback));
+        ls.setItem(SEARCH_ENGINES_COUNT_KEY, String(fallback));
         return fallback;
     } catch (_) {
         return 6;
@@ -2010,6 +2055,24 @@ function getSearchEngineLabelsForCountMode(count) {
     if (normalized >= 50) return getPrototypeEngineLabels50();
     if (normalized >= 12) return [...SEARCH_ENGINE_LABELS_12];
     return [...SEARCH_ENGINE_LABELS_6];
+}
+
+/**
+ * Prototype default **visible** row order for the engine-count mode (matches shipped HTML + `applyCanonicalSearchEngineOrder`,
+ * and 6-mode: same relative order as 12-mode with non-allowed rows hidden — not `SEARCH_ENGINE_LABELS_6` alone).
+ */
+function getDefaultVisibleSearchEngineOrder(count) {
+    const n = count === 6 || count === 12 || count === 50 ? count : 12;
+    if (n >= 50) {
+        const primary = new Set(DEFAULT_MAIN_PAGE_ENGINE_ORDER);
+        const tail = getPrototypeEngineLabels50().filter((label) => !primary.has(label));
+        return [...DEFAULT_MAIN_PAGE_ENGINE_ORDER, ...tail];
+    }
+    if (n >= 12) {
+        return [...DEFAULT_MAIN_PAGE_ENGINE_ORDER];
+    }
+    const allowed = new Set(getSearchEngineLabelsForCountMode(6));
+    return DEFAULT_MAIN_PAGE_ENGINE_ORDER.filter((label) => allowed.has(label));
 }
 
 /** Ensures enough `.dropdown-item` rows exist for 50-engine prototype mode (idempotent). */
@@ -3030,10 +3093,20 @@ document.addEventListener('DOMContentLoaded', () => {
             true
         );
         const prototypeToolbarRestoreHint = document.getElementById('prototype-toolbar-restore-hint');
-        const toolbarRestoreHintChevron = prototypeToolbarRestoreHint?.parentElement?.querySelector(
-            '.window-chrome-tabs-chevron'
-        );
         const tabStripSimulationRibbon = document.querySelector('.window-chrome-tab-strip-simulation-ribbon');
+        /** Match hide-toolbar help modal: F11 / Fn+F11 on Windows & Linux; Cmd+Shift+F on Apple platforms. Windows wins if UA looks like Mac (VM / odd builds). */
+        const isPrototypeMacLikeOsForFullscreenToolbarShortcut = () => {
+            const ua = navigator.userAgent || '';
+            const p = navigator.platform || '';
+            if (/Win/i.test(ua) || /^Win/i.test(p) || p === 'Win32' || p === 'Win64') {
+                return false;
+            }
+            return (
+                /Mac|iPhone|iPad|iPod/i.test(p) ||
+                /Mac OS X|Macintosh/i.test(ua)
+            );
+        };
+
         const syncPrototypeToolbarRestoreHint = () => {
             const showChromelessViewportUi =
                 typeof window.__isViewportChromelessPrototypeUi === 'function'
@@ -3044,17 +3117,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabStripSimulationRibbon.hidden = !showChromelessViewportUi;
             }
             if (!prototypeToolbarRestoreHint) return;
-            const isMac =
-                /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '') ||
-                /Mac OS X|Macintosh/i.test(navigator.userAgent || '');
-            /* Win/Linux: Firefox full-screen toggle is F11 (see hide-toolbar help). Mac: keep Cmd+Shift+F. */
+            const isMac = isPrototypeMacLikeOsForFullscreenToolbarShortcut();
+            /* Non-Mac: primary <kbd>F11</kbd> (same as .hide-toolbar-help-fullscreen-win). Mac: Cmd+Shift+F (same as .hide-toolbar-help-fullscreen-mac). */
             prototypeToolbarRestoreHint.innerHTML = isMac
-                ? `<span class="prototype-toolbar-restore-hint-keys"><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></span><span class="prototype-toolbar-restore-hint-caption">to get the real toolbar back</span>`
-                : `<span class="prototype-toolbar-restore-hint-keys"><kbd>F11</kbd></span><span class="prototype-toolbar-restore-hint-caption">to get the real toolbar back</span>`;
+                ? `<span class="prototype-toolbar-restore-hint-keys"><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></span> <span class="prototype-toolbar-restore-hint-caption">to get the real toolbar back</span>`
+                : `<span class="prototype-toolbar-restore-hint-keys"><kbd>F11</kbd></span> <span class="prototype-toolbar-restore-hint-caption">to get the real toolbar back</span>`;
             prototypeToolbarRestoreHint.hidden = !showChromelessViewportUi;
-            if (toolbarRestoreHintChevron) {
-                toolbarRestoreHintChevron.hidden = showChromelessViewportUi;
-            }
         };
         syncPrototypeToolbarRestoreHint();
         window.addEventListener('resize', syncPrototypeToolbarRestoreHint);
@@ -3213,6 +3281,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.style.removeProperty('--outer-border-radius');
         document.documentElement.style.removeProperty('--switcher-button-radius');
         document.documentElement.style.removeProperty('--suggestion-item-radius');
+        document.documentElement.style.removeProperty('--window-chrome-tab-border-radius');
+        document.documentElement.style.removeProperty('--window-chrome-tab-close-border-radius');
+        document.documentElement.style.removeProperty('--window-chrome-tab-control-border-radius');
+        document.documentElement.style.removeProperty('--window-chrome-tab-favicon-radius');
         syncSearchBoxWrapperCornersForSuggestionsPanel();
     }
 
@@ -3270,6 +3342,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /** Main page only (`.window-chrome-tab-strip` absent in address bar iframes): pill tabs / controls in large-corner mode. */
+    function syncWindowChromeTabStripCornerRadii() {
+        if (!document.querySelector('.window-chrome-tab-strip')) return;
+        if (getSearchBorderRadiusMode() !== 'large') return;
+        const tab = document.querySelector('.window-chrome-tab');
+        if (tab && tab.offsetHeight > 0) {
+            document.documentElement.style.setProperty('--window-chrome-tab-border-radius', `${tab.offsetHeight / 2}px`);
+        }
+        const close = document.querySelector('.window-chrome-tab-close');
+        if (close && close.offsetHeight > 0) {
+            document.documentElement.style.setProperty('--window-chrome-tab-close-border-radius', `${close.offsetHeight / 2}px`);
+        }
+        const controlEl =
+            document.querySelector('.window-chrome-tab-strip-view-button') ||
+            document.querySelector('.window-chrome-tabs-plus');
+        if (controlEl && controlEl.offsetHeight > 0) {
+            document.documentElement.style.setProperty(
+                '--window-chrome-tab-control-border-radius',
+                `${controlEl.offsetHeight / 2}px`
+            );
+        }
+        const fav = document.querySelector('.window-chrome-tab-favicon');
+        if (fav && fav.offsetHeight > 0) {
+            document.documentElement.style.setProperty('--window-chrome-tab-favicon-radius', `${fav.offsetHeight / 2}px`);
+        }
+    }
+
     function updateBorderRadius() {
         if (getSearchBorderRadiusMode() !== 'large') {
             syncSearchBoxWrapperCornersForSuggestionsPanel();
@@ -3306,6 +3405,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemBorderRadius = itemHeight > 0 ? itemHeight / 2 : minRadius;
             document.documentElement.style.setProperty('--suggestion-item-radius', `${itemBorderRadius}px`);
         }
+
+        syncWindowChromeTabStripCornerRadii();
     }
 
     function syncSearchBorderRadiusSwatches() {
@@ -3396,6 +3497,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const reducedMotionCheckbox = document.querySelector('.reduced-motion-checkbox');
     const suggestionsList = document.querySelector('.suggestions-list');
+    /** Seed strings under “Your Recent Searches” when history is empty — icons come from `updateSuggestions` + `getIconForSuggestion`. */
+    const DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS = [
+        'hoka',
+        '13 in macbook air',
+        'coffee machines for sale',
+        'taylor swift',
+        'coffee grinder',
+    ];
     const suggestionItems = document.querySelectorAll('.suggestion-item');
     let selectedSuggestionIndex = -1;
     let hoveredSuggestionIndex = -1;
@@ -3602,8 +3711,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     switcherLabel.hidden = true;
                     suggestionsList?.classList.remove('suggestions-suppress-until-typed');
                     if (searchInput && !searchInput.value?.trim() && searchContainer?.classList.contains('focused')) {
-                        const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
-                        updateSuggestions(defaultSuggestions);
+                        updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
                         if (!addressbarColumnIframe || addressbarSuggestionsOpenEnabled) {
                             suggestionsList?.classList.add('suggestions-revealed');
                         }
@@ -3938,15 +4046,58 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function isEngineListAlphabeticalInContainer(enginesContainer) {
-        if (!enginesContainer) return true;
-        /* Match `saveEngineOrder` row discovery (tree order), not only direct children — avoids sticky / A–Z mismatch. */
+    function isSearchEngineRowRenderedVisible(item) {
+        if (!item || item.style.display === 'none') return false;
+        try {
+            if (typeof getComputedStyle === 'undefined') return true;
+            return getComputedStyle(item).display !== 'none';
+        } catch (_) {
+            return true;
+        }
+    }
+
+    /** Visible allowed engine labels in document order (respects 6/12/50 + `display:none` / CSS-hidden rows). */
+    function collectVisibleSwitcherEngineLabels(enginesContainer) {
+        if (!enginesContainer) return [];
+        const count = getStoredSearchEnginesCount();
+        const allowed = new Set(getSearchEngineLabelsForCountMode(count));
         const items = Array.from(enginesContainer.querySelectorAll('.dropdown-item')).filter((c) =>
             c.querySelector('.dropdown-engine-label')
         );
-        const labels = items.map((i) => getEngineLabel(i));
-        const sorted = [...labels].sort(compareEngineLabelsAlphabetically);
-        return labels.length === sorted.length && labels.every((l, i) => l === sorted[i]);
+        const visibleLabels = [];
+        for (const item of items) {
+            const label = getEngineLabel(item);
+            if (!allowed.has(label)) continue;
+            if (!isSearchEngineRowRenderedVisible(item)) continue;
+            visibleLabels.push(label);
+        }
+        return visibleLabels;
+    }
+
+    /** True when visible rows are already case-insensitive A–Z (same outcome as “Restore A-Z”). */
+    function isEngineListAlphabeticalVisibleOrder(enginesContainer) {
+        const visibleLabels = collectVisibleSwitcherEngineLabels(enginesContainer);
+        if (visibleLabels.length === 0) return true;
+        const sorted = [...visibleLabels].sort(compareEngineLabelsAlphabetically);
+        return visibleLabels.length === sorted.length && visibleLabels.every((l, i) => l === sorted[i]);
+    }
+
+    /** True when visible engine rows match the prototype default order for the current count mode (6 / 12 / 50). */
+    function isEngineListInDefaultOrder(enginesContainer) {
+        if (!enginesContainer) return true;
+        const count = getStoredSearchEnginesCount();
+        const expected = getDefaultVisibleSearchEngineOrder(count);
+        const visibleLabels = collectVisibleSwitcherEngineLabels(enginesContainer);
+        if (visibleLabels.length === 0) return true;
+        if (visibleLabels.length !== expected.length) return false;
+        return visibleLabels.every((l, i) => l === expected[i]);
+    }
+
+    /** Hide “Restore A-Z” when A–Z already, or when still on shipped default order (whichever applies). */
+    function isRestoreSearchEngineOrderUnneeded(enginesContainer) {
+        return (
+            isEngineListAlphabeticalVisibleOrder(enginesContainer) || isEngineListInDefaultOrder(enginesContainer)
+        );
     }
 
     const resetSearchEnginesOrderToAlphabetical = () => {
@@ -3999,25 +4150,33 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {}
     };
 
+    const RESTORE_AZ_STICKY_SLIDE_MS = 320;
+
+    function cancelRestoreAzStickyPendingClose(sticky) {
+        if (!(sticky instanceof Element)) return;
+        const c = sticky._restoreAzCloseCleanup;
+        if (typeof c === 'function') {
+            try {
+                c();
+            } catch (_) {}
+            sticky._restoreAzCloseCleanup = null;
+        }
+    }
+
+    function getSearchEnginesResetOrderButtonEl() {
+        return (
+            document.getElementById('search-engines-reset-order-button') ||
+            document.getElementById('ab-search-engines-reset-order-button')
+        );
+    }
+
     function updateReorderResetButtonState() {
-        const panel = document.getElementById('search-engines-controls-panel');
-        const controlsPanelOpenPrimary = !!(panel && !panel.hasAttribute('hidden'));
-        const controlsPanelOpenPinned = isPinnedCloneControlsPanelOpen();
-        const overflowOpenPrimary = !!searchSwitcherButton?.querySelector(
-            '.search-switcher-dropdown .dropdown-label.dropdown-label--overflow-tools-open'
-        );
-        const overflowOpenPinned = !!pinnedRightHost?.querySelector(
-            '.dropdown-label.dropdown-label--overflow-tools-open'
-        );
-        const openPrimary = controlsPanelOpenPrimary || overflowOpenPrimary;
-        const openPinned = controlsPanelOpenPinned || overflowOpenPinned;
-
         const enginesPrimary = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-        const alphabeticalPrimary = isEngineListAlphabeticalInContainer(enginesPrimary);
+        const primaryRestoreUnneeded = isRestoreSearchEngineOrderUnneeded(enginesPrimary);
 
-        const btn = document.getElementById('search-engines-reset-order-button');
+        const btn = getSearchEnginesResetOrderButtonEl();
         if (btn) {
-            if (alphabeticalPrimary) {
+            if (primaryRestoreUnneeded) {
                 btn.setAttribute('hidden', '');
                 btn.disabled = true;
             } else {
@@ -4026,26 +4185,103 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const syncRestoreSticky = (enginesContainer, reorderOpen) => {
+        const chipEngineListVisible = !!searchSwitcherButton?.classList.contains('open');
+        const pinnedRightEngineListVisible =
+            document.body.classList.contains('search-engine-list-mode-pinned-right') &&
+            !!pinnedRightHost &&
+            !pinnedRightHost.hidden &&
+            !!searchContainer?.classList.contains('focused');
+
+        const syncRestoreSticky = (enginesContainer, listVisible) => {
             const scrollWrap = enginesContainer?.closest('.dropdown-engines-firefox-scroll');
             const sticky = scrollWrap?.querySelector('.dropdown-restore-az-sticky');
             if (!sticky) return;
-            const alphabetical = isEngineListAlphabeticalInContainer(enginesContainer);
-            const show = !!reorderOpen && !alphabetical;
-            if (show) {
+            cancelRestoreAzStickyPendingClose(sticky);
+            const restoreUnneeded = isRestoreSearchEngineOrderUnneeded(enginesContainer);
+            const wantRevealed = !!listVisible && !restoreUnneeded;
+            const isRevealed = sticky.classList.contains('dropdown-restore-az-sticky--revealed');
+            const sb = sticky.querySelector('.search-engines-restore-az-sticky-button');
+            const rm = document.body.classList.contains('reduced-motion');
+
+            if (wantRevealed === isRevealed) {
+                if (sb) sb.disabled = !wantRevealed;
+                sticky.setAttribute('aria-hidden', wantRevealed ? 'false' : 'true');
+                if (!wantRevealed) sticky.setAttribute('hidden', '');
+                else sticky.removeAttribute('hidden');
+                return;
+            }
+
+            if (wantRevealed) {
                 sticky.removeAttribute('hidden');
                 sticky.setAttribute('aria-hidden', 'false');
-            } else {
-                sticky.setAttribute('hidden', '');
-                sticky.setAttribute('aria-hidden', 'true');
+                if (sb) sb.disabled = false;
+                requestAnimationFrame(() => {
+                    void sticky.offsetHeight;
+                    sticky.classList.add('dropdown-restore-az-sticky--revealed');
+                });
+                return;
             }
-            const sb = sticky.querySelector('.search-engines-restore-az-sticky-button');
-            if (sb) sb.disabled = !show;
+
+            if (sb) sb.disabled = true;
+            sticky.setAttribute('aria-hidden', 'true');
+            sticky.classList.remove('dropdown-restore-az-sticky--revealed');
+            if (rm) {
+                sticky.setAttribute('hidden', '');
+                return;
+            }
+            let settled = false;
+            const settle = () => {
+                if (settled) return;
+                settled = true;
+                sticky.removeEventListener('transitionend', onEnd);
+                clearTimeout(fallbackTimer);
+                sticky._restoreAzCloseCleanup = null;
+            };
+            const finishClose = () => {
+                settle();
+                sticky.setAttribute('hidden', '');
+            };
+            const onEnd = (ev) => {
+                if (ev.target !== sticky || ev.propertyName !== 'grid-template-rows') return;
+                finishClose();
+            };
+            sticky.addEventListener('transitionend', onEnd);
+            const fallbackTimer = setTimeout(finishClose, RESTORE_AZ_STICKY_SLIDE_MS + 100);
+            sticky._restoreAzCloseCleanup = settle;
         };
 
-        syncRestoreSticky(enginesPrimary, openPrimary);
+        syncRestoreSticky(enginesPrimary, chipEngineListVisible);
         const enginesPinned = pinnedRightHost?.querySelector('.search-switcher-dropdown .dropdown-search-engines');
-        syncRestoreSticky(enginesPinned, openPinned);
+        syncRestoreSticky(enginesPinned, pinnedRightEngineListVisible);
+    }
+
+    if (searchSwitcherButton && typeof MutationObserver !== 'undefined') {
+        let restoreAzStickyRaf = null;
+        const scheduleRestoreAzStickyFromListVisibility = () => {
+            if (restoreAzStickyRaf != null) cancelAnimationFrame(restoreAzStickyRaf);
+            restoreAzStickyRaf = requestAnimationFrame(() => {
+                restoreAzStickyRaf = null;
+                try {
+                    updateReorderResetButtonState();
+                } catch (_) {}
+            });
+        };
+        new MutationObserver(scheduleRestoreAzStickyFromListVisibility).observe(searchSwitcherButton, {
+            attributes: true,
+            attributeFilter: ['class'],
+        });
+        if (searchContainer) {
+            new MutationObserver(scheduleRestoreAzStickyFromListVisibility).observe(searchContainer, {
+                attributes: true,
+                attributeFilter: ['class'],
+            });
+        }
+        if (pinnedRightHost) {
+            new MutationObserver(scheduleRestoreAzStickyFromListVisibility).observe(pinnedRightHost, {
+                attributes: true,
+                attributeFilter: ['hidden'],
+            });
+        }
     }
 
     function syncDefaultBadgeDraggableState() {
@@ -4636,7 +4872,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (tgt.closest('.search-engines-reset-order-button')) {
             logPinnedPanel('handle: reset order');
-            const btn = document.getElementById('search-engines-reset-order-button');
+            const btn =
+                document.getElementById('search-engines-reset-order-button') ||
+                document.getElementById('ab-search-engines-reset-order-button');
             if (btn && !btn.hasAttribute('hidden')) {
                 btn.click();
             }
@@ -4862,8 +5100,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (an === 'hidden' && el.classList?.contains('dropdown-restore-az-sticky')) {
                 return true;
             }
+            if (an === 'class' && el.classList?.contains('dropdown-restore-az-sticky')) {
+                return true;
+            }
             /* Primary-only id; pinned clone has no id — alphabetical restore toggles this without needing another re-clone. */
-            if (an === 'hidden' && el.id === 'search-engines-reset-order-button') {
+            if (
+                an === 'hidden' &&
+                (el.id === 'search-engines-reset-order-button' || el.id === 'ab-search-engines-reset-order-button')
+            ) {
                 return true;
             }
             if (an === 'hidden' && (el.id === 'search-engines-controls-panel' || el.id === 'search-switcher-info-panel')) {
@@ -4930,10 +5174,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncPinnedCloneSubpanelsClipOpenClass(els) {
         if (!els?.clip) return;
         const controlsOpen = els.controls && !els.controls.hasAttribute('hidden');
-        const infoOpen = els.info && !els.info.hasAttribute('hidden');
         els.clip.classList.toggle(
             'dropdown-switcher-subpanels-clip--open',
-            !!(controlsOpen || infoOpen)
+            !!controlsOpen
         );
     }
 
@@ -5065,7 +5308,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 els.controlsToggle?.setAttribute('aria-expanded', 'false');
                 els.info.removeAttribute('hidden');
                 els.infoToggle?.setAttribute('aria-expanded', 'true');
-                els.clip.classList.add('dropdown-switcher-subpanels-clip--open');
+                els.clip.classList.remove('dropdown-switcher-subpanels-clip--open');
                 syncPinnedCloneSubpanelsClipOpenClass(els);
                 syncEngineDragHandlesForControlsPanel();
                 return;
@@ -5076,23 +5319,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 syncEngineDragHandlesForControlsPanel();
             }
             els.info.removeAttribute('hidden');
-            requestAnimationFrame(() => {
-                els.clip.classList.add('dropdown-switcher-subpanels-clip--open');
-                els.infoToggle?.setAttribute('aria-expanded', 'true');
-                requestAnimationFrame(() => syncPinnedRightPanelLayoutAfterAppend(dd));
-                requestAnimationFrame(() => requestAnimationFrame(() => syncPinnedRightPanelLayoutAfterAppend(dd)));
-            });
+            els.infoToggle?.setAttribute('aria-expanded', 'true');
+            requestAnimationFrame(() => syncPinnedRightPanelLayoutAfterAppend(dd));
+            requestAnimationFrame(() => requestAnimationFrame(() => syncPinnedRightPanelLayoutAfterAppend(dd)));
             return;
         }
         clearPinnedCloneFromFirefoxFooterFlipStyles();
+        const clipWasOpen = els.clip.classList.contains('dropdown-switcher-subpanels-clip--open');
         els.clip.classList.remove('dropdown-switcher-subpanels-clip--open');
         els.infoToggle?.setAttribute('aria-expanded', 'false');
         let settled = false;
+        let fallbackTimer = null;
         const settle = () => {
             if (settled) return;
             settled = true;
             els.clip.removeEventListener('transitionend', onTrEnd);
-            clearTimeout(fallbackTimer);
+            if (fallbackTimer != null) clearTimeout(fallbackTimer);
             els.info.setAttribute('hidden', '');
             syncPinnedCloneSubpanelsClipOpenClass(els);
             if (dd) syncPinnedRightPanelLayoutAfterAppend(dd);
@@ -5101,8 +5343,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (ev.target !== els.clip || ev.propertyName !== 'grid-template-rows') return;
             settle();
         };
+        if (!clipWasOpen) {
+            settle();
+            return;
+        }
         els.clip.addEventListener('transitionend', onTrEnd);
-        const fallbackTimer = setTimeout(
+        fallbackTimer = setTimeout(
             settle,
             document.body.classList.contains('reduced-motion') ? 0 : PINNED_SUBPANEL_SLIDE_MS + 100
         );
@@ -5335,9 +5581,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function forceCloseSearchSwitcherSubPanels() {
         const panel = document.getElementById('search-engines-controls-panel');
         const infoPanel = document.getElementById('search-switcher-info-panel');
-        const subpanelsClipEl =
-            panel?.closest('.dropdown-switcher-subpanels-clip') ??
-            infoPanel?.closest('.dropdown-switcher-subpanels-clip');
+        const subpanelsClipEl = panel?.closest('.dropdown-switcher-subpanels-clip');
         subpanelsClipEl?.classList.remove('dropdown-switcher-subpanels-clip--open');
         searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
         searchSwitcherButton?.classList.remove('search-switcher-info-panel-footer-flip');
@@ -5733,6 +5977,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {}
         try {
             scheduleListEngineLabelTooltipSync();
+        } catch (_) {}
+        try {
+            updateReorderResetButtonState();
         } catch (_) {}
     }
     
@@ -7170,7 +7417,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 setEnginesSortSectionHiddenIfAlphabetical(enginesContainerForRestore, sortSection);
             }
 
-            const resetOrderBtn = document.getElementById('search-engines-reset-order-button');
+            const resetOrderBtn =
+                document.getElementById('search-engines-reset-order-button') ||
+                document.getElementById('ab-search-engines-reset-order-button');
             if (resetOrderBtn) {
                 resetOrderBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -7192,7 +7441,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (!b || b.disabled) return;
                     const sticky = b.closest('.dropdown-restore-az-sticky');
-                    if (!sticky || sticky.hasAttribute('hidden')) return;
+                    if (!sticky || !sticky.classList.contains('dropdown-restore-az-sticky--revealed')) return;
                     e.preventDefault();
                     e.stopPropagation();
                     resetSearchEnginesOrderToAlphabetical();
@@ -7269,6 +7518,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     localStorage.setItem(PROTOTYPE_BROWSER_CHROME_VISIBLE_KEY, 'true');
                 } catch (_) {}
+                syncPrototypeBrowserChromeUrlParam(true);
                 requestAnimationFrame(() => {
                     requestAnimationFrame(() => {
                         try {
@@ -7281,6 +7531,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     localStorage.setItem(PROTOTYPE_BROWSER_CHROME_VISIBLE_KEY, 'false');
                 } catch (_) {}
+                syncPrototypeBrowserChromeUrlParam(false);
             }
         });
     }
@@ -7294,16 +7545,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const show = !!e.target.checked;
             document.body.classList.toggle('prototype-new-tab-content-hidden', !show);
             syncPrototypeNewTabContentUrlParam(show);
-        });
-    }
-
-    const iframeDebugChevron = document.querySelector('.window-chrome-tabs-chevron');
-    if (iframeDebugChevron) {
-        document.body.classList.remove('prototype-iframe-debug-borders');
-        iframeDebugChevron.setAttribute('aria-pressed', 'false');
-        iframeDebugChevron.addEventListener('click', () => {
-            const on = document.body.classList.toggle('prototype-iframe-debug-borders');
-            iframeDebugChevron.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
     }
 
@@ -7360,7 +7601,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const n = parseInt(radio.value, 10);
                 if (n !== 6 && n !== 12 && n !== 50) return;
                 try {
-                    localStorage.setItem(SEARCH_ENGINES_COUNT_KEY, String(n));
+                    getDefaultSearchEngineLocalStorage().setItem(SEARCH_ENGINES_COUNT_KEY, String(n));
                 } catch (_) {}
                 applySearchEnginesCountMode(n);
                 [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
@@ -7432,17 +7673,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchEnginesControlsPanel = document.getElementById('search-engines-controls-panel');
     const searchSwitcherInfoToggle = document.getElementById('search-switcher-info-toggle');
     const searchSwitcherInfoPanel = document.getElementById('search-switcher-info-panel');
-    const subpanelsClip =
-        searchEnginesControlsPanel?.closest('.dropdown-switcher-subpanels-clip') ??
-        searchSwitcherInfoPanel?.closest('.dropdown-switcher-subpanels-clip');
+    const subpanelsClip = searchEnginesControlsPanel?.closest('.dropdown-switcher-subpanels-clip');
 
     const syncSubpanelsClipOpen = () => {
         if (!subpanelsClip) return;
         const controlsOpen = searchEnginesControlsPanel && !searchEnginesControlsPanel.hasAttribute('hidden');
-        const infoOpen = searchSwitcherInfoPanel && !searchSwitcherInfoPanel.hasAttribute('hidden');
         subpanelsClip.classList.toggle(
             'dropdown-switcher-subpanels-clip--open',
-            !!(controlsOpen || infoOpen)
+            !!controlsOpen
         );
     };
 
@@ -7498,7 +7736,7 @@ document.addEventListener('DOMContentLoaded', () => {
         searchEnginesControlsToggle?.setAttribute('aria-expanded', 'false');
         searchSwitcherInfoPanel.removeAttribute('hidden');
         searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
-        subpanelsClip.classList.add('dropdown-switcher-subpanels-clip--open');
+        subpanelsClip.classList.remove('dropdown-switcher-subpanels-clip--open');
         syncSearchEnginesControlsExpanded();
         searchSwitcherButton?.classList.remove('search-engines-controls-panel-revealed');
         syncSearchSwitcherDropdownWidth();
@@ -7648,12 +7886,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 closeSearchEnginesControlsPanelInstant();
                 searchSwitcherInfoPanel.removeAttribute('hidden');
-                requestAnimationFrame(() => {
-                    subpanelsClip.classList.add('dropdown-switcher-subpanels-clip--open');
-                    searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
-                    syncSearchSwitcherDropdownWidth();
-                    requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
-                });
+                searchSwitcherInfoToggle.setAttribute('aria-expanded', 'true');
+                syncSearchSwitcherDropdownWidth();
+                requestAnimationFrame(() => syncSearchSwitcherDropdownWidth());
                 return;
             }
             clearFromFirefoxFooterFlipStyles();
@@ -7667,6 +7902,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (wantFooterFlip) {
                 footerFlipFirstRect = footer.getBoundingClientRect();
             }
+            const clipWasOpen = subpanelsClip.classList.contains('dropdown-switcher-subpanels-clip--open');
             subpanelsClip.classList.remove('dropdown-switcher-subpanels-clip--open');
             searchSwitcherButton?.classList.add('search-switcher-info-panel-footer-flip');
             searchSwitcherInfoToggle.setAttribute('aria-expanded', 'false');
@@ -7674,11 +7910,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 runFromFirefoxFooterFlipTransition(footer, footerFlipFirstRect);
             }
             let settled = false;
+            let fallbackTimer = null;
             const settle = () => {
                 if (settled) return;
                 settled = true;
                 subpanelsClip.removeEventListener('transitionend', onTrEnd);
-                clearTimeout(fallbackTimer);
+                if (fallbackTimer != null) clearTimeout(fallbackTimer);
                 searchSwitcherInfoPanel.setAttribute('hidden', '');
                 searchSwitcherButton?.classList.remove('search-switcher-info-panel-footer-flip');
                 syncSearchSwitcherDropdownWidth();
@@ -7687,8 +7924,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (ev.target !== subpanelsClip || ev.propertyName !== 'grid-template-rows') return;
                 settle();
             };
+            if (!clipWasOpen) {
+                settle();
+                return;
+            }
             subpanelsClip.addEventListener('transitionend', onTrEnd);
-            const fallbackTimer = setTimeout(
+            fallbackTimer = setTimeout(
                 settle,
                 document.body.classList.contains('reduced-motion') ? 0 : PANEL_SLIDE_MS + 100
             );
@@ -7783,6 +8024,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!searchSettingsModal || searchSettingsModal.hidden) return;
         searchSettingsModal.hidden = true;
         searchSettingsModal.setAttribute('aria-hidden', 'true');
+        syncSearchSettingsModalUrlParam(false);
         document.removeEventListener('keydown', onSearchSettingsModalKeydown, true);
         if (searchSettingsModalPreviousFocus && typeof searchSettingsModalPreviousFocus.focus === 'function') {
             try {
@@ -7858,6 +8100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         searchSettingsModalPreviousFocus = document.activeElement;
         searchSettingsModal.hidden = false;
         searchSettingsModal.setAttribute('aria-hidden', 'false');
+        syncSearchSettingsModalUrlParam(true);
         document.addEventListener('keydown', onSearchSettingsModalKeydown, true);
         const closeBtn = searchSettingsModal.querySelector('.search-settings-modal-close');
         try {
@@ -8433,6 +8676,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const sel = document.getElementById('search-engine-list-mode-select');
             if (sel && sel.value !== m) sel.value = m;
         } catch (_) {}
+        if (window === window.top && !document.body.classList.contains('addressbar')) {
+            syncSearchEngineListModeNewtabUrlParam(m);
+        }
     };
     function toggleSearchSwitcherPanelPin() {
         const cur = getSearchEngineListMode();
@@ -8449,14 +8695,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const label = searchSwitcherButton?.querySelector('.switcher-button-label');
                     const inLocalSourceMode = label && !label.hidden;
                     if (!inLocalSourceMode) {
-                        const defaultSuggestions = [
-                            'hoka',
-                            '13 in macbook air',
-                            'coffee machines for sale',
-                            'taylor swift',
-                            'coffee grinder',
-                        ];
-                        updateSuggestions(defaultSuggestions);
+                        updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
                     } else {
                         suggestionsList?.classList.add('suggestions-suppress-until-typed');
                         updateSuggestions([]);
@@ -8679,7 +8918,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ===== ICON ASSIGNMENT =====
     
-    // Icon mappings for trending suggestions (zigzag arrow in icons/lightning.svg)
+    // Icon mappings for trending suggestions (icons/internal-trending.svg)
     const iconMappings = {
         lightning: ['taylor swift', 'trump', 'weather', 'youtube', 'news', 'spotify', 'amazon', 'netflix', 'tiktok'],
         search: []
@@ -8689,27 +8928,27 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const textLower = text.toLowerCase();
             
-            // Check if in search history - gets clock icon
+            // Check if in search history — same art as switcher “History” / Firefox suggest
             if (isInSearchHistory(text)) {
-                return 'icons/clock.svg';
+                return 'icons/internal-clock.svg';
             }
             
             // AI suggestions check for special mappings
             if (aiSuggestionsSet.has(textLower)) {
                 // Check if it's a trending-suggestion match (popular / first in sort order)
                 if (iconMappings.lightning && iconMappings.lightning.includes(textLower)) {
-                    return 'icons/lightning.svg';
+                    return 'icons/internal-trending.svg';
                 } else if (iconMappings.search && iconMappings.search.includes(textLower)) {
-                    return 'icons/search.svg';
+                    return 'icons/internal-magnifyingglass.svg';
                 }
-                return 'icons/search.svg';
+                return 'icons/internal-magnifyingglass.svg';
             }
             
-            // Default to clock icon
-            return 'icons/clock.svg';
+            // Default recent-search seed icon (matches static iframe markup)
+            return 'icons/internal-clock.svg';
         } catch (error) {
             console.error('[ICON] Error in getIconForSuggestion:', error);
-            return 'icons/search.svg';
+            return 'icons/internal-magnifyingglass.svg';
         }
     }
     
@@ -8895,6 +9134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function updateSearchInputForItem(item, typedText) {
         if (!searchInput) return;
+        searchInput.removeAttribute('data-suggestion-suffix-start');
         // In '@' mode we don't want hover/keyboard navigation to overwrite the input,
         // otherwise it removes the '@...' the user typed.
         if (typeof typedText === 'string' && typedText.trim().startsWith('@')) {
@@ -8916,8 +9156,10 @@ document.addEventListener('DOMContentLoaded', () => {
             searchInput.value = suggestionText.toLowerCase();
             if (typedLen > 0 && suggestionText.toLowerCase().startsWith(typed.toLowerCase())) {
                 searchInput.setSelectionRange(typedLen, suggestionText.length);
+                searchInput.setAttribute('data-suggestion-suffix-start', String(typedLen));
             } else {
                 searchInput.setSelectionRange(0, suggestionText.length);
+                searchInput.setAttribute('data-suggestion-suffix-start', '0');
             }
         } else if (isTypedTextItem && typed) {
             searchInput.value = typed;
@@ -9103,11 +9345,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 .map(fs => [fs.title.toLowerCase().trim(), fs])
         );
         
-        // Firefox type icons from icons folder
+        // Firefox type icons (suggestions panel — match switcher “From Firefox” row art)
         const firefoxTypeIcons = {
-            tab: 'icons/tabs.svg',
-            bookmark: 'icons/star.svg',
-            history: 'icons/clock.svg',
+            tab: 'icons/internal-tab.svg',
+            bookmark: 'icons/internal-star.svg',
+            history: 'icons/internal-clock.svg',
             actions: 'icons/actions.svg'
         };
         
@@ -9197,12 +9439,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.setAttribute('data-firefox-type', firefoxTypeForItem);
                 }
                 
-                // Get appropriate icon (Firefox items: history=clock, bookmark=star, tab=tabs, actions)
+                // Get appropriate icon (Firefox items: tab / bookmark / history / actions)
                 let iconEl;
                 if (isFirefoxSuggest) {
                     const firefoxData = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
                     const firefoxType = displayType || (firefoxData && firefoxData.type) || 'history';
-                    const iconSrc = firefoxTypeIcons[firefoxType] || 'icons/clock.svg';
+                    const iconSrc = firefoxTypeIcons[firefoxType] || 'icons/internal-clock.svg';
                     iconEl = document.createElement('img');
                     iconEl.src = iconSrc;
                     iconEl.alt = '';
@@ -9215,6 +9457,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (isLocalSource) {
                     iconEl = document.createElement('img');
                     iconEl.src = suggestionOrObj.icon || 'icons/star.svg';
+                    iconEl.alt = '';
+                    iconEl.className = 'suggestion-icon';
+                } else if (isTypedText) {
+                    iconEl = document.createElement('img');
+                    iconEl.src = 'icons/internal-clock.svg';
                     iconEl.alt = '';
                     iconEl.className = 'suggestion-icon';
                 } else {
@@ -9419,9 +9666,8 @@ document.addEventListener('DOMContentLoaded', () => {
             searchInput.value = '';
             updateSearchUrlButton();
             updateTypedState();
-            const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
-            updateSuggestions(defaultSuggestions);
-            currentDisplayedSuggestions = defaultSuggestions;
+            updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
+            currentDisplayedSuggestions = [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
             searchInput.focus();
             
             let done = false;
@@ -9461,6 +9707,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateClearButton();
             updateSearchUrlButton();
             updateTypedState();
+            searchInput.removeAttribute('data-suggestion-suffix-start');
             console.log('[INPUT] ===== INPUT EVENT STARTED =====');
             
             const value = (event.target.value || '').toString();
@@ -9480,9 +9727,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 console.log('[INPUT] Empty field, showing default suggestions');
                 suggestionsList?.classList.remove('suggestions-suppress-until-typed');
-                const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
-                updateSuggestions(defaultSuggestions);
-                currentDisplayedSuggestions = defaultSuggestions;
+                updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
+                currentDisplayedSuggestions = [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
                 return;
             }
 
@@ -9687,7 +9933,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
+
+    /* Static iframe HTML uses `icons/internal-clock.svg` for seed rows; `updateSuggestions` assigns trending / AI icons. Sync on load when the field is empty so first paint matches “clear search”. */
+    if (searchInput && suggestionsList) {
+        try {
+            const label = searchSwitcherButton?.querySelector('.switcher-button-label');
+            const inLocalSourceModeOnInit = label && !label.hidden;
+            if (!inLocalSourceModeOnInit && !String(searchInput.value || '').trim()) {
+                updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
+                currentDisplayedSuggestions = [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
+            }
+        } catch (_) {}
+    }
+
     if (searchInput && searchContainer) {
         let autoOpenedSwitcherOnFocus = false;
 
@@ -9984,6 +10242,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             localStorage.removeItem(k);
                         } catch (_) {}
                     });
+                    syncSearchSettingsModalUrlParam(false);
+                    try {
+                        closeSearchSettingsModal();
+                    } catch (_) {}
                     try {
                         localStorage.setItem(SEARCH_ENGINE_LIST_MODE_KEY, 'closed');
                         localStorage.setItem(SWITCHER_OUTSIDE_SEARCH_BOX_ENABLED_KEY, 'false');
@@ -10056,10 +10318,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     document.body.classList.remove('browser-chrome-hidden');
                     document.body.classList.remove('prototype-iframe-debug-borders');
-                    const iframeDebugChevronReset = document.querySelector('.window-chrome-tabs-chevron');
-                    if (iframeDebugChevronReset) iframeDebugChevronReset.setAttribute('aria-pressed', 'false');
                     const prototypeBrowserChromeCbReset = document.querySelector('.prototype-browser-chrome-checkbox');
                     if (prototypeBrowserChromeCbReset) prototypeBrowserChromeCbReset.checked = true;
+                    syncPrototypeBrowserChromeUrlParam(true);
                     document.body.classList.remove('prototype-new-tab-content-hidden');
                     const prototypeShowNewTabCbReset = document.querySelector('.prototype-show-new-tab-content-checkbox');
                     if (prototypeShowNewTabCbReset) prototypeShowNewTabCbReset.checked = true;
@@ -10071,7 +10332,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         radio.checked = radio.value === '6';
                     });
                     try {
-                        localStorage.setItem(SEARCH_ENGINES_COUNT_KEY, '6');
+                        getDefaultSearchEngineLocalStorage().setItem(SEARCH_ENGINES_COUNT_KEY, '6');
                     } catch (_) {}
                     applySearchEnginesCountMode(6);
 
@@ -10107,7 +10368,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     persistSearchBorderColorForPrototype(SEARCH_BORDER_COLOR_DEFAULT);
                     try {
-                        localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, 'large');
+                        localStorage.setItem(SEARCH_BORDER_RADIUS_MODE_KEY, 'small');
                     } catch (_) {}
                     refreshSearchBorderRadiusMode();
 
@@ -10170,8 +10431,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         requestAnimationFrame(() => searchInput?.focus({ preventScroll: true }));
 
                         const history = getSearchHistory();
-                        const defaultSuggestions = ['hoka', '13 in macbook air', 'coffee machines for sale', 'taylor swift', 'coffee grinder'];
-                        const suggestionsToShow = history.length ? history.slice(0, 8) : defaultSuggestions;
+                        const suggestionsToShow = history.length
+                            ? history.slice(0, 8)
+                            : [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
                         updateSuggestions(suggestionsToShow);
                         currentDisplayedSuggestions = suggestionsToShow;
                     }
@@ -10395,6 +10657,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // Delete/Backspace while a suggestion ghost suffix is selected → restore typed query only (capture so it runs before local-source handler)
+    if (searchInput && suggestionsList) {
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Backspace' && event.key !== 'Delete') return;
+            const suffixStartAttr = searchInput.getAttribute('data-suggestion-suffix-start');
+            if (suffixStartAttr === null) return;
+            const suffixStart = parseInt(suffixStartAttr, 10);
+            if (Number.isNaN(suffixStart)) {
+                searchInput.removeAttribute('data-suggestion-suffix-start');
+                return;
+            }
+            const selStart = searchInput.selectionStart ?? 0;
+            const selEnd = searchInput.selectionEnd ?? 0;
+            if (selEnd <= selStart || selStart !== suffixStart) return;
+            event.preventDefault();
+            const restore = lastTypedTextInInput ?? '';
+            searchInput.value = restore;
+            searchInput.removeAttribute('data-suggestion-suffix-start');
+            searchInput.setSelectionRange(restore.length, restore.length);
+            hoveredSuggestionIndex = -1;
+            selectedSuggestionIndex = -1;
+            lastHoveredItemForInput = null;
+            updateSelectedSuggestion(false);
+            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }, true);
+    }
+
     // Backspace/Delete at start in local source mode → return to default search engine (only when cursor at start, not when text is selected)
     if (searchInput && searchSwitcherButton) {
         searchInput.addEventListener('keydown', (event) => {
@@ -10581,6 +10870,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 lastHoveredItemForInput = null;
                 if (searchInput && lastTypedTextInInput !== undefined) {
                     searchInput.value = lastTypedTextInInput;
+                    searchInput.removeAttribute('data-suggestion-suffix-start');
                     searchInput.setSelectionRange(lastTypedTextInInput.length, lastTypedTextInInput.length);
                 }
             }

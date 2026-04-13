@@ -429,6 +429,14 @@ body.hide-toolbar-help-open {
     overflow: hidden;
 }
 
+/* Large corners: soft lavender → peach across the strip (left color through 40%, then blend to the right edge). */
+body.search-border-radius-large .window-chrome-tab-strip {
+    background-color: transparent;
+    background-image: linear-gradient(to right, #f5ecff 0%, #f5ecff 40%, #ffede0 100%);
+    /* Slight inner shadow rising from the bottom edge (reads as a soft lip above the toolbar). */
+    box-shadow: inset 0 8px 12px -6px rgba(0, 0, 0, 0.04);
+}
+
 /* Corner ribbon: wide enough for rotated “PROTOTYPE”; overflow visible so the slot doesn’t crop the right end. */
 .window-chrome-tab-strip-ribbon-slot {
     position: absolute;
@@ -493,7 +501,46 @@ body.hide-toolbar-help-open {
     gap: 8px;
     flex-shrink: 0;
     align-self: center;
-    margin-right: 80px;
+    /* Titlebar “air” sits between the traffic lights and the view button (not between view and the tab sep). */
+    margin-right: 40px;
+}
+
+/* Sits after that gap, tight to the vertical separator. */
+.window-chrome-tab-strip-view-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    align-self: center;
+    width: 32px;
+    height: 32px;
+    margin: 0 8px 0 0;
+    padding: 0;
+    border: none;
+    border-radius: var(--window-chrome-tab-control-border-radius, 6px);
+    background: transparent;
+    font: inherit;
+    color: #000000;
+    cursor: default;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.window-chrome-tab-strip-view-button:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+.window-chrome-tab-strip-view-button:focus-visible {
+    outline: 2px solid #0060df;
+    outline-offset: 2px;
+}
+
+.window-chrome-tab-strip-view-icon {
+    display: block;
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
 }
 
 .window-chrome-tab-strip-sep {
@@ -543,7 +590,7 @@ body.hide-toolbar-help-open {
     flex-shrink: 0;
     display: block;
     object-fit: contain;
-    border-radius: 3px;
+    border-radius: var(--window-chrome-tab-favicon-radius, 3px);
     pointer-events: none;
     user-select: none;
     -webkit-user-drag: none;
@@ -561,7 +608,7 @@ body.hide-toolbar-help-open {
     cursor: default;
     user-select: none;
     -webkit-user-select: none;
-    border-radius: 6px;
+    border-radius: var(--window-chrome-tab-control-border-radius, 6px);
 }
 
 .window-chrome-tabs-plus:hover {
@@ -584,49 +631,6 @@ body.hide-toolbar-help-open {
     min-width: 0;
 }
 
-.window-chrome-tabs-chevron {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 28px;
-    height: 32px;
-    margin-left: 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-    font: inherit;
-    color: #000000;
-    cursor: pointer;
-    user-select: none;
-    -webkit-user-select: none;
-    border-radius: 6px;
-}
-
-/* Must win over `display: flex` above — otherwise `hidden` does not hide the button. */
-.window-chrome-tabs-chevron[hidden] {
-    display: none !important;
-}
-
-.window-chrome-tabs-chevron:focus-visible {
-    outline: 2px solid #0060df;
-    outline-offset: 2px;
-}
-
-body.prototype-iframe-debug-borders .window-chrome-tabs-chevron[aria-pressed='true'] {
-    background-color: rgba(0, 96, 223, 0.12);
-    color: #003070;
-}
-
-.window-chrome-tabs-chevron:hover {
-    background-color: rgba(0, 0, 0, 0.08);
-    color: #000000;
-}
-
-.window-chrome-tabs-chevron-icon {
-    display: block;
-}
-
 .window-chrome-tab {
     display: flex;
     align-items: center;
@@ -638,7 +642,7 @@ body.prototype-iframe-debug-borders .window-chrome-tabs-chevron[aria-pressed='tr
     flex-shrink: 0;
     height: 36px;
     padding: 0 12px 0 14px;
-    border-radius: 8px;
+    border-radius: var(--window-chrome-tab-border-radius, 8px);
     border: none;
     background-color: transparent;
     box-shadow: none;
@@ -659,6 +663,26 @@ body.prototype-iframe-debug-borders .window-chrome-tabs-chevron[aria-pressed='tr
 .window-chrome-tab--new:hover {
     background-color: #fafafb;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Large corners: “New tab” row — drop the drop shadow; use 1px BBA0FF → FF8D5B ring instead (same as prototype border swatches). */
+body.search-border-radius-large .window-chrome-tab--new {
+    border: 1px solid transparent;
+    background-color: transparent;
+    background-image:
+        linear-gradient(#ffffff, #ffffff),
+        linear-gradient(to right, #bba0ff, #ff8d5b);
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    box-shadow: none;
+}
+
+body.search-border-radius-large .window-chrome-tab--new:hover {
+    background-color: transparent;
+    background-image:
+        linear-gradient(#fafafb, #fafafb),
+        linear-gradient(to right, #bba0ff, #ff8d5b);
+    box-shadow: none;
 }
 
 .window-chrome-tab-label {
@@ -688,7 +712,7 @@ body.prototype-iframe-debug-borders .window-chrome-tabs-chevron[aria-pressed='tr
     opacity: 1;
     cursor: default;
     pointer-events: auto;
-    border-radius: 5px;
+    border-radius: var(--window-chrome-tab-close-border-radius, 5px);
     background-color: transparent;
     transition: background-color 0.1s ease;
 }
@@ -718,6 +742,11 @@ body.prototype-iframe-debug-borders .window-chrome-tabs-chevron[aria-pressed='tr
     border-bottom: 1px solid #cccccc;
     /* Above .main-hero-stack (z-index 1) when scrolling; below tab strip (4) and address row (5). */
     z-index: 3;
+}
+
+body.search-border-radius-large .addressbar-band {
+    background-color: #ffffff;
+    border-bottom: 1px solid #d3cdd9;
 }
 
 /* Toolbar icons (account / search settings / menu) live inside the standalone search iframe; no right padding here. */
@@ -764,8 +793,7 @@ body.prototype-iframe-debug-borders .window-chrome-tabs-chevron[aria-pressed='tr
     overflow: visible;
 }
 
-/* Prototype: tab-strip chevron toggles body.prototype-iframe-debug-borders.
-   Inset box-shadow = inner stroke only; does not change layout or shrink the iframe viewport like border does. */
+/* Prototype: `body.prototype-iframe-debug-borders` (e.g. toggled from devtools) — inset box-shadow = inner stroke only. */
 body.prototype-iframe-debug-borders .addressbar-iframe-anchor .addressbar-iframe {
     box-shadow: inset 0 0 0 2px #0060df;
 }
@@ -834,7 +862,8 @@ body.browser-chrome-hidden .addressbar-area {
     border: none;
     border-radius: 50%;
     background: transparent;
-    cursor: pointer;
+    /* Match tab strip: arrow cursor, not a link hand */
+    cursor: default;
     flex-shrink: 0;
 }
 
@@ -921,6 +950,24 @@ body:not(.search-border-radius-large) .suggestion-item:hover::before,
 body:not(.search-border-radius-large) .suggestion-item:hover::after,
 body:not(.search-border-radius-large) .suggestion-item.is-selected::before,
 body:not(.search-border-radius-large) .suggestion-item.is-selected::after {
+    border-radius: 3px;
+}
+
+/* Main window chrome tab strip: small corners = rounded squares (large mode uses --window-chrome-* from JS). */
+body:not(.search-border-radius-large) .window-chrome-tab {
+    border-radius: 9px;
+}
+
+body:not(.search-border-radius-large) .window-chrome-tab-close {
+    border-radius: 5px;
+}
+
+body:not(.search-border-radius-large) .window-chrome-tabs-plus,
+body:not(.search-border-radius-large) .window-chrome-tab-strip-view-button {
+    border-radius: 9px;
+}
+
+body:not(.search-border-radius-large) .window-chrome-tab-favicon {
     border-radius: 3px;
 }
 
@@ -2775,7 +2822,7 @@ body.reduced-motion .dropdown-switcher-subpanels-clip {
     transition: none;
 }
 
-/* Blue info panel: revealed by shared subpanels clip (no separate transform) */
+/* Shortcuts (blue): lives above the label divider; lilac controls use `.dropdown-switcher-subpanels-clip` */
 .dropdown-search-info-shell {
     width: 100%;
     min-width: 0;
@@ -3645,20 +3692,44 @@ body.reduced-motion .dropdown-search-engines {
     display: none !important;
 }
 
-/* Sticky “Restore A-Z” above From Firefox while scrolling the engine list (re-order mode, non-alphabetical only). */
+/* Sticky “Restore A-Z” above From Firefox while scrolling the engine list (visible when the list is shown and order is neither A–Z nor shipped default). */
 .dropdown-restore-az-sticky {
     position: sticky;
     bottom: 0;
     z-index: 3;
     background-color: #fff;
     flex-shrink: 0;
-    padding: 6px 12px 8px;
     box-sizing: border-box;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    display: grid;
+    grid-template-rows: 0fr;
+    overflow: hidden;
+    transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.dropdown-restore-az-sticky[hidden] {
-    display: none !important;
+.dropdown-restore-az-sticky.dropdown-restore-az-sticky--revealed {
+    grid-template-rows: 1fr;
+    overflow: visible;
+}
+
+/* Collapsed: no padding/border on the inner row — avoids a 1px hairline leak under `grid-template-rows: 0fr` in some engines. */
+.dropdown-restore-az-sticky:not(.dropdown-restore-az-sticky--revealed) .dropdown-restore-az-sticky-inner {
+    padding: 0;
+    border: none;
+}
+
+body.reduced-motion .dropdown-restore-az-sticky {
+    transition: none;
+}
+
+.dropdown-restore-az-sticky-inner {
+    min-height: 0;
+    overflow: hidden;
+    padding: 6px 12px 8px;
+    box-sizing: border-box;
+}
+
+.dropdown-restore-az-sticky.dropdown-restore-az-sticky--revealed .dropdown-restore-az-sticky-inner {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .dropdown-restore-az-sticky .search-engines-restore-az-sticky-button {
@@ -5030,7 +5101,7 @@ body.switcher-outside-search-box-enabled .search-container.search-has-typed-inpu
 body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-drag-handle {
     opacity: 1;
     pointer-events: auto;
-    cursor: pointer;
+    cursor: grab;
 }
 
 /* In keyboard mode, numbers stay static (no opacity change on hover) */
@@ -5677,4 +5748,35 @@ body.reduced-motion .one-off-buttons {
     50% {
         opacity: 0.3;
     }
+}
+
+/* Search field, switcher, suggestions, one-offs: arrow cursor (like tab strip / toolbar), not link hand. */
+.search-switcher-button,
+.dropdown-label-info-icon,
+.search-engines-display-segmented,
+.search-engines-display-segment,
+.search-engines-controls-toggle,
+.search-engines-pin-default-toggle,
+.search-switcher-more-menu-button,
+.search-engine-list-mode-select,
+.search-engines-reset-order-button,
+.more-search-settings-button,
+.dropdown-item,
+.dropdown-firefox-toggle,
+.search-button,
+.search-clear-button,
+.search-url-button,
+.dropdown-item-open-new-window,
+.one-off-engine-icon,
+.suggestion-item,
+.suggestion-hint-date-part,
+.firefox-switch-tab-button,
+.firefox-suggest-more-icon,
+.search-engines-setting-switch,
+.engines-sort-alphabetically {
+    cursor: default;
+}
+
+body > .dropdown-item.dragging {
+    cursor: grabbing;
 }
