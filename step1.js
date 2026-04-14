@@ -1702,20 +1702,6 @@ function syncSearchEngineListModeNewtabUrlParam(mode) {
     } catch (_) {}
 }
 
-/** Main page only: `?settings=1` opens Search settings on load; keep the bar in sync when opening/closing the modal. */
-function syncSearchSettingsModalUrlParam(open) {
-    if (typeof window === 'undefined' || window !== window.top) return;
-    try {
-        const url = new URL(window.location.href);
-        if (open) {
-            url.searchParams.set('settings', '1');
-        } else {
-            url.searchParams.delete('settings');
-        }
-        history.replaceState(null, '', url.pathname + url.search + url.hash);
-    } catch (_) {}
-}
-
 /** Main top document only: `?se=6`, `?se=12`, or `?se=50` ↔ prototype search-engine row count. */
 function syncSearchEnginesCountUrlParam(count) {
     if (typeof window === 'undefined' || window !== window.top) return;
@@ -3932,8 +3918,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (t.closest('.search-container')) return;
             const helpRoot = document.getElementById('hide-toolbar-help-root');
             if (helpRoot && !helpRoot.hidden && t.closest('#hide-toolbar-help-root')) return;
-            const ssModal = document.getElementById('search-settings-modal');
-            if (ssModal && !ssModal.hidden && t.closest('#search-settings-modal')) return;
             const pspOverlay = document.getElementById('prototype-settings-page-overlay-root');
             if (pspOverlay && !pspOverlay.hidden && t.closest('#prototype-settings-page-overlay-root')) return;
             if (t.closest('.bottom-left-panel')) return;
@@ -5060,7 +5044,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (expanded) {
                 controlsImg.setAttribute('src', 'icons/settings.svg');
                 controlsBtn.setAttribute('title', 'Search settings');
-                controlsBtn.setAttribute('aria-controls', 'search-settings-modal');
+                controlsBtn.setAttribute('aria-controls', 'prototype-settings-page-overlay-root');
                 controlsBtn.removeAttribute('aria-expanded');
             } else {
                 controlsImg.setAttribute('src', 'icons/controls.svg');
@@ -8370,38 +8354,6 @@ document.addEventListener('DOMContentLoaded', () => {
         true
     );
 
-    const searchSettingsModal = document.getElementById('search-settings-modal');
-    let searchSettingsModalPreviousFocus = null;
-    let searchSettingsModalPanelDrag = { x: 0, y: 0 };
-    const applySearchSettingsModalPanelTransform = () => {
-        const panel = searchSettingsModal?.querySelector('.search-settings-modal-panel');
-        if (!panel) return;
-        if (searchSettingsModalPanelDrag.x === 0 && searchSettingsModalPanelDrag.y === 0) {
-            panel.style.removeProperty('transform');
-        } else {
-            panel.style.transform = `translate(${searchSettingsModalPanelDrag.x}px, ${searchSettingsModalPanelDrag.y}px)`;
-        }
-    };
-    const onSearchSettingsModalKeydown = (e) => {
-        if (e.key === 'Escape' && searchSettingsModal && !searchSettingsModal.hidden) {
-            e.preventDefault();
-            e.stopPropagation();
-            closeSearchSettingsModal();
-        }
-    };
-    const closeSearchSettingsModal = () => {
-        if (!searchSettingsModal || searchSettingsModal.hidden) return;
-        searchSettingsModal.hidden = true;
-        searchSettingsModal.setAttribute('aria-hidden', 'true');
-        syncSearchSettingsModalUrlParam(false);
-        document.removeEventListener('keydown', onSearchSettingsModalKeydown, true);
-        if (searchSettingsModalPreviousFocus && typeof searchSettingsModalPreviousFocus.focus === 'function') {
-            try {
-                searchSettingsModalPreviousFocus.focus();
-            } catch (_) {}
-        }
-        searchSettingsModalPreviousFocus = null;
-    };
     const prototypeSettingsPageOverlayRoot = document.getElementById('prototype-settings-page-overlay-root');
     let prototypeSettingsPageOverlayPreviousFocus = null;
     const onPrototypeSettingsPageOverlayKeydown = (e) => {
@@ -8429,7 +8381,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const openPrototypeSettingsPageOverlay = () => {
         if (!prototypeSettingsPageOverlayRoot || window !== window.top) return;
-        closeSearchSettingsModal();
         try {
             hideTooltip();
         } catch (_) {}
@@ -8499,261 +8450,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-    const openSearchSettingsModal = () => {
-        if (!searchSettingsModal) return;
-        closePrototypeSettingsPageOverlay();
-        searchSettingsModalPanelDrag.x = 0;
-        searchSettingsModalPanelDrag.y = 0;
-        applySearchSettingsModalPanelTransform();
-        if (window === window.top) {
-            try {
-                hideTooltip();
-            } catch (_) {}
-            if (document.activeElement?.closest?.('.bottom-left-panel')) {
-                try {
-                    document.activeElement.blur();
-                } catch (_) {}
-            }
-            closeSuggestionsPanel();
-            if (searchSwitcherButton?.classList.contains('open')) {
-                beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
-                searchSwitcherButton.classList.remove('switcher-opened-by-keyboard', 'switcher-suppress-hover');
-                searchSwitcherButton.querySelector('.search-switcher-dropdown')?.classList.remove('dropdown-revealed');
-                switcherHighlightedIndex = -1;
-                searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
-                forceCloseSearchSwitcherSubPanels();
-                searchSwitcherButton.classList.remove('open');
-            }
-            restoringFocusFromSwitcher = false;
-            closingSwitcherWithoutSuggestions = false;
-            try {
-                searchInput?.blur?.();
-            } catch (_) {}
-            [document.querySelector('.addressbar-iframe'), document.querySelector('.standalone-search-box-iframe')]
-                .filter(Boolean)
-                .forEach((f) => {
-                    try {
-                        f.contentWindow?.postMessage({ type: 'close-switcher' }, '*');
-                    } catch (_) {}
-                });
-        }
-        syncSearchSettingsDefaultEngineSelects();
-        const navigateNewTabCbOpen = document.getElementById('search-settings-navigate-new-tab');
-        if (navigateNewTabCbOpen) {
-            try {
-                navigateNewTabCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
-            } catch (_) {}
-        }
-        const navigatePrivateCbOpen = document.getElementById('search-settings-navigate-private');
-        if (navigatePrivateCbOpen) {
-            try {
-                navigatePrivateCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY) === 'true';
-            } catch (_) {}
-        }
-        const searchAddressBarCbOpen = document.getElementById('search-settings-search-address-bar');
-        if (searchAddressBarCbOpen) {
-            try {
-                searchAddressBarCbOpen.checked = localStorage.getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY) !== 'false';
-            } catch (_) {}
-        }
-        logSearchSettingsOverlayOpened();
-        syncSearchSettingsPlaceholderPreviewFields();
-        searchSettingsModalPreviousFocus = document.activeElement;
-        searchSettingsModal.hidden = false;
-        searchSettingsModal.setAttribute('aria-hidden', 'false');
-        syncSearchSettingsModalUrlParam(true);
-        document.addEventListener('keydown', onSearchSettingsModalKeydown, true);
-        const closeBtn = searchSettingsModal.querySelector('.search-settings-modal-close');
-        try {
-            closeBtn?.focus();
-        } catch (_) {}
-    };
-    if (searchSettingsModal) {
-        searchSettingsModal.querySelectorAll('[data-close-search-settings]').forEach((el) => {
-            el.addEventListener('click', (e) => {
-                e.preventDefault();
-                closeSearchSettingsModal();
-            });
-        });
-        const searchSettingsModalHeader = searchSettingsModal.querySelector('.search-settings-modal-header');
-        const searchSettingsModalPanel = searchSettingsModal.querySelector('.search-settings-modal-panel');
-        if (searchSettingsModalHeader && searchSettingsModalPanel) {
-            searchSettingsModalHeader.addEventListener('pointerdown', (e) => {
-                if (e.button !== 0) return;
-                if (e.target.closest('.search-settings-modal-close')) return;
-                e.preventDefault();
-                const startX = e.clientX;
-                const startY = e.clientY;
-                const ox = searchSettingsModalPanelDrag.x;
-                const oy = searchSettingsModalPanelDrag.y;
-                searchSettingsModalHeader.setPointerCapture(e.pointerId);
-                searchSettingsModalHeader.classList.add('search-settings-modal-header--dragging');
-                const onMove = (ev) => {
-                    searchSettingsModalPanelDrag.x = ox + (ev.clientX - startX);
-                    searchSettingsModalPanelDrag.y = oy + (ev.clientY - startY);
-                    applySearchSettingsModalPanelTransform();
-                };
-                const onUp = (ev) => {
-                    searchSettingsModalHeader.classList.remove('search-settings-modal-header--dragging');
-                    try {
-                        searchSettingsModalHeader.releasePointerCapture(ev.pointerId);
-                    } catch (_) {}
-                    searchSettingsModalHeader.removeEventListener('pointermove', onMove);
-                    searchSettingsModalHeader.removeEventListener('pointerup', onUp);
-                    searchSettingsModalHeader.removeEventListener('pointercancel', onUp);
-                };
-                searchSettingsModalHeader.addEventListener('pointermove', onMove);
-                searchSettingsModalHeader.addEventListener('pointerup', onUp);
-                searchSettingsModalHeader.addEventListener('pointercancel', onUp);
-            });
-        }
-        const selAddr = document.getElementById('search-settings-default-engine-address-bar');
-        const selMain = document.getElementById('search-settings-default-engine-new-tab');
-        const selStandalone = document.getElementById('search-settings-default-engine-standalone');
-        const addressbarIframeForSettings = document.querySelector('.addressbar-iframe');
-        const standaloneIframeForSettings = document.querySelector('.standalone-search-box-iframe');
-        const postRefreshSearchSwitcherToIframe = (contentWindow, oldEffectiveDefault) => {
-            try {
-                contentWindow?.postMessage(
-                    {
-                        type: 'refresh-search-engine-switcher-from-storage',
-                        ...(oldEffectiveDefault !== undefined && oldEffectiveDefault !== null
-                            ? { oldEffectiveDefault: String(oldEffectiveDefault) }
-                            : {})
-                    },
-                    '*'
-                );
-            } catch (_) {}
-        };
-        const mirrorKeyToIframe = (contentWindow, key, value) => {
-            try {
-                contentWindow?.postMessage({ type: 'mirror-default-search-engine', key, value: String(value) }, '*');
-            } catch (_) {}
-        };
-        if (selAddr) {
-            selAddr.addEventListener('change', () => {
-                if (applyingSearchSettingsEngineSelectsSync) return;
-                const effBefore = getEffectiveSearchDefaultsFromStorage();
-                const oldAddrEff = effBefore.addressBar;
-                const v = selAddr.value;
-                setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR, v);
-                syncSearchSettingsDefaultEngineSelects();
-                logSearchSettingsEngineSelectChanged('Address bar', v);
-                mirrorKeyToIframe(addressbarIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR, v);
-                postRefreshSearchSwitcherToIframe(addressbarIframeForSettings?.contentWindow, oldAddrEff);
-                syncSearchSettingsPlaceholderPreviewFields();
-                broadcastSearchAccessPointPlaceholderRefresh();
-            });
-        }
-        if (selMain) {
-            selMain.addEventListener('change', () => {
-                if (applyingSearchSettingsEngineSelectsSync) return;
-                const effBefore = getEffectiveSearchDefaultsFromStorage();
-                const oldMain = effBefore.newTab;
-                const oldAddrEff = effBefore.addressBar;
-                const oldStandEff = effBefore.standalone;
-                const v = selMain.value;
-                setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
-                syncSearchSettingsDefaultEngineSelects();
-                logSearchSettingsEngineSelectChanged('New tab / Homepage', v);
-                applySearchSwitcherUIFromStoredDefault();
-                mirrorKeyToIframe(addressbarIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
-                mirrorKeyToIframe(standaloneIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_MAIN, v);
-                postRefreshSearchSwitcherToIframe(addressbarIframeForSettings?.contentWindow, oldAddrEff);
-                postRefreshSearchSwitcherToIframe(standaloneIframeForSettings?.contentWindow, oldStandEff);
-                syncSearchSettingsPlaceholderPreviewFields();
-                broadcastSearchAccessPointPlaceholderRefresh();
-            });
-        }
-        if (selStandalone) {
-            selStandalone.addEventListener('change', () => {
-                if (applyingSearchSettingsEngineSelectsSync) return;
-                const effBefore = getEffectiveSearchDefaultsFromStorage();
-                const oldStandEff = effBefore.standalone;
-                const v = selStandalone.value;
-                if (v === SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE) {
-                    applyStandaloneSearchBoxPrototypeVisibility(false);
-                } else {
-                    setDefaultSearchEngineStorageItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, v);
-                    applyStandaloneSearchBoxPrototypeVisibility(true);
-                }
-                syncSearchSettingsDefaultEngineSelects();
-                logSearchSettingsEngineSelectChanged('Standalone search box', v);
-                if (v !== SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE) {
-                    mirrorKeyToIframe(standaloneIframeForSettings?.contentWindow, DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, v);
-                }
-                postRefreshSearchSwitcherToIframe(standaloneIframeForSettings?.contentWindow, oldStandEff);
-                syncSearchSettingsPlaceholderPreviewFields();
-                broadcastSearchAccessPointPlaceholderRefresh();
-            });
-        }
-        const navigateNewTabCb = document.getElementById('search-settings-navigate-new-tab');
-        if (navigateNewTabCb) {
-            try {
-                navigateNewTabCb.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
-            } catch (_) {}
-            navigateNewTabCb.addEventListener('change', () => {
-                try {
-                    localStorage.setItem(
-                        SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
-                        navigateNewTabCb.checked ? 'true' : 'false'
-                    );
-                } catch (_) {}
-                applySwitcherFromFirefoxSectionVisibility();
-                try {
-                    const pspWinNavSync = document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow;
-                    pspWinNavSync?.postMessage(
-                        { type: 'sync-firefox-homepage-url-navigation-checkbox', enabled: navigateNewTabCb.checked },
-                        '*'
-                    );
-                } catch (_) {}
-                syncSearchSettingsPlaceholderPreviewFields();
-                broadcastSearchAccessPointPlaceholderRefresh();
-            });
-        }
-        const navigatePrivateCb = document.getElementById('search-settings-navigate-private');
-        if (navigatePrivateCb) {
-            try {
-                navigatePrivateCb.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY) === 'true';
-            } catch (_) {}
-            navigatePrivateCb.addEventListener('change', () => {
-                try {
-                    localStorage.setItem(
-                        SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY,
-                        navigatePrivateCb.checked ? 'true' : 'false'
-                    );
-                } catch (_) {}
-                syncSearchSettingsPlaceholderPreviewFields();
-                broadcastSearchAccessPointPlaceholderRefresh();
-            });
-        }
-        const searchAddressBarCb = document.getElementById('search-settings-search-address-bar');
-        if (searchAddressBarCb) {
-            try {
-                searchAddressBarCb.checked = localStorage.getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY) !== 'false';
-            } catch (_) {}
-            searchAddressBarCb.addEventListener('change', () => {
-                try {
-                    localStorage.setItem(
-                        SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY,
-                        searchAddressBarCb.checked ? 'true' : 'false'
-                    );
-                } catch (_) {}
-                if (window === window.top && !searchAddressBarCb.checked) {
-                    /* Navigate-only address bar: pinned engine list is meaningless — unpin in the iframe only. */
-                    try {
-                        document.querySelector('.addressbar-iframe')?.contentWindow?.postMessage(
-                            { type: 'search-engine-list-mode', mode: 'closed', animate: true },
-                            '*'
-                        );
-                    } catch (_) {}
-                }
-                syncSearchSettingsPlaceholderPreviewFields();
-                broadcastSearchAccessPointPlaceholderRefresh();
-            });
-        }
-        applySwitcherFromFirefoxSectionVisibility();
-    }
     const moreSearchSettingsButton = document.getElementById('more-search-settings-button');
     if (moreSearchSettingsButton) {
         moreSearchSettingsButton.addEventListener('click', (e) => {
@@ -8761,34 +8457,28 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             if (window !== window.top) {
                 try {
-                    window.parent.postMessage({ type: 'open-search-settings' }, '*');
+                    window.parent.postMessage({ type: 'open-prototype-settings-page-overlay' }, '*');
                 } catch (_) {}
                 return;
             }
-            if (searchSettingsModal) {
-                openSearchSettingsModal();
-            }
+            openPrototypeSettingsPageOverlay();
         });
     }
     const standaloneSearchBoxToolbarSearchSettingsButton = document.getElementById(
         'standalone-search-box-toolbar-search-settings-button'
     );
     if (standaloneSearchBoxToolbarSearchSettingsButton) {
-        if (searchSettingsModal) {
-            standaloneSearchBoxToolbarSearchSettingsButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openSearchSettingsModal();
-            });
-        } else if (window !== window.top) {
-            standaloneSearchBoxToolbarSearchSettingsButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+        standaloneSearchBoxToolbarSearchSettingsButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (window !== window.top) {
                 try {
                     window.parent.postMessage({ type: 'open-prototype-settings-page-overlay' }, '*');
                 } catch (_) {}
-            });
-        }
+                return;
+            }
+            openPrototypeSettingsPageOverlay();
+        });
     }
     const standaloneSearchBoxToolbarExtensionsButton = document.getElementById(
         'standalone-search-box-toolbar-extensions-button'
@@ -8797,11 +8487,6 @@ document.addEventListener('DOMContentLoaded', () => {
         standaloneSearchBoxToolbarExtensionsButton.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (window !== window.top) {
-                try {
-                    window.parent.postMessage({ type: 'open-search-settings' }, '*');
-                } catch (_) {}
-            }
         });
     }
     window.addEventListener('storage', (e) => {
@@ -8832,12 +8517,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const pspWinNav = document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow;
                     const on = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
                     pspWinNav?.postMessage({ type: 'sync-firefox-homepage-url-navigation-checkbox', enabled: on }, '*');
-                } catch (_) {}
-                try {
-                    const navigateNewTabCbStorage = document.getElementById('search-settings-navigate-new-tab');
-                    if (navigateNewTabCbStorage) {
-                        navigateNewTabCbStorage.checked = localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
-                    }
                 } catch (_) {}
             }
             syncSearchSettingsPlaceholderPreviewFields();
@@ -9042,10 +8721,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY, enabled ? 'true' : 'false');
                 } catch (_) {}
                 try {
-                    const navigateNewTabCbOverlay = document.getElementById('search-settings-navigate-new-tab');
-                    if (navigateNewTabCbOverlay) navigateNewTabCbOverlay.checked = enabled;
-                } catch (_) {}
-                try {
                     applySwitcherFromFirefoxSectionVisibility();
                 } catch (_) {}
                 syncSearchSettingsPlaceholderPreviewFields();
@@ -9100,7 +8775,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (_) {}
                 return;
             }
-            if (e.data?.type === 'open-prototype-settings-page-overlay') {
+            if (
+                e.data?.type === 'open-prototype-settings-page-overlay' ||
+                e.data?.type === 'open-search-settings'
+            ) {
                 const addressbarIframePsp = document.querySelector('.addressbar-iframe');
                 const standaloneIframePsp = document.querySelector('.standalone-search-box-iframe');
                 const fromTrustedChildPsp =
@@ -9110,25 +8788,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 openPrototypeSettingsPageOverlay();
                 return;
             }
-            if (e.data?.type !== 'open-search-settings') return;
-            const addressbarIframe = document.querySelector('.addressbar-iframe');
-            const standaloneIframe = document.querySelector('.standalone-search-box-iframe');
-            const fromTrustedChild =
-                (addressbarIframe && e.source === addressbarIframe.contentWindow) ||
-                (standaloneIframe && e.source === standaloneIframe.contentWindow);
-            if (!fromTrustedChild) return;
-            if (searchSettingsModal) {
-                openSearchSettingsModal();
-            }
         });
     }
 
     syncSearchSettingsDefaultEngineSelects();
 
     try {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('settings') === '1' && searchSettingsModal) {
-            openSearchSettingsModal();
+        if (window === window.top) {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('settings') === '1') {
+                params.delete('settings');
+                const q = params.toString();
+                const newUrl = `${window.location.pathname}${q ? `?${q}` : ''}${window.location.hash}`;
+                try {
+                    window.history.replaceState({}, '', newUrl);
+                } catch (_) {}
+                queueMicrotask(() => {
+                    try {
+                        openPrototypeSettingsPageOverlay();
+                    } catch (_) {}
+                });
+            }
         }
     } catch (_) {}
 
@@ -10996,10 +10676,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         localStorage.setItem(SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB, String(SEARCH_SUGGESTIONS_COUNT_DEFAULT));
                         localStorage.setItem(SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE, String(SEARCH_SUGGESTIONS_COUNT_DEFAULT));
                     } catch (_) {}
-                    syncSearchSettingsModalUrlParam(false);
-                    try {
-                        closeSearchSettingsModal();
-                    } catch (_) {}
                     try {
                         closePrototypeSettingsPageOverlay();
                     } catch (_) {}
@@ -11064,14 +10740,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
                     }
                     syncSearchSettingsDefaultEngineSelects();
-                    document.querySelectorAll('#search-settings-modal .search-settings-cell-checkbox').forEach((cb) => {
-                        if (cb.id === 'search-settings-navigate-new-tab') return;
-                        cb.checked = !cb.classList.contains('search-settings-navigate-column-checkbox');
-                    });
-                    try {
-                        const navigateNewTabReset = document.getElementById('search-settings-navigate-new-tab');
-                        if (navigateNewTabReset) navigateNewTabReset.checked = true;
-                    } catch (_) {}
                     try {
                         const pspWinNavReset = document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow;
                         pspWinNavReset?.postMessage({ type: 'sync-firefox-homepage-url-navigation-checkbox', enabled: true }, '*');
