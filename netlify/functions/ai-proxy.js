@@ -12,6 +12,13 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 
+/** Netlify / CI secrets often include a trailing newline — OpenAI returns 401 "Incorrect API key". */
+function envKey(name) {
+    const v = process.env[name];
+    if (v == null) return '';
+    return String(v).trim();
+}
+
 function extraOrigins() {
     const raw = process.env.AI_PROXY_EXTRA_ORIGINS || '';
     return raw
@@ -109,7 +116,7 @@ exports.handler = async (event) => {
     let upstreamBody = JSON.stringify(payload);
 
     if (provider === 'openai') {
-        const key = process.env.OPENAI_API_KEY;
+        const key = envKey('OPENAI_API_KEY');
         if (!key) {
             return {
                 statusCode: 500,
@@ -120,7 +127,7 @@ exports.handler = async (event) => {
         upstreamUrl = OPENAI_URL;
         headers.Authorization = `Bearer ${key}`;
     } else if (provider === 'openrouter') {
-        const key = process.env.OPENROUTER_API_KEY;
+        const key = envKey('OPENROUTER_API_KEY');
         if (!key) {
             return {
                 statusCode: 500,
@@ -133,7 +140,7 @@ exports.handler = async (event) => {
         headers['HTTP-Referer'] = origin && origin !== 'null' ? origin : 'https://netlify.app';
         headers['X-Title'] = 'Search Suggestions';
     } else if (provider === 'claude') {
-        const key = process.env.CLAUDE_API_KEY;
+        const key = envKey('CLAUDE_API_KEY');
         if (!key) {
             return {
                 statusCode: 500,

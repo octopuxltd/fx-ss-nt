@@ -81,6 +81,10 @@ The `config.js` file is generated during deployment and contains the API keys fr
 
 If keys are set but the browser still shows no AI rows, open DevTools → **Console** and **Network** for failed `fetch` (e.g. CORS or `401`). Keys in `config.js` are still visible to visitors — use provider-side limits / restricted keys.
 
+**Proxy returns `401` from OpenAI:** The function is reaching OpenAI but the **server** `OPENAI_API_KEY` is wrong, revoked, or pasted with extra characters. In Netlify, re-paste the secret (no quotes), save, and redeploy. The proxy trims whitespace/newlines from env values; if 401 persists, create a new key in the OpenAI dashboard and update both **Build** and **Functions** (or “All scopes”) for that variable.
+
+**Attempt 2 shows `500` / `Server missing OPENROUTER_API_KEY`:** Normal if you only configured OpenAI — the retry races OpenRouter. Add `OPENROUTER_API_KEY` to Netlify env or ignore that line.
+
 ## Files
 
 - `config.example.js`: Template file (committed to repo)

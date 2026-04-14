@@ -12,11 +12,12 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const outFile = path.join(root, 'config.js');
 
+const trim = (v) => (v == null ? '' : String(v).trim());
 const keys = {
-    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || '',
-    OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
-    PEXELS_API_KEY: process.env.PEXELS_API_KEY || '',
-    CLAUDE_API_KEY: process.env.CLAUDE_API_KEY || '',
+    OPENROUTER_API_KEY: trim(process.env.OPENROUTER_API_KEY),
+    OPENAI_API_KEY: trim(process.env.OPENAI_API_KEY),
+    PEXELS_API_KEY: trim(process.env.PEXELS_API_KEY),
+    CLAUDE_API_KEY: trim(process.env.CLAUDE_API_KEY),
 };
 
 const body =
