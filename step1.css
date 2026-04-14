@@ -5453,8 +5453,10 @@ body.reduced-motion .one-off-buttons {
     background-color: white;
 }
 
+/* Label only as wide as the title; hint-area takes the rest — avoids equal flex split
+   that vertically aligned every • with the next column. */
 .suggestion-item.firefox-suggest-item .suggestion-label {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-width: 0;
 }
 
