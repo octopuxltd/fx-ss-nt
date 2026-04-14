@@ -373,19 +373,24 @@ body.prototype-settings-page-overlay-open {
     overflow: hidden;
 }
 
-/* Below tab strip + address row (z-index 3–5); hosts search-settings.html in an iframe. */
+/* Below tab strip + address row (z-index 3–5); hosts search-settings.html in an iframe.
+   Top = tab strip bottom + same vertical offset as `.addressbar-area` (+2px) + 45px iframe row.
+   Slight negative margin removes a 1–3px hairline of page background (subpixel / border stacking)
+   between the toolbar and the overlay; address chrome (z-index 3–5) still paints over the overlap. */
 .prototype-settings-page-overlay-root {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
-    top: calc(var(--window-chrome-offset-below-fixed-top) + 47px);
+    top: calc(var(--window-chrome-offset-below-fixed-top) + 2px + 45px);
+    margin-top: -3px;
     z-index: 2;
     box-sizing: border-box;
 }
 
 body.browser-chrome-hidden .prototype-settings-page-overlay-root {
     top: 0;
+    margin-top: 0;
 }
 
 .prototype-settings-page-overlay-root[hidden] {

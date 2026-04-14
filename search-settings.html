@@ -34,6 +34,12 @@
             box-sizing: border-box;
         }
 
+        html {
+            margin: 0;
+            padding: 0;
+            background: var(--bg-page);
+        }
+
         body {
             margin: 0;
             min-height: 100vh;
@@ -170,13 +176,14 @@
         }
 
         .nav-item--active {
+            filter: none;
             background: var(--accent-soft);
             color: var(--accent-text-on-soft);
             font-weight: 600;
         }
 
         .nav-item--active .nav-icon {
-            color: var(--accent);
+            color: var(--accent-text-on-soft);
         }
 
         .nav-icon {
@@ -195,6 +202,19 @@
 
         .nav-item--active .nav-icon img {
             opacity: 1;
+        }
+
+        /* Prototype: only Search is in scope; other categories read as unavailable. */
+        .nav-list > li > .nav-item:not(.nav-item--active) {
+            filter: blur(2.5px);
+            opacity: 0.72;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .nav-list > li > .nav-item:not(.nav-item--active) {
+                filter: none;
+                opacity: 0.45;
+            }
         }
 
         .sidebar-nav-divider {
@@ -334,6 +354,16 @@
             min-width: 0;
         }
 
+        .entrypoint-engine-rows--private-engine {
+            margin-top: 8px;
+            margin-bottom: 0;
+        }
+
+        /* Ensure these rows stay fully collapsed when unchecked (`[hidden]` + `display:grid` on parent class). */
+        .entrypoint-engine-rows--private-engine[hidden] {
+            display: none !important;
+        }
+
         .select-wrap {
             position: relative;
             max-width: 248px;
@@ -393,6 +423,17 @@
             flex: 1;
             cursor: pointer;
             color: var(--text-primary);
+        }
+
+        .checkbox-row--dependent-disabled label {
+            cursor: not-allowed;
+            color: var(--text-secondary);
+            opacity: 0.65;
+        }
+
+        .checkbox-row--dependent-disabled input[type='checkbox'] {
+            cursor: not-allowed;
+            opacity: 0.65;
         }
 
         .checkbox-row--nested {
@@ -681,7 +722,27 @@
                 <ul class="nav-list">
                     <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><img src="icons/person.svg" alt=""></span> Account and sync</a></li>
                     <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10.5L12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5z"/></svg></span> Home and startup</a></li>
-                    <li><a class="nav-item nav-item--active" href="search-settings.html" aria-current="page"><span class="nav-icon" aria-hidden="true"><img src="icons/search.svg" alt=""></span> Search</a></li>
+                    <li>
+                        <a class="nav-item nav-item--active" href="search-settings.html" aria-current="page">
+                            <span class="nav-icon" aria-hidden="true">
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
+                            </span>
+                            Search
+                        </a>
+                    </li>
                     <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span> Privacy and security</a></li>
                     <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M12 15v2M9 7V6a3 3 0 0 1 6 0v1"/></svg></span> Passwords and autofill</a></li>
                     <li><a class="nav-item" href="#"><span class="nav-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span> Appearance</a></li>
@@ -731,9 +792,23 @@
                         </select>
                     </div>
                 </div>
-                <div class="checkbox-row">
-                    <input type="checkbox" id="cb-address-terms" name="address_terms">
+                <div class="checkbox-row" id="address-bar-terms-checkbox-row">
+                    <input type="checkbox" id="cb-address-terms" name="address_terms" checked>
                     <label for="cb-address-terms">Show search terms in the address bar on results pages</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="cb-address-bar-private-engine" name="address_bar_private_engine">
+                    <label for="cb-address-bar-private-engine">Use a different search engine in the address bar in private browsing mode</label>
+                </div>
+                <div
+                    class="entrypoint-engine-rows entrypoint-engine-rows--private-engine"
+                    id="address-bar-private-engine-select-row"
+                    hidden
+                >
+                    <label class="entrypoint-field-label" for="default-engine-private">Search engine in private browsing mode:</label>
+                    <div class="select-wrap">
+                        <select id="default-engine-private" class="ff-select" aria-label="Address bar search engine in private browsing mode"></select>
+                    </div>
                 </div>
             </section>
 
@@ -753,7 +828,7 @@
                     </div>
                 </div>
                 <div class="checkbox-row">
-                    <input type="checkbox" id="cb-firefox-homepage-search-logo" name="firefox_homepage_search_logo">
+                    <input type="checkbox" id="cb-firefox-homepage-search-logo" name="firefox_homepage_search_logo" checked>
                     <label for="cb-firefox-homepage-search-logo">Show the search engine logo above the search box</label>
                 </div>
                 <div class="checkbox-row">
@@ -763,7 +838,21 @@
                         name="firefox_homepage_accept_url_navigation"
                         checked
                     />
-                    <label for="cb-firefox-homepage-accept-url-navigation">Allow navigation by URL</label>
+                    <label for="cb-firefox-homepage-accept-url-navigation">Allow navigation by URL from the Firefox homepage</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="cb-firefox-homepage-private-engine" name="firefox_homepage_private_engine">
+                    <label for="cb-firefox-homepage-private-engine">Use a different search engine on the Firefox homepage in private browsing mode</label>
+                </div>
+                <div
+                    class="entrypoint-engine-rows entrypoint-engine-rows--private-engine"
+                    id="firefox-homepage-private-engine-select-row"
+                    hidden
+                >
+                    <label class="entrypoint-field-label" for="firefox-homepage-engine-private">Search engine in private browsing mode:</label>
+                    <div class="select-wrap">
+                        <select id="firefox-homepage-engine-private" class="ff-select" aria-label="Firefox homepage search engine in private browsing mode"></select>
+                    </div>
                 </div>
             </section>
 
@@ -781,6 +870,20 @@
                             <option value="perplexity">Perplexity</option>
                             <option value="wikipedia">Wikipedia (en)</option>
                         </select>
+                    </div>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="cb-standalone-private-engine" name="standalone_private_engine">
+                    <label for="cb-standalone-private-engine">Use a different search engine in the stand-alone search box in private browsing mode</label>
+                </div>
+                <div
+                    class="entrypoint-engine-rows entrypoint-engine-rows--private-engine"
+                    id="standalone-private-engine-select-row"
+                    hidden
+                >
+                    <label class="entrypoint-field-label" for="standalone-search-box-engine-private">Search engine in private browsing mode:</label>
+                    <div class="select-wrap">
+                        <select id="standalone-search-box-engine-private" class="ff-select" aria-label="Stand-alone search box engine in private browsing mode"></select>
                     </div>
                 </div>
             </section>
@@ -971,8 +1074,15 @@
             var DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR = 'default_search_engine:addressbar';
             var DEFAULT_SEARCH_ENGINE_KEY_MAIN = 'default_search_engine';
             var DEFAULT_SEARCH_ENGINE_KEY_STANDALONE = 'default_search_engine:standalone';
+            var DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE = 'default_search_engine:addressbar:private';
+            var DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE = 'default_search_engine:main:private';
+            var DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE = 'default_search_engine:standalone:private';
             var STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
             var SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY = 'search_settings_search_address_bar';
+            var SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY = 'search_settings_address_bar_private_engine';
+            var SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY = 'search_settings_firefox_homepage_private_engine';
+            var SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY = 'search_settings_standalone_private_engine';
+            var MAIN_SCREEN_HERO_LOGO_MODE_KEY = 'main_screen_hero_logo_mode';
             function getDefaultSearchEngineLocalStorage() {
                 try {
                     if (typeof window !== 'undefined' && window.top && window.top !== window) {
@@ -995,6 +1105,141 @@
                     if (v !== 'none' && v !== 'off') return v;
                 }
                 return 'Google';
+            }
+            function rebuildPrivateEngineSelectOptionsFromPrimary(privateSelectId, primarySelect) {
+                var priv = document.getElementById(privateSelectId);
+                if (!priv || !primarySelect || !primarySelect.options.length) return;
+                var prev = priv.value;
+                priv.innerHTML = '';
+                for (var i = 0; i < primarySelect.options.length; i++) {
+                    var o = primarySelect.options[i];
+                    var opt = document.createElement('option');
+                    opt.value = o.value;
+                    opt.textContent = o.textContent;
+                    priv.appendChild(opt);
+                }
+                if (selectHasValue(priv, prev)) {
+                    priv.value = prev;
+                } else if (selectHasValue(priv, primarySelect.value)) {
+                    priv.value = primarySelect.value;
+                } else {
+                    var f = firstNonSpecialEngineValue(priv);
+                    if (selectHasValue(priv, f)) priv.value = f;
+                }
+            }
+            function syncPrivateEnginePrimaryOptionLists() {
+                var addr = document.getElementById('default-engine');
+                var addrP = document.getElementById('default-engine-private');
+                if (addr && addrP && addr.options.length) {
+                    rebuildPrivateEngineSelectOptionsFromPrimary('default-engine-private', addr);
+                }
+                var fh = document.getElementById('firefox-homepage-engine');
+                var fhP = document.getElementById('firefox-homepage-engine-private');
+                if (fh && fhP && fh.options.length) {
+                    rebuildPrivateEngineSelectOptionsFromPrimary('firefox-homepage-engine-private', fh);
+                }
+                var st = document.getElementById('standalone-search-box-engine');
+                var stP = document.getElementById('standalone-search-box-engine-private');
+                if (st && stP && st.options.length) {
+                    rebuildPrivateEngineSelectOptionsFromPrimary('standalone-search-box-engine-private', st);
+                }
+            }
+            function persistDefaultSearchEngineKeyFromOverlay(key, value) {
+                var v = String(value != null ? value : '');
+                try {
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({ type: 'set-default-search-engine', key: key, value: v }, '*');
+                    } else {
+                        getDefaultSearchEngineLocalStorage().setItem(key, v);
+                    }
+                } catch (e) {}
+            }
+            function ensurePrivateEngineDefaultFromMainIfUnset(storageKey, primarySel, privateSel) {
+                if (!primarySel || !privateSel) return;
+                var ls = getDefaultSearchEngineLocalStorage();
+                try {
+                    if (ls.getItem(storageKey)) return;
+                } catch (e) {}
+                var mv = primarySel.value;
+                if (!selectHasValue(privateSel, mv)) {
+                    mv = selectHasValue(privateSel, primarySel.value)
+                        ? primarySel.value
+                        : firstNonSpecialEngineValue(privateSel);
+                }
+                privateSel.value = mv;
+                persistDefaultSearchEngineKeyFromOverlay(storageKey, privateSel.value);
+            }
+            function syncPrivateEngineSelectRowsVisibility() {
+                function row(cbId, rowId, selectId) {
+                    var cb = document.getElementById(cbId);
+                    var r = document.getElementById(rowId);
+                    var sel = document.getElementById(selectId);
+                    if (!r) return;
+                    var hide = !cb || !cb.checked;
+                    r.hidden = hide;
+                    if (hide) {
+                        r.setAttribute('hidden', '');
+                    } else {
+                        r.removeAttribute('hidden');
+                    }
+                    if (sel) sel.disabled = hide;
+                }
+                row('cb-address-bar-private-engine', 'address-bar-private-engine-select-row', 'default-engine-private');
+                row(
+                    'cb-firefox-homepage-private-engine',
+                    'firefox-homepage-private-engine-select-row',
+                    'firefox-homepage-engine-private'
+                );
+                row(
+                    'cb-standalone-private-engine',
+                    'standalone-private-engine-select-row',
+                    'standalone-search-box-engine-private'
+                );
+            }
+            function syncAddressBarPrivateEngineSelectFromStorage() {
+                var priv = document.getElementById('default-engine-private');
+                var main = document.getElementById('default-engine');
+                if (!priv || !main || !priv.options.length) return;
+                var ls = getDefaultSearchEngineLocalStorage();
+                var stored = '';
+                try {
+                    stored = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE) || '';
+                } catch (e) {}
+                var v = stored !== '' ? stored : main.value;
+                if (!selectHasValue(priv, v)) {
+                    v = selectHasValue(priv, main.value) ? main.value : firstNonSpecialEngineValue(priv);
+                }
+                priv.value = v;
+            }
+            function syncFirefoxHomepagePrivateEngineSelectFromStorage() {
+                var priv = document.getElementById('firefox-homepage-engine-private');
+                var main = document.getElementById('firefox-homepage-engine');
+                if (!priv || !main || !priv.options.length) return;
+                var ls = getDefaultSearchEngineLocalStorage();
+                var stored = '';
+                try {
+                    stored = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE) || '';
+                } catch (e) {}
+                var v = stored !== '' ? stored : main.value;
+                if (!selectHasValue(priv, v)) {
+                    v = selectHasValue(priv, main.value) ? main.value : firstNonSpecialEngineValue(priv);
+                }
+                priv.value = v;
+            }
+            function syncStandalonePrivateEngineSelectFromStorage() {
+                var priv = document.getElementById('standalone-search-box-engine-private');
+                var main = document.getElementById('standalone-search-box-engine');
+                if (!priv || !main || !priv.options.length) return;
+                var ls = getDefaultSearchEngineLocalStorage();
+                var stored = '';
+                try {
+                    stored = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE) || '';
+                } catch (e) {}
+                var v = stored !== '' ? stored : main.value;
+                if (!selectHasValue(priv, v)) {
+                    v = selectHasValue(priv, main.value) ? main.value : firstNonSpecialEngineValue(priv);
+                }
+                priv.value = v;
             }
             function rebuildEntrypointEngineSelects(labels) {
                 if (!Array.isArray(labels) || labels.length === 0) return;
@@ -1050,6 +1295,16 @@
                     return 'Google';
                 }
             }
+            function syncAddressBarTermsCheckboxFromEngineSelect() {
+                var sel = document.getElementById('default-engine');
+                var cb = document.getElementById('cb-address-terms');
+                var row = document.getElementById('address-bar-terms-checkbox-row');
+                if (!sel || !cb || !row) return;
+                var isNone = sel.value === 'none';
+                cb.disabled = isNone;
+                row.classList.toggle('checkbox-row--dependent-disabled', isNone);
+            }
+
             function syncAddressBarClassicSelectFromStorage() {
                 var sel = document.getElementById('default-engine');
                 if (!sel) return;
@@ -1060,6 +1315,7 @@
                 } catch (eSearch) {}
                 if (!searchOn) {
                     sel.value = 'none';
+                    syncAddressBarTermsCheckboxFromEngineSelect();
                     return;
                 }
                 var label = readAddressBarDefaultEngineLabel();
@@ -1067,6 +1323,7 @@
                     label = firstNonSpecialEngineValue(sel);
                 }
                 sel.value = label;
+                syncAddressBarTermsCheckboxFromEngineSelect();
             }
             function syncStandaloneClassicSelectFromStorage() {
                 var sel = document.getElementById('standalone-search-box-engine');
@@ -1110,21 +1367,54 @@
                 }
                 selFh.value = labelFh;
             }
+            function syncFirefoxHomepageSearchLogoCheckboxFromStorage() {
+                var cb = document.getElementById('cb-firefox-homepage-search-logo');
+                if (!cb) return;
+                try {
+                    var ls = getDefaultSearchEngineLocalStorage();
+                    var mode = ls.getItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY);
+                    cb.checked = mode !== 'firefox';
+                } catch (eHero) {
+                    cb.checked = true;
+                }
+            }
+            function syncPrivateEngineCheckboxesFromStorage() {
+                var ls = getDefaultSearchEngineLocalStorage();
+                var cbAddr = document.getElementById('cb-address-bar-private-engine');
+                var cbHome = document.getElementById('cb-firefox-homepage-private-engine');
+                var cbStand = document.getElementById('cb-standalone-private-engine');
+                try {
+                    if (cbAddr) cbAddr.checked = ls.getItem(SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY) === 'true';
+                    if (cbHome) cbHome.checked = ls.getItem(SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY) === 'true';
+                    if (cbStand) cbStand.checked = ls.getItem(SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY) === 'true';
+                } catch (ePrivEng) {}
+            }
             function syncAllEntryPointSelectsFromStorage() {
                 syncAddressBarClassicSelectFromStorage();
                 syncFirefoxHomepageEngineSelectFromStorage();
                 syncStandaloneClassicSelectFromStorage();
+                syncFirefoxHomepageSearchLogoCheckboxFromStorage();
+                syncPrivateEngineCheckboxesFromStorage();
+                syncPrivateEnginePrimaryOptionLists();
+                syncPrivateEngineSelectRowsVisibility();
+                syncAddressBarPrivateEngineSelectFromStorage();
+                syncFirefoxHomepagePrivateEngineSelectFromStorage();
+                syncStandalonePrivateEngineSelectFromStorage();
             }
             document.addEventListener('change', function (ev) {
                 var t = ev.target;
                 if (!t || !t.id) return;
                 if (t.id === 'default-engine') {
+                    syncAddressBarTermsCheckboxFromEngineSelect();
                     try {
                         window.parent.postMessage(
                             { type: 'apply-address-bar-settings-from-html', engineValue: t.value },
                             '*'
                         );
                     } catch (eAddrCh) {}
+                    syncPrivateEnginePrimaryOptionLists();
+                    syncAddressBarPrivateEngineSelectFromStorage();
+                    syncPrivateEngineSelectRowsVisibility();
                     return;
                 }
                 if (t.id === 'firefox-homepage-engine') {
@@ -1135,6 +1425,90 @@
                             '*'
                         );
                     } catch (eNt) {}
+                    syncPrivateEnginePrimaryOptionLists();
+                    syncFirefoxHomepagePrivateEngineSelectFromStorage();
+                    syncPrivateEngineSelectRowsVisibility();
+                    return;
+                }
+                if (t.id === 'cb-firefox-homepage-search-logo') {
+                    try {
+                        window.parent.postMessage(
+                            { type: 'search-settings-hero-logo-checkbox', checked: !!t.checked },
+                            '*'
+                        );
+                    } catch (eHeroCb) {}
+                    return;
+                }
+                if (t.id === 'cb-address-bar-private-engine') {
+                    try {
+                        getDefaultSearchEngineLocalStorage().setItem(
+                            SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY,
+                            t.checked ? 'true' : 'false'
+                        );
+                    } catch (ePrivAddr) {}
+                    syncPrivateEnginePrimaryOptionLists();
+                    if (t.checked) {
+                        ensurePrivateEngineDefaultFromMainIfUnset(
+                            DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE,
+                            document.getElementById('default-engine'),
+                            document.getElementById('default-engine-private')
+                        );
+                    }
+                    syncPrivateEngineSelectRowsVisibility();
+                    return;
+                }
+                if (t.id === 'cb-firefox-homepage-private-engine') {
+                    try {
+                        getDefaultSearchEngineLocalStorage().setItem(
+                            SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY,
+                            t.checked ? 'true' : 'false'
+                        );
+                    } catch (ePrivHome) {}
+                    syncPrivateEnginePrimaryOptionLists();
+                    if (t.checked) {
+                        ensurePrivateEngineDefaultFromMainIfUnset(
+                            DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE,
+                            document.getElementById('firefox-homepage-engine'),
+                            document.getElementById('firefox-homepage-engine-private')
+                        );
+                    }
+                    syncPrivateEngineSelectRowsVisibility();
+                    return;
+                }
+                if (t.id === 'cb-standalone-private-engine') {
+                    try {
+                        getDefaultSearchEngineLocalStorage().setItem(
+                            SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY,
+                            t.checked ? 'true' : 'false'
+                        );
+                    } catch (ePrivStand) {}
+                    syncPrivateEnginePrimaryOptionLists();
+                    if (t.checked) {
+                        ensurePrivateEngineDefaultFromMainIfUnset(
+                            DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE,
+                            document.getElementById('standalone-search-box-engine'),
+                            document.getElementById('standalone-search-box-engine-private')
+                        );
+                    }
+                    syncPrivateEngineSelectRowsVisibility();
+                    return;
+                }
+                if (t.id === 'default-engine-private') {
+                    persistDefaultSearchEngineKeyFromOverlay(
+                        DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE,
+                        t.value
+                    );
+                    return;
+                }
+                if (t.id === 'firefox-homepage-engine-private') {
+                    persistDefaultSearchEngineKeyFromOverlay(DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE, t.value);
+                    return;
+                }
+                if (t.id === 'standalone-search-box-engine-private') {
+                    persistDefaultSearchEngineKeyFromOverlay(
+                        DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE,
+                        t.value
+                    );
                     return;
                 }
                 if (t.id === 'standalone-search-box-engine') {
@@ -1151,6 +1525,10 @@
                             );
                         } catch (err4) {}
                     }
+                    syncPrivateEnginePrimaryOptionLists();
+                    syncStandalonePrivateEngineSelectFromStorage();
+                    syncPrivateEngineSelectRowsVisibility();
+                    return;
                 }
             });
             syncAllEntryPointSelectsFromStorage();
@@ -1161,9 +1539,13 @@
                     e.key === SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY
                 ) {
                     syncAddressBarClassicSelectFromStorage();
+                    syncPrivateEnginePrimaryOptionLists();
+                    syncAddressBarPrivateEngineSelectFromStorage();
                 }
                 if (e.key === DEFAULT_SEARCH_ENGINE_KEY_MAIN) {
                     syncFirefoxHomepageEngineSelectFromStorage();
+                    syncPrivateEnginePrimaryOptionLists();
+                    syncFirefoxHomepagePrivateEngineSelectFromStorage();
                 }
                 if (
                     e.key === STANDALONE_SEARCH_BOX_VISIBLE_KEY ||
@@ -1171,9 +1553,40 @@
                     e.key === DEFAULT_SEARCH_ENGINE_KEY_MAIN
                 ) {
                     syncStandaloneClassicSelectFromStorage();
+                    syncPrivateEnginePrimaryOptionLists();
+                    syncStandalonePrivateEngineSelectFromStorage();
+                }
+                if (e.key === MAIN_SCREEN_HERO_LOGO_MODE_KEY) {
+                    syncFirefoxHomepageSearchLogoCheckboxFromStorage();
+                }
+                if (
+                    e.key === SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY ||
+                    e.key === SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY ||
+                    e.key === SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY
+                ) {
+                    syncPrivateEngineCheckboxesFromStorage();
+                    syncPrivateEngineSelectRowsVisibility();
+                }
+                if (
+                    e.key === DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE ||
+                    e.key === DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE ||
+                    e.key === DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE
+                ) {
+                    syncPrivateEnginePrimaryOptionLists();
+                    syncAddressBarPrivateEngineSelectFromStorage();
+                    syncFirefoxHomepagePrivateEngineSelectFromStorage();
+                    syncStandalonePrivateEngineSelectFromStorage();
                 }
             });
             window.addEventListener('message', function (e) {
+                if (e.data && e.data.type === 'sync-firefox-homepage-search-logo-checkbox') {
+                    if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                    var cbSync = document.getElementById('cb-firefox-homepage-search-logo');
+                    if (cbSync && typeof e.data.checked === 'boolean') {
+                        cbSync.checked = e.data.checked;
+                    }
+                    return;
+                }
                 if (
                     e.data &&
                     e.data.type === 'search-settings-overlay-engine-options' &&
@@ -1189,17 +1602,28 @@
                 if (e.data && e.data.type === 'seed-default-search-engine-keys' && e.data.keys && typeof e.data.keys === 'object') {
                     if (e.origin !== window.location.origin && e.origin !== 'null') return;
                     try {
+                        var lsSeed = getDefaultSearchEngineLocalStorage();
                         Object.entries(e.data.keys).forEach(function (entry) {
                             var k = entry[0];
                             var v = entry[1];
                             if (typeof k !== 'string') return;
                             if (v != null && String(v).trim() !== '') {
-                                localStorage.setItem(k, String(v));
-                            } else {
-                                try {
-                                    localStorage.removeItem(k);
-                                } catch (eRm) {}
+                                lsSeed.setItem(k, String(v));
+                                return;
                             }
+                            /* Parent often omits these as null on first paint; removing here races the overlay
+                               checkbox `change` handler (same tick as set-default-search-engine for :private keys)
+                               and clears “Use a different search engine…” so it flickers off until the next click. */
+                            if (
+                                k === SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY ||
+                                k === SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY ||
+                                k === SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY
+                            ) {
+                                return;
+                            }
+                            try {
+                                lsSeed.removeItem(k);
+                            } catch (eRm) {}
                         });
                     } catch (eSeedApply) {}
                     syncAllEntryPointSelectsFromStorage();

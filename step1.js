@@ -1011,6 +1011,10 @@ async function fetchAISuggestions(query, retryCount = 0) {
 const DEFAULT_SEARCH_ENGINE_KEY_MAIN = 'default_search_engine';
 const DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR = 'default_search_engine:addressbar';
 const DEFAULT_SEARCH_ENGINE_KEY_STANDALONE = 'default_search_engine:standalone';
+/** Search settings: per-surface default when “different engine in private browsing” is enabled. */
+const DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE = 'default_search_engine:addressbar:private';
+const DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE = 'default_search_engine:main:private';
+const DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE = 'default_search_engine:standalone:private';
 
 /**
  * Read default-engine keys: prefer top `localStorage` in iframes when accessible.
@@ -1041,6 +1045,10 @@ const SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY = 'search_settings_navigate_new_tab';
 const SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY = 'search_settings_navigate_private';
 /** Address bar row: when `'false'`, Search column is off (placeholder omits “Search with …”). */
 const SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY = 'search_settings_search_address_bar';
+/** Search settings overlay: use a separate default search engine for private browsing (per surface). */
+const SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY = 'search_settings_address_bar_private_engine';
+const SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY = 'search_settings_firefox_homepage_private_engine';
+const SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY = 'search_settings_standalone_private_engine';
 /** Chip icon when Address bar is Navigate-only (Search off) in Search settings. */
 const ADDRESSBAR_NAVIGATE_ONLY_SWITCHER_ICON_SRC = 'icons/globe.svg';
 const ADDRESSBAR_SWITCHER_LABEL_DEFAULT = 'Search with';
@@ -1276,6 +1284,23 @@ function pushDefaultSearchEngineKeysToIframe(contentWindow) {
             [DEFAULT_SEARCH_ENGINE_KEY_STANDALONE]: localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE),
             [SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY]: localStorage.getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY),
             [STANDALONE_SEARCH_BOX_VISIBLE_KEY]: localStorage.getItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY),
+            [MAIN_SCREEN_HERO_LOGO_MODE_KEY]: localStorage.getItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY),
+            [SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY]: localStorage.getItem(
+                SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY
+            ),
+            [SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY]: localStorage.getItem(
+                SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY
+            ),
+            [SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY]: localStorage.getItem(
+                SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY
+            ),
+            [DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE]: localStorage.getItem(
+                DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE
+            ),
+            [DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE]: localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE),
+            [DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE]: localStorage.getItem(
+                DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE
+            ),
         };
         contentWindow.postMessage({ type: 'seed-default-search-engine-keys', keys }, '*');
     } catch (_) {}
@@ -1819,11 +1844,9 @@ function applyMainScreenHeroLogoMode(mode) {
 }
 
 function syncMainScreenHeroLogoRadiosToMode(mode) {
-    document
-        .querySelectorAll('input[name="main-screen-hero-logo"], input[name="main-screen-hero-logo-settings"]')
-        .forEach((radio) => {
-            radio.checked = radio.value === mode;
-        });
+    document.querySelectorAll('input[name="main-screen-hero-logo-settings"]').forEach((radio) => {
+        radio.checked = radio.value === mode;
+    });
 }
 const SEARCH_BORDER_COLOR_KEY = 'search_border_color';
 /** `'small'` = CSS fallbacks; `'large'` = JS measures elements and fully rounds corners. */
@@ -7508,22 +7531,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedHero = getMainScreenHeroLogoMode();
             applyMainScreenHeroLogoMode(savedHero);
             syncMainScreenHeroLogoRadiosToMode(savedHero);
-            document
-                .querySelectorAll('input[name="main-screen-hero-logo"], input[name="main-screen-hero-logo-settings"]')
-                .forEach((radio) => {
-                    radio.addEventListener('change', (e) => {
-                        const t = e.target;
-                        if (!t.checked) return;
-                        const mode = t.value === 'firefox' ? 'firefox' : 'search_engine';
-                        try {
-                            localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, mode);
-                        } catch (_) {}
-                        applyMainScreenHeroLogoMode(mode);
-                        syncMainScreenHeroLogoRadiosToMode(mode);
-                        const chipItem = getDropdownItemMatchingSearchBarChip();
-                        if (chipItem) syncMainScreenBrandFromSwitcherItem(chipItem);
-                    });
+            document.querySelectorAll('input[name="main-screen-hero-logo-settings"]').forEach((radio) => {
+                radio.addEventListener('change', (e) => {
+                    const t = e.target;
+                    if (!t.checked) return;
+                    const mode = t.value === 'firefox' ? 'firefox' : 'search_engine';
+                    try {
+                        localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, mode);
+                    } catch (_) {}
+                    applyMainScreenHeroLogoMode(mode);
+                    syncMainScreenHeroLogoRadiosToMode(mode);
+                    const chipItem = getDropdownItemMatchingSearchBarChip();
+                    if (chipItem) syncMainScreenBrandFromSwitcherItem(chipItem);
+                    try {
+                        document
+                            .getElementById('prototype-settings-page-overlay-iframe')
+                            ?.contentWindow?.postMessage(
+                                {
+                                    type: 'sync-firefox-homepage-search-logo-checkbox',
+                                    checked: mode === 'search_engine',
+                                },
+                                '*'
+                            );
+                    } catch (_) {}
                 });
+            });
         }
 
         // Restore saved default search engine and order on load
@@ -8691,12 +8723,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (
                     key !== DEFAULT_SEARCH_ENGINE_KEY_MAIN &&
                     key !== DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR &&
-                    key !== DEFAULT_SEARCH_ENGINE_KEY_STANDALONE
+                    key !== DEFAULT_SEARCH_ENGINE_KEY_STANDALONE &&
+                    key !== DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE &&
+                    key !== DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE &&
+                    key !== DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE
                 ) {
                     return;
                 }
-                const effBefore = getEffectiveSearchDefaultsFromStorage();
                 const trimmed = String(value).trim();
+                const isPrivateSurfaceEngineKey =
+                    key === DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE ||
+                    key === DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE ||
+                    key === DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE;
+                if (isPrivateSurfaceEngineKey) {
+                    try {
+                        localStorage.setItem(key, trimmed);
+                    } catch (_) {}
+                    try {
+                        const pspWin = document.getElementById('prototype-settings-page-overlay-iframe')
+                            ?.contentWindow;
+                        pushDefaultSearchEngineKeysToIframe(pspWin);
+                    } catch (_) {}
+                    return;
+                }
+                const effBefore = getEffectiveSearchDefaultsFromStorage();
                 try {
                     localStorage.setItem(key, trimmed);
                 } catch (_) {}
@@ -8738,6 +8788,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     effBeforeAddr,
                     DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR
                 );
+                return;
+            }
+            if (e.data?.type === 'search-settings-hero-logo-checkbox') {
+                if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                const pspHero = document.getElementById('prototype-settings-page-overlay-iframe');
+                if (!pspHero || e.source !== pspHero.contentWindow) return;
+                const checked = !!e.data.checked;
+                const mode = checked ? 'search_engine' : 'firefox';
+                try {
+                    localStorage.setItem(MAIN_SCREEN_HERO_LOGO_MODE_KEY, mode);
+                } catch (_) {}
+                try {
+                    applyMainScreenHeroLogoMode(mode);
+                } catch (_) {}
+                try {
+                    syncMainScreenHeroLogoRadiosToMode(mode);
+                } catch (_) {}
+                try {
+                    const chipItem = getDropdownItemMatchingSearchBarChip();
+                    if (chipItem) syncMainScreenBrandFromSwitcherItem(chipItem);
+                } catch (_) {}
                 return;
             }
             if (e.data?.type === 'default-search-engine-changed') {
@@ -10635,6 +10706,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
                         SEARCH_SETTINGS_NAVIGATE_PRIVATE_KEY,
                         SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY,
+                        SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY,
+                        SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY,
+                        SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY,
+                        DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE,
+                        DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE,
+                        DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE,
                         'default_search_engine:private',
                         FIREFOX_SUGGESTIONS_ENABLED_KEY,
                         'inspectSuggestions'
@@ -10650,6 +10727,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             localStorage.removeItem(k);
                         } catch (_) {}
                     });
+                    /* “Use a different search engine in private browsing” toggles: explicit off so seeds / iframes
+                       never resurrect a stale `true` after reset (seed skips clearing these keys when parent omits them). */
+                    try {
+                        localStorage.setItem(SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY, 'false');
+                        localStorage.setItem(SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY, 'false');
+                        localStorage.setItem(SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY, 'false');
+                    } catch (_) {}
                     syncSearchSettingsModalUrlParam(false);
                     try {
                         closeSearchSettingsModal();
