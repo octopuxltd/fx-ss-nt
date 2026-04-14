@@ -271,6 +271,139 @@ function cacheFirefoxSuggestions(query, selectedSuggestions, countToShow) {
     }
 }
 
+function stripMarkdownJsonFence(raw) {
+    if (typeof raw !== 'string') return '';
+    let t = raw.trim();
+    t = t.replace(/^```(?:json|JSON)?\s*\r?\n?/, '');
+    t = t.replace(/\r?\n?```[ \t]*$/m, '').trim();
+    return t;
+}
+
+/** First top-level `[` … `]` span; only `"` strings count (JSON-style). */
+function findBalancedJsonArraySlice(text) {
+    const start = text.indexOf('[');
+    if (start === -1) return null;
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = start; i < text.length; i++) {
+        const c = text[i];
+        if (inString) {
+            if (escape) {
+                escape = false;
+            } else if (c === '\\') {
+                escape = true;
+            } else if (c === '"') {
+                inString = false;
+            }
+            continue;
+        }
+        if (c === '"') {
+            inString = true;
+            continue;
+        }
+        if (c === '[') depth++;
+        else if (c === ']') {
+            depth--;
+            if (depth === 0) return text.slice(start, i + 1);
+        }
+    }
+    return null;
+}
+
+function normalizeAiStringSuggestions(arr, limit) {
+    if (!Array.isArray(arr) || limit < 1) return [];
+    const out = [];
+    const seen = new Set();
+    for (const rawItem of arr) {
+        if (out.length >= limit) break;
+        if (typeof rawItem !== 'string') {
+            if (rawItem == null) continue;
+            if (typeof rawItem === 'object') continue;
+        }
+        let s = typeof rawItem === 'string' ? rawItem.trim() : String(rawItem).trim();
+        s = s.replace(/^[\s`'"]+|[\s`'"]+$/g, '').replace(/\\"/g, '"').trim();
+        s = s.replace(/^"+|"+$/g, '').replace(/",$/, '').trim();
+        if (!s || s.length < 2) continue;
+        if (/^`{3}/.test(s) || s === '[' || s === ']' || /^json$/i.test(s)) continue;
+        if (/^[,[\]{}:.'"`\s]+$/.test(s)) continue;
+        const lower = s.toLowerCase();
+        if (seen.has(lower)) continue;
+        seen.add(lower);
+        out.push(s);
+    }
+    return out;
+}
+
+function parseSearchAiSuggestionsArray(rawContent, suggestionLimit) {
+    const limit = Math.max(1, suggestionLimit || 10);
+    const stripped = stripMarkdownJsonFence(rawContent);
+
+    function tryParseJsonArrays(text) {
+        const candidates = [];
+        const slice = findBalancedJsonArraySlice(text);
+        if (slice) candidates.push(slice);
+        const t = text.trim();
+        if (t.startsWith('[') && (!slice || t !== slice)) candidates.push(t);
+        for (const c of candidates) {
+            try {
+                const parsed = JSON.parse(c);
+                if (Array.isArray(parsed)) {
+                    const norm = normalizeAiStringSuggestions(parsed, limit);
+                    if (norm.length > 0) return norm;
+                }
+            } catch (_) {}
+        }
+        return [];
+    }
+
+    let suggestions = tryParseJsonArrays(stripped);
+    if (suggestions.length > 0) return suggestions.slice(0, limit);
+
+    try {
+        const objMatch = stripped.match(/\{[\s\S]*\}/);
+        if (objMatch) {
+            const parsed = JSON.parse(objMatch[0]);
+            if (parsed && Array.isArray(parsed.suggestions)) {
+                suggestions = normalizeAiStringSuggestions(parsed.suggestions, limit);
+            }
+        }
+    } catch (_) {}
+
+    if (suggestions.length > 0) return suggestions.slice(0, limit);
+
+    suggestions = normalizeAiStringSuggestions(
+        stripped
+            .split('\n')
+            .map((line) => line.trim().replace(/^[-•\d.\s"'[\],]+|[-•\d.\s"'[\],]+$/g, ''))
+            .filter((line) => line.length >= 2 && !/^```(?:json)?$/i.test(line) && line !== '[' && line !== ']'),
+        limit
+    );
+
+    if (suggestions.length > 0) return suggestions.slice(0, limit);
+
+    const quotedMatches = stripped.match(/"((?:[^"\\]|\\.)*)"/g);
+    if (quotedMatches) {
+        const fromQuotes = quotedMatches
+            .map((m) => {
+                try {
+                    return JSON.parse(m);
+                } catch {
+                    return m.slice(1, -1);
+                }
+            })
+            .filter((s) => typeof s === 'string' && s.length >= 2);
+        suggestions = normalizeAiStringSuggestions(fromQuotes, limit);
+    }
+
+    return suggestions.slice(0, limit);
+}
+
+function searchSuggestionsResponseMaxTokens(requestedCount) {
+    const n = Math.max(1, Math.min(80, Number(requestedCount) || 10));
+    return Math.min(4096, Math.max(200, Math.round(96 + n * 32)));
+}
+
 // ===== AI SEARCH SUGGESTIONS API =====
 
 async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, providerOverride = null) {
@@ -304,6 +437,13 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
     console.log('[API-SEARCH] ✓ API key is set');
     
     const suggestionLimit = readSearchSuggestionsDisplayLimit();
+    const responseMaxTokens = searchSuggestionsResponseMaxTokens(suggestionLimit);
+    logSuggestTrace('ai-request', {
+        query,
+        requestedCount: suggestionLimit,
+        provider,
+        attemptNumber,
+    });
     const systemPrompt = `You are a search suggestion generator. Generate ${suggestionLimit} popular search queries where at least one word starts with the user's query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of ${suggestionLimit} search queries, sorted by popularity. No explanations, just the JSON array.`;
     const userPrompt = `Generate ${suggestionLimit} popular search suggestions where at least one word starts with: "${query}". Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`;
     
@@ -321,7 +461,7 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
                 { role: 'user', content: userPrompt }
             ],
             temperature: 0.7,
-            max_tokens: 200
+            max_tokens: responseMaxTokens
         };
         
         response = await fetch(OPENAI_API_URL, {
@@ -357,7 +497,7 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
         // Claude API request
         const requestBody = {
             model: 'claude-3-5-haiku-20241022',
-            max_tokens: 200,
+            max_tokens: responseMaxTokens,
             temperature: 0.7,
             system: systemPrompt,
             messages: [{ role: 'user', content: userPrompt }]
@@ -402,7 +542,7 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
                 { role: 'user', content: userPrompt }
             ],
             temperature: 0.7,
-            max_tokens: 200
+            max_tokens: responseMaxTokens
         };
         
         response = await fetch(OPENROUTER_API_URL, {
@@ -444,38 +584,9 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
         throw error;
     }
     
-    // Parse JSON response
-    let suggestions = [];
-    try {
-        // Try to parse as JSON object first
-        const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonObjectMatch) {
-            const parsed = JSON.parse(jsonObjectMatch[0]);
-            if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
-                suggestions = parsed.suggestions;
-            }
-        }
-        
-        // If no object found or suggestions empty, try array
-        if (suggestions.length === 0) {
-            const jsonArrayMatch = content.match(/\[.*\]/s);
-            if (jsonArrayMatch) {
-                suggestions = JSON.parse(jsonArrayMatch[0]);
-            } else {
-                suggestions = content.split('\n')
-                    .map(line => line.trim().replace(/^[-•\d.\s"']+|[-•\d.\s"']+$/g, ''))
-                    .filter(line => line.length > 0)
-                    .slice(0, suggestionLimit);
-            }
-        }
-    } catch (parseError) {
-        const quotedMatches = content.match(/"([^"]+)"/g);
-        if (quotedMatches) {
-            suggestions = quotedMatches.map(m => m.replace(/"/g, '')).slice(0, suggestionLimit);
-        }
-    }
-    
-    const finalSuggestions = suggestions.filter(s => s && s.length > 0).slice(0, suggestionLimit);
+    const finalSuggestions = parseSearchAiSuggestionsArray(content, suggestionLimit).filter(
+        (s) => s && s.length > 0
+    );
     
     const responseTimestamp = new Date().toISOString();
     console.log(`[API-SEARCH] [${responseTimestamp}] Response received:`, finalSuggestions);
@@ -740,28 +851,30 @@ async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) 
         throw error;
     }
     
-    // Parse JSON response
+    // Parse JSON response (strip ```json fences; use balanced `[`…`]` slice)
     let firefoxSuggestions = [];
     try {
-        const jsonArrayMatch = content.match(/\[.*\]/s);
-        if (jsonArrayMatch) {
-            const parsed = JSON.parse(jsonArrayMatch[0]);
+        const stripped = stripMarkdownJsonFence(content);
+        const slice = findBalancedJsonArraySlice(stripped);
+        const arrayJson = slice || (stripped.trim().startsWith('[') ? stripped.trim() : null);
+        if (arrayJson) {
+            const parsed = JSON.parse(arrayJson);
             if (Array.isArray(parsed)) {
                 firefoxSuggestions = parsed;
             }
-        } else {
-            const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
+        }
+        if (firefoxSuggestions.length === 0) {
+            const jsonObjectMatch = stripped.match(/\{[\s\S]*\}/);
             if (jsonObjectMatch) {
                 const parsed = JSON.parse(jsonObjectMatch[0]);
                 if (parsed.firefoxSuggestions && Array.isArray(parsed.firefoxSuggestions)) {
                     firefoxSuggestions = parsed.firefoxSuggestions;
-                }
-                if (parsed.historyTitles && Array.isArray(parsed.historyTitles)) {
+                } else if (parsed.historyTitles && Array.isArray(parsed.historyTitles)) {
                     firefoxSuggestions = parsed.historyTitles;
                 }
             }
         }
-        
+
         console.log(`[API-FIREFOX] Parsed ${firefoxSuggestions.length} Firefox suggestions from response`);
     } catch (parseError) {
         console.error('[API-FIREFOX] Parse error:', parseError);
@@ -840,6 +953,11 @@ async function fetchFirefoxSuggestions(query, maxRetries = 2) {
 
 async function fetchAISuggestions(query, retryCount = 0) {
     const maxRetries = 2;
+    logSuggestTrace('fetch-ai-start', {
+        query,
+        retryCount,
+        displayLimitAtFetch: readSearchSuggestionsDisplayLimit(),
+    });
     console.log('[API] Starting fetchAISuggestions for query:', query, retryCount > 0 ? `(retry ${retryCount}/${maxRetries})` : '');
     
     // Check cache first (only on first attempt, not retries)
@@ -898,8 +1016,8 @@ async function fetchAISuggestions(query, retryCount = 0) {
         // Merge cached suggestions with AI results
         if (cachedSuggestions && cachedSuggestions.length > 0) {
             if (cachedSuggestions.length >= suggestionLimit) {
-                finalSuggestions = [...cachedSuggestions];
-                console.log('[API] Using', cachedSuggestions.length, 'cached suggestions as base');
+                finalSuggestions = cachedSuggestions.slice(0, suggestionLimit);
+                console.log('[API] Using', finalSuggestions.length, 'cached suggestions (trimmed to current limit)');
             } else {
                 console.log('[API] Merging', cachedSuggestions.length, 'cached with', finalSuggestions.length, 'AI suggestions');
                 const combined = [...cachedSuggestions];
@@ -991,19 +1109,33 @@ async function fetchAISuggestions(query, retryCount = 0) {
         
         // Store Firefox suggestions metadata
         finalSuggestions._firefoxSuggestions = selectedFirefoxSuggestions;
+
+        logSuggestTrace('fetch-ai-result', {
+            query,
+            stringSuggestionCount: Array.isArray(finalSuggestions)
+                ? finalSuggestions.filter((s) => typeof s === 'string').length
+                : 0,
+            totalSlots: Array.isArray(finalSuggestions) ? finalSuggestions.length : 0,
+            suggestionLimitUsed: suggestionLimit,
+            hadStringCache: !!(cachedSuggestions && cachedSuggestions.length),
+        });
         
         // Fallback to cached suggestions if API failed
         if (finalSuggestions.length === 0 && cachedSuggestions && cachedSuggestions.length > 0) {
-            console.log('[API] API failed, returning', cachedSuggestions.length, 'cached suggestions as fallback');
-            return cachedSuggestions;
+            const limFb = readSearchSuggestionsDisplayLimit();
+            const slicedFb = cachedSuggestions.slice(0, limFb);
+            console.log('[API] API failed, returning', slicedFb.length, 'cached suggestions as fallback');
+            return slicedFb;
         }
         
         return finalSuggestions;
     } catch (error) {
         console.error('[API] Error fetching suggestions:', error);
         if (cachedSuggestions && cachedSuggestions.length > 0) {
-            console.log('[API] API failed, returning', cachedSuggestions.length, 'cached suggestions as fallback');
-            return cachedSuggestions;
+            const limEx = readSearchSuggestionsDisplayLimit();
+            const slicedEx = cachedSuggestions.slice(0, limEx);
+            console.log('[API] API failed, returning', slicedEx.length, 'cached suggestions as fallback');
+            return slicedEx;
         }
         return [];
     }
@@ -1042,8 +1174,24 @@ const SEARCH_SUGGESTIONS_COUNT_DEFAULT = 10;
 const SEARCH_SUGGESTIONS_COUNT_MIN = 1;
 const SEARCH_SUGGESTIONS_COUNT_MAX = 50;
 
+/**
+ * Stand-alone search iframe uses `body.addressbar` + `body.standalone-search-box` for layout.
+ * Prefer the embedding iframe's class so storage + `[suggest-trace]` surface stay aligned.
+ */
+function getSearchSuggestionIframeRole() {
+    try {
+        const fe = typeof window !== 'undefined' ? window.frameElement : null;
+        if (fe?.classList?.contains('standalone-search-box-iframe')) return 'standalone-iframe';
+        if (fe?.classList?.contains('addressbar-iframe')) return 'addressbar-iframe';
+    } catch (_) {}
+    return null;
+}
+
 function getSearchSuggestionsCountStorageKeyForActiveDocument() {
     if (typeof document === 'undefined' || !document.body) return SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB;
+    const iframeRole = getSearchSuggestionIframeRole();
+    if (iframeRole === 'standalone-iframe') return SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE;
+    if (iframeRole === 'addressbar-iframe') return SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR;
     if (document.body.classList.contains('standalone-search-box')) return SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE;
     if (document.body.classList.contains('addressbar')) return SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR;
     return SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB;
@@ -1052,13 +1200,76 @@ function getSearchSuggestionsCountStorageKeyForActiveDocument() {
 function readSearchSuggestionsDisplayLimit() {
     try {
         const k = getSearchSuggestionsCountStorageKeyForActiveDocument();
-        const raw = getDefaultSearchEngineLocalStorage().getItem(k);
+        let raw = null;
+        try {
+            raw = getDefaultSearchEngineLocalStorage().getItem(k);
+        } catch (_) {}
+        if (raw == null || String(raw).trim() === '') {
+            try {
+                raw = localStorage.getItem(k);
+            } catch (_) {}
+        }
         const n = parseInt(String(raw ?? '').trim(), 10);
         if (!Number.isFinite(n)) return SEARCH_SUGGESTIONS_COUNT_DEFAULT;
         return Math.min(SEARCH_SUGGESTIONS_COUNT_MAX, Math.max(SEARCH_SUGGESTIONS_COUNT_MIN, n));
     } catch (_) {
         return SEARCH_SUGGESTIONS_COUNT_DEFAULT;
     }
+}
+
+/** Console filter: `[suggest-trace]` — settings changes, panel rows, AI request size. */
+function logSuggestTrace(phase, detail = {}) {
+    try {
+        const iframeRole = getSearchSuggestionIframeRole();
+        const surface =
+            iframeRole === 'standalone-iframe'
+                ? 'standalone'
+                : iframeRole === 'addressbar-iframe'
+                  ? 'addressbar'
+                  : typeof document !== 'undefined' && document.body
+                    ? document.body.classList.contains('standalone-search-box')
+                      ? 'standalone'
+                      : document.body.classList.contains('addressbar')
+                        ? 'addressbar'
+                        : 'new-tab'
+                    : 'unknown';
+        const storageKey = getSearchSuggestionsCountStorageKeyForActiveDocument();
+        const limit = readSearchSuggestionsDisplayLimit();
+        console.log('[suggest-trace]', phase, {
+            surface,
+            isTop: typeof window !== 'undefined' && window === window.top,
+            storageKey,
+            displayLimitRead: limit,
+            ...detail,
+        });
+    } catch (_) {
+        try {
+            console.log('[suggest-trace]', phase, detail);
+        } catch (_) {}
+    }
+}
+
+/** Top document only: tell main search UI + embedded search iframes to re-apply suggestion row limits (and refetch AI if needed). */
+function broadcastSearchSuggestionsDisplayLimitChangedFromTop() {
+    if (typeof window === 'undefined' || window !== window.top) return;
+    logSuggestTrace('broadcast-refresh-from-top', {});
+    const addrWin = document.querySelector('.addressbar-iframe')?.contentWindow;
+    const standWin = document.querySelector('.standalone-search-box-iframe')?.contentWindow;
+    const pspWin = document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow;
+    /* When iframes cannot read `top.localStorage`, they fall back to mirrored keys from `seed-default-search-engine-keys`. */
+    pushDefaultSearchEngineKeysToIframe(addrWin);
+    pushDefaultSearchEngineKeysToIframe(standWin);
+    pushDefaultSearchEngineKeysToIframe(pspWin);
+    try {
+        window.__runSearchSuggestionsLimitRefresh?.();
+    } catch (_) {}
+    const msg = { type: 'search-suggestions-display-limit-changed' };
+    try {
+        addrWin?.postMessage(msg, '*');
+    } catch (_) {}
+    try {
+        standWin?.postMessage(msg, '*');
+    } catch (_) {}
 }
 
 /** Wired inside `DOMContentLoaded` where switcher helpers live — top-level `syncTopDocument…` must not call nested functions directly. */
@@ -2714,6 +2925,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 }
+            } else if (e.data?.type === 'search-suggestions-display-limit-changed') {
+                try {
+                    window.__runSearchSuggestionsLimitRefresh?.();
+                } catch (_) {}
             } else if (e.data?.type === 'standalone-search-box-visible') {
                 if (!document.body.classList.contains('standalone-search-box')) return;
                 const standaloneSearchContainer = document.querySelector('.search-container');
@@ -2749,6 +2964,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (v != null && String(v).trim() !== '') {
                             localStorage.setItem(k, String(v));
                         } else {
+                            /* Parent often sends null for keys it never set; do not strip persisted suggestion counts. */
+                            if (
+                                k === SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR ||
+                                k === SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB ||
+                                k === SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE
+                            ) {
+                                return;
+                            }
                             try {
                                 localStorage.removeItem(k);
                             } catch (_) {}
@@ -8529,6 +8752,17 @@ document.addEventListener('DOMContentLoaded', () => {
             e.key === SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE
         ) {
             try {
+                const rawSt = e.newValue;
+                const nSt = parseInt(String(rawSt ?? '').trim(), 10);
+                logSuggestTrace('settings-storage-event', {
+                    key: e.key,
+                    newValue: rawSt,
+                    parsedLimit: Number.isFinite(nSt) ? nSt : null,
+                });
+            } catch (_) {
+                logSuggestTrace('settings-storage-event', { key: e.key });
+            }
+            try {
                 const addrWin = document.querySelector('.addressbar-iframe')?.contentWindow;
                 const standWin = document.querySelector('.standalone-search-box-iframe')?.contentWindow;
                 const pspWin = document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow;
@@ -8536,6 +8770,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pushDefaultSearchEngineKeysToIframe(standWin);
                 pushDefaultSearchEngineKeysToIframe(pspWin);
             } catch (_) {}
+            broadcastSearchSuggestionsDisplayLimitChangedFromTop();
             return;
         }
         if (e.key === STANDALONE_SEARCH_BOX_VISIBLE_KEY) {
@@ -8647,6 +8882,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem(key, trimmed);
                 } catch (_) {}
                 syncTopDocumentSearchSurfacesAfterDefaultEngineKeysChanged(effBefore, key);
+                return;
+            }
+            if (e.data?.type === 'apply-search-suggestions-display-limit-refresh') {
+                if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                logSuggestTrace('settings-message-apply-refresh', { via: 'postMessage' });
+                broadcastSearchSuggestionsDisplayLimitChangedFromTop();
+                return;
+            }
+            if (e.data?.type === 'set-search-suggestions-count') {
+                if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                /* Do not require `e.source === overlay.contentWindow` — some browsers/embed cases disagree. */
+                const keyCt = e.data.key;
+                const valueCt = e.data.value;
+                if (typeof keyCt !== 'string' || typeof valueCt !== 'string') return;
+                if (
+                    keyCt !== SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR &&
+                    keyCt !== SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB &&
+                    keyCt !== SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE
+                ) {
+                    return;
+                }
+                const nCt = parseInt(String(valueCt).trim(), 10);
+                if (!Number.isFinite(nCt)) return;
+                const clampedCt = Math.min(
+                    SEARCH_SUGGESTIONS_COUNT_MAX,
+                    Math.max(SEARCH_SUGGESTIONS_COUNT_MIN, nCt)
+                );
+                logSuggestTrace('settings-message-count', { storageKey: keyCt, rawValue: valueCt, clamped: clampedCt });
+                try {
+                    localStorage.setItem(keyCt, String(clampedCt));
+                } catch (_) {}
+                broadcastSearchSuggestionsDisplayLimitChangedFromTop();
                 return;
             }
             if (e.data?.type === 'apply-address-bar-settings-from-html') {
@@ -9464,7 +9731,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Keep predefined / local rows first, then append AI search strings (deduped, case-insensitive).
      * Preserves _firefoxSuggestions from the AI result on the returned array for rendering.
      */
-    function mergePredefinedWithAiSuggestions(baseStrings, aiResult, maxStrings = 9) {
+    function mergePredefinedWithAiSuggestions(baseStrings, aiResult, maxStrings = readSearchSuggestionsDisplayLimit()) {
         const aiList = Array.isArray(aiResult) ? [...aiResult] : [];
         const firefoxMeta = aiResult && aiResult._firefoxSuggestions;
         const out = [];
@@ -9518,8 +9785,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filteredSuggestions.length > 0) {
             updateSuggestions(filteredSuggestions);
             
-            // Add skeletons to fill up to 9 total
-            const skeletonCount = Math.max(0, 9 - filteredSuggestions.length);
+            const displayCap = readSearchSuggestionsDisplayLimit();
+            /* Skeleton rows = slots AI can still fill (same cap as merged list + updateSuggestions). */
+            const skeletonCount = Math.max(0, displayCap - filteredSuggestions.length);
             if (skeletonCount > 0) {
                 console.log('[FILTER] Adding', skeletonCount, 'skeletons to fill list');
                 showSkeletonLoaders(skeletonCount);
@@ -9527,7 +9795,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             console.log('[FILTER] No matching suggestions, showing all skeletons');
             updateSuggestions([]);
-            showSkeletonLoaders(9);
+            showSkeletonLoaders(readSearchSuggestionsDisplayLimit());
         }
         
         return filteredSuggestions;
@@ -9715,6 +9983,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (suggestionsToShow.length > displayLimit) {
             suggestionsToShow = suggestionsToShow.slice(0, displayLimit);
         }
+
+        const rowPreviews = suggestionsToShow.map((s) => {
+            if (typeof s === 'string') return s.length > 72 ? `${s.slice(0, 72)}…` : s;
+            if (s && s._visitSite) return `[visit] ${String(s._text || '').slice(0, 48)}`;
+            if (s && s._localSource) return `[local] ${String(s.label || '').slice(0, 48)}`;
+            return '[row]';
+        });
+        logSuggestTrace('panel', {
+            query: searchValueTrimmed ? searchValueTrimmed.slice(0, 80) : '',
+            rowsRendered: suggestionsToShow.length,
+            displayLimitApplied: displayLimit,
+            atMode: isAtQuery,
+            firefoxSuggestionsOnly,
+            localSourceMode: localSourceMode || undefined,
+            rowPreviews,
+            firefoxMetaCount: firefoxSuggestions.length,
+        });
         
         console.log(
             '[UPDATE] typed=' +
@@ -10159,15 +10444,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // In local source mode: only show Firefox Suggestions (AI results), no search suggestions, no typed-text-as-first
             if (inLocalSourceMode) {
+                const localSourceSkeletonCount = readSearchSuggestionsDisplayLimit();
                 if (valueLower.length < 1) {
                     updateSuggestions([], { firefoxSuggestionsOnly: true });
-                    showSkeletonLoaders(4);
+                    showSkeletonLoaders(localSourceSkeletonCount);
                     return;
                 }
                 const hasExistingSuggestions = currentDisplayedSuggestions.length > 0;
                 if (!hasExistingSuggestions) {
                     updateSuggestions([], { firefoxSuggestionsOnly: true });
-                    showSkeletonLoaders(4);
+                    showSkeletonLoaders(localSourceSkeletonCount);
                 }
                 lastApiQuery = valueLower;
                 try {
@@ -10294,7 +10580,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Show skeletons while waiting for AI
                     console.log('[INPUT] No existing suggestions, showing skeletons');
                     updateSuggestions([]);
-                    showSkeletonLoaders(9);
+                    showSkeletonLoaders(readSearchSuggestionsDisplayLimit());
                 }
 
                 // Make API call
@@ -10315,7 +10601,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (aiSuggestions && Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
                             const toShow = hadPredefinedOrLocalSuggestions
-                                ? mergePredefinedWithAiSuggestions(currentDisplayedSuggestions, aiSuggestions, 9)
+                                ? mergePredefinedWithAiSuggestions(currentDisplayedSuggestions, aiSuggestions)
                                 : aiSuggestions;
                             console.log(
                                 '[AI] Updating with',
@@ -10340,6 +10626,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+
+        const runSearchSuggestionsLimitRefresh = () => {
+            try {
+                const q = (searchInput?.value || '').trim();
+                logSuggestTrace('refresh-after-settings', {
+                    inputQuery: q.slice(0, 80),
+                    willInvalidateAiCache: q.length >= 3,
+                });
+                if (q.length >= 3) {
+                    try {
+                        localStorage.removeItem(getCacheKey(q.toLowerCase()));
+                    } catch (_) {}
+                    try {
+                        localStorage.removeItem(getFirefoxCacheKey(q.toLowerCase()));
+                    } catch (_) {}
+                }
+                if (searchInput) {
+                    try {
+                        searchInput.dispatchEvent(
+                            new InputEvent('input', { bubbles: true, cancelable: false, inputType: '', data: null })
+                        );
+                    } catch (_) {
+                        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+            } catch (_) {}
+        };
+        try {
+            window.__runSearchSuggestionsLimitRefresh = runSearchSuggestionsLimitRefresh;
+        } catch (_) {}
+        window.addEventListener('search-suggestions-display-limit-changed', runSearchSuggestionsLimitRefresh);
     }
 
     /* Static iframe HTML uses `icons/internal-clock.svg` for seed rows; `updateSuggestions` assigns trending / AI icons. Sync on load when the field is empty so first paint matches “clear search”. */

@@ -808,7 +808,7 @@
             <section class="card" aria-labelledby="search-settings-address-bar-heading">
                 <h3 id="search-settings-address-bar-heading" class="card-header">Address bar</h3>
                 <div class="entrypoint-engine-rows">
-                    <label class="entrypoint-field-label" for="default-engine">Search engine:</label>
+                    <label class="entrypoint-field-label" for="default-engine">Search engine</label>
                     <div class="select-wrap">
                         <select id="default-engine" class="ff-select">
                             <option value="none">No searching from the address bar</option>
@@ -861,7 +861,7 @@
             <section class="card" aria-labelledby="search-settings-firefox-homepage-heading">
                 <h3 id="search-settings-firefox-homepage-heading" class="card-header">Firefox homepage</h3>
                 <div class="entrypoint-engine-rows">
-                    <label class="entrypoint-field-label" for="firefox-homepage-engine">Search engine:</label>
+                    <label class="entrypoint-field-label" for="firefox-homepage-engine">Search engine</label>
                     <div class="select-wrap">
                         <select id="firefox-homepage-engine" class="ff-select">
                             <option value="google" selected>Google</option>
@@ -919,7 +919,7 @@
             <section class="card" aria-labelledby="search-settings-standalone-search-box-heading">
                 <h3 id="search-settings-standalone-search-box-heading" class="card-header">Stand-alone search box</h3>
                 <div class="entrypoint-engine-rows">
-                    <label class="entrypoint-field-label" for="standalone-search-box-engine">Search engine:</label>
+                    <label class="entrypoint-field-label" for="standalone-search-box-engine">Search engine</label>
                     <div class="select-wrap">
                         <select id="standalone-search-box-engine" class="ff-select">
                             <option value="off" selected>Off</option>
@@ -1739,10 +1739,37 @@
                     function commitSuggestionCount() {
                         if (el.disabled) return;
                         var ls = getDefaultSearchEngineLocalStorage();
-                        el.value = persistSuggestionCountFromField(ls, pair[1], el.value);
+                        var persisted = persistSuggestionCountFromField(ls, pair[1], el.value);
+                        el.value = persisted;
+                        try {
+                            console.log('[suggest-trace]', 'settings-ui-commit', {
+                                storageKey: pair[1],
+                                persistedValue: persisted,
+                                embedded: window.parent !== window,
+                            });
+                        } catch (eLog) {}
+                        /* Top document must own these keys for reload; iframe direct `top.localStorage` can fail silently. */
+                        if (window.parent !== window) {
+                            try {
+                                window.parent.postMessage(
+                                    {
+                                        type: 'set-search-suggestions-count',
+                                        key: pair[1],
+                                        value: persisted,
+                                    },
+                                    '*'
+                                );
+                            } catch (eCtPm) {}
+                            /* Separate message: parent must refresh search UIs even when strict `e.source` checks fail. */
+                            try {
+                                window.parent.postMessage({ type: 'apply-search-suggestions-display-limit-refresh' }, '*');
+                            } catch (eCtRf) {}
+                        }
                     }
                     el.addEventListener('change', commitSuggestionCount);
                     el.addEventListener('blur', commitSuggestionCount);
+                    /* Persist while typing so closing the overlay without a final blur still saves. */
+                    el.addEventListener('input', commitSuggestionCount);
                 });
             })();
             syncAllEntryPointSelectsFromStorage();
@@ -1861,7 +1888,10 @@
                                 k === PROTOTYPE_DECOR_PB_CHOICE_STANDALONE_STRIP ||
                                 k === 'default_search_engine:addressbar:private' ||
                                 k === 'default_search_engine:main:private' ||
-                                k === 'default_search_engine:standalone:private'
+                                k === 'default_search_engine:standalone:private' ||
+                                k === SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR ||
+                                k === SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB ||
+                                k === SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE
                             ) {
                                 return;
                             }
