@@ -1082,6 +1082,7 @@
             var SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY = 'search_settings_address_bar_private_engine';
             var SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY = 'search_settings_firefox_homepage_private_engine';
             var SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY = 'search_settings_standalone_private_engine';
+            var SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY = 'search_settings_navigate_new_tab';
             var MAIN_SCREEN_HERO_LOGO_MODE_KEY = 'main_screen_hero_logo_mode';
             function getDefaultSearchEngineLocalStorage() {
                 try {
@@ -1378,6 +1379,16 @@
                     cb.checked = true;
                 }
             }
+            function syncFirefoxHomepageAcceptUrlNavigationFromStorage() {
+                var cbUrl = document.getElementById('cb-firefox-homepage-accept-url-navigation');
+                if (!cbUrl) return;
+                try {
+                    var lsNav = getDefaultSearchEngineLocalStorage();
+                    cbUrl.checked = lsNav.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) === 'true';
+                } catch (eUrlNav) {
+                    cbUrl.checked = false;
+                }
+            }
             function syncPrivateEngineCheckboxesFromStorage() {
                 var ls = getDefaultSearchEngineLocalStorage();
                 var cbAddr = document.getElementById('cb-address-bar-private-engine');
@@ -1394,6 +1405,7 @@
                 syncFirefoxHomepageEngineSelectFromStorage();
                 syncStandaloneClassicSelectFromStorage();
                 syncFirefoxHomepageSearchLogoCheckboxFromStorage();
+                syncFirefoxHomepageAcceptUrlNavigationFromStorage();
                 syncPrivateEngineCheckboxesFromStorage();
                 syncPrivateEnginePrimaryOptionLists();
                 syncPrivateEngineSelectRowsVisibility();
@@ -1437,6 +1449,21 @@
                             '*'
                         );
                     } catch (eHeroCb) {}
+                    return;
+                }
+                if (t.id === 'cb-firefox-homepage-accept-url-navigation') {
+                    try {
+                        getDefaultSearchEngineLocalStorage().setItem(
+                            SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY,
+                            t.checked ? 'true' : 'false'
+                        );
+                    } catch (eUrlNavSet) {}
+                    try {
+                        window.parent.postMessage(
+                            { type: 'search-settings-navigate-new-tab-from-overlay', enabled: !!t.checked },
+                            '*'
+                        );
+                    } catch (eUrlNavPost) {}
                     return;
                 }
                 if (t.id === 'cb-address-bar-private-engine') {
@@ -1559,6 +1586,9 @@
                 if (e.key === MAIN_SCREEN_HERO_LOGO_MODE_KEY) {
                     syncFirefoxHomepageSearchLogoCheckboxFromStorage();
                 }
+                if (e.key === SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) {
+                    syncFirefoxHomepageAcceptUrlNavigationFromStorage();
+                }
                 if (
                     e.key === SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY ||
                     e.key === SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY ||
@@ -1584,6 +1614,14 @@
                     var cbSync = document.getElementById('cb-firefox-homepage-search-logo');
                     if (cbSync && typeof e.data.checked === 'boolean') {
                         cbSync.checked = e.data.checked;
+                    }
+                    return;
+                }
+                if (e.data && e.data.type === 'sync-firefox-homepage-url-navigation-checkbox') {
+                    if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                    var cbUrlSync = document.getElementById('cb-firefox-homepage-accept-url-navigation');
+                    if (cbUrlSync && typeof e.data.enabled === 'boolean') {
+                        cbUrlSync.checked = e.data.enabled;
                     }
                     return;
                 }

@@ -2223,14 +2223,15 @@ body.reduced-motion .search-container.focused .search-box-wrapper-outer .search-
     cursor: text;
 }
 
-/* Square bottom as soon as the panel can open (focused + not suppress), before max-height finishes — instant radius so it leads the panel transition. Large mode: inline radii from step1.js; keep border-radius transition 0s here. */
-.search-container.focused .search-box-wrapper-outer:has(.suggestions-list:not(.suggestions-suppress-until-typed)) .search-box-wrapper {
+/* Square bottom as soon as the panel can open (focused + not suppress), before max-height finishes — instant radius so it leads the panel transition. Large mode: inline radii from step1.js; keep border-radius transition 0s here.
+   Address bar iframe (`body.addressbar`) uses `shouldSquareSearchInputBottomForSuggestions` + step1-addressbar.css so blur without an opened strip does not square corners during collapse. */
+body:not(.addressbar) .search-container.focused .search-box-wrapper-outer:has(.suggestions-list:not(.suggestions-suppress-until-typed)) .search-box-wrapper {
     border-radius: 10px 10px 0 0;
     transition: background-color 0.25s linear, border-radius 0s;
 }
 
 /* While the panel collapses (no .focused yet), keep the input bottom square until closeSuggestionsPanel clears this class. */
-.search-container.search-container--suggestions-panel-collapsing .search-box-wrapper-outer:has(.suggestions-list:not(.suggestions-suppress-until-typed)) .search-box-wrapper {
+body:not(.addressbar) .search-container.search-container--suggestions-panel-collapsing .search-box-wrapper-outer:has(.suggestions-list:not(.suggestions-suppress-until-typed)) .search-box-wrapper {
     border-radius: 10px 10px 0 0;
     transition: background-color 0.25s linear, border-radius 0s;
 }
