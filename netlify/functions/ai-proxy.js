@@ -6,17 +6,25 @@
  * Optional: AI_PROXY_EXTRA_ORIGINS=comma,separated,exact,origins
  *           AI_PROXY_ALLOW_NULL_ORIGIN=1  (file:// sends Origin: null — off by default)
  *           AI_PROXY_CACHE=0            (disable shared response cache; default on when Blobs work)
- *           AI_PROXY_CACHE_TTL_MS=86400000  (cache entry max age in ms; default 24h)
+ *           AI_PROXY_CACHE_TTL_MS=31536000000  (cache entry max age in ms; default 365d)
+ *
+ * Suggestion traffic uses a semantic Blobs key (query + kind) so cache hits do not require the
+ * same provider/model/payload; search caches keep the longest string list per query so a later
+ * request for fewer suggestions can be served from a larger cached list.
  */
 'use strict';
 
 const crypto = require('crypto');
+
+/** Default Blobs TTL when AI_PROXY_CACHE_TTL_MS is unset (prototype: staleness OK). */
+const DEFAULT_AI_PROXY_CACHE_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 
 const BLOBS_STORE_NAME = 'ai-proxy-responses';
+const SEMANTIC_CACHE_VERSION = 2;
 
 let blobsApi = null;
 try {
@@ -85,11 +93,175 @@ function cacheEnabled() {
 function cacheTtlMs() {
     const raw = parseInt(String(process.env.AI_PROXY_CACHE_TTL_MS || '').trim(), 10);
     if (Number.isFinite(raw) && raw > 0) return raw;
-    return 24 * 60 * 60 * 1000;
+    return DEFAULT_AI_PROXY_CACHE_TTL_MS;
 }
 
-function cacheKey(provider, upstreamBody) {
+/** Legacy: exact provider + body hash (warm-up and non-matching prompts). */
+function legacyCacheKey(provider, upstreamBody) {
     return crypto.createHash('sha256').update(`${provider}\n${upstreamBody}`, 'utf8').digest('hex');
+}
+
+function gatherPromptText(payload) {
+    if (!payload || typeof payload !== 'object') return '';
+    const parts = [];
+    if (typeof payload.system === 'string' && payload.system.trim()) {
+        parts.push(payload.system);
+    }
+    const msgs = Array.isArray(payload.messages) ? payload.messages : [];
+    for (const m of msgs) {
+        if (m && typeof m.content === 'string' && m.content.trim()) {
+            parts.push(m.content);
+        }
+    }
+    return parts.join('\n');
+}
+
+/**
+ * Detect Firefox prototype vs search-suggestion prototype prompts from step1.js.
+ * @returns {{ kind: 'search', query: string, searchCount: number } | { kind: 'firefox', query: string } | null}
+ */
+function classifyPrototypeAiRequest(payload) {
+    const text = gatherPromptText(payload);
+    if (!text) return null;
+
+    const fx = text.match(/Generate\s+4\s+Firefox\s+suggestions\s+related\s+to\s+"([^"]{0,500})"/i);
+    if (fx) {
+        const query = String(fx[1] || '')
+            .trim()
+            .toLowerCase();
+        if (query) return { kind: 'firefox', query };
+    }
+
+    const sc = text.match(
+        /Generate\s+(\d+)\s+popular\s+search\s+suggestions\s+where\s+at\s+least\s+one\s+word\s+starts\s+with:\s*"([^"]{0,500})"/i
+    );
+    if (sc) {
+        const n = parseInt(String(sc[1] || '').trim(), 10);
+        const query = String(sc[2] || '')
+            .trim()
+            .toLowerCase();
+        if (query && Number.isFinite(n) && n > 0 && n <= 80) {
+            return { kind: 'search', query, searchCount: n };
+        }
+    }
+
+    return null;
+}
+
+function semanticBlobKey(kind, queryNorm) {
+    const h = crypto.createHash('sha256').update(`${kind}:${queryNorm}`, 'utf8').digest('hex');
+    return `v${SEMANTIC_CACHE_VERSION}/${kind}/${h}`;
+}
+
+function parseAssistantContent(provider, upstreamJsonText) {
+    try {
+        const data = JSON.parse(upstreamJsonText);
+        if (provider === 'claude') {
+            const t = data.content && data.content[0] && data.content[0].text;
+            return typeof t === 'string' ? t.trim() : null;
+        }
+        const c = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+        return typeof c === 'string' ? c.trim() : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function parseSearchStringArrayFromAssistant(content) {
+    if (!content || typeof content !== 'string') return null;
+    const tryParse = (s) => {
+        try {
+            const v = JSON.parse(s);
+            if (Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string')) {
+                return v.map((x) => x.trim()).filter(Boolean);
+            }
+        } catch (_) {}
+        return null;
+    };
+    let r = tryParse(content);
+    if (r) return r;
+    const m = content.match(/\[[\s\S]*?\]/);
+    if (m) {
+        r = tryParse(m[0]);
+        if (r) return r;
+    }
+    return null;
+}
+
+function normalizeFirefoxItem(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const title = String(raw.title ?? raw.Title ?? raw.name ?? '').trim();
+    if (!title) return null;
+    const url = String(raw.url ?? raw.URL ?? raw.link ?? '').trim();
+    const description = String(raw.description ?? raw.Description ?? raw.meta ?? '').trim();
+    return { title, url, description };
+}
+
+function parseFirefoxArrayFromAssistant(content) {
+    const arr = parseInnerJsonArray(content);
+    if (!Array.isArray(arr)) return null;
+    const out = arr.map(normalizeFirefoxItem).filter(Boolean);
+    return out.length ? out : null;
+}
+
+function parseInnerJsonArray(content) {
+    if (!content || typeof content !== 'string') return null;
+    const tryParse = (s) => {
+        try {
+            const v = JSON.parse(s);
+            return Array.isArray(v) ? v : null;
+        } catch (_) {
+            return null;
+        }
+    };
+    let v = tryParse(content);
+    if (v) return v;
+    const m = content.match(/\[[\s\S]*\]/);
+    if (m) {
+        v = tryParse(m[0]);
+        if (v) return v;
+    }
+    return null;
+}
+
+function longerStringArray(a, b) {
+    const aa = Array.isArray(a) ? a.filter((x) => typeof x === 'string' && x.trim()) : [];
+    const bb = Array.isArray(b) ? b.filter((x) => typeof x === 'string' && x.trim()) : [];
+    return bb.length > aa.length ? bb : aa;
+}
+
+function longerFirefoxArray(a, b) {
+    const aa = Array.isArray(a) ? a : [];
+    const bb = Array.isArray(b) ? b : [];
+    return bb.length > aa.length ? bb : aa;
+}
+
+function syntheticUpstreamBody(provider, payload, assistantInnerText) {
+    const model =
+        (payload && typeof payload.model === 'string' && payload.model.trim()) || 'netlify-cache';
+    if (provider === 'claude') {
+        return JSON.stringify({
+            id: 'msg_netlify_semantic_cache',
+            type: 'message',
+            role: 'assistant',
+            model,
+            content: [{ type: 'text', text: assistantInnerText }],
+            stop_reason: 'end_turn',
+        });
+    }
+    return JSON.stringify({
+        id: 'chatcmpl_netlify_semantic_cache',
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model,
+        choices: [
+            {
+                index: 0,
+                message: { role: 'assistant', content: assistantInnerText },
+                finish_reason: 'stop',
+            },
+        ],
+    });
 }
 
 exports.handler = async (event) => {
@@ -199,11 +371,69 @@ exports.handler = async (event) => {
         }
     }
 
-    const key = store ? cacheKey(provider, upstreamBody) : null;
+    const semantic = classifyPrototypeAiRequest(payload);
+    const semanticKey = store && semantic ? semanticBlobKey(semantic.kind, semantic.query) : null;
+    const legacyKey = store ? legacyCacheKey(provider, upstreamBody) : null;
 
-    if (store && key) {
+    /** @type {string} */
+    let cacheHeader = '';
+
+    if (store && semantic && semanticKey) {
         try {
-            const entry = await store.get(key, { type: 'json' });
+            const entry = await store.get(semanticKey, { type: 'json' });
+            if (
+                entry &&
+                entry.v === SEMANTIC_CACHE_VERSION &&
+                typeof entry.storedAt === 'number' &&
+                Date.now() - entry.storedAt < ttl
+            ) {
+                if (semantic.kind === 'search') {
+                    const arr = entry.searchStrings;
+                    if (
+                        Array.isArray(arr) &&
+                        arr.length >= semantic.searchCount &&
+                        arr.every((x) => typeof x === 'string')
+                    ) {
+                        const slice = arr.slice(0, semantic.searchCount);
+                        const inner = JSON.stringify(slice);
+                        const body = syntheticUpstreamBody(provider, payload, inner);
+                        cacheHeader = 'hit';
+                        return {
+                            statusCode: 200,
+                            headers: {
+                                ...cors,
+                                'Content-Type': 'application/json',
+                                'X-AI-Proxy-Cache': cacheHeader,
+                            },
+                            body,
+                        };
+                    }
+                } else if (semantic.kind === 'firefox') {
+                    const arr = entry.firefoxItems;
+                    if (Array.isArray(arr) && arr.length > 0) {
+                        const inner = JSON.stringify(arr);
+                        const body = syntheticUpstreamBody(provider, payload, inner);
+                        cacheHeader = 'hit';
+                        return {
+                            statusCode: 200,
+                            headers: {
+                                ...cors,
+                                'Content-Type': 'application/json',
+                                'X-AI-Proxy-Cache': cacheHeader,
+                            },
+                            body,
+                        };
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('[ai-proxy] semantic cache read error:', err && err.message ? err.message : err);
+        }
+    }
+
+    if (store && legacyKey && !semantic) {
+        try {
+            const entry = await store.get(legacyKey, { type: 'json' });
             if (entry && typeof entry.storedAt === 'number' && typeof entry.body === 'string') {
                 if (Date.now() - entry.storedAt < ttl) {
                     const ct = entry.contentType || 'application/json';
@@ -219,7 +449,7 @@ exports.handler = async (event) => {
                 }
             }
         } catch (err) {
-            console.warn('[ai-proxy] cache read error:', err && err.message ? err.message : err);
+            console.warn('[ai-proxy] legacy cache read error:', err && err.message ? err.message : err);
         }
     }
 
@@ -241,25 +471,67 @@ exports.handler = async (event) => {
     const text = await upstreamRes.text();
     const ct = upstreamRes.headers.get('content-type') || 'application/json';
 
-    if (store && key && upstreamRes.ok && upstreamRes.status >= 200 && upstreamRes.status < 300) {
+    if (store && upstreamRes.ok && upstreamRes.status >= 200 && upstreamRes.status < 300) {
         try {
-            await store.setJSON(key, {
-                storedAt: Date.now(),
-                statusCode: upstreamRes.status,
-                contentType: ct,
-                body: text,
-            });
+            if (semantic && semanticKey) {
+                const assistant = parseAssistantContent(provider, text);
+                if (semantic.kind === 'search') {
+                    const parsed = assistant ? parseSearchStringArrayFromAssistant(assistant) : null;
+                    if (parsed && parsed.length > 0) {
+                        const prev = await store.get(semanticKey, { type: 'json' });
+                        const prevArr =
+                            prev && prev.v === SEMANTIC_CACHE_VERSION && Array.isArray(prev.searchStrings)
+                                ? prev.searchStrings
+                                : [];
+                        const merged = longerStringArray(prevArr, parsed);
+                        await store.setJSON(semanticKey, {
+                            v: SEMANTIC_CACHE_VERSION,
+                            storedAt: Date.now(),
+                            kind: 'search',
+                            query: semantic.query,
+                            searchStrings: merged,
+                        });
+                    }
+                } else if (semantic.kind === 'firefox') {
+                    const parsed = assistant ? parseFirefoxArrayFromAssistant(assistant) : null;
+                    if (parsed && parsed.length > 0) {
+                        const prev = await store.get(semanticKey, { type: 'json' });
+                        const prevArr =
+                            prev && prev.v === SEMANTIC_CACHE_VERSION && Array.isArray(prev.firefoxItems)
+                                ? prev.firefoxItems
+                                : [];
+                        const merged = longerFirefoxArray(prevArr, parsed);
+                        await store.setJSON(semanticKey, {
+                            v: SEMANTIC_CACHE_VERSION,
+                            storedAt: Date.now(),
+                            kind: 'firefox',
+                            query: semantic.query,
+                            firefoxItems: merged,
+                        });
+                    }
+                }
+            } else if (legacyKey) {
+                await store.setJSON(legacyKey, {
+                    storedAt: Date.now(),
+                    statusCode: upstreamRes.status,
+                    contentType: ct,
+                    body: text,
+                });
+            }
         } catch (err) {
             console.warn('[ai-proxy] cache write error:', err && err.message ? err.message : err);
         }
     }
+
+    const missHeader =
+        store && (semanticKey || (!semantic && legacyKey)) ? { 'X-AI-Proxy-Cache': 'miss' } : {};
 
     return {
         statusCode: upstreamRes.status,
         headers: {
             ...cors,
             'Content-Type': ct,
-            ...(store && key ? { 'X-AI-Proxy-Cache': 'miss' } : {}),
+            ...missHeader,
         },
         body: text,
     };
