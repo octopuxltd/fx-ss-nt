@@ -4,6 +4,9 @@ config.js
 # macOS
 .DS_Store
 
+# Dependencies (Netlify installs from package.json at build time)
+node_modules/
+
 # Editor directories and files
 .vscode/
 .idea/

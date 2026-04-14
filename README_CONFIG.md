@@ -72,6 +72,8 @@ The `config.js` file is generated during deployment and contains the API keys fr
 
 6. **`file://` pages:** Browsers send `Origin: null`. Set Netlify env **`AI_PROXY_ALLOW_NULL_ORIGIN=1`** only if you truly need to open HTML from disk while calling the deployed proxy, and set in **`config.js`**: `AI_PROXY_BASE: 'https://your-site.netlify.app'`. Leaving this off is safer.
 
+7. **Shared server cache (Netlify):** The AI proxy (`netlify/functions/ai-proxy.js`) can cache **successful** upstream responses in **Netlify Blobs** so any visitor who triggers the **same** provider + request body (same model, prompts, limits) gets the stored JSON instead of calling OpenAI / OpenRouter / Anthropic again. Keys are a **SHA-256** of `provider` plus the serialized `payload`; TTL defaults to **24 hours** (`AI_PROXY_CACHE_TTL_MS`, milliseconds). Disable with **`AI_PROXY_CACHE=0`**. Responses include **`X-AI-Proxy-Cache: hit`** or **`miss`** when caching is active. This shares **anonymized-by-hash** prompt traffic across users on the same site—tune TTL or turn off if that is not acceptable for your deployment.
+
 ### Local development
 
 - **Same repo + AI from disk or any static server:** Direct calls to OpenAI etc. still hit **CORS** in the browser. Use one of:

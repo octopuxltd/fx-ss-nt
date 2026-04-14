@@ -1,0 +1,8 @@
+{
+  "name": "firefox-search-prototype",
+  "private": true,
+  "description": "Netlify Functions dependency for server-side AI response cache (Blobs).",
+  "dependencies": {
+    "@netlify/blobs": "^10.7.4"
+  }
+}
