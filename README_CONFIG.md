@@ -55,9 +55,8 @@ The `config.js` file is generated during deployment and contains the API keys fr
 
 `config.js` is not in git, so a fresh Netlify deploy has **no API keys** until you wire secrets into the build.
 
-1. In the Netlify UI: **Site configuration** → **Environment variables**, add at least one key your chosen provider needs (see `step1.js` — default provider is `openai` from `localStorage`, usually **`OPENAI_API_KEY`**):
-   - `OPENAI_API_KEY`
-   - `OPENROUTER_API_KEY` (if you use an `openrouter-*` provider)
+1. In the Netlify UI: **Site configuration** → **Environment variables**, add keys for the providers you use. Default in `step1.js` is **`openrouter-haiku`** (unless `localStorage.ai_provider` overrides), so set **`OPENROUTER_API_KEY`** for AI suggestions without changing settings. Optionally:
+   - `OPENAI_API_KEY` (if you use `openai`)
    - `CLAUDE_API_KEY` (if you use Claude)
    - `PEXELS_API_KEY` (for background imagery, if used)
 
@@ -84,6 +83,8 @@ If keys are set but the browser still shows no AI rows, open DevTools → **Cons
 **Proxy returns `401` from OpenAI:** The function is reaching OpenAI but the **server** `OPENAI_API_KEY` is wrong, revoked, or pasted with extra characters. In Netlify, re-paste the secret (no quotes), save, and redeploy. The proxy trims whitespace/newlines from env values; if 401 persists, create a new key in the OpenAI dashboard and update both **Build** and **Functions** (or “All scopes”) for that variable.
 
 **Attempt 2 shows `500` / `Server missing OPENROUTER_API_KEY`:** Normal if you only configured OpenAI — the retry races OpenRouter. Add `OPENROUTER_API_KEY` to Netlify env or ignore that line.
+
+**Still using OpenAI after deploy:** An older `localStorage` value `ai_provider` may be set to `openai`. In DevTools → Application → Local Storage, delete `ai_provider` or set it to `openrouter-haiku`, or use **Clear cache** on the main-page prototype control (resets defaults).
 
 ## Files
 

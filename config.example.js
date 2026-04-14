@@ -7,6 +7,7 @@
 //   USE_AI_PROXY: false  — force direct browser → provider (only works if the provider allows your origin)
 
 window.API_CONFIG = {
+    // Default AI provider in step1.js is openrouter-haiku unless localStorage.ai_provider is set
     OPENROUTER_API_KEY: 'your-openrouter-api-key-here',
     OPENAI_API_KEY: 'your-openai-api-key-here',
     CLAUDE_API_KEY: 'your-anthropic-api-key-here',

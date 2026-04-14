@@ -46,8 +46,8 @@ function defaultBadgeCloneHoverLog(msg, detail) {
 }
 
 // ===== API CONFIGURATION =====
-// Load saved provider from localStorage, or default to OpenAI
-let AI_PROVIDER = localStorage.getItem('ai_provider') || 'openai';
+// Load saved provider from localStorage, or default to OpenRouter (CORS-safe via Netlify proxy; set OPENROUTER_API_KEY)
+let AI_PROVIDER = localStorage.getItem('ai_provider') || 'openrouter-haiku';
 
 // Model mapping for different providers
 const MODEL_MAP = {
@@ -11187,7 +11187,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
 
-                    AI_PROVIDER = 'openai';
+                    AI_PROVIDER = 'openrouter-haiku';
+                    try {
+                        localStorage.setItem('ai_provider', 'openrouter-haiku');
+                    } catch (_) {}
                     underlineSearchEnginesEnabled = false;
 
                     const enginesContainerReset = searchSwitcherButton?.querySelector('.dropdown-search-engines');
