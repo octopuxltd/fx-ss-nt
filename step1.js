@@ -1152,16 +1152,16 @@ async function fetchAISuggestions(query, retryCount = 0) {
                 }
                 const numToReplace = cachedFirefoxCountToShow || selectedFirefoxSuggestions.length;
                 
-                const firefoxTitles = selectedFirefoxSuggestions.map(item => item.title);
+                const firefoxRows = firefoxRowTokensFromSelected(selectedFirefoxSuggestions);
                 const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
                 const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
                 
                 if (finalSuggestions.length === 0) {
-                    finalSuggestions = firefoxTitles.slice(0, suggestionLimit);
+                    finalSuggestions = firefoxRows.slice(0, suggestionLimit);
                 } else {
                     finalSuggestions = [
                         ...finalSuggestions.slice(0, keepCount),
-                        ...firefoxTitles
+                        ...firefoxRows
                     ].slice(0, suggestionLimit);
                 }
             } else {
@@ -1183,17 +1183,17 @@ async function fetchAISuggestions(query, retryCount = 0) {
                         item.type = shuffled[i % shuffled.length];
                         item.date = getRandomDateForType(item.type);
                     });
-                    const firefoxTitles = selectedFirefoxSuggestions.map(item => item.title);
+                    const firefoxRows = firefoxRowTokensFromSelected(selectedFirefoxSuggestions);
                     
                     const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
                     const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
                     
                     if (finalSuggestions.length === 0) {
-                        finalSuggestions = firefoxTitles.slice(0, suggestionLimit);
+                        finalSuggestions = firefoxRows.slice(0, suggestionLimit);
                     } else {
                         finalSuggestions = [
                             ...finalSuggestions.slice(0, keepCount),
-                            ...firefoxTitles
+                            ...firefoxRows
                         ].slice(0, suggestionLimit);
                     }
                     
@@ -9865,6 +9865,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== FILTERING EXISTING SUGGESTIONS =====
 
     /**
+     * Row token for merged lists: only these render under “From Firefox” (avoids title == search string collisions).
+     */
+    function toFirefoxSuggestRowToken(fs) {
+        if (!fs || typeof fs !== 'object') return null;
+        const title = (fs.title || '').trim();
+        if (!title) return null;
+        return {
+            __firefoxSuggestRow: true,
+            title: fs.title,
+            url: fs.url || '',
+            type: fs.type || 'history',
+            date: fs.date,
+            description: fs.description,
+        };
+    }
+
+    function firefoxRowTokensFromSelected(selected) {
+        return (selected || []).map(toFirefoxSuggestRowToken).filter(Boolean);
+    }
+
+    /**
      * Keep predefined / local rows first, then append AI search strings (deduped, case-insensitive).
      * Preserves _firefoxSuggestions from the AI result on the returned array for rendering.
      */
@@ -9874,6 +9895,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const out = [];
         const seen = new Set();
         const add = (s) => {
+            if (typeof s === 'object' && s && s.__firefoxSuggestRow) {
+                const t = (s.title || '').trim();
+                if (!t) return;
+                const k = t.toLowerCase();
+                if (seen.has(k)) return;
+                seen.add(k);
+                out.push(s);
+                return;
+            }
             if (typeof s !== 'string') return;
             const t = s.trim();
             if (!t) return;
@@ -9901,9 +9931,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const queryLength = queryLower.length;
         
         console.log('[FILTER] Filtering', currentDisplayedSuggestions.length, 'suggestions for query:', queryLower);
+
+        const rowTextForFilter = (entry) => {
+            if (typeof entry === 'object' && entry && entry.__firefoxSuggestRow) {
+                return String(entry.title || '');
+            }
+            return typeof entry === 'string' ? entry : '';
+        };
         
         // Filter suggestions that match the query
-        const filteredSuggestions = currentDisplayedSuggestions.filter(suggestion => {
+        const filteredSuggestions = currentDisplayedSuggestions.filter((entry) => {
+            const suggestion = rowTextForFilter(entry);
             const suggestionLower = suggestion.toLowerCase();
             if (suggestionLower.length < queryLength) {
                 return false;
@@ -9915,6 +9953,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const words = suggestionLower.split(/\s+/);
             return words.some(word => word.startsWith(queryLower));
         });
+        if (Array.isArray(currentDisplayedSuggestions) && currentDisplayedSuggestions._firefoxSuggestions) {
+            filteredSuggestions._firefoxSuggestions = currentDisplayedSuggestions._firefoxSuggestions;
+        }
         
         console.log('[FILTER] Filtered to', filteredSuggestions.length, 'matching suggestions');
         
@@ -10123,6 +10164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const rowPreviews = suggestionsToShow.map((s) => {
             if (typeof s === 'string') return s.length > 72 ? `${s.slice(0, 72)}…` : s;
+            if (s && s.__firefoxSuggestRow) return `[firefox] ${String(s.title || '').slice(0, 48)}`;
             if (s && s._visitSite) return `[visit] ${String(s._text || '').slice(0, 48)}`;
             if (s && s._localSource) return `[local] ${String(s.label || '').slice(0, 48)}`;
             return '[row]';
@@ -10163,12 +10205,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        // Build set of Firefox suggestion titles and map title -> full data for lookup
-        const firefoxTitlesSet = new Set(
-            (firefoxSuggestions || []).map(fs =>
-                (typeof fs === 'string' ? fs : (fs && fs.title ? fs.title : '')).toLowerCase()
-            ).filter(Boolean)
-        );
         const firefoxDataByTitle = new Map(
             (firefoxSuggestions || [])
                 .filter(fs => typeof fs === 'object' && fs.title)
@@ -10241,13 +10277,27 @@ document.addEventListener('DOMContentLoaded', () => {
             let firefoxHeadingAdded = false;
             
             suggestionsToShow.forEach((suggestionOrObj, index) => {
+                const isFirefoxPage =
+                    typeof suggestionOrObj === 'object' &&
+                    suggestionOrObj &&
+                    suggestionOrObj.__firefoxSuggestRow === true;
                 const isVisitSite = typeof suggestionOrObj === 'object' && suggestionOrObj._visitSite;
                 const isLocalSource = typeof suggestionOrObj === 'object' && suggestionOrObj._localSource;
                 const isSearchEngineSuggestion = typeof suggestionOrObj === 'object' && suggestionOrObj._searchEngine;
-                const suggestion = isVisitSite ? suggestionOrObj._text : (isLocalSource ? suggestionOrObj.label : suggestionOrObj);
+                let suggestion;
+                if (isVisitSite) suggestion = suggestionOrObj._text;
+                else if (isLocalSource) suggestion = suggestionOrObj.label;
+                else if (isFirefoxPage) suggestion = suggestionOrObj.title || '';
+                else suggestion = suggestionOrObj;
                 const typedTextIndex = suggestionsToShow[0]?._visitSite ? 1 : 0;
-                const isTypedText = !isVisitSite && index === typedTextIndex && searchValueTrimmed && (suggestion || '').toLowerCase() === searchValueTrimmed.toLowerCase();
-                const isFirefoxSuggest = firefoxTitlesSet.has((suggestion || '').toLowerCase().trim());
+                const isTypedText =
+                    !isVisitSite &&
+                    !isFirefoxPage &&
+                    index === typedTextIndex &&
+                    searchValueTrimmed &&
+                    typeof suggestion === 'string' &&
+                    suggestion.toLowerCase() === searchValueTrimmed.toLowerCase();
+                const isFirefoxSuggest = isFirefoxPage || firefoxSuggestionsOnly;
                 
                 // Add 'From Firefox' heading before first Firefox item
                 if (isFirefoxSuggest && !firefoxHeadingAdded) {
@@ -10264,7 +10314,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.setAttribute('data-typed-text', 'true');
                 }
                 if (isFirefoxSuggest) {
-                    const firefoxDataForType = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
+                    const firefoxDataForType = isFirefoxPage
+                        ? suggestionOrObj
+                        : firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
                     const firefoxTypeForItem = displayType || (firefoxDataForType && firefoxDataForType.type) || 'history';
                     li.setAttribute('data-firefox-type', firefoxTypeForItem);
                 }
@@ -10272,7 +10324,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Get appropriate icon (Firefox items: tab / bookmark / history / actions)
                 let iconEl;
                 if (isFirefoxSuggest) {
-                    const firefoxData = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
+                    const firefoxData = isFirefoxPage
+                        ? suggestionOrObj
+                        : firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
                     const firefoxType = displayType || (firefoxData && firefoxData.type) || 'history';
                     const iconSrc = firefoxTypeIcons[firefoxType] || 'icons/internal-clock.svg';
                     iconEl = document.createElement('img');
@@ -10322,7 +10376,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hintText = document.createElement('span');
                 hintText.className = 'suggestion-hint-text';
                 if (isFirefoxSuggest) {
-                    const firefoxData = firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
+                    const firefoxData = isFirefoxPage
+                        ? suggestionOrObj
+                        : firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
                     const dateIso = firefoxData && firefoxData.date;
                     const firefoxType = displayType || (firefoxData && firefoxData.type) || 'history';
                     const urlDisplay = firefoxData && firefoxData.url
