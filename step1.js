@@ -10886,6 +10886,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         localStorage.setItem(SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY, 'false');
                         localStorage.setItem(SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY, 'false');
                     } catch (_) {}
+                    /* New Tab / Homepage navigate (and “Allow navigation by URL from the Firefox homepage”) default on after reset. */
+                    try {
+                        localStorage.setItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY, 'true');
+                    } catch (_) {}
                     syncSearchSettingsModalUrlParam(false);
                     try {
                         closeSearchSettingsModal();
@@ -10955,8 +10959,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     syncSearchSettingsDefaultEngineSelects();
                     document.querySelectorAll('#search-settings-modal .search-settings-cell-checkbox').forEach((cb) => {
+                        if (cb.id === 'search-settings-navigate-new-tab') return;
                         cb.checked = !cb.classList.contains('search-settings-navigate-column-checkbox');
                     });
+                    try {
+                        const navigateNewTabReset = document.getElementById('search-settings-navigate-new-tab');
+                        if (navigateNewTabReset) navigateNewTabReset.checked = true;
+                    } catch (_) {}
+                    try {
+                        const pspWinNavReset = document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow;
+                        pspWinNavReset?.postMessage({ type: 'sync-firefox-homepage-url-navigation-checkbox', enabled: true }, '*');
+                    } catch (_) {}
                     applySwitcherFromFirefoxSectionVisibility();
 
                     if (reducedMotionCheckbox) {
