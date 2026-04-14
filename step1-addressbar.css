@@ -341,6 +341,80 @@ body.addressbar
     background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
+/* Suggestions max-height collapse: JS removes `.focused` at the start so the strip can animate. The idle-typed
+ * rule above would otherwise beat `:has(.suggestions-list.transitioning)` and snap the shell to #ececee
+ * immediately. JS also drops `.transitioning` on a timer before `transitionend` clears
+ * `.search-container--suggestions-panel-collapsing`, so keep the focused shell on the container for the full
+ * collapse (see rules below). */
+body.addressbar
+    .search-container.search-has-typed-input
+    .search-box-wrapper-outer:not(:has(.search-input:focus)):has(.suggestions-list.transitioning) {
+    box-shadow: none;
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
+}
+
+body.addressbar .search-box-wrapper-outer:has(.suggestions-list.transitioning) .search-box-wrapper {
+    background-color: #fff;
+}
+
+body.addressbar
+    .search-box-wrapper-outer:not(:has(.search-input:focus)):has(.suggestions-list.transitioning)::before {
+    opacity: 1;
+    transition: none;
+}
+
+body.addressbar
+    .search-box-wrapper-outer:not(:has(.search-input:focus)):has(.suggestions-list.transitioning)
+    .suggestions-content,
+body.addressbar
+    .search-box-wrapper-outer:not(:has(.search-input:focus)):has(.suggestions-list.transitioning)
+    .search-button svg,
+body.addressbar
+    .search-box-wrapper-outer:not(:has(.search-input:focus)):has(.suggestions-list.transitioning)
+    .search-input::placeholder {
+    transition: opacity 0.2s ease;
+    opacity: 1;
+}
+
+/* Hold focused (white / tinted shell) until JS removes `.search-container--suggestions-panel-collapsing`
+ * after the max-height collapse settles — not only while `.transitioning` is on the list. */
+body.addressbar
+    .search-container.search-container--suggestions-panel-collapsing
+    .search-box-wrapper-outer:has(.suggestions-list) {
+    box-shadow: none;
+    background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
+}
+
+body.addressbar
+    .search-container.search-container--suggestions-panel-collapsing
+    .search-box-wrapper-outer:has(.suggestions-list)
+    .search-box-wrapper {
+    background-color: #fff;
+}
+
+body.addressbar
+    .search-container.search-container--suggestions-panel-collapsing
+    .search-box-wrapper-outer:has(.suggestions-list)::before {
+    opacity: 1;
+    transition: none;
+}
+
+body.addressbar
+    .search-container.search-container--suggestions-panel-collapsing
+    .search-box-wrapper-outer
+    .suggestions-content,
+body.addressbar
+    .search-container.search-container--suggestions-panel-collapsing
+    .search-box-wrapper-outer
+    .search-button svg,
+body.addressbar
+    .search-container.search-container--suggestions-panel-collapsing
+    .search-box-wrapper-outer
+    .search-input::placeholder {
+    transition: opacity 0.2s ease;
+    opacity: 1;
+}
+
 /* Same ring thickness as base .search-box-wrapper-outer::before (2px) and as standalone iframe */
 body.addressbar:not(.standalone-search-box) .search-box-wrapper-outer::before {
     transition: opacity 0.15s linear 0.3s;
@@ -438,6 +512,29 @@ body.addressbar.search-border-radius-large
     background-color: #ffffff;
     border: 1px solid #d3cdd9;
     box-shadow: none;
+}
+
+body.addressbar.search-border-radius-large
+    .search-container.search-has-typed-input
+    .search-box-wrapper-outer:not(:has(.search-input:focus)):has(.suggestions-list.transitioning) {
+    background-color: #ffffff;
+    border: 1px solid #d3cdd9;
+    box-shadow: none;
+}
+
+body.addressbar.search-border-radius-large
+    .search-container.search-container--suggestions-panel-collapsing
+    .search-box-wrapper-outer:has(.suggestions-list) {
+    background-color: #ffffff;
+    border: 1px solid #d3cdd9;
+    box-shadow: none;
+}
+
+body.addressbar.search-border-radius-large
+    .search-container.search-container--suggestions-panel-collapsing
+    .search-box-wrapper-outer:has(.suggestions-list)
+    .search-box-wrapper {
+    background-color: #ffffff;
 }
 
 body.addressbar.search-border-radius-large
@@ -745,6 +842,64 @@ body.addressbar .search-container.focused .suggestions-list {
 /* Real address bar column: program/autofocus must not expand the panel until JS adds .suggestions-revealed (after pointerdown). */
 body.addressbar:not(.standalone-search-box) .search-container.focused .suggestions-list:not(.suggestions-revealed) {
     max-height: 0;
+}
+
+/*
+ * Chip search-engine switcher (dropdown in the pill): collapse in-flow suggestions to input-only, same as
+ * before first reveal — keep the focus ring / border. Pinned-right engine list (host not [hidden]) unchanged.
+ * Applies to real address bar and standalone search box iframes (`body.addressbar`).
+ */
+body.addressbar
+    .search-container.focused:has(.search-switcher-button:is(.open, .switcher-closing)):not(
+        :has(.search-switcher-pinned-right-host:not([hidden]))
+    )
+    .suggestions-list {
+    max-height: 0 !important;
+    overflow: hidden !important;
+}
+
+body.addressbar
+    .search-container.focused:has(.search-switcher-button:is(.open, .switcher-closing)):not(
+        :has(.search-switcher-pinned-right-host:not([hidden]))
+    )
+    .one-off-buttons {
+    display: none !important;
+    max-height: 0 !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Full pill inner radius while chip switcher is open (list is collapsed but may still carry .suggestions-revealed). */
+body.addressbar:not(.search-border-radius-large)
+    .search-container.focused
+    .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)):not(
+        :has(.search-switcher-pinned-right-host:not([hidden]))
+    )
+    .search-box-wrapper {
+    border-radius: 10px;
+}
+
+/* step1.css dims the row when chip switcher is open; suggestions are hidden here — keep the field at full strength. */
+body.addressbar
+    .search-container.focused
+    .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)):not(
+        :has(.search-switcher-pinned-right-host:not([hidden]))
+    )
+    .suggestions-content,
+body.addressbar
+    .search-container.focused
+    .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)):not(
+        :has(.search-switcher-pinned-right-host:not([hidden]))
+    )
+    .search-button svg,
+body.addressbar
+    .search-container.focused
+    .search-box-wrapper-outer:has(.search-switcher-button:is(.open, .switcher-closing)):not(
+        :has(.search-switcher-pinned-right-host:not([hidden]))
+    )
+    .search-input::placeholder {
+    opacity: 1;
 }
 
 /* step1.css sets overflow:visible on .suggestions-revealed for overlay lists; here the list is in-flow and

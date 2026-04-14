@@ -3790,21 +3790,50 @@ document.addEventListener('DOMContentLoaded', () => {
         outer.style.setProperty('--suggestions-ring-extend', `${extra}px`);
     }
 
-    /** True while the suggestions strip can show (.focused + not suppress), or while the panel is collapsing so
-     * bottom corners stay square until max-height finishes (see closeSuggestionsPanel). */
+    /** True while the suggestions strip is open (revealed) so the input meets the list with a square bottom edge,
+     * while the main-page open animation runs (`.transitioning` before `suggestions-revealed`), or while the panel
+     * is collapsing so corners stay square until max-height finishes (see closeSuggestionsPanel).
+     * When the strip is closed (including chip switcher–collapsed iframe lists), keep a full pill. */
     function shouldSquareSearchInputBottomForSuggestions() {
         const list = document.querySelector('.suggestions-list');
         if (!list) return false;
         if (searchContainer?.classList.contains('search-container--suggestions-panel-collapsing')) {
-            /* Address bar: `closeSuggestionsPanel` always adds this class on blur, even when the strip was never
+            /* Iframes: `closeSuggestionsPanel` always adds this class on blur, even when the strip was never
              * `.suggestions-revealed` (e.g. reload + click away). Only square the bottom if the panel had opened. */
-            if (addressbarColumnIframe && !wasAddressbarSuggestionsRevealedAtBlur) {
+            if (document.body.classList.contains('addressbar') && !wasAddressbarSuggestionsRevealedAtBlur) {
                 return false;
             }
             return true;
         }
-        /* Address bar column: suggestions stay visually closed until .suggestions-revealed — keep a full pill on autofocus. */
-        if (addressbarColumnIframe && !list.classList.contains('suggestions-revealed')) {
+        /* Address bar + standalone iframes: in-flow list stays visually closed until .suggestions-revealed — full pill. */
+        if (document.body.classList.contains('addressbar') && !list.classList.contains('suggestions-revealed')) {
+            return false;
+        }
+        /* Chip switcher open collapses the list via CSS while .suggestions-revealed may remain — keep a full pill. */
+        if (document.body.classList.contains('addressbar')) {
+            const switcherBtn = document.querySelector('.search-switcher-button');
+            const chipOpenOrClosing =
+                switcherBtn &&
+                (switcherBtn.classList.contains('open') || switcherBtn.classList.contains('switcher-closing'));
+            const pinnedHost = document.querySelector('.search-switcher-pinned-right-host');
+            const pinnedVisible = pinnedHost && !pinnedHost.hidden;
+            if (chipOpenOrClosing && !pinnedVisible) {
+                return false;
+            }
+        }
+        /* Main overlay: open path adds `.transitioning` before `transitionend` adds `.suggestions-revealed`.
+         * Square the inner pill at the start of the max-height expand so it meets the strip immediately. */
+        if (
+            !document.body.classList.contains('addressbar') &&
+            searchContainer?.classList.contains('focused') &&
+            !searchContainer.classList.contains('search-container--suggestions-panel-collapsing') &&
+            list.classList.contains('transitioning') &&
+            !list.classList.contains('suggestions-suppress-until-typed')
+        ) {
+            return true;
+        }
+        /* Main / overlay: when not in the opening `.transitioning` phase, require a revealed strip. */
+        if (!document.body.classList.contains('addressbar') && !list.classList.contains('suggestions-revealed')) {
             return false;
         }
         return (
@@ -4001,7 +4030,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastTypedTextInInput = '';
     let lastHoveredItemForInput = null;
     const searchSwitcherButton = document.querySelector('.search-switcher-button');
+    if (searchSwitcherButton) {
+        new MutationObserver(() => requestAnimationFrame(syncSearchBoxWrapperCornersForSuggestionsPanel)).observe(
+            searchSwitcherButton,
+            { attributes: true, attributeFilter: ['class'] }
+        );
+    }
     const pinnedRightHost = document.querySelector('.search-switcher-pinned-right-host');
+    if (pinnedRightHost) {
+        new MutationObserver(() => requestAnimationFrame(syncSearchBoxWrapperCornersForSuggestionsPanel)).observe(
+            pinnedRightHost,
+            { attributes: true, attributeFilter: ['hidden'] }
+        );
+    }
     const searchClearButton = document.querySelector('.search-clear-button');
     const searchUrlButton = document.querySelector('.search-url-button');
     const searchButton = document.querySelector('.search-button');
@@ -10818,7 +10859,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         searchInput.addEventListener('blur', (e) => {
             if (inspectSuggestions) return;
-            if (addressbarColumnIframe) {
+            if (document.body.classList.contains('addressbar')) {
                 wasAddressbarSuggestionsRevealedAtBlur = !!suggestionsList?.classList.contains('suggestions-revealed');
             }
             // Pinned-right panel is beside the pill; focus moves into it on click — not "left search".
@@ -10867,11 +10908,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (addressbarColumnIframe) {
             searchContainer.addEventListener(
                 'pointerdown',
-                () => {
+                (e) => {
                     addressbarSuggestionsOpenEnabled = true;
                     refreshPinnedRightSwitcherPanel();
                     /* If focus ran before pointerdown, the focus handler returned early and never attached the
                      * reveal path — open once pointerdown catches up. */
+                    const t = e.target;
+                    if (
+                        t?.closest?.('.search-switcher-button') ||
+                        t?.closest?.('.search-switcher-pinned-right-host')
+                    ) {
+                        /* Chip / pinned chrome: rAF can run before mouseup+click add `.open`, so the catch-up
+                         * reveal would add .suggestions-revealed then chip-open CSS collapses — a one-frame flash. */
+                        return;
+                    }
                     if (
                         document.activeElement === searchInput &&
                         searchContainer.classList.contains('focused') &&
@@ -10879,6 +10929,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         !suggestionsList.classList.contains('suggestions-revealed')
                     ) {
                         requestAnimationFrame(() => {
+                            if (searchSwitcherButton?.classList.contains('open')) {
+                                return;
+                            }
+                            if (searchSwitcherButton?.classList.contains('switcher-closing')) {
+                                return;
+                            }
                             if (document.activeElement !== searchInput || !searchContainer.classList.contains('focused')) {
                                 return;
                             }
@@ -11662,7 +11718,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const ae = document.activeElement;
             if (ae === searchInput) {
                 wasFocusedBeforeBlur = true;
-                if (addressbarColumnIframe) {
+                if (document.body.classList.contains('addressbar')) {
                     wasAddressbarSuggestionsRevealedAtBlur = !!suggestionsList?.classList.contains('suggestions-revealed');
                 }
             } else if (searchSwitcherButton && searchSwitcherButton.contains(ae)) {
