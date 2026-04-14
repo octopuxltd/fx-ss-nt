@@ -110,6 +110,67 @@ async function fetchViaAiProxy(provider, payload) {
     return data;
 }
 
+/**
+ * Best-effort: one tiny completion through the same Netlify proxy + upstream path
+ * as real suggestions, shortly after load, so the first typed query is less likely
+ * to pay full cold-start latency.
+ */
+async function warmAiProxyOnce() {
+    if (!shouldUseAiProxy()) return;
+    const t0 = Date.now();
+    const model =
+        MODEL_MAP[AI_PROVIDER] ||
+        (AI_PROVIDER.startsWith('openrouter-') ? 'anthropic/claude-3-haiku' : 'gpt-4o-mini');
+    const tinyUser = { role: 'user', content: 'Reply with exactly the single word: ok' };
+
+    if (AI_PROVIDER === 'claude') {
+        await fetchViaAiProxy('claude', {
+            model: 'claude-3-5-haiku-20241022',
+            max_tokens: 8,
+            temperature: 0,
+            messages: [tinyUser],
+        });
+    } else if (AI_PROVIDER === 'openai') {
+        await fetchViaAiProxy('openai', {
+            model: MODEL_MAP.openai || 'gpt-4o-mini',
+            messages: [tinyUser],
+            temperature: 0,
+            max_tokens: 4,
+        });
+    } else {
+        await fetchViaAiProxy('openrouter', {
+            model,
+            messages: [tinyUser],
+            temperature: 0,
+            max_tokens: 4,
+        });
+    }
+    console.log('[API-WARMUP] AI proxy warm-up finished in', Date.now() - t0, 'ms');
+}
+
+function scheduleAiProxyWarmup() {
+    if (!shouldUseAiProxy()) return;
+    try {
+        if (window.self !== window.top) return;
+    } catch (_) {
+        return;
+    }
+    const run = () => {
+        warmAiProxyOnce().catch((e) => {
+            console.warn('[API-WARMUP] Warm-up failed (ignored):', e && e.message ? e.message : e);
+        });
+    };
+    if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(run, { timeout: 2500 });
+    } else {
+        setTimeout(run, 400);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    scheduleAiProxyWarmup();
+});
+
 // ===== FIREFOX HINT TEXT =====
 // Cache a date; compute relative string when rendering; show actual date on hover
 
