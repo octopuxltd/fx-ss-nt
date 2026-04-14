@@ -757,6 +757,42 @@ async function fetchSearchSuggestions(query, maxRetries = 2) {
 
 // ===== FIREFOX SUGGESTIONS API =====
 
+/** Coerce LLM-shaped objects into { title, url, description } so validation matches real model output. */
+function normalizeFirefoxSuggestionItem(raw) {
+    if (raw == null) return null;
+    if (typeof raw === 'string') {
+        const t = raw.trim();
+        if (!t) return null;
+        return { title: t, url: '', description: '' };
+    }
+    if (typeof raw !== 'object') return null;
+    const title = String(
+        raw.title ?? raw.Title ?? raw.name ?? raw.Name ?? raw.label ?? raw.text ?? raw.pageTitle ?? raw.page_title ?? ''
+    ).trim();
+    if (!title) return null;
+    const url = String(raw.url ?? raw.URL ?? raw.link ?? raw.uri ?? raw.href ?? '').trim();
+    const description = String(raw.description ?? raw.Description ?? raw.meta ?? raw.snippet ?? '').trim();
+    return { title, url, description };
+}
+
+function toFirefoxSuggestRowToken(fs) {
+    if (!fs || typeof fs !== 'object') return null;
+    const n = normalizeFirefoxSuggestionItem(fs);
+    if (!n || !String(n.title).trim()) return null;
+    return {
+        __firefoxSuggestRow: true,
+        title: n.title,
+        url: n.url || '',
+        type: fs.type || 'history',
+        date: fs.date,
+        description: n.description,
+    };
+}
+
+function firefoxRowTokensFromSelected(selected) {
+    return (selected || []).map(toFirefoxSuggestRowToken).filter(Boolean);
+}
+
 async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) {
     const modelName = MODEL_MAP[AI_PROVIDER] || AI_PROVIDER;
     console.log(`[API-FIREFOX] ===== Starting Firefox suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}, model: ${modelName}) =====`);
@@ -975,15 +1011,14 @@ async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) 
     } catch (parseError) {
         console.error('[API-FIREFOX] Parse error:', parseError);
     }
-    
-    // Filter and validate Firefox suggestions
+
+    firefoxSuggestions = firefoxSuggestions
+        .map((item) => normalizeFirefoxSuggestionItem(item))
+        .filter(Boolean);
+
+    // Filter and validate Firefox suggestions (already normalized to { title, url, description })
     const validFirefoxSuggestions = firefoxSuggestions
-        .filter(item => {
-            if (typeof item === 'object' && item.title) {
-                return item.title && item.title.length > 0;
-            }
-            return false;
-        })
+        .filter((item) => item && item.title && item.title.length > 0)
         .slice(0, 4);
     
     console.log(`[API-FIREFOX] Attempt ${attemptNumber} succeeded with ${validFirefoxSuggestions.length} valid Firefox suggestions`);
@@ -1019,8 +1054,22 @@ async function fetchFirefoxSuggestions(query, maxRetries = 2) {
             return;
         }
 
+        const list = Array.isArray(result) ? result : [];
+        if (list.length === 0) {
+            finishedAttempts++;
+            console.log(
+                `[API-FIREFOX] Attempt ${attemptNumber} returned 0 valid Firefox rows after parse; waiting for other attempts (${finishedAttempts}/${totalAttempts})`
+            );
+            errors.push({ attempt: attemptNumber, error: new Error('No valid Firefox suggestions') });
+            if (finishedAttempts === totalAttempts) {
+                completed = true;
+                resolveFirst({ result: [], attempt: attemptNumber });
+            }
+            return;
+        }
+
         completed = true;
-        resolveFirst({ result, attempt: attemptNumber });
+        resolveFirst({ result: list, attempt: attemptNumber });
     }
 
     // Attempt 1 immediately, then additional attempts after 2s and 4s
@@ -1092,7 +1141,9 @@ async function fetchAISuggestions(query, retryCount = 0) {
         
         // Handle search suggestions
         if (searchResults.status === 'fulfilled') {
-            finalSuggestions = searchResults.value.result || searchResults.value;
+            const rawSearch = searchResults.value && searchResults.value.result;
+            const maybe = rawSearch !== undefined && rawSearch !== null ? rawSearch : searchResults.value;
+            finalSuggestions = Array.isArray(maybe) ? maybe : [];
             if (finalSuggestions.length > 0) {
                 cacheSuggestions(query, finalSuggestions);
             }
@@ -1102,11 +1153,17 @@ async function fetchAISuggestions(query, retryCount = 0) {
         
         // Handle Firefox suggestions
         if (firefoxResults.status === 'fulfilled') {
-            firefoxSuggestions = firefoxResults.value.result || firefoxResults.value || [];
+            const rawFx = firefoxResults.value && firefoxResults.value.result;
+            const maybeFx = rawFx !== undefined && rawFx !== null ? rawFx : firefoxResults.value;
+            firefoxSuggestions = Array.isArray(maybeFx) ? maybeFx : [];
             console.log('[API] Received', firefoxSuggestions.length, 'Firefox suggestions');
         } else {
             console.error('[API] Firefox suggestions failed:', firefoxResults.reason);
             firefoxSuggestions = [];
+        }
+
+        if (!Array.isArray(finalSuggestions)) {
+            finalSuggestions = [];
         }
         
         // Merge cached suggestions with AI results
@@ -1117,9 +1174,11 @@ async function fetchAISuggestions(query, retryCount = 0) {
             } else {
                 console.log('[API] Merging', cachedSuggestions.length, 'cached with', finalSuggestions.length, 'AI suggestions');
                 const combined = [...cachedSuggestions];
-                finalSuggestions.forEach(aiSuggestion => {
+                const aiList = Array.isArray(finalSuggestions) ? finalSuggestions : [];
+                aiList.forEach((aiSuggestion) => {
+                    if (typeof aiSuggestion !== 'string') return;
                     const aiLower = aiSuggestion.toLowerCase();
-                    if (!combined.some(s => s.toLowerCase() === aiLower)) {
+                    if (!combined.some((s) => typeof s === 'string' && s.toLowerCase() === aiLower)) {
                         combined.push(aiSuggestion);
                     }
                 });
@@ -1131,10 +1190,23 @@ async function fetchAISuggestions(query, retryCount = 0) {
         let selectedFirefoxSuggestions = [];
         if (firefoxSuggestions && firefoxSuggestions.length > 0) {
             console.log('[API] Processing', firefoxSuggestions.length, 'Firefox suggestions');
-            
-            if (cachedSelectedFirefoxSuggestions && cachedSelectedFirefoxSuggestions.length > 0) {
-                // Use cached Firefox suggestions (ensure each has type for backwards compatibility)
-                selectedFirefoxSuggestions = cachedSelectedFirefoxSuggestions.map(item => ({ ...item }));
+
+            const hasCachedFirefox =
+                cachedSelectedFirefoxSuggestions && cachedSelectedFirefoxSuggestions.length > 0;
+            let normalizedFromCache = [];
+            if (hasCachedFirefox) {
+                normalizedFromCache = cachedSelectedFirefoxSuggestions
+                    .map((item) => {
+                        if (!item || typeof item !== 'object') return null;
+                        const n = normalizeFirefoxSuggestionItem(item);
+                        if (!n) return null;
+                        return { ...item, ...n };
+                    })
+                    .filter(Boolean);
+            }
+
+            if (hasCachedFirefox && normalizedFromCache.length > 0) {
+                selectedFirefoxSuggestions = normalizedFromCache;
                 const firefoxTypes = ['tab', 'bookmark', 'history'];
                 let needsRecache = false;
                 selectedFirefoxSuggestions.forEach((item, i) => {
@@ -1151,11 +1223,11 @@ async function fetchAISuggestions(query, retryCount = 0) {
                     cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, cachedFirefoxCountToShow || selectedFirefoxSuggestions.length);
                 }
                 const numToReplace = cachedFirefoxCountToShow || selectedFirefoxSuggestions.length;
-                
+
                 const firefoxRows = firefoxRowTokensFromSelected(selectedFirefoxSuggestions);
                 const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
                 const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
-                
+
                 if (finalSuggestions.length === 0) {
                     finalSuggestions = firefoxRows.slice(0, suggestionLimit);
                 } else {
@@ -1167,13 +1239,13 @@ async function fetchAISuggestions(query, retryCount = 0) {
             } else {
                 // Generate new Firefox suggestions
                 const validFirefoxSuggestions = firefoxSuggestions
-                    .filter(item => typeof item === 'object' && item.title && item.title.length > 0)
+                    .map((item) => normalizeFirefoxSuggestionItem(item))
+                    .filter(Boolean)
                     .slice(0, 4);
                 
                 if (validFirefoxSuggestions.length > 0) {
                     const maxCount = Math.min(validFirefoxSuggestions.length, 4);
-                    const minCount = Math.min(2, maxCount);
-                    const numToReplace = minCount === maxCount ? maxCount : Math.floor(Math.random() * (maxCount - minCount + 1)) + minCount;
+                    const numToReplace = maxCount;
                     
                     selectedFirefoxSuggestions = validFirefoxSuggestions.slice(0, numToReplace);
                     // Assign type (tab/bookmark/history) on first render; cached for consistency
@@ -1200,6 +1272,20 @@ async function fetchAISuggestions(query, retryCount = 0) {
                     // Cache the selected Firefox suggestions
                     cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, numToReplace);
                 }
+            }
+        }
+
+        if (!Array.isArray(finalSuggestions)) {
+            finalSuggestions = [];
+        }
+        if (
+            finalSuggestions.length === 0 &&
+            selectedFirefoxSuggestions &&
+            selectedFirefoxSuggestions.length > 0
+        ) {
+            const rowFallback = firefoxRowTokensFromSelected(selectedFirefoxSuggestions);
+            if (rowFallback.length > 0) {
+                finalSuggestions = rowFallback.slice(0, suggestionLimit);
             }
         }
         
@@ -9865,25 +9951,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== FILTERING EXISTING SUGGESTIONS =====
 
     /**
-     * Row token for merged lists: only these render under “From Firefox” (avoids title == search string collisions).
+     * Row tokens: module-level `toFirefoxSuggestRowToken` / `firefoxRowTokensFromSelected` (shared with fetchAISuggestions).
      */
-    function toFirefoxSuggestRowToken(fs) {
-        if (!fs || typeof fs !== 'object') return null;
-        const title = (fs.title || '').trim();
-        if (!title) return null;
-        return {
-            __firefoxSuggestRow: true,
-            title: fs.title,
-            url: fs.url || '',
-            type: fs.type || 'history',
-            date: fs.date,
-            description: fs.description,
-        };
-    }
-
-    function firefoxRowTokensFromSelected(selected) {
-        return (selected || []).map(toFirefoxSuggestRowToken).filter(Boolean);
-    }
 
     /**
      * Keep predefined / local rows first, then append AI search strings (deduped, case-insensitive).
