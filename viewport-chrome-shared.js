@@ -4,7 +4,7 @@
  * - Tab-strip chromeless UI (step1.js): show when gap is *less than or equal* to this.
  */
 (function (w) {
-    var VIEWPORT_CHROME_HEIGHT_GAP_THRESHOLD_PX = 60;
+    var VIEWPORT_CHROME_HEIGHT_GAP_THRESHOLD_PX = 35;
 
     function getViewportChromeHeightGapPx() {
         try {

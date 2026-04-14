@@ -3386,7 +3386,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 typeof window.__isViewportChromelessPrototypeUi === 'function'
                     ? window.__isViewportChromelessPrototypeUi()
                     : Math.abs(window.innerHeight - window.outerHeight) <=
-                      (window.__VIEWPORT_CHROME_HEIGHT_GAP_THRESHOLD_PX ?? 60);
+                      (window.__VIEWPORT_CHROME_HEIGHT_GAP_THRESHOLD_PX ?? 35);
             if (tabStripSimulationRibbon) {
                 tabStripSimulationRibbon.hidden = !showChromelessViewportUi;
             }
