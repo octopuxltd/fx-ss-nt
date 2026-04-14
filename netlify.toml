@@ -1,0 +1,5 @@
+# Generate gitignored config.js from Netlify environment variables so AI
+# suggestions work on deploy (see README_CONFIG.md → Netlify).
+[build]
+  command = "node scripts/write-config-from-env.js"
+  publish = "."

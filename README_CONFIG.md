@@ -51,6 +51,24 @@ The `config.js` file is generated during deployment and contains the API keys fr
 - ✅ API keys are available to GitHub Pages
 - ✅ Each deployment uses the latest secrets
 
+## Netlify deployment
+
+`config.js` is not in git, so a fresh Netlify deploy has **no API keys** until you wire secrets into the build.
+
+1. In the Netlify UI: **Site configuration** → **Environment variables**, add at least one key your chosen provider needs (see `step1.js` — default provider is `openai` from `localStorage`, usually **`OPENAI_API_KEY`**):
+   - `OPENAI_API_KEY`
+   - `OPENROUTER_API_KEY` (if you use an `openrouter-*` provider)
+   - `CLAUDE_API_KEY` (if you use Claude)
+   - `PEXELS_API_KEY` (for background imagery, if used)
+
+2. Ensure **Build settings** use the repo’s `netlify.toml` (or set manually):
+   - **Build command:** `node scripts/write-config-from-env.js`
+   - **Publish directory:** `.`
+
+3. Trigger a new deploy. The build writes `config.js` before publish so `step1.html` can load it.
+
+If keys are set but the browser still shows no AI rows, open DevTools → **Console** and **Network** for failed `fetch` (e.g. CORS or `401`). Keys in `config.js` are still visible to visitors — use provider-side limits / restricted keys.
+
 ## Files
 
 - `config.example.js`: Template file (committed to repo)
