@@ -854,6 +854,59 @@ function firefoxRowTokensFromSelected(selected) {
     return (selected || []).map(toFirefoxSuggestRowToken).filter(Boolean);
 }
 
+/**
+ * Merge AI search strings with Firefox row tokens for the dropdown cap: keep every
+ * Firefox row; use only as many leading search strings as fit (`cap - firefoxCount`).
+ * Never drops Firefox rows to satisfy the cap (if there are more Firefox rows than
+ * `cap`, the list may exceed `cap`).
+ */
+function mergeSearchStringsWithFirefoxRows(stringSource, firefoxRowTokens, cap) {
+    const capN = Math.max(1, Number(cap) || 10);
+    const rows = Array.isArray(firefoxRowTokens) ? firefoxRowTokens.filter(Boolean) : [];
+    const fCount = rows.length;
+    const strings = (stringSource || []).filter((s) => typeof s === 'string');
+    if (fCount === 0) {
+        return strings.slice(0, capN);
+    }
+    const stringSlots = Math.max(0, capN - fCount);
+    const keptStrings = strings.slice(0, stringSlots);
+    const merged = [...keptStrings, ...rows];
+    if (merged.length <= capN) {
+        return merged;
+    }
+    if (fCount >= capN) {
+        return merged;
+    }
+    return merged.slice(0, capN);
+}
+
+/**
+ * Cap visible rows without dropping Firefox Suggest tokens: shrink the prefix
+ * (typed text, engines, search strings) so every `__firefoxSuggestRow` stays.
+ */
+function applySuggestDisplayCap(rows, cap) {
+    if (!Array.isArray(rows)) {
+        return [];
+    }
+    const capN = Math.max(1, Number(cap) || 10);
+    if (rows.length <= capN) {
+        return rows.slice();
+    }
+    const firstFx = rows.findIndex((r) => typeof r === 'object' && r && r.__firefoxSuggestRow);
+    if (firstFx === -1) {
+        return rows.slice(0, capN);
+    }
+    const prefix = rows.slice(0, firstFx);
+    const firefoxOnly = rows
+        .slice(firstFx)
+        .filter((r) => typeof r === 'object' && r && r.__firefoxSuggestRow);
+    if (firefoxOnly.length === 0) {
+        return rows.slice(0, capN);
+    }
+    const spaceForPrefix = Math.max(0, capN - firefoxOnly.length);
+    return [...prefix.slice(0, spaceForPrefix), ...firefoxOnly];
+}
+
 async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) {
     const modelName = MODEL_MAP[AI_PROVIDER] || AI_PROVIDER;
     console.log(`[API-FIREFOX] ===== Starting Firefox suggestions attempt ${attemptNumber} for query: "${query}" (provider: ${AI_PROVIDER}, model: ${modelName}) =====`);
@@ -1281,22 +1334,11 @@ async function fetchAISuggestions(query, retryCount = 0) {
                     }
                 });
                 if (needsRecache) {
-                    cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, cachedFirefoxCountToShow || selectedFirefoxSuggestions.length);
+                    cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, selectedFirefoxSuggestions.length);
                 }
-                const numToReplace = cachedFirefoxCountToShow || selectedFirefoxSuggestions.length;
 
                 const firefoxRows = firefoxRowTokensFromSelected(selectedFirefoxSuggestions);
-                const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
-                const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
-
-                if (finalSuggestions.length === 0) {
-                    finalSuggestions = firefoxRows.slice(0, suggestionLimit);
-                } else {
-                    finalSuggestions = [
-                        ...finalSuggestions.slice(0, keepCount),
-                        ...firefoxRows
-                    ].slice(0, suggestionLimit);
-                }
+                finalSuggestions = mergeSearchStringsWithFirefoxRows(finalSuggestions, firefoxRows, suggestionLimit);
             } else {
                 // Generate new Firefox suggestions
                 const validFirefoxSuggestions = firefoxSuggestions
@@ -1306,9 +1348,7 @@ async function fetchAISuggestions(query, retryCount = 0) {
                 
                 if (validFirefoxSuggestions.length > 0) {
                     const maxCount = Math.min(validFirefoxSuggestions.length, 4);
-                    const numToReplace = maxCount;
-                    
-                    selectedFirefoxSuggestions = validFirefoxSuggestions.slice(0, numToReplace);
+                    selectedFirefoxSuggestions = validFirefoxSuggestions.slice(0, maxCount);
                     // Assign type (tab/bookmark/history) on first render; cached for consistency
                     const firefoxTypes = ['tab', 'bookmark', 'history'];
                     const shuffled = [...firefoxTypes].sort(() => Math.random() - 0.5);
@@ -1317,21 +1357,10 @@ async function fetchAISuggestions(query, retryCount = 0) {
                         item.date = getRandomDateForType(item.type);
                     });
                     const firefoxRows = firefoxRowTokensFromSelected(selectedFirefoxSuggestions);
-                    
-                    const actualNumToReplace = Math.min(numToReplace, Math.max(finalSuggestions.length, 0));
-                    const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
-                    
-                    if (finalSuggestions.length === 0) {
-                        finalSuggestions = firefoxRows.slice(0, suggestionLimit);
-                    } else {
-                        finalSuggestions = [
-                            ...finalSuggestions.slice(0, keepCount),
-                            ...firefoxRows
-                        ].slice(0, suggestionLimit);
-                    }
-                    
+                    finalSuggestions = mergeSearchStringsWithFirefoxRows(finalSuggestions, firefoxRows, suggestionLimit);
+
                     // Cache the selected Firefox suggestions
-                    cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, numToReplace);
+                    cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, selectedFirefoxSuggestions.length);
                 }
             }
         }
@@ -1346,7 +1375,7 @@ async function fetchAISuggestions(query, retryCount = 0) {
         ) {
             const rowFallback = firefoxRowTokensFromSelected(selectedFirefoxSuggestions);
             if (rowFallback.length > 0) {
-                finalSuggestions = rowFallback.slice(0, suggestionLimit);
+                finalSuggestions = mergeSearchStringsWithFirefoxRows([], rowFallback, suggestionLimit);
             }
         }
         
@@ -10289,7 +10318,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const displayLimit = readSearchSuggestionsDisplayLimit();
         if (suggestionsToShow.length > displayLimit) {
-            suggestionsToShow = suggestionsToShow.slice(0, displayLimit);
+            suggestionsToShow = firefoxSuggestionsOnly
+                ? suggestionsToShow.slice(0, displayLimit)
+                : applySuggestDisplayCap(suggestionsToShow, displayLimit);
         }
 
         const rowPreviews = suggestionsToShow.map((s) => {
