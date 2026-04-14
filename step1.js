@@ -62,6 +62,54 @@ const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const OPENAI_API_KEY = window.API_CONFIG?.OPENAI_API_KEY || '';
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
+/** Netlify (or netlify dev) same-origin function — avoids provider CORS. See README_CONFIG.md. */
+function getAiProxyBaseUrl() {
+    const fromCfg = window.API_CONFIG?.AI_PROXY_BASE;
+    if (fromCfg && String(fromCfg).trim()) return String(fromCfg).replace(/\/$/, '');
+    if (typeof location === 'undefined') return '';
+    if (location.protocol === 'file:') return '';
+    const h = location.hostname || '';
+    if (/\.netlify\.app$/i.test(h)) return location.origin;
+    const p = String(location.port || '');
+    if ((h === 'localhost' || h === '127.0.0.1' || h === '[::1]') && p === '8888') return location.origin;
+    return '';
+}
+
+function shouldUseAiProxy() {
+    if (window.API_CONFIG?.USE_AI_PROXY === false) return false;
+    return !!getAiProxyBaseUrl();
+}
+
+async function fetchViaAiProxy(provider, payload) {
+    const base = getAiProxyBaseUrl();
+    if (!base) throw new Error('AI proxy not configured');
+    const url = `${base}/.netlify/functions/ai-proxy`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, payload }),
+    });
+    const text = await res.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch (_) {
+        const err = new Error(`Proxy returned non-JSON (${res.status}): ${text.slice(0, 280)}`);
+        err.hasResponse = true;
+        throw err;
+    }
+    if (!res.ok) {
+        const msg =
+            typeof data.error === 'string'
+                ? data.error
+                : data.error?.message || data.message || text.slice(0, 400);
+        const err = new Error(`API error: ${res.status} - ${msg}`);
+        err.hasResponse = true;
+        throw err;
+    }
+    return data;
+}
+
 // ===== FIREFOX HINT TEXT =====
 // Cache a date; compute relative string when rendering; show actual date on hover
 
@@ -423,18 +471,18 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
     const isOpenRouter = provider.startsWith('openrouter-');
     const isOpenAI = provider === 'openai';
     
-    // Check API key based on provider
-    if (provider === 'claude' && !CLAUDE_API_KEY) {
+    // Check API key based on provider (skip when same-origin proxy supplies server-side keys)
+    if (provider === 'claude' && !CLAUDE_API_KEY && !shouldUseAiProxy()) {
         console.error('[API-SEARCH] ✗ Claude API key not set');
         throw new Error('Claude API key not set');
-    } else if (provider.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
+    } else if (provider.startsWith('openrouter-') && !OPENROUTER_API_KEY && !shouldUseAiProxy()) {
         console.error('[API-SEARCH] ✗ OpenRouter API key not set');
         throw new Error('OpenRouter API key not set');
-    } else if (isOpenAI && !OPENAI_API_KEY) {
+    } else if (isOpenAI && !OPENAI_API_KEY && !shouldUseAiProxy()) {
         console.error('[API-SEARCH] ✗ OpenAI API key not set');
         throw new Error('OpenAI API key not set');
     }
-    console.log('[API-SEARCH] ✓ API key is set');
+    console.log(shouldUseAiProxy() ? '[API-SEARCH] ✓ Using AI proxy' : '[API-SEARCH] ✓ API key is set');
     
     const suggestionLimit = readSearchSuggestionsDisplayLimit();
     const responseMaxTokens = searchSuggestionsResponseMaxTokens(suggestionLimit);
@@ -463,35 +511,43 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
             temperature: 0.7,
             max_tokens: responseMaxTokens
         };
-        
-        response = await fetch(OPENAI_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENAI_API_KEY}`
-            },
-            body: JSON.stringify(requestBody)
-        });
-        
-        const requestDuration = Date.now() - startTime;
-        console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
-            status: response.status,
-            duration: `${requestDuration}ms`
-        });
-        
-        if (!response.ok) {
-            let errorText;
-            try {
-                errorText = await response.text();
-            } catch (e) {
-                errorText = 'Could not read error response';
+
+        if (shouldUseAiProxy()) {
+            data = await fetchViaAiProxy('openai', requestBody);
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-SEARCH] Attempt ${attemptNumber} response received (proxy):`, {
+                duration: `${requestDuration}ms`
+            });
+        } else {
+            response = await fetch(OPENAI_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${OPENAI_API_KEY}`
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
+                status: response.status,
+                duration: `${requestDuration}ms`
+            });
+
+            if (!response.ok) {
+                let errorText;
+                try {
+                    errorText = await response.text();
+                } catch (e) {
+                    errorText = 'Could not read error response';
+                }
+                const error = new Error(`API error: ${response.status} - ${errorText}`);
+                error.hasResponse = true;
+                throw error;
             }
-            const error = new Error(`API error: ${response.status} - ${errorText}`);
-            error.hasResponse = true;
-            throw error;
+
+            data = await response.json();
         }
-        
-        data = await response.json();
         content = data.choices?.[0]?.message?.content?.trim();
     } else if (AI_PROVIDER === 'claude') {
         // Claude API request
@@ -502,36 +558,44 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
             system: systemPrompt,
             messages: [{ role: 'user', content: userPrompt }]
         };
-        
-        response = await fetch(CLAUDE_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': CLAUDE_API_KEY,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify(requestBody)
-        });
-        
-        const requestDuration = Date.now() - startTime;
-        console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
-            status: response.status,
-            duration: `${requestDuration}ms`
-        });
-        
-        if (!response.ok) {
-            let errorText;
-            try {
-                errorText = await response.text();
-            } catch (e) {
-                errorText = 'Could not read error response';
+
+        if (shouldUseAiProxy()) {
+            data = await fetchViaAiProxy('claude', requestBody);
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-SEARCH] Attempt ${attemptNumber} response received (proxy):`, {
+                duration: `${requestDuration}ms`
+            });
+        } else {
+            response = await fetch(CLAUDE_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': CLAUDE_API_KEY,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
+                status: response.status,
+                duration: `${requestDuration}ms`
+            });
+
+            if (!response.ok) {
+                let errorText;
+                try {
+                    errorText = await response.text();
+                } catch (e) {
+                    errorText = 'Could not read error response';
+                }
+                const error = new Error(`API error: ${response.status} - ${errorText}`);
+                error.hasResponse = true;
+                throw error;
             }
-            const error = new Error(`API error: ${response.status} - ${errorText}`);
-            error.hasResponse = true;
-            throw error;
+
+            data = await response.json();
         }
-        
-        data = await response.json();
         content = data.content?.[0]?.text?.trim();
     } else {
         // OpenRouter API request
@@ -544,37 +608,45 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
             temperature: 0.7,
             max_tokens: responseMaxTokens
         };
-        
-        response = await fetch(OPENROUTER_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'HTTP-Referer': window.location.origin,
-                'X-Title': 'Search Suggestions'
-            },
-            body: JSON.stringify(requestBody)
-        });
-        
-        const requestDuration = Date.now() - startTime;
-        console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
-            status: response.status,
-            duration: `${requestDuration}ms`
-        });
-        
-        if (!response.ok) {
-            let errorText;
-            try {
-                errorText = await response.text();
-            } catch (e) {
-                errorText = 'Could not read error response';
+
+        if (shouldUseAiProxy()) {
+            data = await fetchViaAiProxy('openrouter', requestBody);
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-SEARCH] Attempt ${attemptNumber} response received (proxy):`, {
+                duration: `${requestDuration}ms`
+            });
+        } else {
+            response = await fetch(OPENROUTER_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'Search Suggestions'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-SEARCH] Attempt ${attemptNumber} response received:`, {
+                status: response.status,
+                duration: `${requestDuration}ms`
+            });
+
+            if (!response.ok) {
+                let errorText;
+                try {
+                    errorText = await response.text();
+                } catch (e) {
+                    errorText = 'Could not read error response';
+                }
+                const error = new Error(`API error: ${response.status} - ${errorText}`);
+                error.hasResponse = true;
+                throw error;
             }
-            const error = new Error(`API error: ${response.status} - ${errorText}`);
-            error.hasResponse = true;
-            throw error;
+
+            data = await response.json();
         }
-        
-        data = await response.json();
         content = data.choices[0]?.message?.content?.trim();
     }
     
@@ -701,18 +773,18 @@ async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) 
     const isOpenRouter = AI_PROVIDER.startsWith('openrouter-');
     const isOpenAI = AI_PROVIDER === 'openai';
     
-    // Check API key based on provider
-    if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY) {
+    // Check API key based on provider (skip when same-origin proxy supplies server-side keys)
+    if (AI_PROVIDER === 'claude' && !CLAUDE_API_KEY && !shouldUseAiProxy()) {
         console.error('[API-FIREFOX] ✗ Claude API key not set');
         throw new Error('Claude API key not set');
-    } else if (AI_PROVIDER.startsWith('openrouter-') && !OPENROUTER_API_KEY) {
+    } else if (AI_PROVIDER.startsWith('openrouter-') && !OPENROUTER_API_KEY && !shouldUseAiProxy()) {
         console.error('[API-FIREFOX] ✗ OpenRouter API key not set');
         throw new Error('OpenRouter API key not set');
-    } else if (isOpenAI && !OPENAI_API_KEY) {
+    } else if (isOpenAI && !OPENAI_API_KEY && !shouldUseAiProxy()) {
         console.error('[API-FIREFOX] ✗ OpenAI API key not set');
         throw new Error('OpenAI API key not set');
     }
-    console.log('[API-FIREFOX] ✓ API key is set');
+    console.log(shouldUseAiProxy() ? '[API-FIREFOX] ✓ Using AI proxy' : '[API-FIREFOX] ✓ API key is set');
     
     const systemPrompt = 'You are a browser history suggestion generator. Generate 4 Firefox suggestions (page titles from simulated browser history related to the query). Each Firefox suggestion should be an object with "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). IMPORTANT: All 4 suggestions must come from different websites (different domains). Return ONLY a JSON array of 4 objects, each with title, url, description. No explanations, just the JSON array.';
     const userPrompt = `Generate 4 Firefox suggestions related to "${query}". Each Firefox suggestion should be an object with: "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). IMPORTANT: All 4 suggestions must come from different websites (different domains). Return only a JSON array.`;
@@ -730,35 +802,43 @@ async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) 
             temperature: 0.7,
             max_tokens: 300
         };
-        
-        response = await fetch(OPENAI_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENAI_API_KEY}`
-            },
-            body: JSON.stringify(requestBody)
-        });
-        
-        const requestDuration = Date.now() - startTime;
-        console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
-            status: response.status,
-            duration: `${requestDuration}ms`
-        });
-        
-        if (!response.ok) {
-            let errorText;
-            try {
-                errorText = await response.text();
-            } catch (e) {
-                errorText = 'Could not read error response';
+
+        if (shouldUseAiProxy()) {
+            data = await fetchViaAiProxy('openai', requestBody);
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received (proxy):`, {
+                duration: `${requestDuration}ms`
+            });
+        } else {
+            response = await fetch(OPENAI_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${OPENAI_API_KEY}`
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
+                status: response.status,
+                duration: `${requestDuration}ms`
+            });
+
+            if (!response.ok) {
+                let errorText;
+                try {
+                    errorText = await response.text();
+                } catch (e) {
+                    errorText = 'Could not read error response';
+                }
+                const error = new Error(`API error: ${response.status} - ${errorText}`);
+                error.hasResponse = true;
+                throw error;
             }
-            const error = new Error(`API error: ${response.status} - ${errorText}`);
-            error.hasResponse = true;
-            throw error;
+
+            data = await response.json();
         }
-        
-        data = await response.json();
         content = data.choices?.[0]?.message?.content?.trim();
     } else if (AI_PROVIDER === 'claude') {
         // Claude API request
@@ -769,36 +849,44 @@ async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) 
             system: systemPrompt,
             messages: [{ role: 'user', content: userPrompt }]
         };
-        
-        response = await fetch(CLAUDE_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': CLAUDE_API_KEY,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify(requestBody)
-        });
-        
-        const requestDuration = Date.now() - startTime;
-        console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
-            status: response.status,
-            duration: `${requestDuration}ms`
-        });
-        
-        if (!response.ok) {
-            let errorText;
-            try {
-                errorText = await response.text();
-            } catch (e) {
-                errorText = 'Could not read error response';
+
+        if (shouldUseAiProxy()) {
+            data = await fetchViaAiProxy('claude', requestBody);
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received (proxy):`, {
+                duration: `${requestDuration}ms`
+            });
+        } else {
+            response = await fetch(CLAUDE_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': CLAUDE_API_KEY,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
+                status: response.status,
+                duration: `${requestDuration}ms`
+            });
+
+            if (!response.ok) {
+                let errorText;
+                try {
+                    errorText = await response.text();
+                } catch (e) {
+                    errorText = 'Could not read error response';
+                }
+                const error = new Error(`API error: ${response.status} - ${errorText}`);
+                error.hasResponse = true;
+                throw error;
             }
-            const error = new Error(`API error: ${response.status} - ${errorText}`);
-            error.hasResponse = true;
-            throw error;
+
+            data = await response.json();
         }
-        
-        data = await response.json();
         content = data.content?.[0]?.text?.trim();
     } else {
         // OpenRouter API request
@@ -811,37 +899,45 @@ async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) 
             temperature: 0.7,
             max_tokens: 300
         };
-        
-        response = await fetch(OPENROUTER_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'HTTP-Referer': window.location.origin,
-                'X-Title': 'Search Suggestions'
-            },
-            body: JSON.stringify(requestBody)
-        });
-        
-        const requestDuration = Date.now() - startTime;
-        console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
-            status: response.status,
-            duration: `${requestDuration}ms`
-        });
-        
-        if (!response.ok) {
-            let errorText;
-            try {
-                errorText = await response.text();
-            } catch (e) {
-                errorText = 'Could not read error response';
+
+        if (shouldUseAiProxy()) {
+            data = await fetchViaAiProxy('openrouter', requestBody);
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received (proxy):`, {
+                duration: `${requestDuration}ms`
+            });
+        } else {
+            response = await fetch(OPENROUTER_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+                    'HTTP-Referer': window.location.origin,
+                    'X-Title': 'Search Suggestions'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const requestDuration = Date.now() - startTime;
+            console.log(`[API-FIREFOX] Attempt ${attemptNumber} response received:`, {
+                status: response.status,
+                duration: `${requestDuration}ms`
+            });
+
+            if (!response.ok) {
+                let errorText;
+                try {
+                    errorText = await response.text();
+                } catch (e) {
+                    errorText = 'Could not read error response';
+                }
+                const error = new Error(`API error: ${response.status} - ${errorText}`);
+                error.hasResponse = true;
+                throw error;
             }
-            const error = new Error(`API error: ${response.status} - ${errorText}`);
-            error.hasResponse = true;
-            throw error;
+
+            data = await response.json();
         }
-        
-        data = await response.json();
         content = data.choices[0]?.message?.content?.trim();
     }
     

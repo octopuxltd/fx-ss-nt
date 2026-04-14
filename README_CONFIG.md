@@ -67,6 +67,18 @@ The `config.js` file is generated during deployment and contains the API keys fr
 
 3. Trigger a new deploy. The build writes `config.js` before publish so `step1.html` can load it.
 
+4. **Serverless AI proxy (CORS):** OpenAI, Anthropic, and OpenRouter do not allow arbitrary browser origins on their public APIs. This repo includes `netlify/functions/ai-proxy.js`. On Netlify, the same **environment variables** used for the build (`OPENAI_API_KEY`, etc.) are read by the function at **request time** — ensure they are available to **Functions** (site env vars usually are). No extra deploy step is required beyond pushing the function.
+
+5. **Custom domains:** If the site is served from a non-`*.netlify.app` hostname, set Netlify env **`AI_PROXY_EXTRA_ORIGINS`** to a comma-separated list of exact origins (e.g. `https://search.example.com`) so the proxy’s CORS allowlist matches your UI.
+
+6. **`file://` pages:** Browsers send `Origin: null`. Set Netlify env **`AI_PROXY_ALLOW_NULL_ORIGIN=1`** only if you truly need to open HTML from disk while calling the deployed proxy, and set in **`config.js`**: `AI_PROXY_BASE: 'https://your-site.netlify.app'`. Leaving this off is safer.
+
+### Local development
+
+- **Same repo + AI from disk or any static server:** Direct calls to OpenAI etc. still hit **CORS** in the browser. Use one of:
+  - **`netlify dev`** (default `http://localhost:8888`) — functions run locally; the app auto-uses the proxy when the port is `8888`. Put keys in Netlify env or a root `.env` loaded by Netlify CLI.
+  - **Any `http://localhost` / `http://127.0.0.1` port + deployed proxy:** In local `config.js`, set `AI_PROXY_BASE` to your **deployed** site origin (e.g. `https://fxsearchnewtab.netlify.app`). The proxy allows localhost origins by default. You can omit client-side API keys when using only the proxy if the function has server keys (optional).
+
 If keys are set but the browser still shows no AI rows, open DevTools → **Console** and **Network** for failed `fetch` (e.g. CORS or `401`). Keys in `config.js` are still visible to visitors — use provider-side limits / restricted keys.
 
 ## Files
