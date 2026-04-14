@@ -303,8 +303,9 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
     }
     console.log('[API-SEARCH] ✓ API key is set');
     
-    const systemPrompt = 'You are a search suggestion generator. Generate 10 popular search queries where at least one word starts with the user\'s query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of 10 search queries, sorted by popularity. No explanations, just the JSON array.';
-    const userPrompt = `Generate 10 popular search suggestions where at least one word starts with: "${query}". Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`;
+    const suggestionLimit = readSearchSuggestionsDisplayLimit();
+    const systemPrompt = `You are a search suggestion generator. Generate ${suggestionLimit} popular search queries where at least one word starts with the user's query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of ${suggestionLimit} search queries, sorted by popularity. No explanations, just the JSON array.`;
+    const userPrompt = `Generate ${suggestionLimit} popular search suggestions where at least one word starts with: "${query}". Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`;
     
     const promptTimestamp = new Date().toISOString();
     console.log(`[API-SEARCH] [${promptTimestamp}] Prompt sent to ${provider}:`, userPrompt);
@@ -464,17 +465,17 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
                 suggestions = content.split('\n')
                     .map(line => line.trim().replace(/^[-•\d.\s"']+|[-•\d.\s"']+$/g, ''))
                     .filter(line => line.length > 0)
-                    .slice(0, 9);
+                    .slice(0, suggestionLimit);
             }
         }
     } catch (parseError) {
         const quotedMatches = content.match(/"([^"]+)"/g);
         if (quotedMatches) {
-            suggestions = quotedMatches.map(m => m.replace(/"/g, '')).slice(0, 9);
+            suggestions = quotedMatches.map(m => m.replace(/"/g, '')).slice(0, suggestionLimit);
         }
     }
     
-    const finalSuggestions = suggestions.filter(s => s && s.length > 0).slice(0, 9);
+    const finalSuggestions = suggestions.filter(s => s && s.length > 0).slice(0, suggestionLimit);
     
     const responseTimestamp = new Date().toISOString();
     console.log(`[API-SEARCH] [${responseTimestamp}] Response received:`, finalSuggestions);
@@ -869,6 +870,7 @@ async function fetchAISuggestions(query, retryCount = 0) {
         : fetchFirefoxSuggestions(query, maxRetries);
     
     try {
+        const suggestionLimit = readSearchSuggestionsDisplayLimit();
         const [searchResults, firefoxResults] = await Promise.allSettled([searchPromise, firefoxPromise]);
         
         let finalSuggestions = [];
@@ -895,7 +897,7 @@ async function fetchAISuggestions(query, retryCount = 0) {
         
         // Merge cached suggestions with AI results
         if (cachedSuggestions && cachedSuggestions.length > 0) {
-            if (cachedSuggestions.length >= 9) {
+            if (cachedSuggestions.length >= suggestionLimit) {
                 finalSuggestions = [...cachedSuggestions];
                 console.log('[API] Using', cachedSuggestions.length, 'cached suggestions as base');
             } else {
@@ -907,7 +909,7 @@ async function fetchAISuggestions(query, retryCount = 0) {
                         combined.push(aiSuggestion);
                     }
                 });
-                finalSuggestions = combined.slice(0, 9);
+                finalSuggestions = combined.slice(0, suggestionLimit);
             }
         }
         
@@ -941,12 +943,12 @@ async function fetchAISuggestions(query, retryCount = 0) {
                 const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
                 
                 if (finalSuggestions.length === 0) {
-                    finalSuggestions = firefoxTitles.slice(0, 9);
+                    finalSuggestions = firefoxTitles.slice(0, suggestionLimit);
                 } else {
                     finalSuggestions = [
                         ...finalSuggestions.slice(0, keepCount),
                         ...firefoxTitles
-                    ].slice(0, 9);
+                    ].slice(0, suggestionLimit);
                 }
             } else {
                 // Generate new Firefox suggestions
@@ -973,12 +975,12 @@ async function fetchAISuggestions(query, retryCount = 0) {
                     const keepCount = Math.max(0, finalSuggestions.length - actualNumToReplace);
                     
                     if (finalSuggestions.length === 0) {
-                        finalSuggestions = firefoxTitles.slice(0, 9);
+                        finalSuggestions = firefoxTitles.slice(0, suggestionLimit);
                     } else {
                         finalSuggestions = [
                             ...finalSuggestions.slice(0, keepCount),
                             ...firefoxTitles
-                        ].slice(0, 9);
+                        ].slice(0, suggestionLimit);
                     }
                     
                     // Cache the selected Firefox suggestions
@@ -1030,6 +1032,33 @@ function getDefaultSearchEngineLocalStorage() {
         /* cross-origin top */
     }
     return localStorage;
+}
+
+/** Search settings (per surface): max rows shown in the suggestions list / merged AI list (default 10). */
+const SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR = 'search_suggestions_count_addressbar';
+const SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB = 'search_suggestions_count_new_tab';
+const SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE = 'search_suggestions_count_standalone';
+const SEARCH_SUGGESTIONS_COUNT_DEFAULT = 10;
+const SEARCH_SUGGESTIONS_COUNT_MIN = 1;
+const SEARCH_SUGGESTIONS_COUNT_MAX = 50;
+
+function getSearchSuggestionsCountStorageKeyForActiveDocument() {
+    if (typeof document === 'undefined' || !document.body) return SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB;
+    if (document.body.classList.contains('standalone-search-box')) return SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE;
+    if (document.body.classList.contains('addressbar')) return SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR;
+    return SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB;
+}
+
+function readSearchSuggestionsDisplayLimit() {
+    try {
+        const k = getSearchSuggestionsCountStorageKeyForActiveDocument();
+        const raw = getDefaultSearchEngineLocalStorage().getItem(k);
+        const n = parseInt(String(raw ?? '').trim(), 10);
+        if (!Number.isFinite(n)) return SEARCH_SUGGESTIONS_COUNT_DEFAULT;
+        return Math.min(SEARCH_SUGGESTIONS_COUNT_MAX, Math.max(SEARCH_SUGGESTIONS_COUNT_MIN, n));
+    } catch (_) {
+        return SEARCH_SUGGESTIONS_COUNT_DEFAULT;
+    }
 }
 
 /** Wired inside `DOMContentLoaded` where switcher helpers live — top-level `syncTopDocument…` must not call nested functions directly. */
@@ -1294,14 +1323,10 @@ function pushDefaultSearchEngineKeysToIframe(contentWindow) {
             [SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY]: localStorage.getItem(
                 SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY
             ),
-            [DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE]: localStorage.getItem(
-                DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE
-            ),
-            [DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE]: localStorage.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE),
-            [DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE]: localStorage.getItem(
-                DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE
-            ),
             [SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY]: localStorage.getItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY),
+            [SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR]: localStorage.getItem(SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR),
+            [SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB]: localStorage.getItem(SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB),
+            [SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE]: localStorage.getItem(SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE),
         };
         contentWindow.postMessage({ type: 'seed-default-search-engine-keys', keys }, '*');
     } catch (_) {}
@@ -4213,12 +4238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!searchSwitcherButton || (delta !== 1 && delta !== -1)) return;
         const enginesContainer = searchSwitcherButton.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
-        const engineItems = Array.from(enginesContainer.children).filter(
-            (c) =>
-                c.classList.contains('dropdown-item') &&
-                c.querySelector('.dropdown-engine-label') &&
-                c.style.display !== 'none'
-        );
+        const engineItems = getVisibleDropdownEngineItems(enginesContainer);
         if (engineItems.length === 0) return;
 
         const switcherLabel = searchSwitcherButton.querySelector('.switcher-button-label');
@@ -6026,6 +6046,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /** Rows under `.dropdown-search-engines` shown for the current 6/12/50 mode (`display: none` hides the rest). */
+    function getVisibleDropdownEngineItems(enginesContainer) {
+        if (!enginesContainer) return [];
+        return Array.from(enginesContainer.children).filter(
+            (c) =>
+                c.classList.contains('dropdown-item') &&
+                c.querySelector('.dropdown-engine-label') &&
+                c.style.display !== 'none'
+        );
+    }
+
     function ensureRowActions() {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
@@ -6049,12 +6080,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateKeyboardNumbers() {
         const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
         if (!enginesContainer) return;
-        const engineItems = Array.from(enginesContainer.children).filter(
-            c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
+        const visibleItems = getVisibleDropdownEngineItems(enginesContainer);
+        const allEngineRows = Array.from(enginesContainer.children).filter(
+            (c) => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
         );
-        engineItems.forEach((item, i) => {
+        allEngineRows.forEach((item) => {
             const numEl = item.querySelector('.dropdown-item-keyboard-num');
-            if (numEl) numEl.textContent = i < 9 ? String(i + 1) : '';
+            if (!numEl) return;
+            const visIdx = visibleItems.indexOf(item);
+            numEl.textContent = visIdx >= 0 && visIdx < 9 ? String(visIdx + 1) : '';
         });
     }
 
@@ -8780,6 +8814,16 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 applySearchInputPlaceholderFromAccessPointSettings(null);
             } catch (_) {}
+            if (e.key === SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY) {
+                try {
+                    if (localStorage.getItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY) === 'false') {
+                        document.querySelector('.addressbar-iframe')?.contentWindow?.postMessage(
+                            { type: 'search-engine-list-mode', mode: 'closed', animate: true },
+                            '*'
+                        );
+                    }
+                } catch (_) {}
+            }
             if (e.key === SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) {
                 try {
                     applySwitcherFromFirefoxSectionVisibility();
@@ -8798,6 +8842,46 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             syncSearchSettingsPlaceholderPreviewFields();
             broadcastSearchAccessPointPlaceholderRefresh();
+            return;
+        }
+        if (
+            e.key === SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR ||
+            e.key === SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB ||
+            e.key === SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE
+        ) {
+            try {
+                const addrWin = document.querySelector('.addressbar-iframe')?.contentWindow;
+                const standWin = document.querySelector('.standalone-search-box-iframe')?.contentWindow;
+                const pspWin = document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow;
+                pushDefaultSearchEngineKeysToIframe(addrWin);
+                pushDefaultSearchEngineKeysToIframe(standWin);
+                pushDefaultSearchEngineKeysToIframe(pspWin);
+            } catch (_) {}
+            return;
+        }
+        if (e.key === STANDALONE_SEARCH_BOX_VISIBLE_KEY) {
+            try {
+                const visible = readStandaloneSearchBoxVisibleFromStorage();
+                const ls = getDefaultSearchEngineLocalStorage();
+                const main = (ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN) || 'Google').trim() || 'Google';
+                const standRaw = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE);
+                const engineIfAny = standRaw && String(standRaw).trim() ? String(standRaw).trim() : main;
+                const oldStandEff = visible ? SEARCH_SETTINGS_STANDALONE_MATRIX_OFF_VALUE : engineIfAny;
+                applyStandaloneSearchBoxPrototypeVisibility(visible);
+                syncSearchSettingsDefaultEngineSelects();
+                syncSearchSettingsPlaceholderPreviewFields();
+                broadcastSearchAccessPointPlaceholderRefresh();
+                const standWin = document.querySelector('.standalone-search-box-iframe')?.contentWindow;
+                postRefreshSearchSwitcherToIframeFromTop(standWin, oldStandEff);
+                pushDefaultSearchEngineKeysToIframe(standWin);
+                pushDefaultSearchEngineKeysToIframe(document.querySelector('.addressbar-iframe')?.contentWindow);
+                pushDefaultSearchEngineKeysToIframe(
+                    document.getElementById('prototype-settings-page-overlay-iframe')?.contentWindow
+                );
+                try {
+                    standWin?.postMessage({ type: 'default-search-engine-changed' }, '*');
+                } catch (_) {}
+            } catch (_) {}
             return;
         }
         if (
@@ -8889,7 +8973,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.data?.type === 'apply-address-bar-settings-from-html') {
                 if (e.origin !== window.location.origin && e.origin !== 'null') return;
                 const pspIframeAddr = document.getElementById('prototype-settings-page-overlay-iframe');
-                if (!pspIframeAddr || e.source !== pspIframeAddr.contentWindow) return;
+                if (!pspIframeAddr) return;
+                /* Prefer strict `e.source` match; when the overlay is open, accept same-origin messages anyway
+                   (`contentWindow` identity can disagree with `e.source` in some embed cases). */
+                const fromPsp = e.source === pspIframeAddr.contentWindow;
+                const overlayOpen = document.body.classList.contains('prototype-settings-page-overlay-open');
+                if (!fromPsp && !overlayOpen) return;
                 const raw = e.data.engineValue;
                 if (typeof raw !== 'string') return;
                 const effBeforeAddr = getEffectiveSearchDefaultsFromStorage();
@@ -8980,8 +9069,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (e.data?.type === 'apply-standalone-from-settings-html') {
+                if (e.origin !== window.location.origin && e.origin !== 'null') return;
                 const pspIframeStandalone = document.getElementById('prototype-settings-page-overlay-iframe');
-                if (!pspIframeStandalone || e.source !== pspIframeStandalone.contentWindow) return;
+                if (!pspIframeStandalone) return;
+                const fromPsp = e.source === pspIframeStandalone.contentWindow;
+                const overlayOpen = document.body.classList.contains('prototype-settings-page-overlay-open');
+                if (!fromPsp && !overlayOpen) return;
                 const vis = !!e.data.visible;
                 const eng = typeof e.data.engine === 'string' ? e.data.engine : null;
                 if (vis && eng) {
@@ -9937,6 +10030,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const firstText = typeof first === 'object' && first._visitSite ? first._text : first;
             suggestionsToShow = [{ _visitSite: true, _text: firstText }, ...suggestionsToShow];
         }
+
+        const displayLimit = readSearchSuggestionsDisplayLimit();
+        if (suggestionsToShow.length > displayLimit) {
+            suggestionsToShow = suggestionsToShow.slice(0, displayLimit);
+        }
         
         console.log(
             '[UPDATE] typed=' +
@@ -10466,7 +10564,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('[INPUT] Found', matchingSuggestions.length, 'matching suggestions');
                     
                     if (matchingSuggestions.length > 0) {
-                        const suggestionsToShow = matchingSuggestions.slice(0, 9);
+                        const suggestionsToShow = matchingSuggestions.slice(0, readSearchSuggestionsDisplayLimit());
                         console.log('[INPUT] Updating with local suggestions:', suggestionsToShow);
                         updateSuggestions(suggestionsToShow);
                         currentDisplayedSuggestions = suggestionsToShow;
@@ -10861,6 +10959,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY,
                         SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY,
                         SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY,
+                        SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR,
+                        SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB,
+                        SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE,
                         DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE,
                         DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE,
                         DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE,
@@ -10889,6 +10990,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     /* New Tab / Homepage navigate (and “Allow navigation by URL from the Firefox homepage”) default on after reset. */
                     try {
                         localStorage.setItem(SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY, 'true');
+                    } catch (_) {}
+                    try {
+                        localStorage.setItem(SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR, String(SEARCH_SUGGESTIONS_COUNT_DEFAULT));
+                        localStorage.setItem(SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB, String(SEARCH_SUGGESTIONS_COUNT_DEFAULT));
+                        localStorage.setItem(SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE, String(SEARCH_SUGGESTIONS_COUNT_DEFAULT));
                     } catch (_) {}
                     syncSearchSettingsModalUrlParam(false);
                     try {
@@ -11215,9 +11321,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isPlainLetterKey = /^[a-z]$/i.test(event.key) && !event.ctrlKey && !event.metaKey;
             if (!pinnedOpen && isPlainLetterKey) {
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-                const engineItems = enginesContainer ? Array.from(enginesContainer.children).filter(
-                    c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
-                ) : [];
+                const engineItems = enginesContainer ? getVisibleDropdownEngineItems(enginesContainer) : [];
                 const keyLetter = event.key.toUpperCase();
                 const match = engineItems.find((item) => {
                     const label = getEngineLabel(item);
@@ -11248,9 +11352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (!pinnedOpen && switcherKeyboardMode && /^[1-9]$/.test(event.key)) {
                 const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
-                const engineItems = enginesContainer ? Array.from(enginesContainer.children).filter(
-                    c => c.classList.contains('dropdown-item') && c.querySelector('.dropdown-engine-label')
-                ) : [];
+                const engineItems = enginesContainer ? getVisibleDropdownEngineItems(enginesContainer) : [];
                 const index = parseInt(event.key, 10) - 1;
                 if (index >= 0 && index < engineItems.length) {
                     event.preventDefault();

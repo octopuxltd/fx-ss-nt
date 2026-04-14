@@ -5184,6 +5184,7 @@ body:not(.pin-default-enabled) .search-switcher-button.switcher-opened-by-keyboa
 .search-switcher-button.switcher-opened-by-keyboard .dropdown-item-keyboard-num {
     display: flex;
     margin-right: 2px;
+    transform: translateX(-8px);
 }
 
 /* In keyboard mode, row action stays visible so number badges can be seen without hover */

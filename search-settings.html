@@ -436,6 +436,35 @@
             opacity: 0.65;
         }
 
+        .entrypoint-suggestions-count-input {
+            width: 100%;
+            max-width: 80px;
+            height: 32px;
+            padding: 0 10px;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-control);
+            font: inherit;
+            background: var(--bg-card);
+            box-sizing: border-box;
+        }
+
+        .entrypoint-engine-rows--dependent-disabled .entrypoint-field-label {
+            cursor: not-allowed;
+            color: var(--text-secondary);
+            opacity: 0.65;
+        }
+
+        .entrypoint-engine-rows--dependent-disabled .entrypoint-suggestions-count-input {
+            cursor: not-allowed;
+            color: var(--text-secondary);
+            opacity: 0.65;
+            background: var(--bg-card);
+        }
+
+        .entrypoint-engine-rows--dependent-disabled .entrypoint-suggestions-count-input:disabled {
+            cursor: not-allowed;
+        }
+
         .checkbox-row--nested {
             margin-left: 26px;
             margin-top: 8px;
@@ -792,6 +821,23 @@
                         </select>
                     </div>
                 </div>
+                <div
+                    class="entrypoint-engine-rows entrypoint-suggestions-count-row"
+                    id="address-bar-suggestions-count-row"
+                >
+                    <label class="entrypoint-field-label" for="search-suggestions-count-address-bar"
+                        >Number of search suggestions</label
+                    >
+                    <input
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        id="search-suggestions-count-address-bar"
+                        class="entrypoint-suggestions-count-input"
+                        value="10"
+                        aria-label="Number of search suggestions for the address bar"
+                    />
+                </div>
                 <div class="checkbox-row" id="address-bar-terms-checkbox-row">
                     <input type="checkbox" id="cb-address-terms" name="address_terms" checked>
                     <label for="cb-address-terms">Show search terms in the address bar on results pages</label>
@@ -805,9 +851,9 @@
                     id="address-bar-private-engine-select-row"
                     hidden
                 >
-                    <label class="entrypoint-field-label" for="default-engine-private">Search engine in private browsing mode:</label>
+                    <label class="entrypoint-field-label" for="prototype-ui-pb-choice-address-bar">Search engine in private browsing mode:</label>
                     <div class="select-wrap">
-                        <select id="default-engine-private" class="ff-select" aria-label="Address bar search engine in private browsing mode"></select>
+                        <select id="prototype-ui-pb-choice-address-bar" class="ff-select" aria-label="Address bar search engine in private browsing mode (decorative)"></select>
                     </div>
                 </div>
             </section>
@@ -826,6 +872,20 @@
                             <option value="wikipedia">Wikipedia (en)</option>
                         </select>
                     </div>
+                </div>
+                <div class="entrypoint-engine-rows entrypoint-suggestions-count-row" id="firefox-homepage-suggestions-count-row">
+                    <label class="entrypoint-field-label" for="search-suggestions-count-firefox-homepage"
+                        >Number of search suggestions</label
+                    >
+                    <input
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        id="search-suggestions-count-firefox-homepage"
+                        class="entrypoint-suggestions-count-input"
+                        value="10"
+                        aria-label="Number of search suggestions for the Firefox homepage"
+                    />
                 </div>
                 <div class="checkbox-row">
                     <input type="checkbox" id="cb-firefox-homepage-search-logo" name="firefox_homepage_search_logo" checked>
@@ -849,9 +909,9 @@
                     id="firefox-homepage-private-engine-select-row"
                     hidden
                 >
-                    <label class="entrypoint-field-label" for="firefox-homepage-engine-private">Search engine in private browsing mode:</label>
+                    <label class="entrypoint-field-label" for="prototype-ui-pb-choice-firefox-nt-home">Search engine in private browsing mode:</label>
                     <div class="select-wrap">
-                        <select id="firefox-homepage-engine-private" class="ff-select" aria-label="Firefox homepage search engine in private browsing mode"></select>
+                        <select id="prototype-ui-pb-choice-firefox-nt-home" class="ff-select" aria-label="Firefox homepage search engine in private browsing mode (decorative)"></select>
                     </div>
                 </div>
             </section>
@@ -872,6 +932,23 @@
                         </select>
                     </div>
                 </div>
+                <div
+                    class="entrypoint-engine-rows entrypoint-suggestions-count-row"
+                    id="standalone-suggestions-count-row"
+                >
+                    <label class="entrypoint-field-label" for="search-suggestions-count-standalone"
+                        >Number of search suggestions</label
+                    >
+                    <input
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="off"
+                        id="search-suggestions-count-standalone"
+                        class="entrypoint-suggestions-count-input"
+                        value="10"
+                        aria-label="Number of search suggestions for the stand-alone search box"
+                    />
+                </div>
                 <div class="checkbox-row">
                     <input type="checkbox" id="cb-standalone-private-engine" name="standalone_private_engine">
                     <label for="cb-standalone-private-engine">Use a different search engine in the stand-alone search box in private browsing mode</label>
@@ -881,9 +958,9 @@
                     id="standalone-private-engine-select-row"
                     hidden
                 >
-                    <label class="entrypoint-field-label" for="standalone-search-box-engine-private">Search engine in private browsing mode:</label>
+                    <label class="entrypoint-field-label" for="prototype-ui-pb-choice-standalone-strip">Search engine in private browsing mode:</label>
                     <div class="select-wrap">
-                        <select id="standalone-search-box-engine-private" class="ff-select" aria-label="Stand-alone search box engine in private browsing mode"></select>
+                        <select id="prototype-ui-pb-choice-standalone-strip" class="ff-select" aria-label="Stand-alone search box engine in private browsing mode (decorative)"></select>
                     </div>
                 </div>
             </section>
@@ -1074,9 +1151,10 @@
             var DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR = 'default_search_engine:addressbar';
             var DEFAULT_SEARCH_ENGINE_KEY_MAIN = 'default_search_engine';
             var DEFAULT_SEARCH_ENGINE_KEY_STANDALONE = 'default_search_engine:standalone';
-            var DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE = 'default_search_engine:addressbar:private';
-            var DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE = 'default_search_engine:main:private';
-            var DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE = 'default_search_engine:standalone:private';
+            /** Decorative only — not read by `step1.js` or engine logic; each surface is isolated. */
+            var PROTOTYPE_DECOR_PB_CHOICE_ADDRESS_BAR = 'prototype_ui_surface_scrim_pb_choice_address_bar';
+            var PROTOTYPE_DECOR_PB_CHOICE_FX_NT_HOME = 'prototype_ui_surface_scrim_pb_choice_firefox_nt_home';
+            var PROTOTYPE_DECOR_PB_CHOICE_STANDALONE_STRIP = 'prototype_ui_surface_scrim_pb_choice_standalone_strip';
             var STANDALONE_SEARCH_BOX_VISIBLE_KEY = 'standalone_search_box_visible';
             var SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY = 'search_settings_search_address_bar';
             var SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY = 'search_settings_address_bar_private_engine';
@@ -1084,6 +1162,12 @@
             var SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY = 'search_settings_standalone_private_engine';
             var SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY = 'search_settings_navigate_new_tab';
             var MAIN_SCREEN_HERO_LOGO_MODE_KEY = 'main_screen_hero_logo_mode';
+            var SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR = 'search_suggestions_count_addressbar';
+            var SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB = 'search_suggestions_count_new_tab';
+            var SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE = 'search_suggestions_count_standalone';
+            var SEARCH_SUGGESTIONS_COUNT_DEFAULT = 10;
+            var SEARCH_SUGGESTIONS_COUNT_MIN = 1;
+            var SEARCH_SUGGESTIONS_COUNT_MAX = 50;
             function getDefaultSearchEngineLocalStorage() {
                 try {
                     if (typeof window !== 'undefined' && window.top && window.top !== window) {
@@ -1128,47 +1212,31 @@
                     if (selectHasValue(priv, f)) priv.value = f;
                 }
             }
-            function syncPrivateEnginePrimaryOptionLists() {
+            function syncAddressBarPrivateEnginePrimaryOptionsOnly() {
                 var addr = document.getElementById('default-engine');
-                var addrP = document.getElementById('default-engine-private');
+                var addrP = document.getElementById('prototype-ui-pb-choice-address-bar');
                 if (addr && addrP && addr.options.length) {
-                    rebuildPrivateEngineSelectOptionsFromPrimary('default-engine-private', addr);
+                    rebuildPrivateEngineSelectOptionsFromPrimary('prototype-ui-pb-choice-address-bar', addr);
                 }
+            }
+            function syncFirefoxHomepagePrivateEnginePrimaryOptionsOnly() {
                 var fh = document.getElementById('firefox-homepage-engine');
-                var fhP = document.getElementById('firefox-homepage-engine-private');
+                var fhP = document.getElementById('prototype-ui-pb-choice-firefox-nt-home');
                 if (fh && fhP && fh.options.length) {
-                    rebuildPrivateEngineSelectOptionsFromPrimary('firefox-homepage-engine-private', fh);
+                    rebuildPrivateEngineSelectOptionsFromPrimary('prototype-ui-pb-choice-firefox-nt-home', fh);
                 }
+            }
+            function syncStandalonePrivateEnginePrimaryOptionsOnly() {
                 var st = document.getElementById('standalone-search-box-engine');
-                var stP = document.getElementById('standalone-search-box-engine-private');
+                var stP = document.getElementById('prototype-ui-pb-choice-standalone-strip');
                 if (st && stP && st.options.length) {
-                    rebuildPrivateEngineSelectOptionsFromPrimary('standalone-search-box-engine-private', st);
+                    rebuildPrivateEngineSelectOptionsFromPrimary('prototype-ui-pb-choice-standalone-strip', st);
                 }
             }
-            function persistDefaultSearchEngineKeyFromOverlay(key, value) {
-                var v = String(value != null ? value : '');
-                try {
-                    if (window.parent && window.parent !== window) {
-                        window.parent.postMessage({ type: 'set-default-search-engine', key: key, value: v }, '*');
-                    } else {
-                        getDefaultSearchEngineLocalStorage().setItem(key, v);
-                    }
-                } catch (e) {}
-            }
-            function ensurePrivateEngineDefaultFromMainIfUnset(storageKey, primarySel, privateSel) {
-                if (!primarySel || !privateSel) return;
-                var ls = getDefaultSearchEngineLocalStorage();
-                try {
-                    if (ls.getItem(storageKey)) return;
-                } catch (e) {}
-                var mv = primarySel.value;
-                if (!selectHasValue(privateSel, mv)) {
-                    mv = selectHasValue(privateSel, primarySel.value)
-                        ? primarySel.value
-                        : firstNonSpecialEngineValue(privateSel);
-                }
-                privateSel.value = mv;
-                persistDefaultSearchEngineKeyFromOverlay(storageKey, privateSel.value);
+            function syncPrivateEnginePrimaryOptionLists() {
+                syncAddressBarPrivateEnginePrimaryOptionsOnly();
+                syncFirefoxHomepagePrivateEnginePrimaryOptionsOnly();
+                syncStandalonePrivateEnginePrimaryOptionsOnly();
             }
             function syncPrivateEngineSelectRowsVisibility() {
                 function row(cbId, rowId, selectId) {
@@ -1185,62 +1253,63 @@
                     }
                     if (sel) sel.disabled = hide;
                 }
-                row('cb-address-bar-private-engine', 'address-bar-private-engine-select-row', 'default-engine-private');
+                row('cb-address-bar-private-engine', 'address-bar-private-engine-select-row', 'prototype-ui-pb-choice-address-bar');
                 row(
                     'cb-firefox-homepage-private-engine',
                     'firefox-homepage-private-engine-select-row',
-                    'firefox-homepage-engine-private'
+                    'prototype-ui-pb-choice-firefox-nt-home'
                 );
                 row(
                     'cb-standalone-private-engine',
                     'standalone-private-engine-select-row',
-                    'standalone-search-box-engine-private'
+                    'prototype-ui-pb-choice-standalone-strip'
                 );
             }
+            function applyDecorPrivatePickFromStorage(privId, decorStorageKey, primaryEl) {
+                var priv = document.getElementById(privId);
+                if (!priv || !primaryEl || !priv.options.length) return;
+                var ls = getDefaultSearchEngineLocalStorage();
+                var d = '';
+                try {
+                    d = String(ls.getItem(decorStorageKey) || '').trim();
+                } catch (eDec) {}
+                if (d && selectHasValue(priv, d)) {
+                    priv.value = d;
+                    return;
+                }
+                var pv = primaryEl.value;
+                if (selectHasValue(priv, pv)) {
+                    priv.value = pv;
+                    return;
+                }
+                var f = firstNonSpecialEngineValue(priv);
+                if (selectHasValue(priv, f)) priv.value = f;
+            }
             function syncAddressBarPrivateEngineSelectFromStorage() {
-                var priv = document.getElementById('default-engine-private');
+                var priv = document.getElementById('prototype-ui-pb-choice-address-bar');
                 var main = document.getElementById('default-engine');
                 if (!priv || !main || !priv.options.length) return;
-                var ls = getDefaultSearchEngineLocalStorage();
-                var stored = '';
-                try {
-                    stored = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE) || '';
-                } catch (e) {}
-                var v = stored !== '' ? stored : main.value;
-                if (!selectHasValue(priv, v)) {
-                    v = selectHasValue(priv, main.value) ? main.value : firstNonSpecialEngineValue(priv);
-                }
-                priv.value = v;
+                applyDecorPrivatePickFromStorage('prototype-ui-pb-choice-address-bar', PROTOTYPE_DECOR_PB_CHOICE_ADDRESS_BAR, main);
             }
             function syncFirefoxHomepagePrivateEngineSelectFromStorage() {
-                var priv = document.getElementById('firefox-homepage-engine-private');
+                var priv = document.getElementById('prototype-ui-pb-choice-firefox-nt-home');
                 var main = document.getElementById('firefox-homepage-engine');
                 if (!priv || !main || !priv.options.length) return;
-                var ls = getDefaultSearchEngineLocalStorage();
-                var stored = '';
-                try {
-                    stored = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE) || '';
-                } catch (e) {}
-                var v = stored !== '' ? stored : main.value;
-                if (!selectHasValue(priv, v)) {
-                    v = selectHasValue(priv, main.value) ? main.value : firstNonSpecialEngineValue(priv);
-                }
-                priv.value = v;
+                applyDecorPrivatePickFromStorage(
+                    'prototype-ui-pb-choice-firefox-nt-home',
+                    PROTOTYPE_DECOR_PB_CHOICE_FX_NT_HOME,
+                    main
+                );
             }
             function syncStandalonePrivateEngineSelectFromStorage() {
-                var priv = document.getElementById('standalone-search-box-engine-private');
+                var priv = document.getElementById('prototype-ui-pb-choice-standalone-strip');
                 var main = document.getElementById('standalone-search-box-engine');
                 if (!priv || !main || !priv.options.length) return;
-                var ls = getDefaultSearchEngineLocalStorage();
-                var stored = '';
-                try {
-                    stored = ls.getItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE) || '';
-                } catch (e) {}
-                var v = stored !== '' ? stored : main.value;
-                if (!selectHasValue(priv, v)) {
-                    v = selectHasValue(priv, main.value) ? main.value : firstNonSpecialEngineValue(priv);
-                }
-                priv.value = v;
+                applyDecorPrivatePickFromStorage(
+                    'prototype-ui-pb-choice-standalone-strip',
+                    PROTOTYPE_DECOR_PB_CHOICE_STANDALONE_STRIP,
+                    main
+                );
             }
             function rebuildEntrypointEngineSelects(labels) {
                 if (!Array.isArray(labels) || labels.length === 0) return;
@@ -1304,6 +1373,64 @@
                 var isNone = sel.value === 'none';
                 cb.disabled = isNone;
                 row.classList.toggle('checkbox-row--dependent-disabled', isNone);
+                syncAddressBarSuggestionsCountRowDisabled();
+            }
+
+            function syncAddressBarSuggestionsCountRowDisabled() {
+                var row = document.getElementById('address-bar-suggestions-count-row');
+                var input = document.getElementById('search-suggestions-count-address-bar');
+                var sel = document.getElementById('default-engine');
+                if (!row || !input || !sel) return;
+                var disabled = sel.value === 'none';
+                row.classList.toggle('entrypoint-engine-rows--dependent-disabled', disabled);
+                input.disabled = disabled;
+            }
+
+            function syncStandaloneSuggestionsCountRowDisabled() {
+                var row = document.getElementById('standalone-suggestions-count-row');
+                var input = document.getElementById('search-suggestions-count-standalone');
+                var sel = document.getElementById('standalone-search-box-engine');
+                if (!row || !input || !sel) return;
+                var disabled = sel.value === 'off';
+                row.classList.toggle('entrypoint-engine-rows--dependent-disabled', disabled);
+                input.disabled = disabled;
+            }
+
+            function readStoredSuggestionCountForInput(ls, key) {
+                try {
+                    var n = parseInt(String(ls.getItem(key) || '').trim(), 10);
+                    if (!isFinite(n)) return String(SEARCH_SUGGESTIONS_COUNT_DEFAULT);
+                    return String(
+                        Math.min(SEARCH_SUGGESTIONS_COUNT_MAX, Math.max(SEARCH_SUGGESTIONS_COUNT_MIN, n))
+                    );
+                } catch (eReadCt) {
+                    return String(SEARCH_SUGGESTIONS_COUNT_DEFAULT);
+                }
+            }
+
+            function persistSuggestionCountFromField(ls, key, raw) {
+                var digits = String(raw == null ? '' : raw).replace(/[^\d]/g, '');
+                var n = parseInt(digits || '0', 10);
+                if (!isFinite(n) || n < SEARCH_SUGGESTIONS_COUNT_MIN) {
+                    n = SEARCH_SUGGESTIONS_COUNT_DEFAULT;
+                } else {
+                    n = Math.min(SEARCH_SUGGESTIONS_COUNT_MAX, Math.max(SEARCH_SUGGESTIONS_COUNT_MIN, n));
+                }
+                var s = String(n);
+                try {
+                    ls.setItem(key, s);
+                } catch (eSetCt) {}
+                return s;
+            }
+
+            function syncSearchSuggestionsCountInputsFromStorage() {
+                var ls = getDefaultSearchEngineLocalStorage();
+                var a = document.getElementById('search-suggestions-count-address-bar');
+                var h = document.getElementById('search-suggestions-count-firefox-homepage');
+                var st = document.getElementById('search-suggestions-count-standalone');
+                if (a) a.value = readStoredSuggestionCountForInput(ls, SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR);
+                if (h) h.value = readStoredSuggestionCountForInput(ls, SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB);
+                if (st) st.value = readStoredSuggestionCountForInput(ls, SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE);
             }
 
             function syncAddressBarClassicSelectFromStorage() {
@@ -1336,6 +1463,7 @@
                 } catch (err) {}
                 if (!visible) {
                     sel.value = 'off';
+                    syncStandaloneSuggestionsCountRowDisabled();
                     return;
                 }
                 var label = 'Google';
@@ -1349,6 +1477,7 @@
                     label = firstNonSpecialEngineValue(sel);
                 }
                 sel.value = label;
+                syncStandaloneSuggestionsCountRowDisabled();
             }
             function readMainDefaultEngineLabel() {
                 try {
@@ -1412,19 +1541,45 @@
                 syncAddressBarPrivateEngineSelectFromStorage();
                 syncFirefoxHomepagePrivateEngineSelectFromStorage();
                 syncStandalonePrivateEngineSelectFromStorage();
+                syncSearchSuggestionsCountInputsFromStorage();
+                syncAddressBarSuggestionsCountRowDisabled();
+                syncStandaloneSuggestionsCountRowDisabled();
             }
             document.addEventListener('change', function (ev) {
                 var t = ev.target;
                 if (!t || !t.id) return;
                 if (t.id === 'default-engine') {
                     syncAddressBarTermsCheckboxFromEngineSelect();
+                    /* Mirror to top `localStorage` so the address bar iframe (and parent `storage` listener) see the
+                       change even if `postMessage` source checks fail; parent handler remains authoritative for sync. */
+                    try {
+                        var lsAddr = getDefaultSearchEngineLocalStorage();
+                        if (t.value === 'none') {
+                            lsAddr.setItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY, 'false');
+                        } else {
+                            lsAddr.setItem(SEARCH_SETTINGS_SEARCH_ADDRESS_BAR_KEY, 'true');
+                            var addrEngineLabelByValue = {
+                                google: 'Google',
+                                bing: 'Bing',
+                                duckduckgo: 'DuckDuckGo',
+                                ebay: 'eBay',
+                                perplexity: 'Perplexity',
+                                wikipedia: 'Wikipedia (en)',
+                            };
+                            var addrLab =
+                                addrEngineLabelByValue[t.value] ||
+                                (String(t.value || '').trim() ? String(t.value).trim() : '') ||
+                                'Google';
+                            lsAddr.setItem(DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR, addrLab);
+                        }
+                    } catch (eLsAddr) {}
                     try {
                         window.parent.postMessage(
                             { type: 'apply-address-bar-settings-from-html', engineValue: t.value },
                             '*'
                         );
                     } catch (eAddrCh) {}
-                    syncPrivateEnginePrimaryOptionLists();
+                    syncAddressBarPrivateEnginePrimaryOptionsOnly();
                     syncAddressBarPrivateEngineSelectFromStorage();
                     syncPrivateEngineSelectRowsVisibility();
                     return;
@@ -1437,7 +1592,7 @@
                             '*'
                         );
                     } catch (eNt) {}
-                    syncPrivateEnginePrimaryOptionLists();
+                    syncFirefoxHomepagePrivateEnginePrimaryOptionsOnly();
                     syncFirefoxHomepagePrivateEngineSelectFromStorage();
                     syncPrivateEngineSelectRowsVisibility();
                     return;
@@ -1473,14 +1628,8 @@
                             t.checked ? 'true' : 'false'
                         );
                     } catch (ePrivAddr) {}
-                    syncPrivateEnginePrimaryOptionLists();
-                    if (t.checked) {
-                        ensurePrivateEngineDefaultFromMainIfUnset(
-                            DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE,
-                            document.getElementById('default-engine'),
-                            document.getElementById('default-engine-private')
-                        );
-                    }
+                    syncAddressBarPrivateEnginePrimaryOptionsOnly();
+                    syncAddressBarPrivateEngineSelectFromStorage();
                     syncPrivateEngineSelectRowsVisibility();
                     return;
                 }
@@ -1491,14 +1640,8 @@
                             t.checked ? 'true' : 'false'
                         );
                     } catch (ePrivHome) {}
-                    syncPrivateEnginePrimaryOptionLists();
-                    if (t.checked) {
-                        ensurePrivateEngineDefaultFromMainIfUnset(
-                            DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE,
-                            document.getElementById('firefox-homepage-engine'),
-                            document.getElementById('firefox-homepage-engine-private')
-                        );
-                    }
+                    syncFirefoxHomepagePrivateEnginePrimaryOptionsOnly();
+                    syncFirefoxHomepagePrivateEngineSelectFromStorage();
                     syncPrivateEngineSelectRowsVisibility();
                     return;
                 }
@@ -1509,37 +1652,58 @@
                             t.checked ? 'true' : 'false'
                         );
                     } catch (ePrivStand) {}
-                    syncPrivateEnginePrimaryOptionLists();
-                    if (t.checked) {
-                        ensurePrivateEngineDefaultFromMainIfUnset(
-                            DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE,
-                            document.getElementById('standalone-search-box-engine'),
-                            document.getElementById('standalone-search-box-engine-private')
-                        );
-                    }
+                    syncStandalonePrivateEnginePrimaryOptionsOnly();
+                    syncStandalonePrivateEngineSelectFromStorage();
                     syncPrivateEngineSelectRowsVisibility();
                     return;
                 }
-                if (t.id === 'default-engine-private') {
-                    persistDefaultSearchEngineKeyFromOverlay(
-                        DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE,
-                        t.value
-                    );
+                if (t.id === 'prototype-ui-pb-choice-address-bar') {
+                    try {
+                        getDefaultSearchEngineLocalStorage().setItem(PROTOTYPE_DECOR_PB_CHOICE_ADDRESS_BAR, String(t.value));
+                    } catch (eDa) {}
                     return;
                 }
-                if (t.id === 'firefox-homepage-engine-private') {
-                    persistDefaultSearchEngineKeyFromOverlay(DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE, t.value);
+                if (t.id === 'prototype-ui-pb-choice-firefox-nt-home') {
+                    try {
+                        getDefaultSearchEngineLocalStorage().setItem(PROTOTYPE_DECOR_PB_CHOICE_FX_NT_HOME, String(t.value));
+                    } catch (eFh) {}
                     return;
                 }
-                if (t.id === 'standalone-search-box-engine-private') {
-                    persistDefaultSearchEngineKeyFromOverlay(
-                        DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE,
-                        t.value
-                    );
+                if (t.id === 'prototype-ui-pb-choice-standalone-strip') {
+                    try {
+                        getDefaultSearchEngineLocalStorage().setItem(
+                            PROTOTYPE_DECOR_PB_CHOICE_STANDALONE_STRIP,
+                            String(t.value)
+                        );
+                    } catch (eSt) {}
                     return;
                 }
                 if (t.id === 'standalone-search-box-engine') {
                     var v = t.value;
+                    var standEngineLabelByValue = {
+                        google: 'Google',
+                        bing: 'Bing',
+                        duckduckgo: 'DuckDuckGo',
+                        ebay: 'eBay',
+                        perplexity: 'Perplexity',
+                        wikipedia: 'Wikipedia (en)',
+                    };
+                    var standLabForPost =
+                        v === 'off'
+                            ? null
+                            : standEngineLabelByValue[v] ||
+                              (String(v || '').trim() ? String(v).trim() : '') ||
+                              'Google';
+                    /* Mirror to top `localStorage` so the main page applies visibility even if `postMessage` source checks fail. */
+                    try {
+                        var lsSt = getDefaultSearchEngineLocalStorage();
+                        if (v === 'off') {
+                            lsSt.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, 'false');
+                        } else {
+                            lsSt.setItem(STANDALONE_SEARCH_BOX_VISIBLE_KEY, 'true');
+                            lsSt.setItem(DEFAULT_SEARCH_ENGINE_KEY_STANDALONE, standLabForPost);
+                        }
+                    } catch (eLsSt) {}
                     if (v === 'off') {
                         try {
                             window.parent.postMessage({ type: 'apply-standalone-from-settings-html', visible: false }, '*');
@@ -1547,17 +1711,40 @@
                     } else {
                         try {
                             window.parent.postMessage(
-                                { type: 'apply-standalone-from-settings-html', visible: true, engine: v },
+                                {
+                                    type: 'apply-standalone-from-settings-html',
+                                    visible: true,
+                                    engine: standLabForPost,
+                                },
                                 '*'
                             );
                         } catch (err4) {}
                     }
-                    syncPrivateEnginePrimaryOptionLists();
+                    syncStandalonePrivateEnginePrimaryOptionsOnly();
                     syncStandalonePrivateEngineSelectFromStorage();
                     syncPrivateEngineSelectRowsVisibility();
+                    syncStandaloneSuggestionsCountRowDisabled();
                     return;
                 }
             });
+            (function bindSearchSuggestionCountInputs() {
+                var pairs = [
+                    ['search-suggestions-count-address-bar', SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR],
+                    ['search-suggestions-count-firefox-homepage', SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB],
+                    ['search-suggestions-count-standalone', SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE],
+                ];
+                pairs.forEach(function (pair) {
+                    var el = document.getElementById(pair[0]);
+                    if (!el) return;
+                    function commitSuggestionCount() {
+                        if (el.disabled) return;
+                        var ls = getDefaultSearchEngineLocalStorage();
+                        el.value = persistSuggestionCountFromField(ls, pair[1], el.value);
+                    }
+                    el.addEventListener('change', commitSuggestionCount);
+                    el.addEventListener('blur', commitSuggestionCount);
+                });
+            })();
             syncAllEntryPointSelectsFromStorage();
             window.addEventListener('storage', function (e) {
                 if (
@@ -1590,21 +1777,34 @@
                     syncFirefoxHomepageAcceptUrlNavigationFromStorage();
                 }
                 if (
+                    e.key === SEARCH_SUGGESTIONS_COUNT_KEY_ADDRESSBAR ||
+                    e.key === SEARCH_SUGGESTIONS_COUNT_KEY_NEW_TAB ||
+                    e.key === SEARCH_SUGGESTIONS_COUNT_KEY_STANDALONE
+                ) {
+                    syncSearchSuggestionsCountInputsFromStorage();
+                }
+                if (
                     e.key === SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY ||
                     e.key === SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY ||
                     e.key === SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY
                 ) {
                     syncPrivateEngineCheckboxesFromStorage();
-                    syncPrivateEngineSelectRowsVisibility();
-                }
-                if (
-                    e.key === DEFAULT_SEARCH_ENGINE_KEY_ADDRESSBAR_PRIVATE ||
-                    e.key === DEFAULT_SEARCH_ENGINE_KEY_MAIN_PRIVATE ||
-                    e.key === DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE
-                ) {
                     syncPrivateEnginePrimaryOptionLists();
                     syncAddressBarPrivateEngineSelectFromStorage();
                     syncFirefoxHomepagePrivateEngineSelectFromStorage();
+                    syncStandalonePrivateEngineSelectFromStorage();
+                    syncPrivateEngineSelectRowsVisibility();
+                }
+                if (e.key === PROTOTYPE_DECOR_PB_CHOICE_ADDRESS_BAR) {
+                    syncAddressBarPrivateEnginePrimaryOptionsOnly();
+                    syncAddressBarPrivateEngineSelectFromStorage();
+                }
+                if (e.key === PROTOTYPE_DECOR_PB_CHOICE_FX_NT_HOME) {
+                    syncFirefoxHomepagePrivateEnginePrimaryOptionsOnly();
+                    syncFirefoxHomepagePrivateEngineSelectFromStorage();
+                }
+                if (e.key === PROTOTYPE_DECOR_PB_CHOICE_STANDALONE_STRIP) {
+                    syncStandalonePrivateEnginePrimaryOptionsOnly();
                     syncStandalonePrivateEngineSelectFromStorage();
                 }
             });
@@ -1655,7 +1855,13 @@
                             if (
                                 k === SEARCH_SETTINGS_ADDRESS_BAR_PRIVATE_ENGINE_KEY ||
                                 k === SEARCH_SETTINGS_HOMEPAGE_PRIVATE_ENGINE_KEY ||
-                                k === SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY
+                                k === SEARCH_SETTINGS_STANDALONE_PRIVATE_ENGINE_KEY ||
+                                k === PROTOTYPE_DECOR_PB_CHOICE_ADDRESS_BAR ||
+                                k === PROTOTYPE_DECOR_PB_CHOICE_FX_NT_HOME ||
+                                k === PROTOTYPE_DECOR_PB_CHOICE_STANDALONE_STRIP ||
+                                k === 'default_search_engine:addressbar:private' ||
+                                k === 'default_search_engine:main:private' ||
+                                k === 'default_search_engine:standalone:private'
                             ) {
                                 return;
                             }
