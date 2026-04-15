@@ -158,7 +158,7 @@
             line-height: 1.2;
         }
 
-        /* Left list: fixed panel, compositor reveal via clip-path so only the bottom edge uncovers text */
+        /* Demo 2: fixed panel, compositor reveal via clip-path so only the bottom edge uncovers text */
         .column--expandable-list .word-panel {
             clip-path: inset(0 0 100% 0);
             transition: clip-path 0.45s ease;
@@ -167,7 +167,7 @@
             clip-path: inset(0 0 0 0);
         }
 
-        /* Right list: full panel starts shifted upward behind the input, then slides down with transform */
+        /* Demo 1: full panel starts shifted upward behind the input, then slides down with transform */
         .column--sliding-list .word-panel {
             transform: translateY(-219px);
             transition: transform 0.45s ease;
