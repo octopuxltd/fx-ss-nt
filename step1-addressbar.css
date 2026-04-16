@@ -725,8 +725,12 @@ body.addressbar .suggestion-item.is-selected::after {
     border-radius: var(--suggestion-item-radius, 10px);
 }
 
+body.addressbar:not(.search-border-radius-large) .suggestion-item:hover::before,
+body.addressbar:not(.search-border-radius-large) .suggestion-item.is-selected::before,
 body.addressbar:not(.search-border-radius-large) .suggestion-item:hover::after,
-body.addressbar:not(.search-border-radius-large) .suggestion-item.is-selected::after {
+body.addressbar:not(.search-border-radius-large) .suggestion-item.is-selected::after,
+body.addressbar:not(.search-border-radius-large) .suggestion-item.suggestion-item--overflow-menu-anchor::before,
+body.addressbar:not(.search-border-radius-large) .suggestion-item.suggestion-item--overflow-menu-anchor::after {
     border-radius: 3px;
 }
 
@@ -786,7 +790,7 @@ body.addressbar .firefox-suggest-heading-info-icon {
     height: 10px;
 }
 
-/* Address-bar "From Firefox" help tooltip should paint above the fixed browser chrome, including the tab strip. */
+/* "From Firefox" (i) tooltip: high z-index so it paints over fixed chrome; position is set in JS (below icon). */
 body.addressbar #global-tooltip {
     z-index: 100200;
 }
@@ -807,12 +811,31 @@ body.addressbar .firefox-suggest-more-icon {
     font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
 }
 
-/* Match hint line (8px×scale); border → inset ring so row height matches plain hint text; buttons often ignore inherit. */
+body.addressbar .firefox-suggest-remove-icon {
+    width: 14px;
+    height: 14px;
+}
+
+body.addressbar .firefox-suggest-remove-icon img {
+    width: 10px;
+    height: 10px;
+}
+
+body.addressbar .clock-suggestion-more-menu {
+    min-width: 200px;
+}
+
+body.addressbar .clock-suggestion-more-menu-item {
+    font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
+    padding: 6px 11px;
+}
+
+/* Match hint line: same font metrics as .suggestion-hint-text (URL); inset ring instead of border. */
 body.addressbar .suggestion-item .firefox-switch-tab-button {
-    font-size: calc(8px * var(--addr-suggest-text-scale, 1.3));
+    font-size: inherit;
     font-weight: 400;
-    line-height: 1.3;
-    padding: 0 5px;
+    line-height: inherit;
+    padding: 0 4px;
     margin: 0;
     border: none;
     color: var(--color-hint-accent);
@@ -821,7 +844,7 @@ body.addressbar .suggestion-item .firefox-switch-tab-button {
     gap: 4px;
     top: 0;
     box-sizing: border-box;
-    min-height: calc(8px * var(--addr-suggest-text-scale, 1.3) * 1.3);
+    min-height: 0;
 }
 
 body.addressbar .suggestion-hint-area {

@@ -1016,7 +1016,9 @@ body:not(.search-border-radius-large) .search-switcher-dropdown.search-engines-d
 body:not(.search-border-radius-large) .suggestion-item:hover::before,
 body:not(.search-border-radius-large) .suggestion-item:hover::after,
 body:not(.search-border-radius-large) .suggestion-item.is-selected::before,
-body:not(.search-border-radius-large) .suggestion-item.is-selected::after {
+body:not(.search-border-radius-large) .suggestion-item.is-selected::after,
+body:not(.search-border-radius-large) .suggestion-item.suggestion-item--overflow-menu-anchor::before,
+body:not(.search-border-radius-large) .suggestion-item.suggestion-item--overflow-menu-anchor::after {
     border-radius: 3px;
 }
 
@@ -5178,6 +5180,52 @@ body.reduced-motion .one-off-buttons {
     bottom: 0;
 }
 
+/* Row that opened the ••• overflow menu: keep hover chrome while the menu is open. */
+.suggestion-item.suggestion-item--overflow-menu-anchor::before {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.suggestion-item.suggestion-item--overflow-menu-anchor::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 0;
+    right: 0;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.suggestion-item.suggestion-item--overflow-menu-anchor:first-child::after {
+    top: 0;
+}
+
+.suggestion-item.suggestion-item--overflow-menu-anchor:last-child::after {
+    bottom: 0;
+}
+
+.suggestion-item.suggestion-item--overflow-menu-anchor .suggestion-separator,
+.suggestion-item.suggestion-item--overflow-menu-anchor .suggestion-hint-text {
+    display: block;
+}
+
+.suggestion-item.firefox-suggest-item.suggestion-item--overflow-menu-anchor .suggestion-separator {
+    color: var(--color-text-primary);
+}
+
+.suggestion-item.firefox-suggest-item.suggestion-item--overflow-menu-anchor .firefox-suggest-more-icon {
+    opacity: 0.8;
+}
+
+.suggestion-item.firefox-suggest-item.suggestion-item--overflow-menu-anchor .firefox-suggest-remove-icon {
+    opacity: 1;
+}
+
+.suggestion-item.clock-suggest-row.suggestion-item--overflow-menu-anchor .firefox-suggest-more-icon {
+    opacity: 0.8;
+}
+
 .suggestion-item .suggestion-separator {
     color: var(--color-hint-accent);
     font-size: 12px;
@@ -5219,6 +5267,7 @@ body.reduced-motion .one-off-buttons {
 .suggestion-item.firefox-suggest-item .suggestion-hint-text {
     /* Slight bottom padding so descenders / multi-line hints don’t clip (overflow hidden on row + hint area). */
     padding-bottom: 4px;
+    line-height: 1.35;
 }
 
 .suggestion-item.is-selected .suggestion-separator,
@@ -5270,9 +5319,39 @@ body.reduced-motion .one-off-buttons {
     display: none;
 }
 
+.suggestions-list.keyboard-navigating .suggestion-item.suggestion-item--overflow-menu-anchor:not(.is-selected)::before {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.suggestions-list.keyboard-navigating .suggestion-item.suggestion-item--overflow-menu-anchor:not(.is-selected)::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 0;
+    right: 0;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    border-radius: inherit;
+    pointer-events: none;
+    display: block;
+}
+
+.suggestions-list.keyboard-navigating .suggestion-item.suggestion-item--overflow-menu-anchor:not(.is-selected):first-child::after {
+    top: 0;
+}
+
+.suggestions-list.keyboard-navigating .suggestion-item.suggestion-item--overflow-menu-anchor:not(.is-selected):last-child::after {
+    bottom: 0;
+}
+
 .suggestions-list.keyboard-navigating .suggestion-item:not(.is-selected):not(.firefox-suggest-item) .suggestion-separator,
 .suggestions-list.keyboard-navigating .suggestion-item:not(.is-selected):not(.firefox-suggest-item) .suggestion-hint-text {
     display: none;
+}
+
+.suggestions-list.keyboard-navigating .suggestion-item.suggestion-item--overflow-menu-anchor:not(.is-selected) .suggestion-separator,
+.suggestions-list.keyboard-navigating .suggestion-item.suggestion-item--overflow-menu-anchor:not(.is-selected) .suggestion-hint-text {
+    display: block;
 }
 
 /* Suppress hover until mouse moves to a new item (e.g. when AI suggestions return) */
@@ -5287,6 +5366,36 @@ body.reduced-motion .one-off-buttons {
 .suggestions-list.suggestions-suppress-hover .suggestion-item:not(.is-selected):not(.firefox-suggest-item):not(.hint-always-visible) .suggestion-separator,
 .suggestions-list.suggestions-suppress-hover .suggestion-item:not(.is-selected):not(.firefox-suggest-item):not(.hint-always-visible) .suggestion-hint-text {
     display: none;
+}
+
+.suggestions-list.suggestions-suppress-hover .suggestion-item.suggestion-item--overflow-menu-anchor::before {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.suggestions-list.suggestions-suppress-hover .suggestion-item.suggestion-item--overflow-menu-anchor::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 0;
+    right: 0;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    border-radius: inherit;
+    pointer-events: none;
+    display: block;
+}
+
+.suggestions-list.suggestions-suppress-hover .suggestion-item.suggestion-item--overflow-menu-anchor:first-child::after {
+    top: 0;
+}
+
+.suggestions-list.suggestions-suppress-hover .suggestion-item.suggestion-item--overflow-menu-anchor:last-child::after {
+    bottom: 0;
+}
+
+.suggestions-list.suggestions-suppress-hover .suggestion-item.suggestion-item--overflow-menu-anchor .suggestion-separator,
+.suggestions-list.suggestions-suppress-hover .suggestion-item.suggestion-item--overflow-menu-anchor .suggestion-hint-text {
+    display: block;
 }
 
 .suggestion-item.gmail-item .suggestion-hint-text {
@@ -5311,22 +5420,24 @@ body.reduced-motion .one-off-buttons {
 }
 
 .firefox-switch-tab-button {
-    font-size: 11px;
-    font-weight: 500;
+    /* Match URL / hint text in the same .suggestion-hint-text (buttons don’t auto-inherit size). */
+    font-size: inherit;
+    font-weight: 400;
+    line-height: inherit;
     color: var(--color-hint-accent);
     background: transparent;
     border: 1px solid var(--color-hint-accent);
     border-radius: 50px;
-    padding: 0 8px;
+    padding: 0 5px;
     cursor: pointer;
     font-family: inherit;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    line-height: 1;
     min-height: 0;
     position: relative;
-    top: -0.5px;
+    top: 0;
+    box-sizing: border-box;
 }
 
 .suggestions-list.first-hover-fade .suggestion-item::before {
@@ -5339,6 +5450,23 @@ body.reduced-motion .one-off-buttons {
 
 .suggestions-list.transitioning .suggestion-item:hover::after {
     display: none;
+}
+
+.suggestions-list.transitioning .suggestion-item.suggestion-item--overflow-menu-anchor::before {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.suggestions-list.transitioning .suggestion-item.suggestion-item--overflow-menu-anchor::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 0;
+    right: 0;
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    border-radius: inherit;
+    pointer-events: none;
+    display: block;
 }
 
 
@@ -5430,7 +5558,8 @@ body.reduced-motion .one-off-buttons {
 }
 
 .suggestion-item.firefox-suggest-item {
-    overflow: hidden;
+    /* Don’t clip ::before/::after hover chrome; .suggestion-label + .suggestion-hint-area constrain text. */
+    overflow: visible;
 }
 
 .firefox-suggest-more-icon {
@@ -5452,6 +5581,85 @@ body.reduced-motion .one-off-buttons {
 .suggestion-item.firefox-suggest-item:hover .firefox-suggest-more-icon,
 .suggestion-item.firefox-suggest-item.is-selected .firefox-suggest-more-icon {
     opacity: 0.8;
+}
+
+.firefox-suggest-remove-icon {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.1s linear, background-color 0.1s linear;
+    cursor: default;
+}
+
+.firefox-suggest-remove-icon img {
+    width: 12px;
+    height: 12px;
+    display: block;
+    opacity: 0.85;
+}
+
+.suggestion-item.firefox-suggest-item:hover .firefox-suggest-remove-icon,
+.suggestion-item.firefox-suggest-item.is-selected .firefox-suggest-remove-icon {
+    opacity: 1;
+}
+
+.firefox-suggest-remove-icon:hover {
+    background-color: white;
+}
+
+/* Recent-search / history string rows: same more-menu control as Firefox Suggest (updateSuggestions). */
+.suggestion-item.clock-suggest-row:hover .firefox-suggest-more-icon,
+.suggestion-item.clock-suggest-row.is-selected .firefox-suggest-more-icon {
+    opacity: 0.8;
+}
+
+.suggestions-list.suggestions-suppress-hover .suggestion-item.clock-suggest-row:not(.is-selected):not(.suggestion-item--overflow-menu-anchor) .firefox-suggest-more-icon {
+    opacity: 0;
+}
+
+.clock-suggestion-more-menu {
+    min-width: 220px;
+    padding: 6px 0;
+    margin: 0;
+    /* Always solid white (not page / “inner” surface tint). */
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        0 2px 6px rgba(0, 0, 0, 0.06);
+    box-sizing: border-box;
+}
+
+.clock-suggestion-more-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 14px;
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.35;
+    color: var(--color-text-primary, #1f2933);
+    cursor: default;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.clock-suggestion-more-menu-item:hover,
+.clock-suggestion-more-menu-item:focus-visible {
+    background: rgba(0, 0, 0, 0.06);
+    outline: none;
 }
 
 .firefox-suggest-more-icon:hover {
@@ -5532,6 +5740,15 @@ body.reduced-motion .one-off-buttons {
     pointer-events: none;
 }
 
+.suggestions-skeleton-prototype-notice.suggestions-skeleton-prototype-notice--stalled {
+    color: #b91c1c;
+    border-color: rgba(185, 28, 28, 0.4);
+    background: color-mix(in oklab, #fef2f2 90%, var(--page-bg-solid, #f9f9fb));
+    box-shadow:
+        0 2px 8px rgba(185, 28, 28, 0.08),
+        0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
 /* Search field, switcher, suggestions, one-offs: arrow cursor (like tab strip / toolbar), not link hand. */
 .search-switcher-button,
 .dropdown-label-info-icon,
@@ -5554,6 +5771,7 @@ body.reduced-motion .one-off-buttons {
 .suggestion-hint-date-part,
 .firefox-switch-tab-button,
 .firefox-suggest-more-icon,
+.firefox-suggest-remove-icon,
 .search-engines-setting-switch,
 .engines-sort-alphabetically {
     cursor: default;
@@ -5561,4 +5779,155 @@ body.reduced-motion .one-off-buttons {
 
 body > .dropdown-item.dragging {
     cursor: grabbing;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Main New Tab (step1.html, body.step1-search-surface): suggestion rows, more/remove controls, overflow menus — iframe parity. */
+/* -------------------------------------------------------------------------- */
+body.step1-search-surface {
+    --addr-suggest-text-scale: 1.3;
+}
+
+body.step1-search-surface #global-tooltip {
+    z-index: 100200;
+}
+
+body.step1-search-surface .suggestions-content {
+    padding: 5px 7px 9px;
+}
+
+body.step1-search-surface .suggestion-item {
+    gap: 8px;
+    padding: 5px 5px;
+    border-radius: var(--suggestion-item-radius, 10px);
+}
+
+body.step1-search-surface .suggestion-item.skeleton {
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+body.step1-search-surface .suggestion-item::before,
+body.step1-search-surface .suggestion-item:hover::after,
+body.step1-search-surface .suggestion-item.is-selected::after {
+    border-radius: var(--suggestion-item-radius, 10px);
+}
+
+body.step1-search-surface:not(.search-border-radius-large) .suggestion-item:hover::before,
+body.step1-search-surface:not(.search-border-radius-large) .suggestion-item.is-selected::before,
+body.step1-search-surface:not(.search-border-radius-large) .suggestion-item:hover::after,
+body.step1-search-surface:not(.search-border-radius-large) .suggestion-item.is-selected::after,
+body.step1-search-surface:not(.search-border-radius-large) .suggestion-item.suggestion-item--overflow-menu-anchor::before,
+body.step1-search-surface:not(.search-border-radius-large) .suggestion-item.suggestion-item--overflow-menu-anchor::after {
+    border-radius: 3px;
+}
+
+body.step1-search-surface .suggestion-item .suggestion-separator,
+body.step1-search-surface .suggestion-item .suggestion-hint-text {
+    font-size: calc(8px * var(--addr-suggest-text-scale, 1.3));
+    padding: 0 2px;
+}
+
+body.step1-search-surface .suggestion-item.firefox-suggest-item .suggestion-hint-text {
+    padding-bottom: 3px;
+}
+
+body.step1-search-surface .suggestion-item.firefox-suggest-item .suggestion-hint-text:has(.firefox-switch-tab-button) {
+    line-height: 1.3;
+    min-height: calc((8px * var(--addr-suggest-text-scale, 1.3) * 1.38) + 3px);
+}
+
+body.step1-search-surface .suggestion-item .suggestion-hint-default-part {
+    display: inline-flex;
+    align-items: center;
+    min-height: 100%;
+}
+
+body.step1-search-surface .suggestions-heading,
+body.step1-search-surface .firefox-suggest-section-heading {
+    font-size: calc(8px * var(--addr-suggest-text-scale, 1.3));
+    padding: 5px 7px 3px 7px;
+    margin: 1px 0;
+}
+
+body.step1-search-surface .firefox-suggest-section-heading {
+    gap: 4px;
+}
+
+body.step1-search-surface .firefox-suggest-heading-info-icon {
+    width: 10px;
+    height: 10px;
+}
+
+body.step1-search-surface .suggestion-icon,
+body.step1-search-surface .suggestion-icon-wrapper .firefox-suggest-type-icon {
+    width: 11px;
+    height: 11px;
+}
+
+body.step1-search-surface .suggestion-label {
+    font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
+}
+
+body.step1-search-surface .firefox-suggest-more-icon {
+    width: 14px;
+    height: 14px;
+    font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
+}
+
+body.step1-search-surface .firefox-suggest-remove-icon {
+    width: 14px;
+    height: 14px;
+}
+
+body.step1-search-surface .firefox-suggest-remove-icon img {
+    width: 10px;
+    height: 10px;
+}
+
+body.step1-search-surface .clock-suggestion-more-menu {
+    min-width: 200px;
+}
+
+body.step1-search-surface .clock-suggestion-more-menu-item {
+    font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
+    padding: 6px 11px;
+}
+
+body.step1-search-surface .suggestion-item .firefox-switch-tab-button {
+    font-size: inherit;
+    font-weight: 400;
+    line-height: inherit;
+    padding: 0 4px;
+    margin: 0;
+    border: none;
+    color: var(--color-hint-accent);
+    box-shadow: inset 0 0 0 1px var(--color-hint-accent);
+    border-radius: 999px;
+    gap: 4px;
+    top: 0;
+    box-sizing: border-box;
+    min-height: 0;
+}
+
+body.step1-search-surface .suggestion-hint-area {
+    gap: 8px;
+}
+
+body.step1-search-surface .suggestion-item.gmail-item {
+    margin-bottom: 5px;
+}
+
+body.step1-search-surface .skeleton-icon {
+    width: 11px;
+    height: 11px;
+}
+
+body.step1-search-surface .suggestions-skeleton-prototype-notice {
+    font-size: calc(11px * var(--addr-suggest-text-scale, 1.3));
+    max-width: min(340px, 90%);
+}
+
+body.step1-search-surface .skeleton-text {
+    height: 10px;
 }

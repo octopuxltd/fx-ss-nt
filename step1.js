@@ -7265,7 +7265,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // Delegated click handler for suggestion items (handles static defaults + dynamic items)
     const suggestionsContent = document.querySelector('.suggestions-content');
     if (suggestionsContent) {
+        suggestionsContent.addEventListener('mousedown', (e) => {
+            if (e.target.closest?.('.firefox-suggest-more-icon')) {
+                e.preventDefault(); // Same as search switcher: keep input focused so blur does not close the panel before the overflow menu opens
+            }
+        });
         suggestionsContent.addEventListener('click', (e) => {
+            const moreTrigger = e.target.closest('.firefox-suggest-more-icon');
+            if (moreTrigger) {
+                const row = moreTrigger.closest('.suggestion-item');
+                if (row && row.classList.contains('clock-suggest-row')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const suggestion = row.querySelector('.suggestion-label')?.textContent?.trim().replace(/\s+/g, ' ') || '';
+                    if (!suggestion) return;
+                    openClockSuggestionMoreMenu(moreTrigger, suggestion);
+                    return;
+                }
+                if (row && row.classList.contains('firefox-suggest-item')) {
+                    const ffType = row.getAttribute('data-firefox-type') || '';
+                    if (ffType === 'tab' || ffType === 'bookmark' || ffType === 'history') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openFirefoxSuggestRowMenu(moreTrigger, row, ffType);
+                        return;
+                    }
+                }
+            }
             const item = e.target.closest('.suggestion-item:not(.skeleton)');
             if (!item || item.classList.contains('gmail-item-hidden')) return;
             if (item.classList.contains('gmail-item')) return; // Gmail has its own handling
@@ -7363,7 +7389,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 !pinnedRightHost.hidden &&
                 e.target &&
                 !e.target.closest?.('.search-switcher-pinned-right-host') &&
-                !e.target.closest?.('.search-box-wrapper-outer')
+                !e.target.closest?.('.search-box-wrapper-outer') &&
+                !e.target.closest?.('.clock-suggestion-more-menu') &&
+                !e.target.closest?.('.firefox-suggest-row-menu')
             ) {
                 collapseSearchUiPreservingPinned();
                 return;
@@ -7373,7 +7401,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // but clicking away from the search UI should close switcher + suggestions (blur input).
                 if (searchContainer?.classList.contains('focused')) {
                     const clickInsideSearch = e.target.closest?.('.search-container');
-                    if (clickInsideSearch) {
+                    const clickInClockMenu = e.target.closest?.('.clock-suggestion-more-menu');
+                    const clickInFirefoxRowMenu = e.target.closest?.('.firefox-suggest-row-menu');
+                    if (clickInsideSearch || clickInClockMenu || clickInFirefoxRowMenu) {
                         return;
                     }
                 }
@@ -7396,7 +7426,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchSwitcherButton.querySelectorAll('.dropdown-item').forEach(item => item.classList.remove('highlighted'));
                     if (searchContainer?.classList.contains('focused')) {
                         const clickInsideSearch = e.target.closest('.search-container');
-                        if (clickInsideSearch) {
+                        const clickInClockMenu = e.target.closest?.('.clock-suggestion-more-menu');
+                        const clickInFirefoxRowMenu = e.target.closest?.('.firefox-suggest-row-menu');
+                        if (clickInsideSearch || clickInClockMenu || clickInFirefoxRowMenu) {
                             restoreFocusAndOpaqueSuggestions();
                         } else {
                             closeSuggestionsPanel();
@@ -10137,6 +10169,145 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    function removeFromSearchHistory(text) {
+        try {
+            const history = getSearchHistory();
+            const textLower = text.toLowerCase();
+            const next = history.filter((item) => item.toLowerCase() !== textLower);
+            if (next.length === history.length) return;
+            localStorage.setItem('search_history', JSON.stringify(next));
+            console.log('[HISTORY] Removed from history:', text);
+        } catch (error) {
+            console.error('[HISTORY] Error removing from history:', error);
+        }
+    }
+    
+    const DISMISSED_SEARCH_SUGGESTIONS_KEY = 'dismissed_search_suggestions';
+    const DISMISSED_SEARCH_SUGGESTIONS_CAP = 400;
+    
+    function getDismissedSearchSuggestionKeys() {
+        try {
+            const raw = localStorage.getItem(DISMISSED_SEARCH_SUGGESTIONS_KEY);
+            if (!raw) return new Set();
+            const arr = JSON.parse(raw);
+            if (!Array.isArray(arr)) return new Set();
+            return new Set(arr.map((s) => String(s).toLowerCase().trim()).filter(Boolean));
+        } catch (error) {
+            console.error('[HISTORY] Error reading dismissed suggestions:', error);
+            return new Set();
+        }
+    }
+    
+    function addDismissedSearchSuggestion(text) {
+        try {
+            const k = String(text || '').trim().toLowerCase();
+            if (!k) return;
+            const prev = [...getDismissedSearchSuggestionKeys()];
+            if (prev.includes(k)) return;
+            prev.push(k);
+            const capped = prev.slice(-DISMISSED_SEARCH_SUGGESTIONS_CAP);
+            localStorage.setItem(DISMISSED_SEARCH_SUGGESTIONS_KEY, JSON.stringify(capped));
+            console.log('[HISTORY] Dismissed suggestion (hidden until cleared):', text);
+        } catch (error) {
+            console.error('[HISTORY] Error saving dismissed suggestion:', error);
+        }
+    }
+    
+    function removeSearchSuggestionFromPanel(text) {
+        addDismissedSearchSuggestion(text);
+        removeFromSearchHistory(text);
+    }
+    
+    function filterIncomingStringsRemovedDismissed(arr, opts) {
+        if (!Array.isArray(arr)) return [];
+        if (opts.isAtQuery) return [...arr];
+        const dismissed = getDismissedSearchSuggestionKeys();
+        if (!dismissed.size) return [...arr];
+        return arr.filter((entry) => {
+            if (typeof entry !== 'string') return true;
+            return !dismissed.has(entry.trim().toLowerCase());
+        });
+    }
+    
+    function pruneAiSuggestionIconKeysOnArray(arr) {
+        if (!arr || !(arr._aiSuggestionIconKeys instanceof Set)) return;
+        const stringKeys = new Set(arr.filter((s) => typeof s === 'string').map((s) => s.trim().toLowerCase()));
+        arr._aiSuggestionIconKeys = new Set([...arr._aiSuggestionIconKeys].filter((k) => stringKeys.has(k)));
+    }
+    
+    function filterDismissedFromSuggestionsToShow(suggestionsToShow, searchValueTrimmed, firefoxSuggestionsOnly, isAtQuery) {
+        if (isAtQuery) return suggestionsToShow;
+        const dismissed = getDismissedSearchSuggestionKeys();
+        if (!dismissed.size) return suggestionsToShow;
+        const typedLower = (searchValueTrimmed || '').trim().toLowerCase();
+        const typedTextIndex = suggestionsToShow[0]?._visitSite ? 1 : 0;
+        return suggestionsToShow.filter((entry, index) => {
+            if (typeof entry !== 'string') return true;
+            const k = entry.trim().toLowerCase();
+            if (!dismissed.has(k)) return true;
+            if (!firefoxSuggestionsOnly && typedLower && index === typedTextIndex && k === typedLower) return true;
+            return false;
+        });
+    }
+    
+    const FIREFOX_SUGGEST_DEMOTED_KEY = 'firefox_suggest_demoted_to_history';
+    const FIREFOX_SUGGEST_REMOVED_KEY = 'firefox_suggest_removed_rows';
+    const FIREFOX_SUGGEST_ROW_KEYS_CAP = 200;
+    
+    function getFirefoxSuggestDemotedKeys() {
+        try {
+            const raw = localStorage.getItem(FIREFOX_SUGGEST_DEMOTED_KEY);
+            if (!raw) return new Set();
+            const arr = JSON.parse(raw);
+            if (!Array.isArray(arr)) return new Set();
+            return new Set(arr.map((s) => String(s).toLowerCase().trim()).filter(Boolean));
+        } catch (error) {
+            console.error('[FIREFOX-SUGGEST] Error reading demoted keys:', error);
+            return new Set();
+        }
+    }
+    
+    function getFirefoxSuggestRemovedKeys() {
+        try {
+            const raw = localStorage.getItem(FIREFOX_SUGGEST_REMOVED_KEY);
+            if (!raw) return new Set();
+            const arr = JSON.parse(raw);
+            if (!Array.isArray(arr)) return new Set();
+            return new Set(arr.map((s) => String(s).toLowerCase().trim()).filter(Boolean));
+        } catch (error) {
+            console.error('[FIREFOX-SUGGEST] Error reading removed keys:', error);
+            return new Set();
+        }
+    }
+    
+    function addFirefoxSuggestRemovedKey(titleKey) {
+        try {
+            const k = String(titleKey || '').trim().toLowerCase();
+            if (!k) return;
+            const list = [...getFirefoxSuggestRemovedKeys()];
+            if (list.includes(k)) return;
+            list.push(k);
+            localStorage.setItem(FIREFOX_SUGGEST_REMOVED_KEY, JSON.stringify(list.slice(-FIREFOX_SUGGEST_ROW_KEYS_CAP)));
+        } catch (error) {
+            console.error('[FIREFOX-SUGGEST] Error saving removed key:', error);
+        }
+    }
+    
+    function filterRemovedFirefoxSuggestionRows(rows) {
+        const removed = getFirefoxSuggestRemovedKeys();
+        if (!removed.size) return rows;
+        return rows.filter((entry) => {
+            if (typeof entry === 'object' && entry && entry.__firefoxSuggestRow) {
+                const t = String(entry.title || '').trim().toLowerCase();
+                return !removed.has(t);
+            }
+            if (typeof entry === 'string') {
+                return !removed.has(entry.trim().toLowerCase());
+            }
+            return true;
+        });
+    }
+    
     // ===== ICON ASSIGNMENT =====
     
     // Icon mappings for trending suggestions (icons/internal-trending.svg)
@@ -10176,12 +10347,52 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== SKELETON LOADERS =====
 
     const SKELETON_PROTOTYPE_NOTICE_CLASS = 'suggestions-skeleton-prototype-notice';
+    const SKELETON_PROTOTYPE_NOTICE_STALLED_CLASS = 'suggestions-skeleton-prototype-notice--stalled';
+    const SKELETON_PROTOTYPE_NOTICE_TEXT = 'Slower than Firefox would be — prototype.';
+    const SKELETON_PROTOTYPE_NOTICE_STALLED_TEXT = 'Prototype stalled, please type an extra character.';
+    const SKELETON_PROTOTYPE_NOTICE_STALL_MS = 8000;
+
+    let skeletonPrototypeNoticeStallTimer = null;
+
+    function clearSkeletonPrototypeNoticeStallTimer() {
+        if (skeletonPrototypeNoticeStallTimer != null) {
+            clearTimeout(skeletonPrototypeNoticeStallTimer);
+            skeletonPrototypeNoticeStallTimer = null;
+        }
+    }
+
+    function scheduleSkeletonPrototypeNoticeStall() {
+        clearSkeletonPrototypeNoticeStallTimer();
+        skeletonPrototypeNoticeStallTimer = setTimeout(() => {
+            skeletonPrototypeNoticeStallTimer = null;
+            if (!suggestionsList) return;
+            if (!suggestionsList.querySelector('.skeleton')) return;
+            const notice = suggestionsList.querySelector(`.${SKELETON_PROTOTYPE_NOTICE_CLASS}`);
+            if (!notice) return;
+            notice.textContent = SKELETON_PROTOTYPE_NOTICE_STALLED_TEXT;
+            notice.classList.add(SKELETON_PROTOTYPE_NOTICE_STALLED_CLASS);
+        }, SKELETON_PROTOTYPE_NOTICE_STALL_MS);
+    }
+
+    /** Call on search field input so a stalled overlay message resets and the stall timer restarts while skeletons remain. */
+    function resetSkeletonPrototypeNoticeOnUserInput() {
+        const notice = suggestionsList?.querySelector(`.${SKELETON_PROTOTYPE_NOTICE_CLASS}`);
+        if (!notice) return;
+        notice.classList.remove(SKELETON_PROTOTYPE_NOTICE_STALLED_CLASS);
+        notice.textContent = SKELETON_PROTOTYPE_NOTICE_TEXT;
+        if (suggestionsList?.querySelector('.skeleton')) {
+            scheduleSkeletonPrototypeNoticeStall();
+        } else {
+            clearSkeletonPrototypeNoticeStallTimer();
+        }
+    }
 
     function syncSkeletonPrototypeNotice() {
         if (!suggestionsList) return;
         const hasSkeleton = !!suggestionsList.querySelector('.skeleton');
         let notice = suggestionsList.querySelector(`.${SKELETON_PROTOTYPE_NOTICE_CLASS}`);
         if (!hasSkeleton) {
+            clearSkeletonPrototypeNoticeStallTimer();
             notice?.remove();
             return;
         }
@@ -10189,9 +10400,10 @@ document.addEventListener('DOMContentLoaded', () => {
             notice = document.createElement('div');
             notice.className = SKELETON_PROTOTYPE_NOTICE_CLASS;
             notice.setAttribute('role', 'status');
-            notice.textContent = 'Slower than Firefox would be — prototype.';
+            notice.textContent = SKELETON_PROTOTYPE_NOTICE_TEXT;
             suggestionsList.appendChild(notice);
         }
+        scheduleSkeletonPrototypeNoticeStall();
     }
     
     // Fixed skeleton widths for each row position (1-10)
@@ -10312,7 +10524,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const firefoxMeta = aiResult && aiResult._firefoxSuggestions;
         const out = [];
         const seen = new Set();
-        const add = (s) => {
+        const aiStringKeys = new Set();
+        const add = (s, fromAi) => {
             if (typeof s === 'object' && s && s.__firefoxSuggestRow) {
                 const t = (s.title || '').trim();
                 if (!t) return;
@@ -10329,10 +10542,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (seen.has(k)) return;
             seen.add(k);
             out.push(s);
+            if (fromAi) {
+                aiStringKeys.add(k);
+            }
         };
-        (baseStrings || []).forEach(add);
-        aiList.forEach(add);
+        (baseStrings || []).forEach((s) => add(s, false));
+        aiList.forEach((s) => add(s, true));
         const arr = out.slice(0, maxStrings);
+        const finalStringKeys = new Set(arr.filter((s) => typeof s === 'string').map((s) => s.trim().toLowerCase()));
+        arr._aiSuggestionIconKeys = new Set([...aiStringKeys].filter((k) => finalStringKeys.has(k)));
         if (firefoxMeta && firefoxMeta.length) {
             arr._firefoxSuggestions = firefoxMeta;
         }
@@ -10374,7 +10592,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(currentDisplayedSuggestions) && currentDisplayedSuggestions._firefoxSuggestions) {
             filteredSuggestions._firefoxSuggestions = currentDisplayedSuggestions._firefoxSuggestions;
         }
-        
+        if (Array.isArray(currentDisplayedSuggestions) && currentDisplayedSuggestions._aiSuggestionIconKeys instanceof Set) {
+            const remaining = new Set(
+                filteredSuggestions.filter((s) => typeof s === 'string').map((s) => s.trim().toLowerCase())
+            );
+            filteredSuggestions._aiSuggestionIconKeys = new Set(
+                [...currentDisplayedSuggestions._aiSuggestionIconKeys].filter((k) => remaining.has(k))
+            );
+        }
+
         console.log('[FILTER] Filtered to', filteredSuggestions.length, 'matching suggestions');
         
         // Update the display
@@ -10511,15 +10737,34 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Store current displayed suggestions
-        currentDisplayedSuggestions = Array.isArray(suggestions) ? [...suggestions] : [];
-        
-        // Get current search value for the typed text
         const searchValue = searchInput ? searchInput.value : '';
         const searchValueTrimmed = searchValue.trim();
-
-        // Update lastTypedTextInInput early so mouseout during DOM updates below doesn't overwrite the input
         lastTypedTextInInput = searchValueTrimmed || '';
+        
+        let incoming = Array.isArray(suggestions) ? [...suggestions] : [];
+        incoming = filterIncomingStringsRemovedDismissed(incoming, { isAtQuery, firefoxSuggestionsOnly });
+        if (Array.isArray(suggestions) && suggestions._firefoxSuggestions) {
+            incoming._firefoxSuggestions = suggestions._firefoxSuggestions;
+        }
+        if (Array.isArray(suggestions) && suggestions._aiSuggestionIconKeys instanceof Set) {
+            incoming._aiSuggestionIconKeys = new Set(suggestions._aiSuggestionIconKeys);
+            pruneAiSuggestionIconKeysOnArray(incoming);
+        }
+        currentDisplayedSuggestions = incoming;
+
+        // Magnifying-glass icons only for strings that actually came from the AI request (not local/suggestionWords).
+        const keysFromOpts = options.aiSuggestionIconKeys;
+        if (keysFromOpts instanceof Set) {
+            aiSuggestionsSet = new Set(keysFromOpts);
+        } else if (Array.isArray(keysFromOpts)) {
+            aiSuggestionsSet = new Set(
+                keysFromOpts.map((k) => String(k).toLowerCase().trim()).filter(Boolean)
+            );
+        } else if (incoming._aiSuggestionIconKeys instanceof Set) {
+            aiSuggestionsSet = new Set(incoming._aiSuggestionIconKeys);
+        } else {
+            aiSuggestionsSet = new Set();
+        }
         
         // Hide Gmail when typing so typed text replaces it as first suggestion
         const gmailItem = suggestionsContent.querySelector('.gmail-item');
@@ -10541,7 +10786,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // For @ query: don't add typed text as first suggestion; use suggestions as-is
         // For firefoxSuggestionsOnly (local source mode): only Firefox Suggest items, no heading
         // Otherwise: put typed text first, then local/AI suggestions
-        const firefoxSuggestions = suggestions._firefoxSuggestions || [];
+        const firefoxSuggestions = incoming._firefoxSuggestions || [];
         let suggestionsToShow;
         if (firefoxSuggestionsOnly) {
             suggestionsToShow = firefoxSuggestions.length > 0
@@ -10553,9 +10798,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (isAtQuery) {
             // For '@' mode, show only the matching options (engines + firefox sources),
             // not an extra "echo" of what the user is already typing.
-            suggestionsToShow = Array.isArray(suggestions) ? suggestions : [];
+            suggestionsToShow = Array.isArray(incoming) ? incoming : [];
         } else if (searchValueTrimmed) {
-            const rest = (Array.isArray(suggestions) ? suggestions : []).filter((s) => {
+            const rest = (Array.isArray(currentDisplayedSuggestions) ? currentDisplayedSuggestions : []).filter((s) => {
                 if (typeof s === 'object' && s._localSource) return false;
                 return (typeof s === 'string' ? s : '').toLowerCase() !== searchValueTrimmed.toLowerCase();
             });
@@ -10567,7 +10812,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 suggestionsToShow = [searchValueTrimmed, ...engineMatches, ...rest];
             }
         } else {
-            suggestionsToShow = Array.isArray(suggestions) ? suggestions : [];
+            suggestionsToShow = Array.isArray(currentDisplayedSuggestions) ? currentDisplayedSuggestions : [];
         }
         
         if (!firefoxSuggestionsOnly && looksLikeUrl(searchValueTrimmed) && suggestionsToShow.length > 0) {
@@ -10582,6 +10827,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? suggestionsToShow.slice(0, displayLimit)
                 : applySuggestDisplayCap(suggestionsToShow, displayLimit);
         }
+        
+        suggestionsToShow = filterDismissedFromSuggestionsToShow(
+            suggestionsToShow,
+            searchValueTrimmed,
+            firefoxSuggestionsOnly,
+            isAtQuery
+        );
+        suggestionsToShow = filterRemovedFirefoxSuggestionRows(suggestionsToShow);
 
         const rowPreviews = suggestionsToShow.map((s) => {
             if (typeof s === 'string') return s.length > 72 ? `${s.slice(0, 72)}…` : s;
@@ -10609,22 +10862,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ' | firefoxMetaCount=' +
                 firefoxSuggestions.length
         );
-        
-        // Track AI suggestions for icon assignment (skip _localSource objects)
-        if (suggestions.length > 0) {
-            suggestions.forEach(suggestion => {
-                if (typeof suggestion === 'object' && suggestion._localSource) return;
-                const suggestionLower = (typeof suggestion === 'string' ? suggestion : '').toLowerCase();
-                // Don't track if it's a Firefox suggestion
-                const isFirefox = firefoxSuggestions.some(fs => 
-                    (typeof fs === 'string' && fs.toLowerCase() === suggestionLower) ||
-                    (typeof fs === 'object' && fs.title && fs.title.toLowerCase() === suggestionLower)
-                );
-                if (!isFirefox) {
-                    aiSuggestionsSet.add(suggestionLower);
-                }
-            });
-        }
         
         const firefoxDataByTitle = new Map(
             (firefoxSuggestions || [])
@@ -10673,7 +10910,7 @@ document.addEventListener('DOMContentLoaded', () => {
             iconSvg.appendChild(line2);
             const iconWrap = document.createElement('span');
             iconWrap.className = 'info-icon-tooltip info-icon-tooltip-html tooltip-trigger';
-            iconWrap.setAttribute('data-tooltip-position', 'top-right');
+            iconWrap.setAttribute('data-tooltip-position', 'bottom-right');
             const tooltipPop = document.createElement('span');
             tooltipPop.className = 'tooltip-popup';
             tooltipPop.innerHTML = `'From Firefox' includes pages from your history, bookmarks, and open tabs, as well as links to trusted sources and the occasional sponsored suggestion. <a href="https://support.mozilla.org/en-US/kb/firefox-suggest" target="_blank" rel="noopener">Learn how Firefox shows relevant content without selling your data</a>`;
@@ -10709,6 +10946,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isVisitSite = typeof suggestionOrObj === 'object' && suggestionOrObj._visitSite;
                 const isLocalSource = typeof suggestionOrObj === 'object' && suggestionOrObj._localSource;
                 const isSearchEngineSuggestion = typeof suggestionOrObj === 'object' && suggestionOrObj._searchEngine;
+                let appendClockRowMoreIcon = false;
                 let suggestion;
                 if (isVisitSite) suggestion = suggestionOrObj._text;
                 else if (isLocalSource) suggestion = suggestionOrObj.label;
@@ -10738,22 +10976,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isTypedText) {
                     li.setAttribute('data-typed-text', 'true');
                 }
+                let firefoxData = null;
+                let effectiveFirefoxType = null;
+                let firefoxTitleKey = '';
                 if (isFirefoxSuggest) {
-                    const firefoxDataForType = isFirefoxPage
+                    firefoxData = isFirefoxPage
                         ? suggestionOrObj
                         : firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
-                    const firefoxTypeForItem = displayType || (firefoxDataForType && firefoxDataForType.type) || 'history';
-                    li.setAttribute('data-firefox-type', firefoxTypeForItem);
+                    const rawFirefoxType = displayType || (firefoxData && firefoxData.type) || 'history';
+                    firefoxTitleKey = String((firefoxData && firefoxData.title) || suggestion || '')
+                        .trim()
+                        .toLowerCase();
+                    effectiveFirefoxType = getFirefoxSuggestDemotedKeys().has(firefoxTitleKey)
+                        ? 'history'
+                        : rawFirefoxType;
+                    li.setAttribute('data-firefox-type', effectiveFirefoxType);
+                    if (firefoxTitleKey) {
+                        li.setAttribute('data-firefox-title-key', firefoxTitleKey);
+                    }
                 }
                 
                 // Get appropriate icon (Firefox items: tab / bookmark / history / actions)
                 let iconEl;
                 if (isFirefoxSuggest) {
-                    const firefoxData = isFirefoxPage
-                        ? suggestionOrObj
-                        : firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
-                    const firefoxType = displayType || (firefoxData && firefoxData.type) || 'history';
-                    const iconSrc = firefoxTypeIcons[firefoxType] || 'icons/internal-clock.svg';
+                    const iconSrc = firefoxTypeIcons[effectiveFirefoxType] || 'icons/internal-clock.svg';
                     iconEl = document.createElement('img');
                     iconEl.src = iconSrc;
                     iconEl.alt = '';
@@ -10770,11 +11016,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconEl.className = 'suggestion-icon';
                 } else if (isTypedText) {
                     iconEl = document.createElement('img');
-                    iconEl.src = 'icons/internal-clock.svg';
+                    iconEl.src = 'icons/internal-magnifyingglass.svg';
                     iconEl.alt = '';
                     iconEl.className = 'suggestion-icon';
                 } else {
                     const iconSrc = getIconForSuggestion(suggestion);
+                    appendClockRowMoreIcon = iconSrc === 'icons/internal-clock.svg';
                     iconEl = document.createElement('img');
                     iconEl.src = iconSrc;
                     iconEl.alt = '';
@@ -10801,16 +11048,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hintText = document.createElement('span');
                 hintText.className = 'suggestion-hint-text';
                 if (isFirefoxSuggest) {
-                    const firefoxData = isFirefoxPage
-                        ? suggestionOrObj
-                        : firefoxDataByTitle.get((suggestion || '').toLowerCase().trim());
                     const dateIso = firefoxData && firefoxData.date;
-                    const firefoxType = displayType || (firefoxData && firefoxData.type) || 'history';
                     const urlDisplay = firefoxData && firefoxData.url
                         ? (firefoxData.url || '').replace(/^www\./i, '').toLowerCase()
                         : '';
-                    const isTab = firefoxType === 'tab';
-                    const isActions = firefoxType === 'actions';
+                    const isTab = effectiveFirefoxType === 'tab';
+                    const isActions = effectiveFirefoxType === 'actions';
                     const defaultContent = isTab ? 'switch-to-tab' : (isActions ? 'open-link' : (urlDisplay || ''));
                     if (dateIso && (defaultContent || urlDisplay)) {
                         const defaultPart = document.createElement('span');
@@ -10830,7 +11073,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dateHintPart = document.createElement('span');
                         dateHintPart.className = 'suggestion-hint-date-hint-part';
                         dateHintPart.style.display = 'none';
-                        dateHintPart.appendChild(buildFirefoxLastVisitedHintNodes(dateIso, firefoxType));
+                        dateHintPart.appendChild(buildFirefoxLastVisitedHintNodes(dateIso, effectiveFirefoxType));
                         hintText.appendChild(defaultPart);
                         hintText.appendChild(dateHintPart);
                         li.addEventListener('mouseenter', () => {
@@ -10856,11 +11099,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     hintArea.appendChild(separator);
                     hintArea.appendChild(hintText);
                     li.appendChild(hintArea);
-                    const moreIcon = document.createElement('span');
-                    moreIcon.className = 'firefox-suggest-more-icon';
-                    moreIcon.textContent = '⋯';
-                    moreIcon.setAttribute('aria-hidden', 'true');
-                    li.appendChild(moreIcon);
+                    if (effectiveFirefoxType === 'tab' || effectiveFirefoxType === 'bookmark' || effectiveFirefoxType === 'history') {
+                        const moreIcon = document.createElement('span');
+                        moreIcon.className = 'firefox-suggest-more-icon';
+                        moreIcon.textContent = '⋯';
+                        moreIcon.setAttribute('aria-hidden', 'true');
+                        li.appendChild(moreIcon);
+                    } else {
+                        const moreIcon = document.createElement('span');
+                        moreIcon.className = 'firefox-suggest-more-icon';
+                        moreIcon.textContent = '⋯';
+                        moreIcon.setAttribute('aria-hidden', 'true');
+                        li.appendChild(moreIcon);
+                    }
                 } else {
                     if (isLocalSource) {
                         hintText.dataset.searchHint = isSearchEngineSuggestion
@@ -10871,6 +11122,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     li.appendChild(separator);
                     li.appendChild(hintText);
+                }
+                if (appendClockRowMoreIcon) {
+                    li.classList.add('clock-suggest-row');
+                    const moreIcon = document.createElement('span');
+                    moreIcon.className = 'firefox-suggest-more-icon';
+                    moreIcon.textContent = '⋯';
+                    moreIcon.setAttribute('aria-hidden', 'true');
+                    li.appendChild(moreIcon);
                 }
                 
                 // Click is handled by delegated handler on suggestionsContent (handles static + dynamic items)
@@ -10915,6 +11174,295 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    function refreshSuggestionsAfterHistoryMutate() {
+        if (!searchInput) return;
+        const q = searchInput.value.trim();
+        if (!q) {
+            const history = getSearchHistory();
+            const suggestionsToShow = history.length ? history.slice(0, 8) : [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
+            updateSuggestions(suggestionsToShow);
+        } else {
+            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+    
+    const SUGGESTION_OVERFLOW_HOVER_DISMISS_MS = 1000;
+    const SUGGESTION_OVERFLOW_MENU_ANCHOR_CLASS = 'suggestion-item--overflow-menu-anchor';
+    let suggestionOverflowHoverDismissTimer = null;
+    let suggestionOverflowHoverDismissCleanup = null;
+
+    function clearSuggestionOverflowMenuAnchor() {
+        document.querySelectorAll(`.${SUGGESTION_OVERFLOW_MENU_ANCHOR_CLASS}`).forEach((el) => {
+            el.classList.remove(SUGGESTION_OVERFLOW_MENU_ANCHOR_CLASS);
+        });
+    }
+
+    function setSuggestionOverflowMenuAnchorRow(row) {
+        clearSuggestionOverflowMenuAnchor();
+        row?.classList?.add(SUGGESTION_OVERFLOW_MENU_ANCHOR_CLASS);
+    }
+
+    function clearSuggestionOverflowHoverDismiss() {
+        if (suggestionOverflowHoverDismissTimer != null) {
+            clearTimeout(suggestionOverflowHoverDismissTimer);
+            suggestionOverflowHoverDismissTimer = null;
+        }
+        if (typeof suggestionOverflowHoverDismissCleanup === 'function') {
+            suggestionOverflowHoverDismissCleanup();
+            suggestionOverflowHoverDismissCleanup = null;
+        }
+    }
+
+    /** Hit-test row ∪ menu with padding so the gap between anchor and fixed menu does not count as “outside”. */
+    function pointerInSuggestionOverflowHoverZone(row, menu, clientX, clientY) {
+        if (!row?.isConnected || !menu?.isConnected) return false;
+        const r = row.getBoundingClientRect();
+        const m = menu.getBoundingClientRect();
+        const pad = 8;
+        const left = Math.min(r.left, m.left) - pad;
+        const right = Math.max(r.right, m.right) + pad;
+        const top = Math.min(r.top, m.top) - pad;
+        const bottom = Math.max(r.bottom, m.bottom) + pad;
+        return clientX >= left && clientX <= right && clientY >= top && clientY <= bottom;
+    }
+
+    function bindSuggestionOverflowHoverDismiss(row, menu) {
+        clearSuggestionOverflowHoverDismiss();
+        const onMove = (e) => {
+            if (menu.hidden || !menu.classList.contains('is-open')) {
+                clearSuggestionOverflowHoverDismiss();
+                return;
+            }
+            const inside = pointerInSuggestionOverflowHoverZone(row, menu, e.clientX, e.clientY);
+            if (inside) {
+                if (suggestionOverflowHoverDismissTimer != null) {
+                    clearTimeout(suggestionOverflowHoverDismissTimer);
+                    suggestionOverflowHoverDismissTimer = null;
+                }
+            } else if (suggestionOverflowHoverDismissTimer == null) {
+                suggestionOverflowHoverDismissTimer = setTimeout(() => {
+                    suggestionOverflowHoverDismissTimer = null;
+                    closeClockSuggestionMoreMenu();
+                    closeFirefoxSuggestRowMenu();
+                }, SUGGESTION_OVERFLOW_HOVER_DISMISS_MS);
+            }
+        };
+        document.addEventListener('mousemove', onMove, true);
+        suggestionOverflowHoverDismissCleanup = () => {
+            document.removeEventListener('mousemove', onMove, true);
+        };
+    }
+
+    const CLOCK_SUGGESTION_MORE_MENU_CLASS = 'clock-suggestion-more-menu';
+    let clockSuggestionMoreMenuEl = null;
+    
+    function clockSuggestionMoreMenuDocCapture(e) {
+        if (clockSuggestionMoreMenuEl && clockSuggestionMoreMenuEl.contains(e.target)) return;
+        closeClockSuggestionMoreMenu();
+    }
+    
+    function clockSuggestionMoreMenuKeydown(e) {
+        if (e.key === 'Escape') closeClockSuggestionMoreMenu();
+    }
+    
+    function closeClockSuggestionMoreMenu() {
+        clearSuggestionOverflowHoverDismiss();
+        clearSuggestionOverflowMenuAnchor();
+        if (!clockSuggestionMoreMenuEl) return;
+        clockSuggestionMoreMenuEl.hidden = true;
+        clockSuggestionMoreMenuEl.classList.remove('is-open');
+        document.removeEventListener('click', clockSuggestionMoreMenuDocCapture, true);
+        document.removeEventListener('keydown', clockSuggestionMoreMenuKeydown);
+    }
+    
+    function ensureClockSuggestionMoreMenu() {
+        if (clockSuggestionMoreMenuEl) return clockSuggestionMoreMenuEl;
+        const menu = document.createElement('div');
+        menu.className = CLOCK_SUGGESTION_MORE_MENU_CLASS;
+        menu.setAttribute('role', 'menu');
+        menu.hidden = true;
+        
+        const btnRemove = document.createElement('button');
+        btnRemove.type = 'button';
+        btnRemove.className = `${CLOCK_SUGGESTION_MORE_MENU_CLASS}-item`;
+        btnRemove.setAttribute('role', 'menuitem');
+        btnRemove.textContent = 'Remove from Firefox search history';
+        
+        const learn = document.createElement('a');
+        learn.className = `${CLOCK_SUGGESTION_MORE_MENU_CLASS}-item`;
+        learn.setAttribute('role', 'menuitem');
+        learn.href = 'https://support.mozilla.org/en-US/kb/firefox-suggest';
+        learn.target = '_blank';
+        learn.rel = 'noopener noreferrer';
+        learn.textContent = 'Learn more';
+        
+        menu.appendChild(btnRemove);
+        menu.appendChild(learn);
+        document.body.appendChild(menu);
+        
+        btnRemove.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const t = menu.dataset.suggestion || '';
+            if (t) removeSearchSuggestionFromPanel(t);
+            closeClockSuggestionMoreMenu();
+            refreshSuggestionsAfterHistoryMutate();
+            try {
+                searchInput?.focus({ preventScroll: true });
+            } catch (_) {
+                try {
+                    searchInput?.focus();
+                } catch (_) {}
+            }
+        });
+        learn.addEventListener('click', () => {
+            closeClockSuggestionMoreMenu();
+            try {
+                searchInput?.focus({ preventScroll: true });
+            } catch (_) {
+                try {
+                    searchInput?.focus();
+                } catch (_) {}
+            }
+        });
+        
+        clockSuggestionMoreMenuEl = menu;
+        return menu;
+    }
+    
+    /** Right-align menu under anchor; measure twice (sync + rAF) so first open matches after CSS/layout settle. */
+    function positionFixedMenuBelowAnchorRight(menu, anchorEl) {
+        const apply = () => {
+            if (!anchorEl.isConnected || !menu.isConnected) return;
+            menu.style.visibility = 'hidden';
+            void menu.offsetWidth;
+            const rect = anchorEl.getBoundingClientRect();
+            const mw = menu.offsetWidth;
+            const mh = menu.offsetHeight;
+            let left = rect.right - mw;
+            if (left < 8) left = 8;
+            if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - mw);
+            let top = rect.bottom + 4;
+            if (top + mh > window.innerHeight - 8) top = Math.max(8, rect.top - 4 - mh);
+            menu.style.left = `${left}px`;
+            menu.style.top = `${top}px`;
+            menu.style.position = 'fixed';
+            menu.style.zIndex = '100250';
+            menu.style.visibility = '';
+        };
+        apply();
+        requestAnimationFrame(() => {
+            if (!menu.hidden && menu.classList.contains('is-open')) apply();
+        });
+    }
+    
+    function positionClockSuggestionMoreMenu(anchorEl) {
+        const menu = ensureClockSuggestionMoreMenu();
+        menu.hidden = false;
+        menu.classList.add('is-open');
+        positionFixedMenuBelowAnchorRight(menu, anchorEl);
+    }
+    
+    function openClockSuggestionMoreMenu(anchorEl, suggestionText) {
+        closeFirefoxSuggestRowMenu();
+        closeClockSuggestionMoreMenu();
+        const menu = ensureClockSuggestionMoreMenu();
+        const row = anchorEl.closest('.suggestion-item');
+        menu.dataset.suggestion = suggestionText;
+        positionClockSuggestionMoreMenu(anchorEl);
+        if (row) bindSuggestionOverflowHoverDismiss(row, menu);
+        setSuggestionOverflowMenuAnchorRow(row);
+        requestAnimationFrame(() => {
+            document.addEventListener('click', clockSuggestionMoreMenuDocCapture, true);
+            document.addEventListener('keydown', clockSuggestionMoreMenuKeydown);
+        });
+    }
+    
+    const FIREFOX_SUGGEST_ROW_MENU_CLASS = 'firefox-suggest-row-menu';
+    let firefoxSuggestRowMenuEl = null;
+    
+    function firefoxSuggestRowMenuDocCapture(e) {
+        if (firefoxSuggestRowMenuEl && firefoxSuggestRowMenuEl.contains(e.target)) return;
+        closeFirefoxSuggestRowMenu();
+    }
+    
+    function firefoxSuggestRowMenuKeydown(e) {
+        if (e.key === 'Escape') closeFirefoxSuggestRowMenu();
+    }
+    
+    function closeFirefoxSuggestRowMenu() {
+        clearSuggestionOverflowHoverDismiss();
+        clearSuggestionOverflowMenuAnchor();
+        if (!firefoxSuggestRowMenuEl) return;
+        firefoxSuggestRowMenuEl.hidden = true;
+        firefoxSuggestRowMenuEl.classList.remove('is-open');
+        document.removeEventListener('click', firefoxSuggestRowMenuDocCapture, true);
+        document.removeEventListener('keydown', firefoxSuggestRowMenuKeydown);
+    }
+    
+    function ensureFirefoxSuggestRowMenu() {
+        if (firefoxSuggestRowMenuEl) return firefoxSuggestRowMenuEl;
+        const menu = document.createElement('div');
+        menu.className = `${FIREFOX_SUGGEST_ROW_MENU_CLASS} clock-suggestion-more-menu`;
+        menu.setAttribute('role', 'menu');
+        menu.hidden = true;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'clock-suggestion-more-menu-item';
+        btn.setAttribute('role', 'menuitem');
+        menu.appendChild(btn);
+        document.body.appendChild(menu);
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const key = menu.dataset.titleKey || '';
+            if (key) addFirefoxSuggestRemovedKey(key);
+            closeFirefoxSuggestRowMenu();
+            refreshSuggestionsAfterHistoryMutate();
+            try {
+                searchInput?.focus({ preventScroll: true });
+            } catch (_) {
+                try {
+                    searchInput?.focus();
+                } catch (_) {}
+            }
+        });
+        firefoxSuggestRowMenuEl = menu;
+        return menu;
+    }
+    
+    function positionFirefoxSuggestRowMenu(anchorEl) {
+        const menu = ensureFirefoxSuggestRowMenu();
+        menu.hidden = false;
+        menu.classList.add('is-open');
+        positionFixedMenuBelowAnchorRight(menu, anchorEl);
+    }
+    
+    function openFirefoxSuggestRowMenu(anchorEl, row, mode) {
+        closeClockSuggestionMoreMenu();
+        closeFirefoxSuggestRowMenu();
+        const menu = ensureFirefoxSuggestRowMenu();
+        const key =
+            row.getAttribute('data-firefox-title-key') ||
+            row.querySelector('.suggestion-label')?.textContent?.trim().toLowerCase() ||
+            '';
+        menu.dataset.titleKey = key;
+        menu.dataset.mode = mode;
+        const btn = menu.querySelector('button');
+        if (btn) {
+            if (mode === 'tab') btn.textContent = 'Close this open tab';
+            else if (mode === 'bookmark') btn.textContent = 'Delete this bookmark';
+            else if (mode === 'history') btn.textContent = 'Remove from history';
+        }
+        positionFirefoxSuggestRowMenu(anchorEl);
+        bindSuggestionOverflowHoverDismiss(row, menu);
+        setSuggestionOverflowMenuAnchorRow(row);
+        requestAnimationFrame(() => {
+            document.addEventListener('click', firefoxSuggestRowMenuDocCapture, true);
+            document.addEventListener('keydown', firefoxSuggestRowMenuKeydown);
+        });
+    }
+    
     // ===== CLEAR BUTTON =====
     
     function looksLikeUrl(text) {
@@ -10950,7 +11498,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
-        currentDisplayedSuggestions = [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
     }
     
     function updateSearchUrlButton() {
@@ -11016,6 +11563,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== INPUT EVENT HANDLER =====
     if (searchInput) {
         searchInput.addEventListener('input', async (event) => {
+            resetSkeletonPrototypeNoticeOnUserInput();
             updateClearButton();
             updateSearchUrlButton();
             updateTypedState();
@@ -11082,7 +11630,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (aiSuggestions && Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
                             const localSourceLabel = label?.textContent?.trim();
                             updateSuggestions(aiSuggestions, { firefoxSuggestionsOnly: true, suppressHover: true, localSourceMode: localSourceLabel });
-                            currentDisplayedSuggestions = aiSuggestions;
                         } else {
                             updateSuggestions([], { firefoxSuggestionsOnly: true });
                         }
@@ -11116,7 +11663,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             suppressHover: true,
                             hideRecentSearchesSection: true,
                         });
-                        currentDisplayedSuggestions = firefoxOnlySuggestions;
                     }
                 } catch (error) {
                     console.error('[AI] Error fetching Firefox-only suggestions:', error);
@@ -11164,7 +11710,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? localSources.filter(s => s.label.toLowerCase().startsWith(afterAt))
                     : localSources;
                 updateSuggestions(matching, { isAtQuery: true });
-                currentDisplayedSuggestions = matching;
                 return;
             }
             
@@ -11186,7 +11731,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         const suggestionsToShow = matchingSuggestions.slice(0, readSearchSuggestionsDisplayLimit());
                         console.log('[INPUT] Updating with local suggestions:', suggestionsToShow);
                         updateSuggestions(suggestionsToShow);
-                        currentDisplayedSuggestions = suggestionsToShow;
                         return;
                     }
                 } else {
@@ -11202,7 +11746,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('[INPUT] Found exact match for', valueLower);
                     const suggestionsToShow = suggestionWords[valueLower];
                     updateSuggestions(suggestionsToShow);
-                    currentDisplayedSuggestions = suggestionsToShow;
                     console.log('[INPUT] Returning early from length === 2 branch');
                     return;
                 } else {
@@ -11253,9 +11796,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log('[AI] ✓ Query still matches after API call');
 
                         if (aiSuggestions && Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
-                            const toShow = hadPredefinedOrLocalSuggestions
-                                ? mergePredefinedWithAiSuggestions(currentDisplayedSuggestions, aiSuggestions)
-                                : aiSuggestions;
+                            let toShow;
+                            if (hadPredefinedOrLocalSuggestions) {
+                                toShow = mergePredefinedWithAiSuggestions(currentDisplayedSuggestions, aiSuggestions);
+                            } else {
+                                toShow = [...aiSuggestions];
+                                const ak = new Set();
+                                aiSuggestions.forEach((s) => {
+                                    if (typeof s === 'string' && s.trim()) {
+                                        ak.add(s.trim().toLowerCase());
+                                    }
+                                });
+                                toShow._aiSuggestionIconKeys = ak;
+                                if (aiSuggestions._firefoxSuggestions) {
+                                    toShow._firefoxSuggestions = aiSuggestions._firefoxSuggestions;
+                                }
+                            }
                             console.log(
                                 '[AI] Updating with',
                                 toShow.length,
@@ -11263,7 +11819,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 'suggestions'
                             );
                             updateSuggestions(toShow, { suppressHover: true });
-                            currentDisplayedSuggestions = Array.isArray(toShow) ? [...toShow] : [];
                         } else {
                             console.log('[AI] No AI suggestions returned');
                             if (!hadPredefinedOrLocalSuggestions) {
@@ -11486,6 +12041,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.relatedTarget?.closest?.('.search-switcher-pinned-right-host')) {
                 return;
             }
+            /* Fixed overflow menus (clock / Firefox row) live on body; focus moves into them without leaving the suggestions UX. */
+            if (e.relatedTarget?.closest?.('.clock-suggestion-more-menu')) {
+                return;
+            }
             // If the switcher was auto-opened for the outside-of-box mode, close it on blur.
             if (autoOpenedSwitcherOnFocus && searchSwitcherButton?.classList.contains('open')) {
                 const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
@@ -11510,6 +12069,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                     if (document.activeElement?.closest?.('.search-switcher-pinned-right-host')) {
+                        return;
+                    }
+                    if (document.activeElement?.closest?.('.clock-suggestion-more-menu')) {
                         return;
                     }
                     if (pinnedRightHostPointerActive) {
@@ -11640,7 +12202,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         DEFAULT_SEARCH_ENGINE_KEY_STANDALONE_PRIVATE,
                         'default_search_engine:private',
                         FIREFOX_SUGGESTIONS_ENABLED_KEY,
-                        'inspectSuggestions'
+                        'inspectSuggestions',
+                        DISMISSED_SEARCH_SUGGESTIONS_KEY,
+                        FIREFOX_SUGGEST_DEMOTED_KEY,
+                        FIREFOX_SUGGEST_REMOVED_KEY
                     ];
                     console.log(
                         '[prototype-reset] started | preservedSearchHistory=' +
@@ -11866,7 +12431,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             ? history.slice(0, 8)
                             : [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
                         updateSuggestions(suggestionsToShow);
-                        currentDisplayedSuggestions = suggestionsToShow;
                     }
 
                     // Ensure switcher scroll is already at top after a reset (no visible jump on open).
