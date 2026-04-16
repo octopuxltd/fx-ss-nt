@@ -172,7 +172,101 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===== FIREFOX HINT TEXT =====
-// Cache a date; compute relative string when rendering; show actual date on hover
+// “You last visited …” copy with static phrasing (no relative-to-absolute swap on hover).
+
+function firefoxHintLocalMidnightMs(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function firefoxHintWholeMonthsBetween(earlier, later) {
+    let m = (later.getFullYear() - earlier.getFullYear()) * 12 + (later.getMonth() - earlier.getMonth());
+    if (later.getDate() < earlier.getDate()) {
+        m -= 1;
+    }
+    return m;
+}
+
+/** Short numeric date in the user’s locale (e.g. en-GB: 17 Nov 2025, en-US: Nov 17, 2025). */
+function formatFirefoxHintAbsoluteDate(d) {
+    if (isNaN(d.getTime())) {
+        return '';
+    }
+    try {
+        if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+            return new Intl.DateTimeFormat(undefined, {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+            }).format(d);
+        }
+    } catch (_) {}
+    return d.toLocaleDateString();
+}
+
+/**
+ * Returns the bold segment only (e.g. "today", "3 days ago", locale short date) for “You last visited …”.
+ * For 12+ months the caller prefixes with "You last visited on " (see buildFirefoxLastVisitedHintNodes).
+ */
+function getFirefoxLastVisitedBoldSegment(d, now = new Date()) {
+    if (isNaN(d.getTime())) {
+        return 'recently';
+    }
+    const dayDiff = Math.floor(
+        (firefoxHintLocalMidnightMs(now) - firefoxHintLocalMidnightMs(d)) / 86400000
+    );
+    if (dayDiff <= 0) {
+        return 'today';
+    }
+    if (dayDiff === 1) {
+        return 'yesterday';
+    }
+    if (dayDiff >= 2 && dayDiff <= 6) {
+        return `${dayDiff} days ago`;
+    }
+    if (dayDiff >= 7 && dayDiff <= 29) {
+        const w = Math.floor(dayDiff / 7);
+        return w === 1 ? '1 week ago' : `${w} weeks ago`;
+    }
+    const monthsApart = firefoxHintWholeMonthsBetween(d, now);
+    if (monthsApart >= 12) {
+        return formatFirefoxHintAbsoluteDate(d);
+    }
+    if (monthsApart >= 1) {
+        return monthsApart === 1 ? '1 month ago' : `${monthsApart} months ago`;
+    }
+    const w = Math.floor(dayDiff / 7);
+    return w === 1 ? '1 week ago' : `${w} weeks ago`;
+}
+
+/**
+ * Appends “You last visited …” and optional “ • Bookmarked …” with <strong> on date parts only.
+ */
+function buildFirefoxLastVisitedHintNodes(dateIso, firefoxType) {
+    const frag = document.createDocumentFragment();
+    const d = new Date(dateIso);
+    const now = new Date();
+    const bold = getFirefoxLastVisitedBoldSegment(d, now);
+    /* 12+ calendar months: “You last visited on” + locale-formatted date. */
+    const isAbsoluteVisitPhrase = firefoxHintWholeMonthsBetween(d, now) >= 12;
+
+    frag.appendChild(document.createTextNode('You last visited '));
+    if (isAbsoluteVisitPhrase) {
+        frag.appendChild(document.createTextNode('on '));
+    }
+    const strongVisit = document.createElement('strong');
+    strongVisit.className = 'suggestion-hint-date-part';
+    strongVisit.textContent = bold;
+    frag.appendChild(strongVisit);
+
+    if (firefoxType === 'bookmark') {
+        frag.appendChild(document.createTextNode('  •  Bookmarked '));
+        const strongBm = document.createElement('strong');
+        strongBm.className = 'suggestion-hint-date-part';
+        strongBm.textContent = formatFirefoxHintAbsoluteDate(d);
+        frag.appendChild(strongBm);
+    }
+    return frag;
+}
 
 function getRandomDateForType(type) {
     const now = Date.now();
@@ -189,54 +283,6 @@ function getRandomDateForType(type) {
         else msAgo = (1 + Math.floor(Math.random() * 4)) * 7 * 24 * 60 * 60 * 1000;
     }
     return new Date(now - msAgo).toISOString();
-}
-
-function getRelativeDateString(dateIso, type) {
-    const prefixes = { history: 'You visited this page ', bookmark: 'You bookmarked this page ', tab: 'You opened this page ', actions: 'You opened this page ' };
-    const prefix = prefixes[type] || prefixes.history;
-    const d = new Date(dateIso);
-    const now = Date.now();
-    const ms = now - d.getTime();
-    const mins = Math.floor(ms / 60000);
-    const hours = Math.floor(ms / 3600000);
-    const days = Math.floor(ms / 86400000);
-    const weeks = Math.floor(days / 7);
-    const months = Math.floor(days / 30);
-
-    let ago;
-    if (months >= 1) ago = months === 1 ? '1 month ago' : `${months} months ago`;
-    else if (weeks >= 1) ago = weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
-    else if (days >= 1) ago = days === 1 ? 'Yesterday' : `${days} days ago`;
-    else if (hours >= 1) ago = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
-    else ago = mins <= 1 ? '1 minute ago' : `${mins} minutes ago`;
-    return prefix + ago;
-}
-
-function getActualDateString(dateIso) {
-    const d = new Date(dateIso);
-    const now = new Date();
-    const isToday = d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const isYesterday = d.getFullYear() === yesterday.getFullYear() &&
-        d.getMonth() === yesterday.getMonth() && d.getDate() === yesterday.getDate();
-    if (isToday) {
-        const hours = d.getHours();
-        const mins = d.getMinutes();
-        const ampm = hours >= 12 ? 'pm' : 'am';
-        const h12 = hours % 12 || 12;
-        const minsPadded = mins < 10 ? '0' + mins : mins;
-        return `at ${h12}.${minsPadded}${ampm}`;
-    }
-    if (isYesterday) {
-        return 'yesterday';
-    }
-    const day = d.getDate();
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    return `on ${day} ${month} ${year}`;
 }
 
 // ===== CACHING SYSTEM =====
@@ -3983,16 +4029,57 @@ document.addEventListener('DOMContentLoaded', () => {
         window.visualViewport?.addEventListener?.('resize', syncPrototypeToolbarRestoreHint);
     }
 
-    // Mouse-positioned tooltips
-    const tooltipEl = document.createElement('div');
-    tooltipEl.id = 'global-tooltip';
-    document.body.appendChild(tooltipEl);
+    // Mouse-positioned tooltips.
+    // Address bar iframe: append to the parent document when same-origin so `position:fixed` participates in the
+    // top window’s stacking order. Otherwise overflow from the iframe can paint under `.window-chrome-top-stack`.
+    let embeddedInParentAddressBarIframe = false;
+    try {
+        embeddedInParentAddressBarIframe =
+            !!window.frameElement &&
+            window.parent !== window &&
+            document.body?.classList.contains('addressbar') &&
+            !document.body.classList.contains('standalone-search-box');
+    } catch (_) {
+        embeddedInParentAddressBarIframe = false;
+    }
+
+    let tooltipEl;
+    if (embeddedInParentAddressBarIframe) {
+        try {
+            const pd = window.parent.document;
+            tooltipEl = pd.getElementById('global-tooltip');
+            if (!tooltipEl) {
+                tooltipEl = pd.createElement('div');
+                tooltipEl.id = 'global-tooltip';
+                pd.body.appendChild(tooltipEl);
+            }
+        } catch (_) {
+            embeddedInParentAddressBarIframe = false;
+            tooltipEl = document.createElement('div');
+            tooltipEl.id = 'global-tooltip';
+            document.body.appendChild(tooltipEl);
+        }
+    } else {
+        tooltipEl = document.createElement('div');
+        tooltipEl.id = 'global-tooltip';
+        document.body.appendChild(tooltipEl);
+    }
+
+    const getTriggerRectForTooltipPositioning = (trigger) => {
+        const tr = trigger.getBoundingClientRect();
+        if (!embeddedInParentAddressBarIframe || !window.frameElement) {
+            return tr;
+        }
+        const fr = window.frameElement.getBoundingClientRect();
+        return new DOMRect(tr.left + fr.left, tr.top + fr.top, tr.width, tr.height);
+    };
+
     let tooltipHideTimer = null;
     let activeTrigger = null;
     let tooltipPinned = false;
 
     const positionTooltip = (trigger, position) => {
-        const rect = trigger.getBoundingClientRect();
+        const rect = getTriggerRectForTooltipPositioning(trigger);
         const gap = 6;
         tooltipEl.style.left = '';
         tooltipEl.style.right = '';
@@ -5761,7 +5848,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tgt.closest('.search-engines-controls-toggle')) {
             logPinnedPanel('handle: controls toggle', { defaultVisible: isSearchSwitcherControlsVisibleByDefault() });
             if (isSearchSwitcherControlsVisibleByDefault()) {
-                document.getElementById('more-search-settings-button')?.click();
+                if (window === window.top) {
+                    openPrototypeSettingsPageOverlay();
+                } else {
+                    try {
+                        window.parent.postMessage({ type: 'open-prototype-settings-page-overlay' }, '*');
+                    } catch (_) {}
+                }
             } else {
                 togglePinnedRightCloneControlsPanel();
             }
@@ -5784,7 +5877,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (tgt.closest('.more-search-settings-button')) {
             logPinnedPanel('handle: more search settings');
-            document.getElementById('more-search-settings-button')?.click();
+            if (window === window.top) {
+                togglePrototypeSettingsPageOverlay();
+            } else {
+                try {
+                    window.parent.postMessage({ type: 'toggle-prototype-settings-page-overlay' }, '*');
+                } catch (_) {}
+            }
             return true;
         }
         if (tgt.closest('.search-switcher-more-menu-button')) {
@@ -8830,7 +8929,13 @@ document.addEventListener('DOMContentLoaded', () => {
         searchEnginesControlsToggle.addEventListener('click', (e) => {
             e.stopPropagation();
             if (isSearchSwitcherControlsVisibleByDefault()) {
-                document.getElementById('more-search-settings-button')?.click();
+                if (window === window.top) {
+                    openPrototypeSettingsPageOverlay();
+                } else {
+                    try {
+                        window.parent.postMessage({ type: 'open-prototype-settings-page-overlay' }, '*');
+                    } catch (_) {}
+                }
                 return;
             }
             toggleSearchEnginesControlsPanel();
@@ -8840,7 +8945,13 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             e.stopPropagation();
             if (isSearchSwitcherControlsVisibleByDefault()) {
-                document.getElementById('more-search-settings-button')?.click();
+                if (window === window.top) {
+                    openPrototypeSettingsPageOverlay();
+                } else {
+                    try {
+                        window.parent.postMessage({ type: 'open-prototype-settings-page-overlay' }, '*');
+                    } catch (_) {}
+                }
                 return;
             }
             toggleSearchEnginesControlsPanel();
@@ -9013,6 +9124,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         prototypeSettingsPageOverlayPreviousFocus = null;
     };
+    const isPrototypeSettingsPageOverlayOpen = () =>
+        !!(
+            prototypeSettingsPageOverlayRoot &&
+            !prototypeSettingsPageOverlayRoot.hidden &&
+            document.body.classList.contains('prototype-settings-page-overlay-open')
+        );
+    const togglePrototypeSettingsPageOverlay = () => {
+        if (!prototypeSettingsPageOverlayRoot || window !== window.top) return;
+        if (isPrototypeSettingsPageOverlayOpen()) {
+            closePrototypeSettingsPageOverlay();
+        } else {
+            openPrototypeSettingsPageOverlay();
+        }
+    };
     const openPrototypeSettingsPageOverlay = () => {
         if (!prototypeSettingsPageOverlayRoot || window !== window.top) return;
         try {
@@ -9091,11 +9216,11 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             if (window !== window.top) {
                 try {
-                    window.parent.postMessage({ type: 'open-prototype-settings-page-overlay' }, '*');
+                    window.parent.postMessage({ type: 'toggle-prototype-settings-page-overlay' }, '*');
                 } catch (_) {}
                 return;
             }
-            openPrototypeSettingsPageOverlay();
+            togglePrototypeSettingsPageOverlay();
         });
     }
     const standaloneSearchBoxToolbarSearchSettingsButton = document.getElementById(
@@ -9107,11 +9232,11 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             if (window !== window.top) {
                 try {
-                    window.parent.postMessage({ type: 'open-prototype-settings-page-overlay' }, '*');
+                    window.parent.postMessage({ type: 'toggle-prototype-settings-page-overlay' }, '*');
                 } catch (_) {}
                 return;
             }
-            openPrototypeSettingsPageOverlay();
+            togglePrototypeSettingsPageOverlay();
         });
     }
     const standaloneSearchBoxToolbarExtensionsButton = document.getElementById(
@@ -9464,6 +9589,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (
+                e.data?.type === 'toggle-prototype-settings-page-overlay' ||
                 e.data?.type === 'open-prototype-settings-page-overlay' ||
                 e.data?.type === 'open-search-settings'
             ) {
@@ -9473,7 +9599,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     (addressbarIframePsp && e.source === addressbarIframePsp.contentWindow) ||
                     (standaloneIframePsp && e.source === standaloneIframePsp.contentWindow);
                 if (!fromTrustedChildPsp) return;
-                openPrototypeSettingsPageOverlay();
+                if (e.data?.type === 'toggle-prototype-settings-page-overlay') {
+                    togglePrototypeSettingsPageOverlay();
+                } else {
+                    openPrototypeSettingsPageOverlay();
+                }
                 return;
             }
         });
@@ -10044,6 +10174,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // ===== SKELETON LOADERS =====
+
+    const SKELETON_PROTOTYPE_NOTICE_CLASS = 'suggestions-skeleton-prototype-notice';
+
+    function syncSkeletonPrototypeNotice() {
+        if (!suggestionsList) return;
+        const hasSkeleton = !!suggestionsList.querySelector('.skeleton');
+        let notice = suggestionsList.querySelector(`.${SKELETON_PROTOTYPE_NOTICE_CLASS}`);
+        if (!hasSkeleton) {
+            notice?.remove();
+            return;
+        }
+        if (!notice) {
+            notice = document.createElement('div');
+            notice.className = SKELETON_PROTOTYPE_NOTICE_CLASS;
+            notice.setAttribute('role', 'status');
+            notice.textContent = 'Slower than Firefox would be — prototype.';
+            suggestionsList.appendChild(notice);
+        }
+    }
     
     // Fixed skeleton widths for each row position (1-10)
     const skeletonWidths = [
@@ -10086,6 +10235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         console.log('[SKELETON] adding skeletons count=' + count + ' startRow=' + startRowIndex);
         suggestionsContent.insertAdjacentHTML('beforeend', skeletonHTML);
+        syncSkeletonPrototypeNotice();
     }
     
     function removeSkeletons() {
@@ -10095,6 +10245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const skeletons = suggestionsContent.querySelectorAll('.skeleton');
         skeletons.forEach(skeleton => skeleton.remove());
         console.log('[SKELETON] removed skeletons count=' + skeletons.length);
+        syncSkeletonPrototypeNotice();
     }
     
     // ===== HIGHLIGHTING MATCHING TEXT =====
@@ -10662,11 +10813,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const isActions = firefoxType === 'actions';
                     const defaultContent = isTab ? 'switch-to-tab' : (isActions ? 'open-link' : (urlDisplay || ''));
                     if (dateIso && (defaultContent || urlDisplay)) {
-                        const fullStr = getRelativeDateString(dateIso, firefoxType);
-                        const prefixes = { history: 'You visited this page ', bookmark: 'You bookmarked this page ', tab: 'You opened this page ' };
-                        const prefix = prefixes[firefoxType] || prefixes.history;
-                        const relativeDatePart = fullStr.slice(prefix.length);
-                        const actualDatePart = getActualDateString(dateIso);
                         const defaultPart = document.createElement('span');
                         defaultPart.className = 'suggestion-hint-default-part';
                         if (isTab) {
@@ -10684,13 +10830,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dateHintPart = document.createElement('span');
                         dateHintPart.className = 'suggestion-hint-date-hint-part';
                         dateHintPart.style.display = 'none';
-                        dateHintPart.appendChild(document.createTextNode(prefix));
-                        const datePartSpan = document.createElement('span');
-                        datePartSpan.className = 'suggestion-hint-date-part';
-                        datePartSpan.textContent = relativeDatePart;
-                        datePartSpan.addEventListener('mouseenter', () => { datePartSpan.textContent = actualDatePart; });
-                        datePartSpan.addEventListener('mouseleave', () => { datePartSpan.textContent = relativeDatePart; });
-                        dateHintPart.appendChild(datePartSpan);
+                        dateHintPart.appendChild(buildFirefoxLastVisitedHintNodes(dateIso, firefoxType));
                         hintText.appendChild(defaultPart);
                         hintText.appendChild(dateHintPart);
                         li.addEventListener('mouseenter', () => {

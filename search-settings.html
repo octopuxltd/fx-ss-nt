@@ -290,11 +290,20 @@
             border-color: var(--accent);
         }
 
+        .page-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin: 0 0 24px;
+        }
+
         .page-title {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin: 0 0 24px;
+            margin: 0;
             font-size: 22px;
             font-weight: 600;
             letter-spacing: -0.03em;
@@ -303,6 +312,34 @@
         .page-title img {
             width: 28px;
             height: 28px;
+        }
+
+        .page-title-back-home {
+            flex-shrink: 0;
+            margin: 0;
+            padding: 6px 12px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1.35;
+            color: var(--accent);
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-control);
+            cursor: pointer;
+            white-space: nowrap;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .page-title-back-home:hover {
+            background: var(--accent-soft);
+            color: var(--accent-text-on-soft);
+        }
+
+        .page-title-back-home:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
         }
 
         .card {
@@ -800,10 +837,15 @@
                 <input type="search" class="search-settings-input" placeholder="Search settings" aria-label="Search settings">
             </div>
 
-            <h2 class="page-title">
-                <img src="icons/search.svg" alt="">
-                Search
-            </h2>
+            <div class="page-title-row">
+                <h2 class="page-title">
+                    <img src="icons/search.svg" alt="">
+                    Search
+                </h2>
+                <button type="button" class="page-title-back-home" id="search-settings-back-firefox-home">
+                    Back to Firefox Home
+                </button>
+            </div>
 
             <section class="card" aria-labelledby="search-settings-address-bar-heading">
                 <h3 id="search-settings-address-bar-heading" class="card-header">Address bar</h3>
@@ -1913,6 +1955,16 @@
                 try {
                     window.parent.postMessage({ type: 'close-prototype-settings-page-overlay' }, '*');
                 } catch (e) {}
+            }
+            var backFirefoxHomeBtn = document.getElementById('search-settings-back-firefox-home');
+            if (backFirefoxHomeBtn) {
+                backFirefoxHomeBtn.addEventListener('click', function () {
+                    if (window.parent !== window) {
+                        requestCloseFromParent();
+                    } else {
+                        window.location.href = 'step1.html';
+                    }
+                });
             }
             if (window.parent !== window) {
                 document.documentElement.classList.add('search-settings--embedded');

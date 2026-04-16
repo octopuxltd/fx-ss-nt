@@ -5206,8 +5206,18 @@ body.reduced-motion .one-off-buttons {
     display: block;
 }
 
+/* Default hint (URL / Switch to Tab): purple like other hints. “You last visited…” uses primary like the switcher chip. */
+.suggestion-item.firefox-suggest-item .suggestion-hint-date-hint-part {
+    color: var(--color-text-primary);
+}
+
+/* Bullet matches the visible hint: purple with URL, primary when the date line is shown (row hover). */
+.suggestion-item.firefox-suggest-item:hover .suggestion-separator {
+    color: var(--color-text-primary);
+}
+
 .suggestion-item.firefox-suggest-item .suggestion-hint-text {
-    /* Room for dotted underline on .suggestion-hint-date-part (overflow hidden on row + hint area) */
+    /* Slight bottom padding so descenders / multi-line hints don’t clip (overflow hidden on row + hint area). */
     padding-bottom: 4px;
 }
 
@@ -5295,14 +5305,9 @@ body.reduced-motion .one-off-buttons {
     content: 'Visit site';
 }
 
+/* Date fragments in Firefox Suggest hints (bold; static copy, no hover swap). */
 .suggestion-hint-date-part {
-    cursor: pointer;
-    text-decoration-line: underline;
-    text-decoration-style: dotted;
-    text-decoration-color: currentColor;
-    text-underline-offset: 0.12em;
-    text-decoration-thickness: 1px;
-    text-decoration-skip-ink: none;
+    font-weight: 600;
 }
 
 .firefox-switch-tab-button {
@@ -5501,6 +5506,30 @@ body.reduced-motion .one-off-buttons {
     50% {
         opacity: 0.3;
     }
+}
+
+/* Centered callout while skeleton rows load (expect slower than real Firefox). */
+.suggestions-skeleton-prototype-notice {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 6;
+    max-width: min(320px, 88%);
+    padding: 9px 14px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+    color: var(--color-text-primary, #1f2933);
+    background: color-mix(in oklab, var(--page-bg-solid, #f9f9fb) 88%, white);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.06),
+        0 12px 28px rgba(0, 0, 0, 0.1);
+    pointer-events: none;
 }
 
 /* Search field, switcher, suggestions, one-offs: arrow cursor (like tab strip / toolbar), not link hand. */
