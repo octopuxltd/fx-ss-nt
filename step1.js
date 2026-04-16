@@ -904,29 +904,78 @@ function firefoxRowTokensFromSelected(selected) {
 }
 
 /**
- * Site favicons for “From Firefox” rows (under `favicons/`). Omits search engines and other * portal marks the prototype uses elsewhere (Google/Bing/Yahoo/DuckDuckGo/Ecosia/Startpage, Mozilla/Firefox).
+ * Site favicons for “From Firefox” rows: vector marks under `favicons/colorful/`, plus small JPEG crops in
+ * `favicons/photo-thumbs/` (48×48, noisy real photos — simulates generic tab favicons, not crisp brand SVGs).
+ * @see https://github.com/simple-icons/simple-icons — https://picsum.photos/
  */
 const FIREFOX_SUGGEST_SITE_FAVICON_PATHS = [
-    'favicons/Reddit.svg',
-    'favicons/Spotify.svg',
-    'favicons/Wikipedia.svg',
-    'favicons/YouTube.svg',
-    'favicons/Amazon - Light.svg',
-    'favicons/Airbnb.svg',
-    'favicons/Instagram.svg',
-    'favicons/Pinterest.svg',
-    'favicons/Yelp.svg',
-    'favicons/Etsy.svg',
-    'favicons/Figma.svg',
-    'favicons/Slack.svg',
-    'favicons/Pocket.svg',
-    'favicons/Twitter.svg',
-    'favicons/CBC.svg',
-    'favicons/NewYorkTimes.svg',
-    'favicons/AllTrails.svg',
-    'favicons/AllRecipes.svg',
-    'favicons/Tasty.svg',
-    'favicons/Apple.svg',
+    'favicons/colorful/Airbnb.svg',
+    'favicons/colorful/AllRecipes.svg',
+    'favicons/colorful/AllTrails.svg',
+    'favicons/colorful/Bluesky.svg',
+    'favicons/colorful/CBC.svg',
+    'favicons/colorful/Chess.com.svg',
+    'favicons/colorful/Discord.svg',
+    'favicons/colorful/Duolingo.svg',
+    'favicons/colorful/Epic Games.svg',
+    'favicons/colorful/Etsy.svg',
+    'favicons/colorful/Figma.svg',
+    'favicons/colorful/GitHub.svg',
+    'favicons/colorful/Goodreads.svg',
+    'favicons/colorful/IMDb.svg',
+    'favicons/colorful/Instagram.svg',
+    'favicons/colorful/Internet Archive.svg',
+    'favicons/colorful/Itch.io.svg',
+    'favicons/colorful/Jellyfin.svg',
+    'favicons/colorful/Khan Academy.svg',
+    'favicons/colorful/Kickstarter.svg',
+    'favicons/colorful/Letterboxd.svg',
+    'favicons/colorful/Lichess.svg',
+    'favicons/colorful/Linear.svg',
+    'favicons/colorful/Mastodon.svg',
+    'favicons/colorful/MyAnimeList.svg',
+    'favicons/colorful/Netflix.svg',
+    'favicons/colorful/NewYorkTimes.svg',
+    'favicons/colorful/Nintendo.svg',
+    'favicons/colorful/Notion.svg',
+    'favicons/colorful/NPM.svg',
+    'favicons/colorful/Paramount+.svg',
+    'favicons/colorful/Patreon.svg',
+    'favicons/colorful/Pinterest.svg',
+    'favicons/colorful/PlayStation.svg',
+    'favicons/colorful/Pocket.svg',
+    'favicons/colorful/Proton.svg',
+    'favicons/colorful/Reddit.svg',
+    'favicons/colorful/Roblox.svg',
+    'favicons/colorful/Signal.svg',
+    'favicons/colorful/Slack.svg',
+    'favicons/colorful/SoundCloud.svg',
+    'favicons/colorful/Spotify.svg',
+    'favicons/colorful/Stack Overflow.svg',
+    'favicons/colorful/Strava.svg',
+    'favicons/colorful/Substack.svg',
+    'favicons/colorful/Tasty.svg',
+    'favicons/colorful/Trello.svg',
+    'favicons/colorful/Twitch.svg',
+    'favicons/colorful/Twitter.svg',
+    'favicons/colorful/Untappd.svg',
+    'favicons/colorful/Wikipedia.svg',
+    'favicons/colorful/Yelp.svg',
+    'favicons/colorful/YouTube.svg',
+    'favicons/colorful/Zillow.svg',
+    /* Real-ish tab favicons: tiny JPEG photo crops (not logo art) */
+    'favicons/photo-thumbs/thumb-01.jpg',
+    'favicons/photo-thumbs/thumb-02.jpg',
+    'favicons/photo-thumbs/thumb-03.jpg',
+    'favicons/photo-thumbs/thumb-04.jpg',
+    'favicons/photo-thumbs/thumb-05.jpg',
+    'favicons/photo-thumbs/thumb-06.jpg',
+    'favicons/photo-thumbs/thumb-07.jpg',
+    'favicons/photo-thumbs/thumb-08.jpg',
+    'favicons/photo-thumbs/thumb-09.jpg',
+    'favicons/photo-thumbs/thumb-10.jpg',
+    'favicons/photo-thumbs/thumb-11.jpg',
+    'favicons/photo-thumbs/thumb-12.jpg',
 ];
 
 /** Picks a site favicon for one row; each path is used at most once per suggestions panel render (`usedPaths`). */
@@ -3492,6 +3541,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     syncAddressBarNavigateOnlySwitcherIcon();
                 } catch (_) {}
+            } else if (e.data?.type === 'prototype-address-bar-sync-idle-with-main-hero') {
+                try {
+                    window.__prototypeApplyAddressBarInstantIdle?.();
+                } catch (_) {}
             } else if (e.data?.type === 'address-bar-reset-focus-like-after-load') {
                 if (!document.body.classList.contains('addressbar') || document.body.classList.contains('standalone-search-box')) {
                     return;
@@ -4074,6 +4127,19 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('resize', syncPrototypeToolbarRestoreHint);
         window.addEventListener('orientationchange', syncPrototypeToolbarRestoreHint);
         window.visualViewport?.addEventListener?.('resize', syncPrototypeToolbarRestoreHint);
+        /* Same instant as the main hero search interaction: snap address bar chrome idle (grey shell, no ring) before the main suggestions max-height animation finishes. */
+        document.addEventListener(
+            'pointerdown',
+            (e) => {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                if (!e.target?.closest) return;
+                if (!e.target.closest('.main-hero-stack .search-container')) return;
+                try {
+                    iframe?.contentWindow?.postMessage({ type: 'prototype-address-bar-sync-idle-with-main-hero' }, '*');
+                } catch (_) {}
+            },
+            true
+        );
     }
 
     // Mouse-positioned tooltips.
@@ -4609,6 +4675,39 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        /* Address bar iframe: if the in-flow strip was never revealed (and we are not mid-open animation), there is
+         * nothing to collapse — skip the collapsing/transitioning path so placeholder + ring track blur immediately
+         * when the user points at the main hero search. */
+        const isAddressBarOnly =
+            document.body.classList.contains('addressbar') &&
+            !document.body.classList.contains('standalone-search-box');
+        if (
+            isAddressBarOnly &&
+            !list.classList.contains('suggestions-revealed') &&
+            !list.classList.contains('transitioning') &&
+            !searchContainer.classList.contains('search-container--suggestions-panel-collapsing')
+        ) {
+            list.classList.remove('first-hover-fade');
+            searchContainer.classList.remove('focused', 'search-container--suggestions-panel-collapsing');
+            firstHoverDone = false;
+            try {
+                if (searchSwitcherButton?.classList.contains('open')) {
+                    const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
+                    beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
+                    forceCloseSearchSwitcherSubPanels();
+                    dropdown?.classList.remove('dropdown-revealed');
+                    searchSwitcherButton.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                    searchSwitcherButton.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+                }
+            } catch (_) {}
+            syncSearchBoxWrapperCornersForSuggestionsPanel();
+            refreshPinnedRightSwitcherPanel();
+            try {
+                window.__scheduleAddressbarHeightReport?.();
+            } catch (_) {}
+            return;
+        }
+
         searchContainer.classList.add('search-container--suggestions-panel-collapsing');
         searchContainer.classList.remove('focused');
         list.classList.remove('suggestions-revealed');
@@ -4659,6 +4758,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
         refreshPinnedRightSwitcherPanel();
     }
+
+    /** Address bar iframe only: parent sends this on pointerdown over the main hero search so chrome greys / ring drops in sync with that click (not after local max-height cleanup). */
+    window.__prototypeApplyAddressBarInstantIdle = function prototypeApplyAddressBarInstantIdle() {
+        if (!document.body.classList.contains('addressbar') || document.body.classList.contains('standalone-search-box')) {
+            return;
+        }
+        try {
+            window.__suppressAddressbarBlurCloseOnce = true;
+        } catch (_) {}
+        try {
+            addressbarSuggestionsOpenEnabled = false;
+            firstHoverDone = false;
+            const btn = searchSwitcherButton || document.querySelector('.search-switcher-button');
+            const dropdown = btn?.querySelector('.search-switcher-dropdown');
+            const c = searchContainer || document.querySelector('.search-container');
+            const list = suggestionsList || document.querySelector('.suggestions-list');
+            if (btn?.classList.contains('open')) {
+                beginSwitcherClosingShapeHoldUntilDropdownAnimation(btn);
+                forceCloseSearchSwitcherSubPanels();
+                dropdown?.classList.remove('dropdown-revealed');
+                btn.classList.remove('open', 'switcher-opened-by-keyboard', 'switcher-suppress-hover');
+                btn.querySelectorAll('.dropdown-item').forEach((item) => item.classList.remove('highlighted'));
+            }
+            list?.classList.remove('suggestions-revealed', 'transitioning', 'first-hover-fade');
+            c?.classList.remove('focused', 'search-container--suggestions-panel-collapsing');
+            syncSearchBoxWrapperCornersForSuggestionsPanel();
+            refreshPinnedRightSwitcherPanel();
+            try {
+                window.__scheduleAddressbarHeightReport?.();
+            } catch (_) {}
+        } catch (_) {}
+    };
 
     /** Close chip dropdown + suggestions + blur; hides the cloned panel but keeps pinned-right mode (reopens on input focus). */
     function collapseSearchUiPreservingPinned() {
@@ -10411,7 +10542,52 @@ document.addEventListener('DOMContentLoaded', () => {
             return 'icons/internal-magnifyingglass.svg';
         }
     }
-    
+
+    /** Native `title` tooltips on row icons (default list vs From Firefox use different meanings for the clock). */
+    function applySuggestionIconTooltip(iconEl, ctx) {
+        if (!iconEl || iconEl.nodeName !== 'IMG') return;
+        let t = '';
+        if (ctx.isFirefoxSuggest && ctx.firefoxType) {
+            if (ctx.firefoxType === 'tab') t = 'Open tab';
+            else if (ctx.firefoxType === 'bookmark') t = 'Bookmarked';
+            else if (ctx.firefoxType === 'history') t = 'Browser history';
+            else if (ctx.firefoxType === 'actions') t = 'Action';
+        } else if (ctx.isVisitSite) {
+            t = 'Visit website';
+        } else if (ctx.isLocalSource) {
+            if (ctx.isSearchEngineSuggestion) {
+                t = 'Search suggestion';
+            } else if (ctx.localSourceMode === 'History') {
+                t = 'Browser history';
+            } else if (ctx.localSourceMode === 'Bookmarks') {
+                t = 'Bookmarked';
+            } else if (ctx.localSourceMode === 'Tabs') {
+                t = 'Open tab';
+            } else if (ctx.localSourceMode === 'Actions') {
+                t = 'Action';
+            } else {
+                const s = String(iconEl.getAttribute('src') || iconEl.src || '');
+                if (s.includes('internal-magnifyingglass')) t = 'Search suggestion';
+                else if (s.includes('internal-trending')) t = 'Trending';
+                else if (s.includes('internal-clock')) t = 'Browser history';
+                else if (s.includes('internal-tab')) t = 'Open tab';
+                else if (s.includes('internal-star')) t = 'Bookmarked';
+            }
+        } else if (ctx.isTypedText) {
+            t = 'Search suggestion';
+        } else {
+            const s = String(ctx.defaultListIconSrc || iconEl.getAttribute('src') || iconEl.src || '');
+            if (s.includes('internal-magnifyingglass')) t = 'Search suggestion';
+            else if (s.includes('internal-trending')) t = 'Trending';
+            else if (s.includes('internal-clock')) t = 'Search history';
+        }
+        if (t) {
+            iconEl.setAttribute('title', t);
+        } else {
+            iconEl.removeAttribute('title');
+        }
+    }
+
     // ===== SKELETON LOADERS =====
 
     const SKELETON_PROTOTYPE_NOTICE_CLASS = 'suggestions-skeleton-prototype-notice';
@@ -11067,6 +11243,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Get appropriate icon (Firefox items: tab / bookmark / history / actions)
                 let iconEl;
+                let defaultListIconSrc = null;
                 if (isFirefoxSuggest) {
                     const iconSrc = firefoxTypeIcons[effectiveFirefoxType] || 'icons/internal-clock.svg';
                     iconEl = document.createElement('img');
@@ -11089,14 +11266,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconEl.alt = '';
                     iconEl.className = 'suggestion-icon';
                 } else {
-                    const iconSrc = getIconForSuggestion(suggestion);
-                    appendClockRowMoreIcon = iconSrc === 'icons/internal-clock.svg';
+                    defaultListIconSrc = getIconForSuggestion(suggestion);
+                    appendClockRowMoreIcon = defaultListIconSrc === 'icons/internal-clock.svg';
                     iconEl = document.createElement('img');
-                    iconEl.src = iconSrc;
+                    iconEl.src = defaultListIconSrc;
                     iconEl.alt = '';
                     iconEl.className = 'suggestion-icon';
                 }
-                
+
+                applySuggestionIconTooltip(iconEl, {
+                    isFirefoxSuggest,
+                    firefoxType: effectiveFirefoxType,
+                    isVisitSite,
+                    isLocalSource,
+                    isTypedText,
+                    isSearchEngineSuggestion,
+                    localSourceMode,
+                    defaultListIconSrc,
+                });
+
                 // Add label with highlighting
                 const label = document.createElement('span');
                 label.className = 'suggestion-label';
@@ -12128,6 +12316,10 @@ document.addEventListener('DOMContentLoaded', () => {
             wasFocusedBeforeBlur = searchContainer.classList.contains('focused');
             setTimeout(() => {
                 requestAnimationFrame(() => {
+                    if (window.__suppressAddressbarBlurCloseOnce) {
+                        window.__suppressAddressbarBlurCloseOnce = false;
+                        return;
+                    }
                     if (window.__prototypeOptionsBlurSuppressUntil && Date.now() < window.__prototypeOptionsBlurSuppressUntil) {
                         return;
                     }

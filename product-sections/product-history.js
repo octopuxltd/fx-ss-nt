@@ -10,7 +10,7 @@
                     alt: 'Recipe article',
                     title: 'Easy weeknight dinners',
                     meta: 'Tasty',
-                    metaFavicon: 'favicons/Tasty.svg',
+                    metaFavicon: 'favicons/colorful/Tasty.svg',
                     lastViewed: '2 days ago'
                 },
                 {
@@ -18,7 +18,7 @@
                     alt: 'TV show video',
                     title: 'The Crown season 6',
                     meta: 'YouTube',
-                    metaFavicon: 'favicons/YouTube.svg',
+                    metaFavicon: 'favicons/colorful/YouTube.svg',
                     lastViewed: 'Continue viewing (16m left)'
                 },
                 {
@@ -34,7 +34,7 @@
                     alt: 'Burger recipe',
                     title: 'Best burger recipe',
                     meta: 'AllRecipes',
-                    metaFavicon: 'favicons/AllRecipes.svg',
+                    metaFavicon: 'favicons/colorful/AllRecipes.svg',
                     lastViewed: 'Opened around dinner time'
                 },
                 {
@@ -42,7 +42,7 @@
                     alt: 'Hiking trail',
                     title: 'Local hiking trails',
                     meta: 'AllTrails',
-                    metaFavicon: 'favicons/AllTrails.svg',
+                    metaFavicon: 'favicons/colorful/AllTrails.svg',
                     lastViewed: 'Last viewed 4 days ago'
                 },
                 {
@@ -50,7 +50,7 @@
                     alt: 'Fashion trends',
                     title: 'Summer outfit ideas',
                     meta: 'Pinterest',
-                    metaFavicon: 'favicons/Pinterest.svg',
+                    metaFavicon: 'favicons/colorful/Pinterest.svg',
                     lastViewed: 'Last viewed 1 week ago'
                 }
             ]
@@ -61,11 +61,11 @@
         return {
             heading: 'From your history',
             cards: [
-                { title: 'Quantum computing breakthroughs and next steps ahead', favicon: 'favicons/Wikipedia.svg', showActions: true },
-                { title: 'Keynote livestream highlights recap and timestamps', favicon: 'favicons/YouTube.svg', showActions: true },
+                { title: 'Quantum computing breakthroughs and next steps ahead', favicon: 'favicons/colorful/Wikipedia.svg', showActions: true },
+                { title: 'Keynote livestream highlights recap and timestamps', favicon: 'favicons/colorful/YouTube.svg', showActions: true },
                 { title: 'Quarterly insights outline saved for leadership review', favicon: 'favicons/Google Docs.svg', showActions: true },
                 { title: 'artisan coffee guide nearby with bookmarked roasters', favicon: 'favicons/Google.svg', showActions: true },
-                { title: 'Design toolkit refresh notes for tomorrow’s workshop', favicon: 'favicons/Figma.svg', showActions: true },
+                { title: 'Design toolkit refresh notes for tomorrow’s workshop', favicon: 'favicons/colorful/Figma.svg', showActions: true },
                 { title: 'Stand-up collaboration notes and follow-up checklist', favicon: 'favicons/Microsoft Teams.svg', showActions: true },
                 { title: 'browser experiments and release roadmap preview', favicon: 'favicons/Mozilla.svg', showActions: true }
             ]

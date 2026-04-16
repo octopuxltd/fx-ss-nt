@@ -206,7 +206,7 @@ const carrotTemplates = {
         return `
             <li class="search-suggestions-preview-item carrot carrot--wikipedia">
                 <div class="carrot-wikipedia-header">
-                    <img src="favicons/Wikipedia.svg" alt="" class="carrot-wikipedia-icon" aria-hidden="true">
+                    <img src="favicons/colorful/Wikipedia.svg" alt="" class="carrot-wikipedia-icon" aria-hidden="true">
                     <p class="carrot-wikipedia-heading">From Wikipedia</p>
                 </div>
                 <div class="carrot-wikipedia-content-wrapper">
@@ -562,7 +562,7 @@ const carrotTemplates = {
         <li class="search-suggestions-preview-item carrot carrot--youtube">
             <div class="youtube-container">
                 <div class="youtube-logo-container">
-                    <img src="favicons/YouTube.svg" alt="YouTube" class="youtube-logo">
+                    <img src="favicons/colorful/YouTube.svg" alt="YouTube" class="youtube-logo">
                 </div>
                 <div class="youtube-details">
                     <p class="youtube-title">YouTube Browser Extension</p>

@@ -10,7 +10,7 @@
                     alt: 'Vacation photos',
                     title: 'Summer vacation album',
                     meta: 'Instagram',
-                    metaFavicon: 'favicons/Instagram.svg',
+                    metaFavicon: 'favicons/colorful/Instagram.svg',
                     lastViewed: 'Last active 20 minutes ago'
                 },
                 {
@@ -18,7 +18,7 @@
                     alt: 'Home improvement',
                     title: 'DIY bathroom makeover',
                     meta: 'Pinterest',
-                    metaFavicon: 'favicons/Pinterest.svg',
+                    metaFavicon: 'favicons/colorful/Pinterest.svg',
                     lastViewed: 'Last active 30 minutes ago'
                 },
                 {
@@ -26,7 +26,7 @@
                     alt: 'Focus playlist',
                     title: 'Focus playlist',
                     meta: 'Spotify',
-                    metaFavicon: 'favicons/Spotify.svg',
+                    metaFavicon: 'favicons/colorful/Spotify.svg',
                     lastViewed: 'Last active 1 hour ago'
                 },
                 {
@@ -34,7 +34,7 @@
                     alt: 'Shopping cart',
                     title: 'Shopping cart',
                     meta: 'Amazon',
-                    metaFavicon: 'favicons/Amazon - Light.svg',
+                    metaFavicon: 'icons/Amazon - Light.svg',
                     lastViewed: 'Last active 2 hours ago'
                 },
                 {
@@ -50,7 +50,7 @@
                     alt: 'Movie reviews',
                     title: 'Movies to watch',
                     meta: 'IMDb',
-                    metaFavicon: 'favicons/IMDb.svg',
+                    metaFavicon: 'favicons/colorful/IMDb.svg',
                     lastViewed: 'Last active 4 hours ago'
                 }
             ]

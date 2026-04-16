@@ -10,7 +10,7 @@
                     alt: 'Design inspiration',
                     title: 'Inspiration album',
                     meta: 'Instagram',
-                    metaFavicon: 'favicons/Instagram.svg',
+                    metaFavicon: 'favicons/colorful/Instagram.svg',
                     lastViewed: 'Saved 2 weeks ago'
                 },
                 {
@@ -26,7 +26,7 @@
                     alt: 'Recipe collection',
                     title: 'Quick Recipes',
                     meta: 'YouTube',
-                    metaFavicon: 'favicons/YouTube.svg',
+                    metaFavicon: 'favicons/colorful/YouTube.svg',
                     lastViewed: 'Saved 3 days ago'
                 },
                 {
@@ -34,7 +34,7 @@
                     alt: 'Gardening tips',
                     title: 'Spring gardening guide',
                     meta: 'Reddit',
-                    metaFavicon: 'favicons/Reddit.svg',
+                    metaFavicon: 'favicons/colorful/Reddit.svg',
                     lastViewed: 'Saved 5 days ago'
                 },
                 {
@@ -42,7 +42,7 @@
                     alt: 'Fitness routine',
                     title: 'Home workout plan',
                     meta: 'YouTube',
-                    metaFavicon: 'favicons/YouTube.svg',
+                    metaFavicon: 'favicons/colorful/YouTube.svg',
                     lastViewed: 'Saved 1 week ago'
                 },
                 {
@@ -50,7 +50,7 @@
                     alt: 'Weekend activities',
                     title: 'Things to do nearby',
                     meta: 'Yelp',
-                    metaFavicon: 'favicons/Yelp.svg',
+                    metaFavicon: 'favicons/colorful/Yelp.svg',
                     lastViewed: 'Saved 4 days ago'
                 }
             ]
@@ -61,13 +61,13 @@
         return {
             heading: 'From your bookmarks',
             cards: [
-                { title: 'Design inspiration set with curated color palettes and typography examples', favicon: 'favicons/Instagram.svg', showActions: true },
+                { title: 'Design inspiration set with curated color palettes and typography examples', favicon: 'favicons/colorful/Instagram.svg', showActions: true },
                 { title: 'Weekend travel itinerary with restaurant recommendations and local attractions', favicon: 'favicons/Google.svg', showActions: true },
-                { title: 'Recipe collection featuring favorite meals and cooking techniques from around the world', favicon: 'favicons/YouTube.svg', showActions: true },
-                { title: 'UI patterns board showcasing modern interface designs and interaction patterns', favicon: 'favicons/Figma.svg', showActions: true },
+                { title: 'Recipe collection featuring favorite meals and cooking techniques from around the world', favicon: 'favicons/colorful/YouTube.svg', showActions: true },
+                { title: 'UI patterns board showcasing modern interface designs and interaction patterns', favicon: 'favicons/colorful/Figma.svg', showActions: true },
                 { title: 'JavaScript best practices guide covering ES6 features and performance optimization', favicon: 'favicons/Mozilla.svg', showActions: true },
                 { title: 'Productivity tools comparison with detailed feature breakdowns and pricing information', favicon: 'favicons/Google Docs.svg', showActions: true },
-                { title: 'Color palette references organized by mood and industry with hex codes and usage examples', favicon: 'favicons/Reddit.svg', showActions: true }
+                { title: 'Color palette references organized by mood and industry with hex codes and usage examples', favicon: 'favicons/colorful/Reddit.svg', showActions: true }
             ]
         };
     };

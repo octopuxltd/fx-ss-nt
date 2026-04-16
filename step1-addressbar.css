@@ -417,7 +417,8 @@ body.addressbar
 
 /* Same ring thickness as base .search-box-wrapper-outer::before (2px) and as standalone iframe */
 body.addressbar:not(.standalone-search-box) .search-box-wrapper-outer::before {
-    transition: opacity 0.15s linear 0.3s;
+    /* No delay: when focus moves to the main hero search, the ring should vanish with the first pointerdown, not after the main suggestions animation. */
+    transition: opacity 0.12s linear;
 }
 
 body.addressbar .search-container:has(.search-switcher-button.open) .search-box-wrapper-outer::before {
