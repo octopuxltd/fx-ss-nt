@@ -5562,6 +5562,17 @@ body.reduced-motion .one-off-buttons {
     overflow: visible;
 }
 
+/* Decorative site mark to the right of tab/bookmark/history type icon (see FIREFOX_SUGGEST_SITE_FAVICON_PATHS). */
+.firefox-suggest-site-favicon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    object-fit: contain;
+    border-radius: 3px;
+    opacity: 0.92;
+    margin-inline-end: -4px;
+}
+
 .firefox-suggest-more-icon {
     margin-left: auto;
     flex-shrink: 0;
@@ -5863,6 +5874,13 @@ body.step1-search-surface .suggestion-icon,
 body.step1-search-surface .suggestion-icon-wrapper .firefox-suggest-type-icon {
     width: 11px;
     height: 11px;
+}
+
+body.step1-search-surface .firefox-suggest-site-favicon {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    margin-inline-end: -3px;
 }
 
 body.step1-search-surface .suggestion-label {

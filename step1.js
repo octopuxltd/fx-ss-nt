@@ -904,6 +904,53 @@ function firefoxRowTokensFromSelected(selected) {
 }
 
 /**
+ * Site favicons for “From Firefox” rows (under `favicons/`). Omits search engines and other * portal marks the prototype uses elsewhere (Google/Bing/Yahoo/DuckDuckGo/Ecosia/Startpage, Mozilla/Firefox).
+ */
+const FIREFOX_SUGGEST_SITE_FAVICON_PATHS = [
+    'favicons/Reddit.svg',
+    'favicons/Spotify.svg',
+    'favicons/Wikipedia.svg',
+    'favicons/YouTube.svg',
+    'favicons/Amazon - Light.svg',
+    'favicons/Airbnb.svg',
+    'favicons/Instagram.svg',
+    'favicons/Pinterest.svg',
+    'favicons/Yelp.svg',
+    'favicons/Etsy.svg',
+    'favicons/Figma.svg',
+    'favicons/Slack.svg',
+    'favicons/Pocket.svg',
+    'favicons/Twitter.svg',
+    'favicons/CBC.svg',
+    'favicons/NewYorkTimes.svg',
+    'favicons/AllTrails.svg',
+    'favicons/AllRecipes.svg',
+    'favicons/Tasty.svg',
+    'favicons/Apple.svg',
+];
+
+/** Picks a site favicon for one row; each path is used at most once per suggestions panel render (`usedPaths`). */
+function pickFirefoxSuggestSiteFaviconUnique(title, url, usedPaths) {
+    const pool = FIREFOX_SUGGEST_SITE_FAVICON_PATHS;
+    if (!pool.length || !usedPaths) return null;
+    const key = `${String(url || '').toLowerCase()}\n${String(title || '').toLowerCase()}`;
+    let h = 0;
+    for (let i = 0; i < key.length; i++) {
+        h = (Math.imul(31, h) + key.charCodeAt(i)) | 0;
+    }
+    const preferred = Math.abs(h) % pool.length;
+    for (let offset = 0; offset < pool.length; offset++) {
+        const idx = (preferred + offset) % pool.length;
+        const path = pool[idx];
+        if (!usedPaths.has(path)) {
+            usedPaths.add(path);
+            return path;
+        }
+    }
+    return null;
+}
+
+/**
  * Merge AI search strings with Firefox row tokens for the dropdown cap: keep every
  * Firefox row; use only as many leading search strings as fit (`cap - firefoxCount`).
  * Never drops Firefox rows to satisfy the cap (if there are more Firefox rows than
@@ -4522,11 +4569,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function restoreFocusAndOpaqueSuggestions() {
         restoringFocusFromSwitcher = true;
-        searchInput?.focus();
+        try {
+            searchInput?.focus({ preventScroll: true });
+        } catch (_) {
+            try {
+                searchInput?.focus();
+            } catch (_) {}
+        }
         if (suggestionsList) {
             suggestionsList.classList.remove('first-hover-fade', 'transitioning');
         }
         firstHoverDone = true;
+        /* Focus handler sync can run while .transitioning was still set (square bottom). Re-sync after clearing it.
+         * If focus() was a no-op, restoringFocusFromSwitcher was never cleared — mirror the focus handler branch. */
+        if (restoringFocusFromSwitcher) {
+            restoringFocusFromSwitcher = false;
+            searchContainer?.classList.add('focused');
+            if (suggestionsList) suggestionsList.classList.add('suggestions-revealed');
+        }
+        syncSearchBoxWrapperCornersForSuggestionsPanel();
+        try {
+            refreshPinnedRightSwitcherPanel();
+        } catch (_) {}
     }
 
     function closeSuggestionsPanel() {
@@ -4642,6 +4706,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const pspOverlay = document.getElementById('prototype-settings-page-overlay-root');
             if (pspOverlay && !pspOverlay.hidden && t.closest('#prototype-settings-page-overlay-root')) return;
             if (t.closest('.bottom-left-panel')) return;
+            /* Fixed to document.body: suggestion overflow menus (outside .search-container) — must not dismiss the panel. */
+            if (t.closest('.clock-suggestion-more-menu') || t.closest('.firefox-suggest-row-menu')) return;
             collapseSearchUiPreservingPinned();
         },
         false
@@ -7191,9 +7257,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('[SWITCHER BUTTON CLICK] Ignoring - click was inside dropdown (already handled by dropdown)');
                     return;
                 }
-                /* Apply slower max-height transition *before* removing .open so collapse uses ~0.55s, not 0.25s. */
+                /* Apply slower max-height transition *before* removing .open so collapse uses ~0.55s, not 0.25s.
+                 * Hold `.switcher-closing` before toggling `.open` off so border-radius sync never sees a frame
+                 * with neither class (that briefly squared the input bottom while the dropdown was still visible). */
                 if (wasOpen) {
                     searchSwitcherDropdown?.classList.add('switcher-dropdown--closing');
+                    beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                 } else {
                     searchSwitcherDropdown?.classList.remove('switcher-dropdown--closing');
                 }
@@ -7207,7 +7276,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (wasOpen && !isNowOpen) {
                     forceCloseSearchSwitcherSubPanels();
-                    beginSwitcherClosingShapeHoldUntilDropdownAnimation(searchSwitcherButton);
                     searchSwitcherDropdown?.classList.remove('dropdown-revealed');
                     switcherHighlightedIndex = -1;
                     searchSwitcherButton.classList.remove('switcher-suppress-hover');
@@ -7373,7 +7441,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return;
             }
-            /* Trailing click after default-badge drag (mouseup outside switcher) must not close */
+            // Trailing click after default-badge drag (mouseup outside switcher) must not close
             if (window._defaultBadgeDragJustEnded) {
                 window._defaultBadgeDragJustEnded = false;
                 if (!e.target.closest?.('.search-switcher-button')) {
@@ -10874,7 +10942,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tab: 'icons/internal-tab.svg',
             bookmark: 'icons/internal-star.svg',
             history: 'icons/internal-clock.svg',
-            actions: 'icons/actions.svg'
+            actions: 'icons/internal-actions.svg'
         };
         
         function addFirefoxSuggestHeading() {
@@ -10937,6 +11005,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('[UPDATE] adding suggestion rows count=' + suggestionsToShow.length);
             
             let firefoxHeadingAdded = false;
+            const firefoxSuggestSiteFaviconsUsed = new Set();
             
             suggestionsToShow.forEach((suggestionOrObj, index) => {
                 const isFirefoxPage =
@@ -11092,6 +11161,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 li.appendChild(iconEl);
+                if (isFirefoxSuggest && firefoxData) {
+                    const siteFaviconSrc = pickFirefoxSuggestSiteFaviconUnique(
+                        firefoxData.title,
+                        firefoxData.url,
+                        firefoxSuggestSiteFaviconsUsed
+                    );
+                    if (siteFaviconSrc) {
+                        const siteIcon = document.createElement('img');
+                        siteIcon.src = siteFaviconSrc;
+                        siteIcon.alt = '';
+                        siteIcon.className = 'firefox-suggest-site-favicon';
+                        siteIcon.setAttribute('aria-hidden', 'true');
+                        li.appendChild(siteIcon);
+                    }
+                }
                 li.appendChild(label);
                 if (isFirefoxSuggest) {
                     const hintArea = document.createElement('span');
@@ -11307,23 +11391,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (t) removeSearchSuggestionFromPanel(t);
             closeClockSuggestionMoreMenu();
             refreshSuggestionsAfterHistoryMutate();
-            try {
-                searchInput?.focus({ preventScroll: true });
-            } catch (_) {
-                try {
-                    searchInput?.focus();
-                } catch (_) {}
-            }
+            restoreFocusAndOpaqueSuggestions();
         });
         learn.addEventListener('click', () => {
             closeClockSuggestionMoreMenu();
-            try {
-                searchInput?.focus({ preventScroll: true });
-            } catch (_) {
-                try {
-                    searchInput?.focus();
-                } catch (_) {}
-            }
+            restoreFocusAndOpaqueSuggestions();
         });
         
         clockSuggestionMoreMenuEl = menu;
@@ -11419,13 +11491,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (key) addFirefoxSuggestRemovedKey(key);
             closeFirefoxSuggestRowMenu();
             refreshSuggestionsAfterHistoryMutate();
-            try {
-                searchInput?.focus({ preventScroll: true });
-            } catch (_) {
-                try {
-                    searchInput?.focus();
-                } catch (_) {}
-            }
+            restoreFocusAndOpaqueSuggestions();
         });
         firefoxSuggestRowMenuEl = menu;
         return menu;

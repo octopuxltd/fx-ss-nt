@@ -801,6 +801,13 @@ body.addressbar .suggestion-icon-wrapper .firefox-suggest-type-icon {
     height: 11px;
 }
 
+body.addressbar .firefox-suggest-site-favicon {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    margin-inline-end: -3px;
+}
+
 body.addressbar .suggestion-label {
     font-size: calc(10px * var(--addr-suggest-text-scale, 1.3));
 }
