@@ -786,6 +786,11 @@ body.addressbar .firefox-suggest-heading-info-icon {
     height: 10px;
 }
 
+/* Address-bar "From Firefox" help tooltip should paint above the fixed browser chrome, including the tab strip. */
+body.addressbar #global-tooltip {
+    z-index: 100200;
+}
+
 body.addressbar .suggestion-icon,
 body.addressbar .suggestion-icon-wrapper .firefox-suggest-type-icon {
     width: 11px;

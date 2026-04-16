@@ -836,6 +836,9 @@ function normalizeFirefoxSuggestionItem(raw) {
     return { title, url, description };
 }
 
+/** Max Firefox Suggest rows returned from the model / merged into the panel (see slice caps in fetch paths). */
+const FIREFOX_SUGGEST_RESPONSE_ROW_CAP = 4;
+
 function toFirefoxSuggestRowToken(fs) {
     if (!fs || typeof fs !== 'object') return null;
     const n = normalizeFirefoxSuggestionItem(fs);
@@ -1133,7 +1136,7 @@ async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) 
     // Filter and validate Firefox suggestions (already normalized to { title, url, description })
     const validFirefoxSuggestions = firefoxSuggestions
         .filter((item) => item && item.title && item.title.length > 0)
-        .slice(0, 4);
+        .slice(0, FIREFOX_SUGGEST_RESPONSE_ROW_CAP);
     
     console.log(`[API-FIREFOX] Attempt ${attemptNumber} succeeded with ${validFirefoxSuggestions.length} valid Firefox suggestions`);
     
@@ -1344,10 +1347,10 @@ async function fetchAISuggestions(query, retryCount = 0) {
                 const validFirefoxSuggestions = firefoxSuggestions
                     .map((item) => normalizeFirefoxSuggestionItem(item))
                     .filter(Boolean)
-                    .slice(0, 4);
+                    .slice(0, FIREFOX_SUGGEST_RESPONSE_ROW_CAP);
                 
                 if (validFirefoxSuggestions.length > 0) {
-                    const maxCount = Math.min(validFirefoxSuggestions.length, 4);
+                    const maxCount = Math.min(validFirefoxSuggestions.length, FIREFOX_SUGGEST_RESPONSE_ROW_CAP);
                     selectedFirefoxSuggestions = validFirefoxSuggestions.slice(0, maxCount);
                     // Assign type (tab/bookmark/history) on first render; cached for consistency
                     const firefoxTypes = ['tab', 'bookmark', 'history'];
@@ -1410,6 +1413,84 @@ async function fetchAISuggestions(query, retryCount = 0) {
             return slicedEx;
         }
         return [];
+    }
+}
+
+async function fetchFirefoxOnlySuggestions(query, retryCount = 0) {
+    const maxRetries = 2;
+    logSuggestTrace('fetch-firefox-only-start', {
+        query,
+        retryCount,
+        displayLimitAtFetch: readSearchSuggestionsDisplayLimit(),
+    });
+
+    let cachedSelectedFirefoxSuggestions = null;
+    if (retryCount === 0) {
+        const cachedFirefoxData = getCachedFirefoxSuggestions(query);
+        if (cachedFirefoxData) {
+            cachedSelectedFirefoxSuggestions = cachedFirefoxData.selectedSuggestions;
+        }
+    }
+
+    try {
+        let selectedFirefoxSuggestions = [];
+        const hasCachedFirefox =
+            Array.isArray(cachedSelectedFirefoxSuggestions) && cachedSelectedFirefoxSuggestions.length > 0;
+
+        if (hasCachedFirefox) {
+            selectedFirefoxSuggestions = cachedSelectedFirefoxSuggestions
+                .map((item) => {
+                    if (!item || typeof item !== 'object') return null;
+                    const n = normalizeFirefoxSuggestionItem(item);
+                    if (!n) return null;
+                    return { ...item, ...n };
+                })
+                .filter(Boolean);
+            const firefoxTypes = ['tab', 'bookmark', 'history'];
+            let needsRecache = false;
+            selectedFirefoxSuggestions.forEach((item, i) => {
+                if (!item.type) {
+                    item.type = firefoxTypes[i % firefoxTypes.length];
+                    item.date = getRandomDateForType(item.type);
+                    needsRecache = true;
+                } else if (!item.date) {
+                    item.date = getRandomDateForType(item.type);
+                    needsRecache = true;
+                }
+            });
+            if (needsRecache) {
+                cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, selectedFirefoxSuggestions.length);
+            }
+        } else {
+            const firefoxResult = await fetchFirefoxSuggestions(query, maxRetries);
+            const rawFx = firefoxResult && firefoxResult.result;
+            const maybeFx = rawFx !== undefined && rawFx !== null ? rawFx : firefoxResult;
+            const firefoxSuggestions = Array.isArray(maybeFx) ? maybeFx : [];
+            const validFirefoxSuggestions = firefoxSuggestions
+                .map((item) => normalizeFirefoxSuggestionItem(item))
+                .filter(Boolean)
+                .slice(0, FIREFOX_SUGGEST_RESPONSE_ROW_CAP);
+
+            if (validFirefoxSuggestions.length > 0) {
+                selectedFirefoxSuggestions = validFirefoxSuggestions;
+                const firefoxTypes = ['tab', 'bookmark', 'history'];
+                const shuffled = [...firefoxTypes].sort(() => Math.random() - 0.5);
+                selectedFirefoxSuggestions.forEach((item, i) => {
+                    item.type = shuffled[i % shuffled.length];
+                    item.date = getRandomDateForType(item.type);
+                });
+                cacheFirefoxSuggestions(query, selectedFirefoxSuggestions, selectedFirefoxSuggestions.length);
+            }
+        }
+
+        const result = [];
+        result._firefoxSuggestions = selectedFirefoxSuggestions;
+        return result;
+    } catch (error) {
+        console.error('[API-FIREFOX-ONLY] Error fetching Firefox-only suggestions:', error);
+        const result = [];
+        result._firefoxSuggestions = [];
+        return result;
     }
 }
 
@@ -1487,6 +1568,14 @@ function readSearchSuggestionsDisplayLimit() {
     } catch (_) {
         return SEARCH_SUGGESTIONS_COUNT_DEFAULT;
     }
+}
+
+/**
+ * Skeleton row slots while loading Firefox-only suggestions: never larger than the Firefox fetch cap,
+ * and still respects the user's suggestions row limit when it is lower.
+ */
+function readFirefoxSuggestOnlySkeletonRowCap() {
+    return Math.min(readSearchSuggestionsDisplayLimit(), FIREFOX_SUGGEST_RESPONSE_ROW_CAP);
 }
 
 /** Console filter: `[suggest-trace]` — settings changes, panel rows, AI request size. */
@@ -1621,6 +1710,15 @@ function isSearchEnabledForAccessPoint(surface) {
         }
     }
     return true;
+}
+
+function isAddressBarSearchDisabledMode() {
+    if (typeof document === 'undefined' || !document.body) return false;
+    return (
+        document.body.classList.contains('addressbar') &&
+        !document.body.classList.contains('standalone-search-box') &&
+        !isSearchEnabledForAccessPoint('address-bar')
+    );
 }
 
 /** Address bar iframe: Search off → “Include suggestions from”, hide web-search list + “From Firefox” heading; show local rows only. */
@@ -4514,7 +4612,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     switcherLabel.hidden = true;
                     suggestionsList?.classList.remove('suggestions-suppress-until-typed');
                     if (searchInput && !searchInput.value?.trim() && searchContainer?.classList.contains('focused')) {
-                        updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
+                        renderEmptySuggestionsForCurrentMode();
                         if (!addressbarColumnIframe || addressbarSuggestionsOpenEnabled) {
                             suggestionsList?.classList.add('suggestions-revealed');
                         }
@@ -9044,6 +9142,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
                     }
                 } catch (_) {}
+                try {
+                    if (
+                        isAddressBarSearchDisabledMode() &&
+                        searchInput &&
+                        !searchInput.value.trim() &&
+                        !(searchSwitcherButton?.querySelector('.switcher-button-label') && !searchSwitcherButton.querySelector('.switcher-button-label').hidden)
+                    ) {
+                        renderEmptySuggestionsForCurrentMode();
+                    }
+                } catch (_) {}
             }
             if (e.key === SEARCH_SETTINGS_NAVIGATE_NEW_TAB_KEY) {
                 try {
@@ -9678,7 +9786,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const label = searchSwitcherButton?.querySelector('.switcher-button-label');
                     const inLocalSourceMode = label && !label.hidden;
                     if (!inLocalSourceMode) {
-                        updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
+                        renderEmptySuggestionsForCurrentMode();
                     } else {
                         suggestionsList?.classList.add('suggestions-suppress-until-typed');
                         updateSuggestions([]);
@@ -10222,6 +10330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSuggestions(suggestions, options = {}) {
         const isAtQuery = !!options.isAtQuery;
         const firefoxSuggestionsOnly = !!options.firefoxSuggestionsOnly;
+        const hideRecentSearchesSection = !!options.hideRecentSearchesSection;
         const localSourceMode = options.localSourceMode || '';
         const localSourceModeToType = { Bookmarks: 'bookmark', Tabs: 'tab', History: 'history', Actions: 'actions' };
         const displayType = (firefoxSuggestionsOnly && localSourceMode) ? (localSourceModeToType[localSourceMode] || 'history') : null;
@@ -10264,13 +10373,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Hide Gmail when typing so typed text replaces it as first suggestion
         const gmailItem = suggestionsContent.querySelector('.gmail-item');
         if (gmailItem) {
-            gmailItem.classList.toggle('gmail-item-hidden', !!searchValueTrimmed);
+            gmailItem.classList.toggle('gmail-item-hidden', hideRecentSearchesSection ? false : !!searchValueTrimmed);
         }
         
         // Hide 'Your Recent Searches' heading when typing
         const headingItem = suggestionsContent.querySelector('.suggestions-heading');
         if (headingItem) {
-            headingItem.classList.toggle('suggestions-heading-hidden', !!searchValueTrimmed);
+            headingItem.classList.toggle('suggestions-heading-hidden', hideRecentSearchesSection || !!searchValueTrimmed);
         }
         
         // Clear existing suggestion items and Firefox Suggest headings (keep Gmail and Your Recent Searches heading)
@@ -10423,7 +10532,11 @@ document.addEventListener('DOMContentLoaded', () => {
             span.textContent = 'From Firefox';
             headingLi.appendChild(span);
             headingLi.appendChild(iconWrap);
-            suggestionsContent.appendChild(headingLi);
+            if (hideRecentSearchesSection && gmailItem && !gmailItem.classList.contains('gmail-item-hidden')) {
+                suggestionsContent.insertBefore(headingLi, gmailItem);
+            } else {
+                suggestionsContent.appendChild(headingLi);
+            }
         }
         
         // Add 'From Firefox' heading above skeletons when in local source mode (empty suggestions, skeletons added separately)
@@ -10686,6 +10799,19 @@ document.addEventListener('DOMContentLoaded', () => {
             searchContainer.classList.toggle('search-has-typed-input', searchInput.value.trim().length > 0);
         }
     }
+
+    function renderEmptySuggestionsForCurrentMode() {
+        if (isAddressBarSearchDisabledMode()) {
+            updateSuggestions([], {
+                firefoxSuggestionsOnly: true,
+                hideRecentSearchesSection: true,
+            });
+            currentDisplayedSuggestions = [];
+            return;
+        }
+        updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
+        currentDisplayedSuggestions = [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
+    }
     
     function updateSearchUrlButton() {
         if (searchUrlButton && searchInput) {
@@ -10713,8 +10839,7 @@ document.addEventListener('DOMContentLoaded', () => {
             searchInput.value = '';
             updateSearchUrlButton();
             updateTypedState();
-            updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
-            currentDisplayedSuggestions = [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
+            renderEmptySuggestionsForCurrentMode();
             searchInput.focus();
             
             let done = false;
@@ -10774,8 +10899,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 console.log('[INPUT] Empty field, showing default suggestions');
                 suggestionsList?.classList.remove('suggestions-suppress-until-typed');
-                updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
-                currentDisplayedSuggestions = [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
+                renderEmptySuggestionsForCurrentMode();
                 return;
             }
 
@@ -10795,10 +10919,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const label = searchSwitcherButton?.querySelector('.switcher-button-label');
             const inLocalSourceMode = label && !label.hidden;
+            const inAddressBarFirefoxOnlyMode = isAddressBarSearchDisabledMode();
 
             // In local source mode: only show Firefox Suggestions (AI results), no search suggestions, no typed-text-as-first
             if (inLocalSourceMode) {
-                const localSourceSkeletonCount = readSearchSuggestionsDisplayLimit();
+                const localSourceSkeletonCount = readFirefoxSuggestOnlySkeletonRowCap();
                 if (valueLower.length < 1) {
                     updateSuggestions([], { firefoxSuggestionsOnly: true });
                     showSkeletonLoaders(localSourceSkeletonCount);
@@ -10825,6 +10950,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (error) {
                     console.error('[AI] Error fetching suggestions:', error);
                     updateSuggestions([], { firefoxSuggestionsOnly: true });
+                }
+                return;
+            }
+
+            if (inAddressBarFirefoxOnlyMode && !valueLower.startsWith('@')) {
+                const firefoxOnlySkeletonCount = readFirefoxSuggestOnlySkeletonRowCap();
+                const hasExistingSuggestions =
+                    currentDisplayedSuggestions.length > 0 ||
+                    !!currentDisplayedSuggestions?._firefoxSuggestions?.length;
+                if (!hasExistingSuggestions) {
+                    updateSuggestions([], {
+                        firefoxSuggestionsOnly: true,
+                        hideRecentSearchesSection: true,
+                    });
+                    showSkeletonLoaders(firefoxOnlySkeletonCount);
+                }
+                lastApiQuery = valueLower;
+                try {
+                    const firefoxOnlySuggestions = await fetchFirefoxOnlySuggestions(valueLower);
+                    const finalQuery = searchInput.value.toLowerCase().trim();
+                    if (finalQuery === valueLower) {
+                        updateSuggestions(firefoxOnlySuggestions, {
+                            firefoxSuggestionsOnly: true,
+                            suppressHover: true,
+                            hideRecentSearchesSection: true,
+                        });
+                        currentDisplayedSuggestions = firefoxOnlySuggestions;
+                    }
+                } catch (error) {
+                    console.error('[AI] Error fetching Firefox-only suggestions:', error);
+                    updateSuggestions([], {
+                        firefoxSuggestionsOnly: true,
+                        hideRecentSearchesSection: true,
+                    });
                 }
                 return;
             }
@@ -11019,8 +11178,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = searchSwitcherButton?.querySelector('.switcher-button-label');
             const inLocalSourceModeOnInit = label && !label.hidden;
             if (!inLocalSourceModeOnInit && !String(searchInput.value || '').trim()) {
-                updateSuggestions(DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS);
-                currentDisplayedSuggestions = [...DEFAULT_RECENT_SEARCH_SUGGESTION_SEEDS];
+                renderEmptySuggestionsForCurrentMode();
             }
         } catch (_) {}
     }
@@ -11081,11 +11239,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = searchSwitcherButton?.querySelector('.switcher-button-label');
             const inLocalSourceMode = label && !label.hidden;
             const inputEmpty = !searchInput?.value?.trim();
+            const inAddressBarFirefoxOnlyMode = isAddressBarSearchDisabledMode();
             if (inLocalSourceMode && inputEmpty) {
                 suggestionsList?.classList.add('suggestions-suppress-until-typed');
                 updateSuggestions([]);
                 refreshPinnedRightSwitcherPanel();
                 return;
+            }
+            if (inAddressBarFirefoxOnlyMode && inputEmpty) {
+                suggestionsList?.classList.remove('suggestions-suppress-until-typed');
+                updateSuggestions([], {
+                    firefoxSuggestionsOnly: true,
+                    hideRecentSearchesSection: true,
+                });
+                currentDisplayedSuggestions = [];
             }
             suggestionsList?.classList.remove('suggestions-suppress-until-typed');
             syncSearchBoxWrapperCornersForSuggestionsPanel();
