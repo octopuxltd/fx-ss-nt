@@ -29,6 +29,20 @@
     overflow-x: hidden !important;
 }
 
+/* World Cup prompt: same half-height suggestions strip as Winter Olympics */
+.top-overlay.is-focused .search-suggestions-preview.world-cup-active {
+    max-height: 21.25vh !important;
+    height: 21.25vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+.top-overlay.is-focused .search-suggestions-preview.world-cup-active .search-suggestions-preview-column-container {
+    max-height: calc(21.25vh - 20px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
 .search-suggestions-divider {
     width: calc(100% - 16px);
     height: 1px;

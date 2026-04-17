@@ -141,7 +141,8 @@
             z-index: 1;
         }
 
-        .top-overlay.is-focused.winter-olympics {
+        .top-overlay.is-focused.winter-olympics,
+        .top-overlay.is-focused.world-cup-prompt {
             position: relative;
         }
 
@@ -162,7 +163,27 @@
             pointer-events: none;
         }
 
+        .world-cup-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('football.jpg');
+            background-size: 100% auto;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            z-index: -1;
+            pointer-events: none;
+        }
+
         .top-overlay.is-focused.winter-olympics .winter-olympics-background {
+            opacity: 1;
+        }
+
+        .top-overlay.is-focused.world-cup-prompt .world-cup-background {
             opacity: 1;
         }
 
@@ -188,7 +209,8 @@
             top: 142px;
         }
 
-        body.test-spacing-active .winter-olympics-background {
+        body.test-spacing-active .winter-olympics-background,
+        body.test-spacing-active .world-cup-background {
             position: fixed !important;
             top: 0 !important;
         }
@@ -1148,6 +1170,69 @@
         .olympics-card-yellow:hover .overlay-product-title,
         .olympics-card-yellow:hover div {
             color: #FFFFFF !important;
+        }
+
+        /* World Cup 2026 match grid: hover/focus = white text on varied mid blues */
+        .world-cup-match-grid .overlay-product-card:hover,
+        .world-cup-match-grid .overlay-product-card:focus {
+            background-color: #3d78b8 !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:hover .overlay-product-title,
+        .world-cup-match-grid .overlay-product-card:hover div,
+        .world-cup-match-grid .overlay-product-card:focus .overlay-product-title,
+        .world-cup-match-grid .overlay-product-card:focus div {
+            color: #FFFFFF !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(1):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(1):focus {
+            background-color: #326aa5 !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(2):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(2):focus {
+            background-color: #3771ad !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(3):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(3):focus {
+            background-color: #3c78b4 !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(4):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(4):focus {
+            background-color: #417fbc !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(5):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(5):focus {
+            background-color: #2f6498 !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(6):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(6):focus {
+            background-color: #3a75b1 !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(7):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(7):focus {
+            background-color: #356ea9 !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(8):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(8):focus {
+            background-color: #4688c4 !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(9):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(9):focus {
+            background-color: #2b5d90 !important;
+        }
+
+        .world-cup-match-grid .overlay-product-card:nth-child(10):hover,
+        .world-cup-match-grid .overlay-product-card:nth-child(10):focus {
+            background-color: #4b8dcb !important;
         }
 
         .overlay-product-card--article {
@@ -2374,12 +2459,15 @@
                 }
                 
                 // Process Firefox suggestions and replace last suggestions
-                // Skip Firefox suggestions if winter olympics is active
+                // Skip Firefox suggestions if winter olympics or World Cup rich-result strip is active
                 const suggestionsPreview = document.querySelector('.search-suggestions-preview');
-                const isWinterOlympicsActive = suggestionsPreview && suggestionsPreview.classList.contains('winter-olympics-active');
+                const isSportsRichResultActive =
+                    suggestionsPreview &&
+                    (suggestionsPreview.classList.contains('winter-olympics-active') ||
+                        suggestionsPreview.classList.contains('world-cup-active'));
                 
                 let selectedFirefoxSuggestions = [];
-                if (firefoxSuggestions && firefoxSuggestions.length > 0 && !isWinterOlympicsActive) {
+                if (firefoxSuggestions && firefoxSuggestions.length > 0 && !isSportsRichResultActive) {
                     console.log('[API] Processing', firefoxSuggestions.length, 'Firefox suggestions');
                     
                     // Check if we have cached selected suggestions (the exact ones shown before)
@@ -2649,10 +2737,12 @@
             preloadCarrotImages(5);
         }
         
-        // Preload ESPN image for winter olympics background
+        // Preload ESPN image for winter olympics background; football.jpg for World Cup prompt background
         window.addEventListener('load', () => {
             const espnImage = new Image();
             espnImage.src = 'icons/espn2.jpg';
+            const worldCupBg = new Image();
+            worldCupBg.src = 'football.jpg';
         });
     </script>
 </head>
@@ -2661,6 +2751,7 @@
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
             <div class="winter-olympics-background"></div>
+            <div class="world-cup-background"></div>
             <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" class="firefox-logo">
             <button class="close-button" type="button" aria-label="Close search panel">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2701,6 +2792,7 @@
                             <li>• hello in italian</li>
                             <li>• renewable energy</li>
                             <li>• winter olympics</li>
+                            <li>• world c…</li>
                             <li>• vpn</li>
                             <li>• MDN</li>
                             <li>• youtube</li>
@@ -3121,6 +3213,7 @@
             // Add class to suggestions container to make it half height
             const suggestionsPreview = document.querySelector('.search-suggestions-preview');
             if (suggestionsPreview) {
+                suggestionsPreview.classList.remove('world-cup-active');
                 suggestionsPreview.classList.add('winter-olympics-active');
             }
 
@@ -3180,15 +3273,101 @@
             `;
         };
 
+        /* FIFA World Cup 2026 facts per FIFA / public schedule: 11 Jun–19 Jul 2026, 48 teams, 104 matches, 16 host cities; opener Mexico City; final MetLife Stadium (branded NY/NJ Stadium). */
+        const renderWorldCup2026Schedule = () => {
+            const container = document.querySelector('[data-product-grid]');
+            if (!container) return;
+
+            if (!originalProductGridContent && container.innerHTML.trim()) {
+                originalProductGridContent = container.innerHTML;
+            }
+
+            const suggestionsPreview = document.querySelector('.search-suggestions-preview');
+            if (suggestionsPreview) {
+                suggestionsPreview.classList.remove('winter-olympics-active');
+                suggestionsPreview.classList.add('world-cup-active');
+            }
+
+            container.innerHTML = `
+                <div class="world-cup-2026-schedule" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px;">
+                    <div class="overlay-product-column" style="grid-column: 1 / -1;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                            <div>
+                                <p style="margin: 0 0 4px 0; font-size: 32px; font-weight: 500; color: #FFFFFF; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.65), 0 1px 3px rgba(0, 0, 0, 0.9);">FIFA World Cup 2026</p>
+                                <p style="margin: 0; font-size: 16px; color: rgba(255, 255, 255, 0.92); text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.85);">Canada, Mexico & United States · 11 Jun – 19 Jul 2026 · 48 teams · 104 matches</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 56px;">
+                                <img src="icons/espn.svg" alt="ESPN" style="flex-shrink: 0; width: 140px; height: auto; filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));">
+                                <img src="icons/Fx-Browser-icon-fullColor-64.png" alt="Firefox" style="flex-shrink: 0; width: 48px; height: 48px; filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="world-cup-match-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 24px;">
+                        <div class="overlay-product-card olympics-card-blue" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Thu 11 Jun 2026<br>Group stage · Match 1</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">Mexico vs South Africa</div>
+                            <div style="font-size: 13px; color: #6B7280;">Estadio Azteca · Mexico City · Tournament opener</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-black" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Thu 11 Jun 2026<br>Group stage</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">South Korea vs Czechia</div>
+                            <div style="font-size: 13px; color: #6B7280;">Estadio Akron · Guadalajara · Nightcap</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-red" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Fri 12 Jun 2026<br>Group stage</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">United States vs Paraguay</div>
+                            <div style="font-size: 13px; color: #6B7280;">SoFi Stadium · Inglewood, CA · USA home opener</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-yellow" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Fri 12 Jun 2026<br>Group stage</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">Canada vs Path A winners</div>
+                            <div style="font-size: 13px; color: #6B7280;">BMO Field · Toronto · Canada’s first match</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-green" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Mon 15 Jun 2026<br>Group stage</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">Belgium vs Egypt</div>
+                            <div style="font-size: 13px; color: #6B7280;">Lumen Field · Seattle, WA</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-blue" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Fri 19 Jun 2026<br>Group stage</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">United States vs Australia</div>
+                            <div style="font-size: 13px; color: #6B7280;">Lumen Field · Seattle, WA · Group D</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-red" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Tue 14 Jul 2026<br>Semifinal</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">TBD vs TBD</div>
+                            <div style="font-size: 13px; color: #6B7280;">AT&T Stadium · Arlington, TX · First ticket to the final</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-yellow" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Wed 15 Jul 2026<br>Semifinal</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">TBD vs TBD</div>
+                            <div style="font-size: 13px; color: #6B7280;">Mercedes-Benz Stadium · Atlanta, GA · Second ticket to the final</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-green" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Sat 18 Jul 2026<br>Third-place play-off</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">TBD vs TBD</div>
+                            <div style="font-size: 13px; color: #6B7280;">Hard Rock Stadium · Miami Gardens, FL</div>
+                        </div>
+                        <div class="overlay-product-card olympics-card-blue" style="flex-direction: column; height: auto; padding: 16px; align-items: center; text-align: center;">
+                            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6B7280; margin-bottom: 8px; line-height: 1.35;">Sun 19 Jul 2026<br>Final</div>
+                            <div class="overlay-product-title" style="font-size: 17px; font-weight: 600; margin-bottom: 6px; color: #1F2933; line-height: 1.25;">TBD vs TBD</div>
+                            <div style="font-size: 13px; color: #6B7280;">MetLife Stadium · East Rutherford, NJ (NY/NJ Stadium) · World champion crowned</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
         // Function to restore original product grid
         const restoreProductGrid = () => {
             const container = document.querySelector('[data-product-grid]');
             if (!container) return;
 
-            // Remove winter olympics class from suggestions container
+            // Remove winter olympics / World Cup prompt classes from suggestions container
             const suggestionsPreview = document.querySelector('.search-suggestions-preview');
             if (suggestionsPreview) {
                 suggestionsPreview.classList.remove('winter-olympics-active');
+                suggestionsPreview.classList.remove('world-cup-active');
             }
 
             if (originalProductGridContent) {
@@ -3374,6 +3553,7 @@
             } else {
                 topOverlay.classList.remove('is-focused');
                 topOverlay.classList.remove('winter-olympics');
+                topOverlay.classList.remove('world-cup-prompt');
                 searchWrapperElement.classList.remove('expanded');
                 searchDescriptionElement.classList.remove('expanded');
                 // Clear any inline height styles to return to starting state
@@ -3462,17 +3642,21 @@
         if (topOverlay && searchBoxElement && bottomOverlay) {
             searchBoxElement.addEventListener('focus', () => {
                 setOverlayState(true);
-                // Check if search box contains "winter ol" and apply background/schedule
+                // Check if search box contains "winter ol" or "world c" (prefix of world cup) and apply background/schedule
                 const currentValue = searchBoxElement.value.toLowerCase().trim();
-                if (currentValue === 'winter ol' || currentValue.startsWith('winter ol')) {
-                    // Only activate if scrolled to the top of the page
-                    const isAtTop = window.scrollY === 0;
-                    if (isAtTop) {
-                        if (topOverlay) {
-                            topOverlay.classList.add('winter-olympics');
-                        }
-                        renderWinterOlympicsSchedule();
+                const isAtTop = window.scrollY === 0;
+                if (isAtTop && (currentValue === 'winter ol' || currentValue.startsWith('winter ol'))) {
+                    if (topOverlay) {
+                        topOverlay.classList.remove('world-cup-prompt');
+                        topOverlay.classList.add('winter-olympics');
                     }
+                    renderWinterOlympicsSchedule();
+                } else if (isAtTop && currentValue.startsWith('world c')) {
+                    if (topOverlay) {
+                        topOverlay.classList.remove('winter-olympics');
+                        topOverlay.classList.add('world-cup-prompt');
+                    }
+                    renderWorldCup2026Schedule();
                 }
                 setTimeout(() => {
                     if (!gradientAnimationId) {
@@ -3505,9 +3689,10 @@
                     cancelAnimationFrame(gradientAnimationId);
                     gradientAnimationId = null;
                 }
-                // Reset winter olympics background if active
-                if (topOverlay && topOverlay.classList.contains('winter-olympics')) {
+                // Reset winter olympics / World Cup prompt background if active
+                if (topOverlay && (topOverlay.classList.contains('winter-olympics') || topOverlay.classList.contains('world-cup-prompt'))) {
                     topOverlay.classList.remove('winter-olympics');
+                    topOverlay.classList.remove('world-cup-prompt');
                     restoreProductGrid();
                 }
                 setOverlayState(false);
@@ -5149,11 +5334,14 @@
                 console.log('Mapping suggestions to HTML...');
                 
                 // Get Firefox suggestions from the suggestions array if available
-                // Skip Firefox suggestions if winter olympics is active
+                // Skip Firefox suggestions if winter olympics or World Cup rich-result strip is active
                 const suggestionsPreview = document.querySelector('.search-suggestions-preview');
-                const isWinterOlympicsActive = suggestionsPreview && suggestionsPreview.classList.contains('winter-olympics-active');
-                const firefoxSuggestions = (!isWinterOlympicsActive && suggestions._firefoxSuggestions) ? suggestions._firefoxSuggestions : [];
-                console.log('[UPDATE] Firefox suggestions from _firefoxSuggestions:', firefoxSuggestions.length, '| isWinterOlympicsActive:', isWinterOlympicsActive);
+                const isSportsRichResultActive =
+                    suggestionsPreview &&
+                    (suggestionsPreview.classList.contains('winter-olympics-active') ||
+                        suggestionsPreview.classList.contains('world-cup-active'));
+                const firefoxSuggestions = (!isSportsRichResultActive && suggestions._firefoxSuggestions) ? suggestions._firefoxSuggestions : [];
+                console.log('[UPDATE] Firefox suggestions from _firefoxSuggestions:', firefoxSuggestions.length, '| isSportsRichResultActive:', isSportsRichResultActive);
                 // Extract titles for matching (handle both object and string formats)
                 const firefoxSuggestionsLower = firefoxSuggestions.map(fs => {
                     if (typeof fs === 'string') {
@@ -8573,9 +8761,10 @@
                 }
                 shouldCloseCarrotOnInput = false;
                 
-                // Handle Winter Olympics schedule and background color (doesn't block suggestions)
+                // Handle Winter Olympics / FIFA World Cup 2026 rich results (background + product grid; doesn't block suggestions)
                 const isWinterOlympics = valueLower === 'winter ol' || valueLower.startsWith('winter ol');
-                console.log('[INPUT] isWinterOlympics:', isWinterOlympics);
+                const isWorldCup2026 = valueLower.startsWith('world c');
+                console.log('[INPUT] isWinterOlympics:', isWinterOlympics, '| isWorldCup2026:', isWorldCup2026);
                 
                 // Log positions BEFORE changes
                 const bottomContent = document.querySelector('.bottom-content');
@@ -8596,22 +8785,34 @@
                 
                 if (isWinterOlympics) {
                     console.log('[INPUT] Setting winter olympics background and schedule');
-                    // Only activate if scrolled to the top of the page
                     const isAtTop = window.scrollY === 0;
                     console.log('[INPUT] Scroll position:', window.scrollY, '| isAtTop:', isAtTop);
                     if (isAtTop) {
                         if (topOverlay) {
+                            topOverlay.classList.remove('world-cup-prompt');
                             topOverlay.classList.add('winter-olympics');
                         }
                         renderWinterOlympicsSchedule();
                     } else {
                         console.log('[INPUT] Not at top of page - skipping winter olympics activation');
                     }
+                } else if (isWorldCup2026) {
+                    console.log('[INPUT] Setting World Cup 2026 background and schedule');
+                    const isAtTop = window.scrollY === 0;
+                    if (isAtTop) {
+                        if (topOverlay) {
+                            topOverlay.classList.remove('winter-olympics');
+                            topOverlay.classList.add('world-cup-prompt');
+                        }
+                        renderWorldCup2026Schedule();
+                    } else {
+                        console.log('[INPUT] Not at top of page - skipping World Cup activation');
+                    }
                 } else {
                     if (topOverlay) {
                         topOverlay.classList.remove('winter-olympics');
+                        topOverlay.classList.remove('world-cup-prompt');
                     }
-                    // Restore product grid if it was replaced
                     restoreProductGrid();
                 }
                 
@@ -8698,7 +8899,7 @@
                     }
                 } else if (valueLower.length >= 3) {
                     console.log('[INPUT] ===== Branch: length >= 3 =====');
-                    console.log('[INPUT] Query:', valueLower, '| Length:', valueLower.length, '| isWinterOlympics:', isWinterOlympics);
+                    console.log('[INPUT] Query:', valueLower, '| Length:', valueLower.length, '| isWinterOlympics:', isWinterOlympics, '| isWorldCup2026:', isWorldCup2026);
                     
                     // Clear AI suggestions tracking when query changes
                     if (lastApiQuery && lastApiQuery !== valueLower) {
@@ -8766,7 +8967,7 @@
                     lastApiQuery = valueLower;
                     (async () => {
                         try {
-                            console.log('[AI] Fetching AI suggestions for:', valueLower, 'winter olympics active:', isWinterOlympics);
+                            console.log('[AI] Fetching AI suggestions for:', valueLower, 'sports rich result:', isWinterOlympics || isWorldCup2026);
                             
                             try {
                                 console.log('[AI] Calling fetchAISuggestions...');
