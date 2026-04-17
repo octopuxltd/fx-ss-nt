@@ -26,6 +26,7 @@ code will be used in production. Thanks for trying it out, and taking an interes
                 var storedOff = localStorage.getItem('prototype_browser_chrome_visible') === 'false';
                 if (urlHide || storedOff) document.body.classList.add('browser-chrome-hidden');
                 if (p.get('content') === '0') document.body.classList.add('prototype-new-tab-content-hidden');
+                if (p.get('options') === '0') document.body.classList.add('prototype-options-panel-hidden');
             } catch (e) {}
         })();
     </script>

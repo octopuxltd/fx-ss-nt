@@ -1082,6 +1082,11 @@ body.prototype-new-tab-content-hidden:not(.addressbar) .main-hero-stack {
     margin-top: calc(130px + 75px);
 }
 
+/* ?options=0 — hide bottom-left "Prototype options" (see step1.html body script) */
+body.prototype-options-panel-hidden .bottom-left-panel {
+    display: none !important;
+}
+
 body:not(.addressbar):has(.search-container.focused) .page-content-placeholder {
     /* Page mock below search: faint while the main search box is focused */
     opacity: 0.25;
