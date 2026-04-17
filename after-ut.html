@@ -47,6 +47,12 @@
             background-attachment: fixed;
         }
 
+        /* Flat purple only when URL has ?grad=0 (see inline script on <body>) */
+        body.flat-page-bg {
+            background-image: none;
+            background-color: #B565F8;
+        }
+
         .pane {
             padding: 24px;
         }
@@ -2747,6 +2753,15 @@
     </script>
 </head>
 <body class="ut-page after-ut-page">
+    <script>
+        (function () {
+            try {
+                if (new URLSearchParams(window.location.search).get('grad') === '0') {
+                    document.body.classList.add('flat-page-bg');
+                }
+            } catch (e) { /* ignore */ }
+        })();
+    </script>
     <section class="pane pane--bottom">
         <div class="bottom-overlay" aria-hidden="true"></div>
         <div class="top-overlay">
