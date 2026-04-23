@@ -129,7 +129,7 @@ body:not([data-background]):not(.addressbar) .one-off-buttons {
 }
 
 /* Main new-tab suggestions dropdown (overlay): pale pink on purple gradient wallpaper; outer shell uses #f59efb above. */
-body:not([data-background]):not(.addressbar) .search-suggestions-anchor > .suggestions-list {
+body:not([data-background]):not(.addressbar) .search-suggestions-anchor .search-suggestions-input-slot .suggestions-list {
     background-color: #fce8f3;
 }
 
@@ -2053,9 +2053,22 @@ body:not(.addressbar) .search-suggestions-anchor {
     flex-shrink: 0;
     align-self: stretch;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
 }
 
-body:not(.addressbar) .search-suggestions-anchor > .suggestions-list {
+/* Input row + overlay list share one positioning context so `top: 100%` on the list is the pill bottom, not the anchor (which also holds the in-flow one-off strip). */
+body:not(.addressbar) .search-suggestions-anchor > .search-suggestions-input-slot {
+    position: relative;
+    z-index: 23;
+    width: 100%;
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+body:not(.addressbar) .search-suggestions-anchor .search-suggestions-input-slot .suggestions-list {
     position: absolute;
     left: 0;
     right: 0;
@@ -2070,15 +2083,13 @@ body:not(.addressbar) .search-suggestions-anchor > .suggestions-list {
     background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
-/* Above .suggestions-list (z-index 22): .suggestions-content::before extends upward for a soft shadow and must not paint over the input row. */
-body:not(.addressbar) .search-suggestions-anchor > .search-box-wrapper {
-    position: relative;
-    z-index: 23;
-}
-
-body:not(.addressbar) .search-box-wrapper-outer > .one-off-buttons {
-    position: relative;
-    z-index: 24;
+/* Out of document flow so expanding the strip does not push .page-content-placeholder (suggestions list is already overlay). */
+body:not(.addressbar) .search-suggestions-anchor > .one-off-buttons {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + var(--suggestions-panel-offset, 0px));
+    z-index: 20;
     border-radius: 0 0 var(--outer-border-radius, 12px) var(--outer-border-radius, 12px);
 }
 
@@ -5003,25 +5014,13 @@ body.reduced-motion:not(.addressbar) .one-off-buttons {
     position: relative;
 }
 
-/* Soft shadow along the top of the suggestions panel; extends up under the input row. Input row stacks above (z-index) so this does not grey out the field. Shown whenever the panel is revealed while focused, not only after typing. */
-.search-container.focused .suggestions-list.suggestions-revealed .suggestions-content::before {
-    content: '';
-    position: absolute;
-    top: -24px;
-    left: 0;
-    right: 0;
-    height: 40px;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 0%, transparent 100%);
-    pointer-events: none;
-}
-
-/* Address bar / standalone: in-flow suggestions row; keep a mild stacking hint (main page uses .search-suggestions-anchor > .search-box-wrapper z-index 23). */
+/* Address bar / standalone: in-flow suggestions row; keep a mild stacking hint (main page uses .search-suggestions-input-slot z-index 23). */
 body.addressbar .search-container.search-has-typed-input .search-box-wrapper {
     position: relative;
     z-index: 1;
 }
 
-/* Overlay suggestions (see .search-suggestions-anchor > .suggestions-list, z-index 22) sit after this row in the DOM.
+/* Overlay suggestions (see .search-suggestions-input-slot .suggestions-list, z-index 22) sit after this row in the DOM.
    The switcher dropdown lives inside the row; lift the row while open so the panel stacks above the suggestions list. */
 body:not(.addressbar) .search-container .search-box-wrapper:has(.search-switcher-button:is(.open, .switcher-closing)),
 body:not(.addressbar)
@@ -5060,10 +5059,9 @@ body:not(.addressbar)
 }
 
 .search-container.focused.search-has-typed-input:has(.suggestions-list.suggestions-revealed):has(#quick-buttons-toggle[data-visibility="shown"]) .one-off-buttons {
-    margin-top: -16px;
     max-height: 200px; /* Taller to fit multiple rows of engines (simulating 31) */
     overflow-y: auto; /* Scroll if many rows - overrides overflow:hidden when expanded */
-    padding: 25px 10px 8px 18px;
+    padding: 8px 10px 8px 18px;
 }
 
 body.reduced-motion .one-off-buttons {

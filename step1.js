@@ -287,9 +287,48 @@ function getRandomDateForType(type) {
 
 // ===== CACHING SYSTEM =====
 
+/** Normalize query for cache keys and matching: trim leading spaces only; keep trailing/internal spaces. */
+function normalizeQueryForMatch(q) {
+    return String(q || '').replace(/^\s+/, '').toLowerCase();
+}
+
+/**
+ * String suggestions: if the query contains any whitespace, require full-string prefix match only
+ * (so "some " does not match "something"). Otherwise keep prefix OR any word starting with the query.
+ */
+function suggestionMatchesSearchQuery(suggestionLower, queryLower) {
+    if (!queryLower) return true;
+    if (suggestionLower.length < queryLower.length) return false;
+    if (/\s/.test(queryLower)) {
+        return suggestionLower.startsWith(queryLower);
+    }
+    if (suggestionLower.startsWith(queryLower)) return true;
+    const words = suggestionLower.split(/\s+/);
+    return words.some((word) => word.startsWith(queryLower));
+}
+
+/** Drop string / Firefox title rows that do not match `query` under suggestionMatchesSearchQuery. */
+function filterSuggestionEntriesByQuery(entries, query) {
+    if (!Array.isArray(entries)) return entries;
+    const qn = normalizeQueryForMatch(query);
+    if (!qn) return entries;
+    const fx = entries._firefoxSuggestions;
+    const out = entries.filter((entry) => {
+        if (typeof entry === 'object' && entry && entry.__firefoxSuggestRow) {
+            return suggestionMatchesSearchQuery(String(entry.title || '').toLowerCase(), qn);
+        }
+        if (typeof entry === 'string') {
+            return suggestionMatchesSearchQuery(entry.toLowerCase(), qn);
+        }
+        return true;
+    });
+    if (fx) out._firefoxSuggestions = fx;
+    return out;
+}
+
 // LocalStorage cache functions for AI suggestions
 function getCacheKey(query) {
-    return `ai_suggestions_${query.toLowerCase().trim()}`;
+    return `ai_suggestions_${normalizeQueryForMatch(query)}`;
 }
 
 function getCachedSuggestions(query) {
@@ -304,17 +343,10 @@ function getCachedSuggestions(query) {
             if (cacheAge < maxAge) {
                 console.log('[CACHE] Found cached suggestions:', parsed.suggestions);
                 // Filter cached suggestions to only include word-start matches
-                const queryLower = query.toLowerCase();
-                const filtered = parsed.suggestions.filter(suggestion => {
-                    const suggestionLower = suggestion.toLowerCase();
-                    // Check if suggestion starts with query
-                    if (suggestionLower.startsWith(queryLower)) {
-                        return true;
-                    }
-                    // Check if any word in the suggestion starts with the query
-                    const words = suggestionLower.split(/\s+/);
-                    return words.some(word => word.startsWith(queryLower));
-                });
+                const queryLower = normalizeQueryForMatch(query);
+                const filtered = parsed.suggestions.filter((suggestion) =>
+                    suggestionMatchesSearchQuery(suggestion.toLowerCase(), queryLower)
+                );
                 console.log('[CACHE] Filtered', parsed.suggestions.length, 'cached suggestions to', filtered.length, 'matching query');
                 return filtered.length > 0 ? filtered : null;
             } else {
@@ -362,7 +394,7 @@ function cacheSuggestions(query, suggestions) {
 
 // Firefox suggestions cache functions
 function getFirefoxCacheKey(query) {
-    return `firefox_suggestions_${query.toLowerCase().trim()}`;
+    return `firefox_suggestions_${normalizeQueryForMatch(query)}`;
 }
 
 function getCachedFirefoxSuggestions(query) {
@@ -599,8 +631,18 @@ async function makeSearchSuggestionsRequest(query, attemptNumber, delayMs = 0, p
         provider,
         attemptNumber,
     });
-    const systemPrompt = `You are a search suggestion generator. Generate ${suggestionLimit} popular search queries where at least one word starts with the user's query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words. Return ONLY a JSON array of ${suggestionLimit} search queries, sorted by popularity. No explanations, just the JSON array.`;
-    const userPrompt = `Generate ${suggestionLimit} popular search suggestions where at least one word starts with: "${query}". Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`;
+    const queryHasSpaces = /\s/.test(query);
+    const queryJson = JSON.stringify(query);
+    const strictSpaceHint = queryHasSpaces
+        ? ` The user's query includes spaces: treat them as fixed word boundaries. Every returned string MUST start with this exact prefix, character-for-character (including every space): ${queryJson}. Do NOT return strings that only match one word of the query while skipping spaces (for example if the prefix is "some " with a trailing space, do NOT return "something").`
+        : '';
+    const systemPrompt =
+        `You are a search suggestion generator. Generate ${suggestionLimit} popular search queries where at least one word starts with the user's query characters. Prioritize nouns - names of famous things like celebrities, bands, movies, places, politicians, news topics, or common questions (how to do things, why something happens). For example, if the user types "abc", return suggestions like "abc news", "abc store", "abc company" where words start with "abc". The query characters need not form a complete word - they are the beginning of words.` +
+        strictSpaceHint +
+        ` Return ONLY a JSON array of ${suggestionLimit} search queries, sorted by popularity. No explanations, just the JSON array.`;
+    const userPrompt = queryHasSpaces
+        ? `Generate ${suggestionLimit} popular search suggestions. Each string MUST begin with this exact user-typed prefix (copy it literally, including spaces): ${queryJson}. Continue naturally after that prefix with phrase completions a real searcher might type. Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`
+        : `Generate ${suggestionLimit} popular search suggestions where at least one word starts with: ${queryJson}. Prioritize nouns - famous people, places, movies, bands, news topics, or common questions (how to, why). Return only a JSON array of strings.`;
     
     const promptTimestamp = new Date().toISOString();
     console.log(`[API-SEARCH] [${promptTimestamp}] Prompt sent to ${provider}:`, userPrompt);
@@ -1082,7 +1124,11 @@ async function makeFirefoxSuggestionsRequest(query, attemptNumber, delayMs = 0) 
     console.log(shouldUseAiProxy() ? '[API-FIREFOX] ✓ Using AI proxy' : '[API-FIREFOX] ✓ API key is set');
     
     const systemPrompt = 'You are a browser history suggestion generator. Generate 4 Firefox suggestions (page titles from simulated browser history related to the query). Each Firefox suggestion should be an object with "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). IMPORTANT: All 4 suggestions must come from different websites (different domains). Return ONLY a JSON array of 4 objects, each with title, url, description. No explanations, just the JSON array.';
-    const userPrompt = `Generate 4 Firefox suggestions related to "${query}". Each Firefox suggestion should be an object with: "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). IMPORTANT: All 4 suggestions must come from different websites (different domains). Return only a JSON array.`;
+    const queryFxJson = JSON.stringify(query);
+    const fxSpaceHint = /\s/.test(query)
+        ? ` When the query contains spaces, each title should read as a natural continuation after this exact typed prefix (including spaces): ${queryFxJson}.`
+        : '';
+    const userPrompt = `Generate 4 Firefox suggestions related to ${queryFxJson}.${fxSpaceHint} Each Firefox suggestion should be an object with: "title" (page title), "url" (realistic full web address starting with "www." including a path, like "www.example.com/article/topic" or "www.site.com/page/subpage"), and "description" (exactly 60 characters, a simulated meta description). IMPORTANT: All 4 suggestions must come from different websites (different domains). Return only a JSON array.`;
     
     let response, data, content;
     
@@ -1523,6 +1569,8 @@ async function fetchAISuggestions(query, retryCount = 0) {
                 finalSuggestions = mergeSearchStringsWithFirefoxRows([], rowFallback, suggestionLimit);
             }
         }
+
+        finalSuggestions = filterSuggestionEntriesByQuery(finalSuggestions, query);
         
         // Store Firefox suggestions metadata
         finalSuggestions._firefoxSuggestions = selectedFirefoxSuggestions;
@@ -4306,6 +4354,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.querySelector('.search-input');
     const inspectSuggestions = new URLSearchParams(location.search).get('inspect') === '1' || localStorage.getItem('inspectSuggestions') === 'true';
 
+    /** Right-click / context menu (e.g. Inspect) must not collapse the open suggestions panel via outside-mousedown or input blur. */
+    function armSuggestionsInspectDismissSuppression() {
+        try {
+            window.__suppressSuggestionsPanelDismissUntil = Date.now() + 5000;
+        } catch (_) {}
+    }
+    document.addEventListener(
+        'mousedown',
+        (e) => {
+            if (e.button === 2) armSuggestionsInspectDismissSuppression();
+        },
+        true
+    );
+    document.addEventListener('contextmenu', armSuggestionsInspectDismissSuppression, true);
+
     // Clear search input on page load
     if (searchInput) {
         searchInput.value = '';
@@ -4329,6 +4392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchBoxWrapperOuter) {
             searchBoxWrapperOuter.style.borderRadius = '';
             searchBoxWrapperOuter.style.removeProperty('--suggestions-ring-extend');
+            searchBoxWrapperOuter.style.removeProperty('--suggestions-panel-offset');
         }
         document.documentElement.style.removeProperty('--search-box-wrapper-radius');
         document.documentElement.style.removeProperty('--outer-border-radius');
@@ -4345,6 +4409,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSuggestionsRingExtend() {
         if (document.body.classList.contains('addressbar')) {
             searchBoxWrapperOuter?.style.removeProperty('--suggestions-ring-extend');
+            searchBoxWrapperOuter?.style.removeProperty('--suggestions-panel-offset');
             return;
         }
         const outer = searchBoxWrapperOuter;
@@ -4352,12 +4417,48 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!outer) return;
         if (!list) {
             outer.style.removeProperty('--suggestions-ring-extend');
+            outer.style.removeProperty('--suggestions-panel-offset');
             return;
         }
         const outerRect = outer.getBoundingClientRect();
         const listRect = list.getBoundingClientRect();
-        const extra = Math.max(0, Math.round(listRect.bottom - outerRect.bottom));
+        let paintBottom = listRect.bottom;
+        try {
+            const qbt = document.getElementById('quick-buttons-toggle');
+            /* Match expanded strip CSS: eye can stay “shown” while input is empty — strip is max-height:0 then. */
+            const stripCountsForRing =
+                qbt?.dataset?.visibility === 'shown' &&
+                searchContainer?.classList.contains('focused') &&
+                searchContainer?.classList.contains('search-has-typed-input') &&
+                list.classList.contains('suggestions-revealed');
+            if (stripCountsForRing) {
+                const strip = document.querySelector('.search-suggestions-anchor > .one-off-buttons');
+                if (strip) {
+                    const stripRect = strip.getBoundingClientRect();
+                    paintBottom = Math.max(paintBottom, stripRect.bottom);
+                }
+            }
+        } catch (_) {}
+        const extra = Math.max(0, Math.round(paintBottom - outerRect.bottom));
         outer.style.setProperty('--suggestions-ring-extend', `${extra}px`);
+
+        /* Absolute one-off strip uses top: calc(100% + offset); offset = list bottom − input-slot bottom so it sits
+         * under the painted suggestions (not the list’s full border-box height). */
+        const inputSlot = document.querySelector('.search-suggestions-input-slot');
+        let panelOffset = 0;
+        if (
+            inputSlot &&
+            list.classList.contains('suggestions-revealed') &&
+            !list.classList.contains('suggestions-suppress-until-typed')
+        ) {
+            const slotRect = inputSlot.getBoundingClientRect();
+            panelOffset = Math.max(0, Math.round(listRect.bottom - slotRect.bottom));
+        }
+        if (panelOffset > 0) {
+            outer.style.setProperty('--suggestions-panel-offset', `${panelOffset}px`);
+        } else {
+            outer.style.removeProperty('--suggestions-panel-offset');
+        }
     }
 
     /** True while the suggestions strip is open (revealed) so the input meets the list with a square bottom edge,
@@ -4552,10 +4653,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (searchContainer) {
-        new MutationObserver(() => requestAnimationFrame(syncSearchBoxWrapperCornersForSuggestionsPanel)).observe(
-            searchContainer,
-            { attributes: true, attributeFilter: ['class'] }
-        );
+        new MutationObserver(() =>
+            requestAnimationFrame(() => {
+                updateSuggestionsRingExtend();
+                syncSearchBoxWrapperCornersForSuggestionsPanel();
+            })
+        ).observe(searchContainer, { attributes: true, attributeFilter: ['class'] });
     }
     const suggestionsListForCornerSync = document.querySelector('.suggestions-list');
     if (suggestionsListForCornerSync) {
@@ -4827,6 +4930,13 @@ document.addEventListener('DOMContentLoaded', () => {
         'mousedown',
         (e) => {
             if (document.body.classList.contains('addressbar')) return;
+            if (e.button === 2) return;
+            if (
+                typeof window.__suppressSuggestionsPanelDismissUntil === 'number' &&
+                Date.now() < window.__suppressSuggestionsPanelDismissUntil
+            ) {
+                return;
+            }
             if (!suggestionsList?.classList.contains('suggestions-revealed')) return;
             if (!searchContainer?.classList.contains('focused')) return;
             const t = e.target;
@@ -7464,11 +7574,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // Delegated click handler for suggestion items (handles static defaults + dynamic items)
     const suggestionsContent = document.querySelector('.suggestions-content');
     if (suggestionsContent) {
-        suggestionsContent.addEventListener('mousedown', (e) => {
-            if (e.target.closest?.('.firefox-suggest-more-icon')) {
-                e.preventDefault(); // Same as search switcher: keep input focused so blur does not close the panel before the overflow menu opens
-            }
-        });
+        suggestionsContent.addEventListener(
+            'mousedown',
+            (e) => {
+                if (e.target.closest?.('.firefox-suggest-more-icon')) {
+                    e.preventDefault(); // Same as search switcher: keep input focused so blur does not close the panel before the overflow menu opens
+                    return;
+                }
+                /* Keep focus in the search field when pressing down on non-interactive suggestion chrome so
+                 * keystrokes (e.g. Space) still go to the input while the pointer is over the list.
+                 * Primary button only: right-click must reach the browser for Inspect / context menu. */
+                if (
+                    e.button === 0 &&
+                    searchInput &&
+                    searchContainer?.classList.contains('focused') &&
+                    !e.target.closest?.(
+                        'a[href], button:not([disabled]), input, select, textarea, [contenteditable="true"], [tabindex]:not([tabindex="-1"])'
+                    ) &&
+                    e.target.closest?.('.suggestion-item:not(.skeleton), .suggestions-heading')
+                ) {
+                    e.preventDefault();
+                }
+            },
+            true
+        );
         suggestionsContent.addEventListener('click', (e) => {
             const moreTrigger = e.target.closest('.firefox-suggest-more-icon');
             if (moreTrigger) {
@@ -7523,6 +7652,35 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!item.classList.contains('firefox-suggest-item')) {
                 saveToSearchHistory(suggestion);
                 runSearchWithSelectedEngine(suggestion);
+            }
+        });
+    }
+
+    const oneOffStrip = document.querySelector('.one-off-buttons');
+    if (oneOffStrip && searchInput) {
+        oneOffStrip.addEventListener('click', (e) => {
+            const btn = e.target.closest('.one-off-engine-icon');
+            if (!btn || !oneOffStrip.contains(btn)) return;
+            const img = btn.querySelector('img');
+            const label = (img?.getAttribute('alt') || '').trim();
+            const query = (searchInput.value || '').trim();
+            if (!label || !query) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const openInBackground = e.metaKey || e.ctrlKey;
+            const enginesContainer = searchSwitcherButton?.querySelector('.dropdown-search-engines');
+            const match = enginesContainer
+                ? Array.from(enginesContainer.querySelectorAll('.dropdown-item')).find(
+                      (item) => item.querySelector('.dropdown-engine-label') && getEngineLabel(item) === label
+                  )
+                : null;
+            if (openInBackground) {
+                runSearchWithEngine(query, label, false);
+                if (searchContainer?.classList.contains('focused')) restoreFocusAndOpaqueSuggestions();
+            } else {
+                if (match) applySelectedSearchSource(match);
+                saveToSearchHistory(query);
+                runSearchWithEngine(query, label, true);
             }
         });
     }
@@ -7592,6 +7750,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 !e.target.closest?.('.clock-suggestion-more-menu') &&
                 !e.target.closest?.('.firefox-suggest-row-menu')
             ) {
+                if (
+                    typeof window.__suppressSuggestionsPanelDismissUntil === 'number' &&
+                    Date.now() < window.__suppressSuggestionsPanelDismissUntil
+                ) {
+                    return;
+                }
                 collapseSearchUiPreservingPinned();
                 return;
             }
@@ -7629,7 +7793,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const clickInFirefoxRowMenu = e.target.closest?.('.firefox-suggest-row-menu');
                         if (clickInsideSearch || clickInClockMenu || clickInFirefoxRowMenu) {
                             restoreFocusAndOpaqueSuggestions();
-                        } else {
+                        } else if (
+                            typeof window.__suppressSuggestionsPanelDismissUntil !== 'number' ||
+                            Date.now() >= window.__suppressSuggestionsPanelDismissUntil
+                        ) {
                             closeSuggestionsPanel();
                             try { searchInput?.blur?.(); } catch (_) {}
                         }
@@ -8558,6 +8725,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const willBeShown = !isShown;
                 applyQuickButtonsState(willBeShown);
                 localStorage.setItem(QUICK_BUTTONS_VISIBLE_KEY, String(willBeShown));
+                requestAnimationFrame(() => {
+                    updateSuggestionsRingExtend();
+                    syncSearchBoxWrapperCornersForSuggestionsPanel();
+                });
             });
         }
 
@@ -8924,6 +9095,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const next = getStoredSearchEnginesCount() === 50 ? 6 : 50;
             setPrototypeSearchEnginesCount(next);
         });
+    }
+
+    /* Address bar iframe: first reload click asks parent for 50-engine mode (one shot; green zoom still toggles). */
+    if (document.body.classList.contains('addressbar') && window !== window.top) {
+        const addressbarReloadForEngines = document.querySelector('.addressbar-reload');
+        if (addressbarReloadForEngines) {
+            addressbarReloadForEngines.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try {
+                    window.parent.postMessage({ type: 'addressbar-reload-one-shot-50-engines' }, '*');
+                } catch (_) {}
+            });
+        }
     }
 
     if (window === window.top && !document.body.classList.contains('addressbar')) {
@@ -9622,6 +9807,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 toggleStandaloneSearchBoxViaPrototypeShortcut();
+                return;
+            }
+            if (e.data?.type === 'addressbar-reload-one-shot-50-engines') {
+                if (e.origin !== window.location.origin && e.origin !== 'null') return;
+                const addressbarIframeReload = document.querySelector('.addressbar-iframe');
+                if (!addressbarIframeReload || e.source !== addressbarIframeReload.contentWindow) return;
+                if (window.__addressbarReload50EnginesConsumed) return;
+                window.__addressbarReload50EnginesConsumed = true;
+                setPrototypeSearchEnginesCount(50);
                 return;
             }
             if (e.data?.type === 'set-default-search-engine') {
@@ -10763,8 +10957,20 @@ document.addEventListener('DOMContentLoaded', () => {
      * Keep predefined / local rows first, then append AI search strings (deduped, case-insensitive).
      * Preserves _firefoxSuggestions from the AI result on the returned array for rendering.
      */
-    function mergePredefinedWithAiSuggestions(baseStrings, aiResult, maxStrings = readSearchSuggestionsDisplayLimit()) {
-        const aiList = Array.isArray(aiResult) ? [...aiResult] : [];
+    function mergePredefinedWithAiSuggestions(
+        baseStrings,
+        aiResult,
+        maxStrings = readSearchSuggestionsDisplayLimit(),
+        activeQuery = null
+    ) {
+        const qn = activeQuery != null && activeQuery !== '' ? normalizeQueryForMatch(activeQuery) : '';
+        const aiListRaw = Array.isArray(aiResult) ? [...aiResult] : [];
+        const aiList = qn
+            ? aiListRaw.filter((s) => {
+                  if (typeof s !== 'string') return true;
+                  return suggestionMatchesSearchQuery(s.toLowerCase(), qn);
+              })
+            : aiListRaw;
         const firefoxMeta = aiResult && aiResult._firefoxSuggestions;
         const out = [];
         const seen = new Set();
@@ -10807,8 +11013,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return [];
         }
         
-        const queryLower = query.toLowerCase();
-        const queryLength = queryLower.length;
+        const queryLower = normalizeQueryForMatch(query);
         
         console.log('[FILTER] Filtering', currentDisplayedSuggestions.length, 'suggestions for query:', queryLower);
 
@@ -10819,19 +11024,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return typeof entry === 'string' ? entry : '';
         };
         
-        // Filter suggestions that match the query
+        // Filter suggestions that match the query (strict full-prefix only when query contains whitespace)
         const filteredSuggestions = currentDisplayedSuggestions.filter((entry) => {
             const suggestion = rowTextForFilter(entry);
             const suggestionLower = suggestion.toLowerCase();
-            if (suggestionLower.length < queryLength) {
-                return false;
-            }
-            // Check if suggestion starts with query or any word starts with query
-            if (suggestionLower.startsWith(queryLower)) {
-                return true;
-            }
-            const words = suggestionLower.split(/\s+/);
-            return words.some(word => word.startsWith(queryLower));
+            return suggestionMatchesSearchQuery(suggestionLower, queryLower);
         });
         if (Array.isArray(currentDisplayedSuggestions) && currentDisplayedSuggestions._firefoxSuggestions) {
             filteredSuggestions._firefoxSuggestions = currentDisplayedSuggestions._firefoxSuggestions;
@@ -10882,6 +11079,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const suggestionText = labelEl ? labelEl.textContent.trim() : '';
         const typed = typedText || '';
         const isTypedTextItem = suggestionText.toLowerCase() === typed.toLowerCase();
+        /* Trailing spaces are real user input (e.g. after Space) but must not break prefix matching — otherwise
+         * `startsWith` fails and we fall through to select-all, which feels like Space "selected the whole field". */
+        const typedForPrefix = typed.trimEnd();
 
         if (isGmailItem) {
             searchInput.value = '';
@@ -10889,13 +11089,36 @@ document.addEventListener('DOMContentLoaded', () => {
             searchInput.value = typed || '';
             searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
         } else if (suggestionText && !isTypedTextItem) {
-            const typedLen = typed.length;
-            searchInput.value = suggestionText.toLowerCase();
-            if (typedLen > 0 && suggestionText.toLowerCase().startsWith(typed.toLowerCase())) {
-                searchInput.setSelectionRange(typedLen, suggestionText.length);
+            const suggLower = suggestionText.toLowerCase();
+            /* Trailing space(s) after the prefix-letters: still offer ghost when the suggestion continues with
+             * exactly those characters (e.g. "think " + "think positive"). If not (e.g. "some " + "someone"), keep
+             * literal typed text so repeated ghost-Space does not snap back to a full-line ghost. */
+            if (typed.length > typedForPrefix.length) {
+                if (
+                    typedForPrefix.length > 0 &&
+                    suggLower.startsWith(typedForPrefix.toLowerCase())
+                ) {
+                    const restOfSuggestion = suggLower.slice(typedForPrefix.length);
+                    const extraTyped = typed.slice(typedForPrefix.length).toLowerCase();
+                    if (restOfSuggestion.startsWith(extraTyped)) {
+                        searchInput.value = suggLower;
+                        const ghostStart = typed.length;
+                        searchInput.setSelectionRange(ghostStart, suggLower.length);
+                        searchInput.setAttribute('data-suggestion-suffix-start', String(ghostStart));
+                        return;
+                    }
+                }
+                searchInput.value = typed;
+                searchInput.setSelectionRange(typed.length, typed.length);
+                return;
+            }
+            const typedLen = typedForPrefix.length;
+            searchInput.value = suggLower;
+            if (typedLen > 0 && suggLower.startsWith(typedForPrefix.toLowerCase())) {
+                searchInput.setSelectionRange(typedLen, suggLower.length);
                 searchInput.setAttribute('data-suggestion-suffix-start', String(typedLen));
             } else {
-                searchInput.setSelectionRange(0, suggestionText.length);
+                searchInput.setSelectionRange(0, suggLower.length);
                 searchInput.setAttribute('data-suggestion-suffix-start', '0');
             }
         } else if (isTypedTextItem && typed) {
@@ -10983,7 +11206,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const searchValue = searchInput ? searchInput.value : '';
         const searchValueTrimmed = searchValue.trim();
-        lastTypedTextInInput = searchValueTrimmed || '';
+        /* Keep the raw field value for mouseout/ghost restore — .trim() would drop intentional leading/trailing
+         * spaces (Space then feels "broken" while the pointer sits over the list: updateSuggestions replaces rows,
+         * mouseout fires, and we restore from this baseline). Matching/filtering still uses searchValueTrimmed. */
         
         let incoming = Array.isArray(suggestions) ? [...suggestions] : [];
         incoming = filterIncomingStringsRemovedDismissed(incoming, { isAtQuery, firefoxSuggestionsOnly });
@@ -11428,7 +11653,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set keyboard selection index when suggestions change
         // In '@' mode, we don't want to auto-highlight the top row.
         selectedSuggestionIndex = isAtQuery ? -1 : (searchValueTrimmed ? 0 : -1);
-        lastTypedTextInInput = searchValueTrimmed || '';
+        lastTypedTextInInput = searchValue || '';
         lastHoveredItemForInput = null;
         updateSelectedSuggestion(false);
         
@@ -11740,6 +11965,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchContainer && searchInput) {
             searchContainer.classList.toggle('search-has-typed-input', searchInput.value.trim().length > 0);
         }
+        requestAnimationFrame(() => {
+            updateSuggestionsRingExtend();
+            syncSearchBoxWrapperCornersForSuggestionsPanel();
+        });
     }
 
     function renderEmptySuggestionsForCurrentMode() {
@@ -11826,7 +12055,20 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const value = (event.target.value || '').toString();
             const valueLower = value.toLowerCase().trim();
-            console.log('[INPUT] Raw value:', value, '| Trimmed lower:', valueLower, '| Length:', valueLower.length);
+            /* Preserve trailing (and internal) spaces for list filtering; trim leading only. */
+            const queryForFilter = value.replace(/^\s+/, '').toLowerCase();
+            const vis = (s) => String(s).replace(/ /g, '·');
+            const ie = typeof InputEvent !== 'undefined' && event instanceof InputEvent ? { inputType: event.inputType, data: event.data } : {};
+            console.log('[INPUT] value', {
+                rawJson: JSON.stringify(value),
+                visualSpaces: vis(value),
+                trimmedLower: valueLower,
+                trimmedLen: valueLower.length,
+                rawLen: value.length,
+                leadingSpaces: (value.match(/^\s*/) || [''])[0].length,
+                trailingSpaces: (value.match(/\s*$/) || [''])[0].length,
+                ...ie,
+            });
             
             // Handle empty field
             if (valueLower.length === 0) {
@@ -12009,8 +12251,16 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // For 3+ characters, fetch from AI
             if (valueLower.length >= 3) {
+                const apiQuery = queryForFilter;
                 console.log('[INPUT] ===== Branch: length >= 3 =====');
-                console.log('[INPUT] Query:', valueLower, '| Length:', valueLower.length);
+                console.log('[INPUT] branch>=3', {
+                    queryForApi: apiQuery,
+                    queryForApiLen: apiQuery.length,
+                    queryTrimmedForBranch: valueLower,
+                    fieldRawJson: JSON.stringify(value),
+                    fieldVisual: vis(value),
+                    fieldRawLen: value.length,
+                });
                 
                 // Check if we have existing suggestions to filter
                 const hadPredefinedOrLocalSuggestions = currentDisplayedSuggestions.length > 0;
@@ -12023,8 +12273,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (hadPredefinedOrLocalSuggestions) {
                     // Filter existing suggestions (pre-defined from suggestionWords, etc.)
-                    console.log('[INPUT] Filtering existing suggestions for query:', valueLower);
-                    const filteredSuggestions = filterExistingSuggestions(valueLower);
+                    console.log('[INPUT] Filtering existing suggestions; queryForFilter:', queryForFilter);
+                    const filteredSuggestions = filterExistingSuggestions(queryForFilter);
                     console.log('[INPUT] Filtered suggestions count:', filteredSuggestions.length);
                 } else {
                     // Show skeletons while waiting for AI
@@ -12033,26 +12283,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     showSkeletonLoaders(readSearchSuggestionsDisplayLimit());
                 }
 
-                // Make API call
-                console.log('[INPUT] Making immediate API call for query:', valueLower);
-                lastApiQuery = valueLower;
+                // Make API call (apiQuery preserves trailing/internal spaces for the model + cache)
+                console.log('[INPUT] Making immediate API call; queryForApi:', apiQuery);
+                lastApiQuery = apiQuery;
 
                 try {
-                    console.log('[AI] Fetching AI suggestions for:', valueLower);
-                    const aiSuggestions = await fetchAISuggestions(valueLower);
+                    console.log('[AI] Fetching AI suggestions; queryForApi:', apiQuery);
+                    const aiSuggestions = await fetchAISuggestions(apiQuery);
                     console.log('[AI] fetchAISuggestions returned:', aiSuggestions);
 
                     // Only update if query hasn't changed during API call
-                    const finalQuery = searchInput.value.toLowerCase().trim();
-                    console.log('[AI] Final query check:', finalQuery, '===', valueLower, '?', finalQuery === valueLower);
+                    const finalNorm = searchInput.value.replace(/^\s+/, '').toLowerCase();
+                    const finalFieldRaw = searchInput.value;
+                    console.log('[AI] Final query check', {
+                        finalNorm,
+                        startedAsApiQuery: apiQuery,
+                        matches: finalNorm === apiQuery,
+                        finalFieldRawJson: JSON.stringify(finalFieldRaw),
+                        finalFieldVisual: vis(finalFieldRaw),
+                    });
 
-                    if (finalQuery === valueLower) {
+                    if (finalNorm === apiQuery) {
                         console.log('[AI] ✓ Query still matches after API call');
 
                         if (aiSuggestions && Array.isArray(aiSuggestions) && aiSuggestions.length > 0) {
                             let toShow;
                             if (hadPredefinedOrLocalSuggestions) {
-                                toShow = mergePredefinedWithAiSuggestions(currentDisplayedSuggestions, aiSuggestions);
+                                toShow = mergePredefinedWithAiSuggestions(
+                                    currentDisplayedSuggestions,
+                                    aiSuggestions,
+                                    readSearchSuggestionsDisplayLimit(),
+                                    apiQuery
+                                );
                             } else {
                                 toShow = [...aiSuggestions];
                                 const ak = new Set();
@@ -12299,6 +12561,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.relatedTarget?.closest?.('.clock-suggestion-more-menu')) {
                 return;
             }
+            if (e.relatedTarget?.closest?.('.one-off-buttons')) {
+                return;
+            }
             // If the switcher was auto-opened for the outside-of-box mode, close it on blur.
             if (autoOpenedSwitcherOnFocus && searchSwitcherButton?.classList.contains('open')) {
                 const dropdown = searchSwitcherButton.querySelector('.search-switcher-dropdown');
@@ -12323,6 +12588,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (window.__prototypeOptionsBlurSuppressUntil && Date.now() < window.__prototypeOptionsBlurSuppressUntil) {
                         return;
                     }
+                    if (
+                        typeof window.__suppressSuggestionsPanelDismissUntil === 'number' &&
+                        Date.now() < window.__suppressSuggestionsPanelDismissUntil
+                    ) {
+                        return;
+                    }
                     if (document.activeElement?.closest?.('.bottom-left-panel')) {
                         return;
                     }
@@ -12330,6 +12601,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
                     if (document.activeElement?.closest?.('.clock-suggestion-more-menu')) {
+                        return;
+                    }
+                    if (document.activeElement?.closest?.('.one-off-buttons')) {
                         return;
                     }
                     if (pinnedRightHostPointerActive) {
@@ -12940,6 +13214,68 @@ document.addEventListener('DOMContentLoaded', () => {
             updateSelectedSuggestion(false);
             searchInput.dispatchEvent(new Event('input', { bubbles: true }));
         }, true);
+    }
+
+    /* Debug: Space + selection (runs in capture before ghost Space handler). */
+    if (searchInput) {
+        searchInput.addEventListener(
+            'keydown',
+            (event) => {
+                if (event.key !== ' ' && event.code !== 'Space') return;
+                if (event.altKey || event.ctrlKey || event.metaKey) return;
+                if (event.isComposing) return;
+                const start = searchInput.selectionStart ?? 0;
+                const end = searchInput.selectionEnd ?? 0;
+                const v = searchInput.value;
+                const selected = start !== end ? v.slice(start, end) : '';
+                const vis = (s) => String(s).replace(/ /g, '·');
+                console.log('[search-input-space]', 'keydown', {
+                    collapsed: start === end,
+                    selectionStart: start,
+                    selectionEnd: end,
+                    selectedLength: end - start,
+                    selectedText: selected || '(caret only)',
+                    selectedJson: start !== end ? JSON.stringify(selected) : null,
+                    valueJson: JSON.stringify(v),
+                    visualValue: vis(v),
+                    visualSelected: start !== end ? vis(selected) : null,
+                    valueLength: v.length,
+                    valuePreview: v.length > 120 ? `${v.slice(0, 120)}…` : v,
+                    dataSuggestionSuffixStart: searchInput.getAttribute('data-suggestion-suffix-start'),
+                    defaultPrevented: event.defaultPrevented,
+                    repeat: event.repeat,
+                });
+            },
+            true
+        );
+    }
+
+    /* Ghost completion (hover/keyboard) selects the suffix; ensure Space always inserts a literal space. */
+    if (searchInput) {
+        searchInput.addEventListener(
+            'keydown',
+            (event) => {
+                if (event.defaultPrevented) return;
+                if (event.key !== ' ' && event.code !== 'Space') return;
+                if (event.altKey || event.ctrlKey || event.metaKey) return;
+                if (event.isComposing) return;
+                if (searchInput.getAttribute('data-suggestion-suffix-start') === null) return;
+                const start = searchInput.selectionStart ?? 0;
+                const end = searchInput.selectionEnd ?? 0;
+                if (start === end) return;
+                event.preventDefault();
+                const v = searchInput.value;
+                const newVal = v.slice(0, start) + ' ' + v.slice(end);
+                searchInput.value = newVal;
+                const caret = start + 1;
+                searchInput.setSelectionRange(caret, caret);
+                searchInput.removeAttribute('data-suggestion-suffix-start');
+                hoveredSuggestionIndex = -1;
+                lastHoveredItemForInput = null;
+                searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+            },
+            true
+        );
     }
 
     // Backspace/Delete at start in local source mode → return to default search engine (only when cursor at start, not when text is selected)

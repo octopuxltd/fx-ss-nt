@@ -1,6 +1,6 @@
 /**
  * One threshold for:
- * - Yellow “BROWSER PROTOTYPE” strip + help (step1.html): show when inner/outer height gap is *greater* than this.
+ * - Yellow “TEST PROTOTYPE BELOW” strip + help (step1.html): show when inner/outer height gap is *greater* than this.
  * - Tab-strip chromeless UI (step1.js): show when gap is *less than or equal* to this.
  */
 (function (w) {
