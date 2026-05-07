@@ -25,13 +25,61 @@ body.addressbar:not(.standalone-search-box).search-engine-list-mode-pinned-right
     display: none !important;
 }
 
-/* In-flow suggestions open: never stack the one-off “Search with” row under the panel (main page rule can expand it when the eye toggle is on). */
-body.addressbar .search-container:has(.suggestions-list.suggestions-revealed) .one-off-buttons {
-    display: none !important;
-    max-height: 0 !important;
-    margin-top: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
+/* Iframe search: overlay suggestions on the input row (same anchor/slot model as main new tab). */
+body.addressbar .search-suggestions-anchor {
+    position: relative;
+    width: 100%;
+    flex-shrink: 0;
+    align-self: stretch;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+}
+
+body.addressbar .search-suggestions-anchor > .search-suggestions-input-slot {
+    position: relative;
+    z-index: 23;
+    width: 100%;
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+body.addressbar .search-suggestions-anchor .search-suggestions-input-slot .suggestions-list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    width: 100%;
+    z-index: 22;
+    box-sizing: border-box;
+    margin-top: 0;
+    border-radius: 0 0 var(--outer-border-radius, 12px) var(--outer-border-radius, 12px);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+    background-color: #fff;
+}
+
+/* When the one-off strip is expanded, treat list+strip as one surface: remove the list's bottom rounding
+ * so page background cannot peek through those corners. */
+body.addressbar
+    .search-container.focused.search-has-typed-input:has(.suggestions-list.suggestions-revealed):has(
+        #quick-buttons-toggle[data-visibility='shown']
+    )
+    .search-suggestions-anchor
+    .search-suggestions-input-slot
+    .suggestions-list {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+body.addressbar .search-suggestions-anchor > .one-off-buttons {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + var(--suggestions-panel-offset, 0px));
+    z-index: 20;
+    border-radius: 0 0 var(--outer-border-radius, 12px) var(--outer-border-radius, 12px);
 }
 
 body.addressbar .addressbar-row {
@@ -59,7 +107,8 @@ body.addressbar:not(.standalone-search-box) .search-container-top-row {
 }
 
 body.addressbar.standalone-search-box .search-container:not(.standalone-search-field-hidden) .search-container-top-row {
-    min-width: 280px;
+    /* Keep toolbar + pill on one row when parent iframe is narrow (flex-shrink applies on `.search-container`). */
+    min-width: 200px;
 }
 
 /* Standalone iframe: search + toolbar icons in one row; keep toolbar top-aligned when suggestions grow.
@@ -67,12 +116,13 @@ body.addressbar.standalone-search-box .search-container:not(.standalone-search-f
 body.addressbar.standalone-search-box .addressbar-row {
     align-items: flex-start;
     align-content: flex-start;
+    flex-wrap: nowrap;
 }
 
 body.addressbar.standalone-search-box .addressbar-row .search-container {
-    flex: 1;
+    /* Grow into remaining row space but shrink when the iframe is tight — toolbar stays on the same row. */
+    flex: 1 1 0%;
     min-width: 0;
-    flex-shrink: 0; /* Narrow the iframe: toolbar strip gives way before the search pill (see .standalone-search-box-toolbar). */
     /* Match non-standalone address bar: avoid vertical centering vs toolbar when the column grows on focus. */
     align-self: flex-start;
     /* `position: relative` comes from body.addressbar .addressbar-row .search-container — z-index keeps the pill
@@ -100,8 +150,8 @@ body.addressbar.standalone-search-box .standalone-search-box-toolbar {
     top: auto;
     right: auto;
     z-index: 0;
-    flex-shrink: 1;
-    min-width: 0;
+    flex-shrink: 0;
+    flex-grow: 0;
     align-self: flex-start;
     margin-top: 0;
     margin-left: var(--standalone-search-toolbar-extra-gap);
@@ -413,6 +463,15 @@ body.addressbar
     .search-input::placeholder {
     transition: opacity 0.2s ease;
     opacity: 1;
+}
+
+/* Iframe overlays: extend the ring under revealed suggestions + one-off strip (computed in step1.js). */
+body.addressbar .search-box-wrapper-outer::before {
+    inset: unset;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: calc(-2px - var(--suggestions-ring-extend, 0px));
 }
 
 /* Same ring thickness as base .search-box-wrapper-outer::before (2px) and as standalone iframe */
@@ -944,10 +1003,9 @@ body.addressbar
     opacity: 1;
 }
 
-/* step1.css sets overflow:visible on .suggestions-revealed for overlay lists; here the list is in-flow and
- * max-height still animates 0→360px — visible lets row text paint outside before the shell catches up. */
+/* Overlay list (input-slot): match main page so Firefox row menus / tall rows are not clipped. */
 body.addressbar .search-container.focused .suggestions-list.suggestions-revealed {
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Search settings: Address bar “Search” off (navigate-only) — Firefox sources only, no web engine list. */

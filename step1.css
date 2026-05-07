@@ -2083,6 +2083,18 @@ body:not(.addressbar) .search-suggestions-anchor .search-suggestions-input-slot 
     background-color: color-mix(in oklab, var(--page-bg-solid) 50%, white 50%);
 }
 
+/* One-off strip sits below (z-index lower): square the list bottom corners so page/tint cannot show through the gap. */
+body:not(.addressbar)
+    .search-container.focused.search-has-typed-input:has(.suggestions-list.suggestions-revealed):has(
+        #quick-buttons-toggle[data-visibility="shown"]
+    )
+    .search-suggestions-anchor
+    .search-suggestions-input-slot
+    .suggestions-list {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
 /* Out of document flow so expanding the strip does not push .page-content-placeholder (suggestions list is already overlay). */
 body:not(.addressbar) .search-suggestions-anchor > .one-off-buttons {
     position: absolute;
@@ -2115,7 +2127,7 @@ body:not(.addressbar) .search-suggestions-anchor > .one-off-buttons {
 }
 
 /* Main page: suggestions are position:absolute (overlay), so they do not grow the outer box — extend the ring to
-   the painted bottom of the list (see --suggestions-ring-extend in step1.js). Address bar / standalone keep inset. */
+   the overlay bottom (see --suggestions-ring-extend in step1.js; same geometry rules as address-bar iframe). */
 body:not(.addressbar) .search-box-wrapper-outer::before {
     inset: unset;
     top: -2px;

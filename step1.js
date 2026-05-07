@@ -3669,6 +3669,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!container) return;
             const rect = container.getBoundingClientRect();
             let bottom = rect.bottom;
+            const suggestionsListEl = container.querySelector('.suggestions-list');
+            const suggestionsOverlayActive =
+                !!(
+                    suggestionsListEl &&
+                    !suggestionsListEl.classList.contains('suggestions-suppress-until-typed') &&
+                    (suggestionsListEl.classList.contains('suggestions-revealed') ||
+                        suggestionsListEl.classList.contains('transitioning'))
+                );
+            if (suggestionsOverlayActive) {
+                const lr = suggestionsListEl.getBoundingClientRect();
+                bottom = Math.max(bottom, lr.bottom);
+            }
+            const qbtForHeight = document.getElementById('quick-buttons-toggle');
+            const stripForHeight =
+                container.querySelector('.search-suggestions-anchor > .one-off-buttons') ||
+                container.querySelector('.one-off-buttons');
+            if (
+                stripForHeight &&
+                qbtForHeight?.dataset?.visibility === 'shown' &&
+                container.classList.contains('search-has-typed-input')
+            ) {
+                const sr = stripForHeight.getBoundingClientRect();
+                if (sr.height > 1) bottom = Math.max(bottom, sr.bottom);
+            }
             const switcherButton = container.querySelector('.search-switcher-button');
             const dropdown = switcherButton?.querySelector('.search-switcher-dropdown');
             const dropdownOpen = !!(switcherButton?.classList.contains('open'));
@@ -3707,7 +3731,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            const h = bottom + 4;
+            /* Base inset + optional clearance under overlay suggestions: step1-addressbar.css uses
+             * `box-shadow: 0 14px 36px` on the panel — shadow paints past layout bottom and would clip at iframe edge. */
+            const IFRAME_LAYOUT_BOTTOM_PAD_PX = 4;
+            const IFRAME_SUGGESTIONS_SHADOW_PAD_PX = 52;
+            const h =
+                bottom + IFRAME_LAYOUT_BOTTOM_PAD_PX + (suggestionsOverlayActive ? IFRAME_SUGGESTIONS_SHADOW_PAD_PX : 0);
             /* Parent treats chip switcher open as “use viewport” (see switcher-open-state). Pinned column is the same
              * layout problem (abs positioned) but never toggles .open on the chip — mirror that so the iframe grows. */
             const pinnedRightChromeOpen = !!(pinnedHost && !pinnedHost.hidden && pinnedDd);
@@ -3740,6 +3769,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             containerObserver.observe(container, { attributes: true, attributeFilter: ['class'] });
+        }
+        const suggestionsListForHeight = container?.querySelector('.suggestions-list');
+        if (suggestionsListForHeight) {
+            if (typeof ResizeObserver !== 'undefined') {
+                new ResizeObserver(scheduleHeightReports).observe(suggestionsListForHeight);
+            }
+            new MutationObserver(() => scheduleHeightReports()).observe(suggestionsListForHeight, {
+                attributes: true,
+                attributeFilter: ['class', 'style'],
+                childList: true,
+                subtree: true,
+            });
+            suggestionsListForHeight.addEventListener('transitionend', (e) => {
+                if (e.propertyName !== 'max-height') return;
+                scheduleHeightReports();
+            });
+        }
+        const suggestionsContentForHeight = container?.querySelector('.suggestions-content');
+        if (suggestionsContentForHeight && typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(scheduleHeightReports).observe(suggestionsContentForHeight);
         }
         const switcherButton = container?.querySelector('.search-switcher-button');
         if (switcherButton) {
@@ -4405,32 +4454,34 @@ document.addEventListener('DOMContentLoaded', () => {
         syncSearchBoxWrapperCornersForSuggestionsPanel();
     }
 
-    /** Main page only: overlay suggestions do not expand .search-box-wrapper-outer — extend the focus ring to the list bottom. */
+    /** Extend focus ring past overlay suggestions/one-off strip; also set --suggestions-panel-offset for absolute one-off strip. */
     function updateSuggestionsRingExtend() {
-        if (document.body.classList.contains('addressbar')) {
-            searchBoxWrapperOuter?.style.removeProperty('--suggestions-ring-extend');
-            searchBoxWrapperOuter?.style.removeProperty('--suggestions-panel-offset');
-            return;
-        }
         const outer = searchBoxWrapperOuter;
         const list = document.querySelector('.suggestions-list');
+
         if (!outer) return;
         if (!list) {
             outer.style.removeProperty('--suggestions-ring-extend');
             outer.style.removeProperty('--suggestions-panel-offset');
             return;
         }
+
         const outerRect = outer.getBoundingClientRect();
         const listRect = list.getBoundingClientRect();
+
+        /* Same overlay notion as iframe `reportAddressbarHeight` (revealed or mid max-height open). */
+        const suggestionsOverlayActive =
+            !list.classList.contains('suggestions-suppress-until-typed') &&
+            (list.classList.contains('suggestions-revealed') || list.classList.contains('transitioning'));
+
         let paintBottom = listRect.bottom;
         try {
             const qbt = document.getElementById('quick-buttons-toggle');
-            /* Match expanded strip CSS: eye can stay “shown” while input is empty — strip is max-height:0 then. */
             const stripCountsForRing =
+                suggestionsOverlayActive &&
                 qbt?.dataset?.visibility === 'shown' &&
                 searchContainer?.classList.contains('focused') &&
-                searchContainer?.classList.contains('search-has-typed-input') &&
-                list.classList.contains('suggestions-revealed');
+                searchContainer?.classList.contains('search-has-typed-input');
             if (stripCountsForRing) {
                 const strip = document.querySelector('.search-suggestions-anchor > .one-off-buttons');
                 if (strip) {
@@ -4439,11 +4490,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } catch (_) {}
-        const extra = Math.max(0, Math.round(paintBottom - outerRect.bottom));
+        const extra = Math.max(0, Math.ceil(paintBottom - outerRect.bottom));
         outer.style.setProperty('--suggestions-ring-extend', `${extra}px`);
 
-        /* Absolute one-off strip uses top: calc(100% + offset); offset = list bottom − input-slot bottom so it sits
-         * under the painted suggestions (not the list’s full border-box height). */
         const inputSlot = document.querySelector('.search-suggestions-input-slot');
         let panelOffset = 0;
         if (
@@ -4530,6 +4579,16 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             searchBoxWrapper.style.borderRadius = shouldSquareSearchInputBottomForSuggestions() ? '10px 10px 0 0' : '';
         }
+    }
+
+    /** Focus lift + suggestion max-height animations can leave geometry one frame stale; double-rAF before measuring ring extend. */
+    function scheduleSearchSuggestionsLayoutSync() {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                updateSuggestionsRingExtend();
+                syncSearchBoxWrapperCornersForSuggestionsPanel();
+            });
+        });
     }
 
     /** Main page only (`.window-chrome-tab-strip` absent in address bar iframes): pill tabs / controls in large-corner mode. */
@@ -4619,9 +4678,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         syncSearchBorderRadiusSwatches();
         requestAnimationFrame(() => {
-            updateSuggestionsRingExtend();
-            syncSearchBoxWrapperCornersForSuggestionsPanel();
             requestAnimationFrame(() => {
+                updateSuggestionsRingExtend();
+                syncSearchBoxWrapperCornersForSuggestionsPanel();
                 searchBoxWrapper?.classList.remove('search-box-wrapper--instant-border-radius');
             });
         });
@@ -4631,41 +4690,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('resize', () => {
         updateBorderRadius();
-        requestAnimationFrame(() => {
-            updateSuggestionsRingExtend();
-            syncSearchBoxWrapperCornersForSuggestionsPanel();
-        });
+        scheduleSearchSuggestionsLayoutSync();
     });
 
-    if (typeof ResizeObserver !== 'undefined' && searchBoxWrapperOuter && !document.body.classList.contains('addressbar')) {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        scheduleSearchSuggestionsLayoutSync();
+    });
+
+    window.addEventListener('pageshow', () => {
+        scheduleSearchSuggestionsLayoutSync();
+    });
+
+    try {
+        document.fonts?.ready?.then(() => scheduleSearchSuggestionsLayoutSync());
+    } catch (_) {}
+
+    if (typeof ResizeObserver !== 'undefined' && searchBoxWrapperOuter) {
         const listForRing = document.querySelector('.suggestions-list');
         if (listForRing) {
-            const scheduleSearchCardLayoutSync = () =>
-                requestAnimationFrame(() => {
-                    updateSuggestionsRingExtend();
-                    syncSearchBoxWrapperCornersForSuggestionsPanel();
-                });
-            const ringExtendObserver = new ResizeObserver(scheduleSearchCardLayoutSync);
+            const ringExtendObserver = new ResizeObserver(scheduleSearchSuggestionsLayoutSync);
             ringExtendObserver.observe(listForRing);
             ringExtendObserver.observe(searchBoxWrapperOuter);
-            scheduleSearchCardLayoutSync();
+            const suggestionsContentForRing = document.querySelector('.suggestions-content');
+            if (suggestionsContentForRing) {
+                ringExtendObserver.observe(suggestionsContentForRing);
+            }
+            const oneOffButtonsForRing = document.querySelector('.search-suggestions-anchor > .one-off-buttons');
+            if (oneOffButtonsForRing) {
+                ringExtendObserver.observe(oneOffButtonsForRing);
+                oneOffButtonsForRing.addEventListener('transitionend', (e) => {
+                    if (e.propertyName !== 'max-height') return;
+                    scheduleSearchSuggestionsLayoutSync();
+                });
+            }
+            scheduleSearchSuggestionsLayoutSync();
         }
     }
 
     if (searchContainer) {
-        new MutationObserver(() =>
-            requestAnimationFrame(() => {
-                updateSuggestionsRingExtend();
-                syncSearchBoxWrapperCornersForSuggestionsPanel();
-            })
-        ).observe(searchContainer, { attributes: true, attributeFilter: ['class'] });
+        new MutationObserver(() => scheduleSearchSuggestionsLayoutSync()).observe(searchContainer, {
+            attributes: true,
+            attributeFilter: ['class'],
+        });
+        if (!document.body.classList.contains('addressbar')) {
+            searchContainer.addEventListener('transitionend', (e) => {
+                if (e.target !== searchContainer || e.propertyName !== 'transform') return;
+                scheduleSearchSuggestionsLayoutSync();
+            });
+        }
     }
     const suggestionsListForCornerSync = document.querySelector('.suggestions-list');
     if (suggestionsListForCornerSync) {
-        new MutationObserver(() => requestAnimationFrame(syncSearchBoxWrapperCornersForSuggestionsPanel)).observe(
-            suggestionsListForCornerSync,
-            { attributes: true, attributeFilter: ['class'] }
-        );
+        new MutationObserver(() => scheduleSearchSuggestionsLayoutSync()).observe(suggestionsListForCornerSync, {
+            attributes: true,
+            attributeFilter: ['class', 'style'],
+            childList: true,
+            subtree: true,
+        });
     }
 
     document.querySelectorAll('.search-border-radius-swatch').forEach((btn) => {
@@ -8725,10 +8807,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const willBeShown = !isShown;
                 applyQuickButtonsState(willBeShown);
                 localStorage.setItem(QUICK_BUTTONS_VISIBLE_KEY, String(willBeShown));
-                requestAnimationFrame(() => {
-                    updateSuggestionsRingExtend();
-                    syncSearchBoxWrapperCornersForSuggestionsPanel();
-                });
+                scheduleSearchSuggestionsLayoutSync();
             });
         }
 
@@ -11666,8 +11745,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Recalculate suggestion item radius when suggestions change (items may now be visible)
         requestAnimationFrame(() => {
             updateBorderRadius();
-            updateSuggestionsRingExtend();
-            syncSearchBoxWrapperCornersForSuggestionsPanel();
+            scheduleSearchSuggestionsLayoutSync();
         });
     }
     
@@ -11965,10 +12043,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (searchContainer && searchInput) {
             searchContainer.classList.toggle('search-has-typed-input', searchInput.value.trim().length > 0);
         }
-        requestAnimationFrame(() => {
-            updateSuggestionsRingExtend();
-            syncSearchBoxWrapperCornersForSuggestionsPanel();
-        });
+        scheduleSearchSuggestionsLayoutSync();
     }
 
     function renderEmptySuggestionsForCurrentMode() {
@@ -12493,12 +12568,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (searchContainer.classList.contains('focused')) {
                         suggestionsList.classList.add('suggestions-revealed');
                     }
+                    scheduleSearchSuggestionsLayoutSync();
                 };
                 suggestionsList.addEventListener('transitionend', onRevealed);
                 // Remove transitioning class and enable first-hover after transition completes (0.42s)
                 setTimeout(() => {
                     suggestionsList.classList.remove('transitioning');
                     suggestionsList.classList.add('first-hover-fade');
+                    scheduleSearchSuggestionsLayoutSync();
                 }, 420);
             }
 
@@ -12658,8 +12735,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             setTimeout(() => {
                                 suggestionsList.classList.remove('transitioning');
                                 suggestionsList.classList.add('first-hover-fade');
+                                scheduleSearchSuggestionsLayoutSync();
                             }, 420);
                             syncSearchBoxWrapperCornersForSuggestionsPanel();
+                            scheduleSearchSuggestionsLayoutSync();
                             refreshPinnedRightSwitcherPanel();
                         });
                     }
@@ -13515,6 +13594,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         window.addEventListener('focus', () => {
+            if (!document.body.classList.contains('addressbar')) {
+                scheduleSearchSuggestionsLayoutSync();
+            }
             if (wasSwitcherFocusedBeforeBlur && searchSwitcherButton?.classList.contains('open')) {
                 searchSwitcherButton.focus();
                 wasSwitcherFocusedBeforeBlur = false;
@@ -13584,6 +13666,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (heroStraplineRow) heroStraplineRow.style.transition = '';
                     if (oneOffButtons) oneOffButtons.style.transition = '';
                     if (switcherDropdownForRestore) switcherDropdownForRestore.style.transition = '';
+                    scheduleSearchSuggestionsLayoutSync();
                 }, 100);
                 
                 wasFocusedBeforeBlur = false;
